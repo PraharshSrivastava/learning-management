@@ -1,0 +1,255 @@
+import requests
+from typing import List
+from pydantic import BaseModel
+
+from pipelines.config import get_llm_client
+from pipelines.prompts import LESSON_EXTRACTION_PROMPT
+
+
+# -------------------------------------------------------
+# Pydantic Schemas for LLM Response
+# -------------------------------------------------------
+class BulletPointSchema(BaseModel):
+    text: str  # 5–10 words, ideally 7
+
+
+class SlideSchema(BaseModel):
+    slide_title: str          # 3–6 words, topic-focused
+    bullets: List[BulletPointSchema]
+    image_ids: List[str] = [] # List of image_id strings (e.g. ["img_123"]) that appear in this slide's context
+
+
+class LessonSchema(BaseModel):
+    lesson_title: str         # 4–7 words, outcome-focused
+    slides: List[SlideSchema]
+
+
+class LessonListSchema(BaseModel):
+    lessons: List[LessonSchema]
+
+
+# -------------------------------------------------------
+# Validation helpers
+# -------------------------------------------------------
+def _clamp_bullet_words(text: str) -> str:
+    """
+    Soft-fix bullet points that are clearly too long (> 25 words).
+    Truncate at word 20 — the style refiner will handle tightening later.
+    """
+    words = text.split()
+    if len(words) > 25:
+        return ' '.join(words[:20])
+    return text
+
+
+def _validate_and_clean(lessons: List[dict]) -> List[dict]:
+    """
+    Post-process the parsed lesson list:
+    - Strip bullet text that is empty
+    - Clamp bullets that are far too long
+    - Remove lessons or slides with no content
+    - Re-number lesson_number and slide_number sequentially
+    """
+    cleaned_lessons = []
+    for l_idx, lesson in enumerate(lessons):
+        slides = lesson.get("slides", [])
+        cleaned_slides = []
+        for s_idx, slide in enumerate(slides):
+            bullets = slide.get("bullets", [])
+            cleaned_bullets = [
+                {"text": _clamp_bullet_words(b["text"].strip())}
+                for b in bullets
+                if b.get("text", "").strip()
+            ]
+            if not cleaned_bullets:
+                continue  # skip empty slides
+            cleaned_slides.append({
+                "slide_number": s_idx + 1,
+                "slide_title": slide.get("slide_title", "").strip(),
+                "bullets": cleaned_bullets,
+                "image_ids": slide.get("image_ids", []),
+            })
+
+        if not cleaned_slides:
+            continue  # skip lessons with no valid slides
+
+        cleaned_lessons.append({
+            "lesson_number": l_idx + 1,
+            "lesson_title": lesson.get("lesson_title", "").strip(),
+            "slides": cleaned_slides,
+        })
+
+    return cleaned_lessons
+
+
+# -------------------------------------------------------
+# Core LLM Call — one module at a time
+# -------------------------------------------------------
+def extract_lessons_for_module(
+    module_text: str,
+    module_title: str,
+    module_number: int,
+    total_modules: int,
+    prior_lesson_titles: List[str],
+    module_images: List[dict] = None,
+) -> List[dict]:
+    """
+    Call the LLM to produce a Lessons → Slides → Bullets hierarchy
+    for a single module's text content.
+
+    prior_lesson_titles: flat list of lesson titles already generated
+    for previous modules. Used as a style anchor.
+    """
+    print(f"  Extracting lessons for Module {module_number}/{total_modules}: '{module_title}'")
+
+    if not module_text.strip():
+        print(f"    [WARNING] Module '{module_title}' has no text content — skipping.")
+        return []
+
+    if module_images is None:
+        module_images = []
+
+    # Filter out image captions from the module text so they don't get treated as content/facts
+    # If the line contains an image tag like [IMAGE: img_xxxx], preserve the tag even if the caption is filtered.
+    if module_images:
+        import re
+        clean_captions = {
+            re.sub(r'[^a-zA-Z0-9]', '', img['caption'].lower())
+            for img in module_images
+            if img.get('caption')
+        }
+        lines = module_text.split('\n')
+        filtered_lines = []
+        for line in lines:
+            image_tag = None
+            match = re.search(r'(\[IMAGE:\s*\w+\])', line)
+            if match:
+                image_tag = match.group(1)
+                line_to_check = line.replace(image_tag, "").strip()
+            else:
+                line_to_check = line.strip()
+
+            clean_line = re.sub(r'[^a-zA-Z0-9]', '', line_to_check.lower())
+            if clean_line:
+                is_caption = False
+                for clean_cap in clean_captions:
+                    if clean_line == clean_cap:
+                        is_caption = True
+                        break
+                if is_caption:
+                    if image_tag:
+                        print(f"    [INFO] Filtering out caption text but keeping image tag: '{image_tag}'")
+                        filtered_lines.append(image_tag)
+                    else:
+                        print(f"    [INFO] Filtering out caption line from LLM input: '{line}'")
+                    continue
+            filtered_lines.append(line)
+        module_text = '\n'.join(filtered_lines)
+
+    json_schema = LessonListSchema.model_json_schema()
+
+    # Build the style anchor block
+    if prior_lesson_titles:
+        prior_block = (
+            "Previously generated lesson titles from earlier modules in this same course:\n"
+            + "\n".join(f"  - {t}" for t in prior_lesson_titles)
+            + "\n\n"
+            "You MUST match this exact style, abstraction level, and outcome-focused language "
+            "in every lesson and slide title you produce. The course must feel authored by one person.\n\n"
+        )
+    else:
+        prior_block = ""
+
+    user_message = (
+        f"{prior_block}"
+        f"Generate lessons for the module below.\n\n"
+        f"Module Title: \"{module_title}\"\n"
+        f"Module Number: {module_number} of {total_modules}\n\n"
+        f"MODULE CONTENT:\n"
+        f"{module_text}\n\n"
+        f"Every fact in the content must appear as a bullet. Do not skip anything.\n"
+    )
+
+    try:
+        client, model_name = get_llm_client()
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": LESSON_EXTRACTION_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": user_message,
+                },
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "LessonListSchema",
+                    "schema": json_schema,
+                },
+            },
+            temperature=0.2,
+            max_tokens=4096,
+        )
+
+        raw_content = response.choices[0].message.content
+        
+        # Check if output was truncated (finish_reason != "stop")
+        # In OpenAI python SDK, finish_reason is accessed via response.choices[0].finish_reason
+        finish_reason = response.choices[0].finish_reason or "unknown"
+        if finish_reason == "length":
+            print(f"    [WARNING] LLM output was TRUNCATED (hit max_tokens) for module '{module_title}'.")
+        
+        parsed = LessonListSchema.model_validate_json(raw_content)
+
+        lessons_raw = [lesson.model_dump() for lesson in parsed.lessons]
+        lessons = _validate_and_clean(lessons_raw)
+
+        # Map image_ids to actual image metadata dicts for each slide
+        for lesson in lessons:
+            for slide in lesson.get("slides", []):
+                slide["images"] = []
+                image_ids = slide.pop("image_ids", [])
+                for img_id in image_ids:
+                    # Find matching image metadata in module_images
+                    img_meta = next((img for img in module_images if img.get("image_id") == img_id), None)
+                    if img_meta and not any(x["image_id"] == img_id for x in slide["images"]):
+                        slide["images"].append(img_meta)
+                        print(f"    [MAPPED] Inline mapped image '{img_id}' to slide '{slide.get('slide_title')}'")
+
+        # Ensure all module images are assigned somewhere to prevent loss
+        mapped_image_ids = set()
+        for lesson in lessons:
+            for slide in lesson.get("slides", []):
+                for img in slide.get("images", []):
+                    mapped_image_ids.add(img["image_id"])
+                    
+        unmapped_images = [img for img in module_images if img["image_id"] not in mapped_image_ids]
+        if unmapped_images and lessons and lessons[0].get("slides"):
+            first_slide = lessons[0]["slides"][0]
+            if "images" not in first_slide:
+                first_slide["images"] = []
+            for img in unmapped_images:
+                first_slide["images"].append(img)
+                print(f"    [FALLBACK] Inline fallback mapped unassigned image '{img['image_id']}' to slide '{first_slide.get('slide_title')}'")
+
+        print(
+            f"    -> {len(lessons)} lessons, "
+            f"{sum(len(l['slides']) for l in lessons)} slides, "
+            f"{sum(len(b['bullets']) for l in lessons for b in l['slides'])} bullets"
+        )
+        return lessons
+
+    except requests.exceptions.Timeout:
+        raise RuntimeError(
+            f"LLM request timed out for module '{module_title}' after 600 seconds."
+        )
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"LLM request failed for module '{module_title}': {str(e)}")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to parse lesson response for module '{module_title}': {str(e)}"
+        )
