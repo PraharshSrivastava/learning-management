@@ -3,7 +3,7 @@ import json
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
-from pipelines.config import get_llm_client, COURSES_FILE
+from pipelines.config import get_llm_client, COURSES_FILE, safe_chat_completion
 from pipelines.prompts import QUIZ_GENERATION_PROMPT
 
 
@@ -87,7 +87,8 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
         )
 
         try:
-            response = client.chat.completions.create(
+            response = safe_chat_completion(
+                client=client,
                 model=model_name,
                 messages=[
                     {"role": "system", "content": QUIZ_GENERATION_PROMPT},
@@ -101,7 +102,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
                     },
                 },
                 temperature=0.2,
-                max_tokens=4096,
+                default_max_tokens=2048,
             )
 
             raw_content = response.choices[0].message.content

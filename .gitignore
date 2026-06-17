@@ -12,6 +12,7 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/slides/*
 !backend/slides/.gitkeep
+backend/assets/images/course_*
 backend/.venv/
 backend/venv/
 backend/env/

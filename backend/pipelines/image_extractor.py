@@ -1,7 +1,7 @@
 import os
 import re
 import fitz  # PyMuPDF
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set
 from pipelines.config import IMAGE_DIR
 
 def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any]]:
@@ -56,12 +56,35 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                     if overlap > 0 or (abs(tx0 - ix0) < 50):
                         if dist < min_dist and dist < 30:  # 30 points threshold
                             min_dist = dist
-                            best_caption = text_content.split('\n')[0].strip()
+                            # Split by paragraph double newlines and join lines in space-separated form
+                            paragraphs = re.split(r'\n\s*\n', text_content)
+                            best_caption = " ".join(paragraphs[0].split())
             
-            if best_caption:
-                # Clean up newlines / whitespace in caption
-                best_caption = " ".join(best_caption.split())
-            else:
+            # Fallback: search top of next page if image is near bottom of the page
+            if not best_caption and (page.rect.height - iy1 < 150) and (page_num + 1 < total_pages):
+                next_page = doc[page_num + 1]
+                next_blocks = next_page.get_text("blocks")
+                min_next_page_ty0 = float('inf')
+                
+                for b in next_blocks:
+                    text_content = b[4].strip()
+                    if not text_content:
+                        continue
+                    
+                    tx0, ty0, tx1, ty1 = b[0], b[1], b[2], b[3]
+                    
+                    if ty0 < 150:
+                        ix0, ix1 = bbox[0], bbox[2]
+                        overlap = max(0, min(ix1, tx1) - max(ix0, tx0))
+                        
+                        if overlap > 0 or (abs(tx0 - ix0) < 50):
+                            if ty0 < min_next_page_ty0:
+                                min_next_page_ty0 = ty0
+                                paragraphs = re.split(r'\n\s*\n', text_content)
+                                best_caption = " ".join(paragraphs[0].split())
+                                print(f"    [NEXT PAGE CAPTION] Found wrapped caption at top of page {page_num + 2}: \"{best_caption}\"")
+                                
+            if not best_caption:
                 # Fallback caption if none is found
                 best_caption = f"Image on page {page_num + 1}"
             
@@ -117,6 +140,42 @@ def find_matching_line(caption: str, original_lines: List[str]) -> int:
             return idx + 1
             
     return -1
+
+
+def get_caption_lines(caption: str, start_line_num: int, original_lines: List[str]) -> Set[int]:
+    """
+    Given an image caption and the 1-based start line number where it matches,
+    reconstructs multi-line captions by consuming consecutive lines in original_lines
+    until the full cleaned caption is covered.
+    Returns a set of 1-based line numbers containing the caption.
+    """
+    clean_cap = re.sub(r'[^a-zA-Z0-9]', '', caption.lower())
+    if not clean_cap or start_line_num < 1 or start_line_num > len(original_lines):
+        return set()
+        
+    caption_line_indices = set()
+    current_idx = start_line_num - 1
+    accumulated_cleaned = ""
+    
+    # We loop and accumulate cleaned text from consecutive lines
+    while current_idx < len(original_lines) and len(accumulated_cleaned) < len(clean_cap):
+        line = original_lines[current_idx]
+        clean_line = re.sub(r'[^a-zA-Z0-9]', '', line.lower())
+        if clean_line:
+            # If adding this line matches or is a prefix/substring of the remaining clean_cap
+            remaining_cap = clean_cap[len(accumulated_cleaned):]
+            if clean_line in remaining_cap or remaining_cap in clean_line:
+                accumulated_cleaned += clean_line
+                caption_line_indices.add(current_idx + 1)
+            else:
+                # If it doesn't match/fit, stop (we hit non-caption content)
+                break
+        else:
+            # If the line is empty (whitespace/formatting), still include it as part of the caption lines
+            caption_line_indices.add(current_idx + 1)
+        current_idx += 1
+        
+    return caption_line_indices
 
 
 def assign_images_to_modules(images: List[Dict[str, Any]], original_lines: List[str], modules: List[Dict[str, Any]], total_pages: int = 1) -> List[Dict[str, Any]]:

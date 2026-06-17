@@ -2,7 +2,7 @@ import requests
 from typing import List
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_client
+from pipelines.config import get_llm_client, safe_chat_completion
 from pipelines.prompts import LESSON_EXTRACTION_PROMPT
 
 
@@ -112,38 +112,32 @@ def extract_lessons_for_module(
     # Filter out image captions from the module text so they don't get treated as content/facts
     # If the line contains an image tag like [IMAGE: img_xxxx], preserve the tag even if the caption is filtered.
     if module_images:
+        from pipelines.image_extractor import find_matching_line, get_caption_lines
         import re
-        clean_captions = {
-            re.sub(r'[^a-zA-Z0-9]', '', img['caption'].lower())
-            for img in module_images
-            if img.get('caption')
-        }
-        lines = module_text.split('\n')
+        
+        module_lines = module_text.split('\n')
+        caption_lines_to_remove = set()
+        for img in module_images:
+            if img.get('caption'):
+                line_num = find_matching_line(img['caption'], module_lines)
+                if line_num != -1:
+                    lines_set = get_caption_lines(img['caption'], line_num, module_lines)
+                    caption_lines_to_remove.update(lines_set)
+                    
         filtered_lines = []
-        for line in lines:
-            image_tag = None
-            match = re.search(r'(\[IMAGE:\s*\w+\])', line)
-            if match:
-                image_tag = match.group(1)
-                line_to_check = line.replace(image_tag, "").strip()
+        for idx, line in enumerate(module_lines):
+            line_num_1based = idx + 1
+            if line_num_1based in caption_lines_to_remove:
+                # Find all image tags in this line, e.g. [IMAGE: img_xxxx]
+                image_tags = re.findall(r'(\[IMAGE:\s*\w+\])', line)
+                if image_tags:
+                    cleaned_line = " ".join(image_tags)
+                    print(f"    [INFO] Filtering out caption text but keeping image tags: '{line}' -> '{cleaned_line}'")
+                    filtered_lines.append(cleaned_line)
+                else:
+                    print(f"    [INFO] Filtering out caption line from LLM input: '{line}'")
             else:
-                line_to_check = line.strip()
-
-            clean_line = re.sub(r'[^a-zA-Z0-9]', '', line_to_check.lower())
-            if clean_line:
-                is_caption = False
-                for clean_cap in clean_captions:
-                    if clean_line == clean_cap:
-                        is_caption = True
-                        break
-                if is_caption:
-                    if image_tag:
-                        print(f"    [INFO] Filtering out caption text but keeping image tag: '{image_tag}'")
-                        filtered_lines.append(image_tag)
-                    else:
-                        print(f"    [INFO] Filtering out caption line from LLM input: '{line}'")
-                    continue
-            filtered_lines.append(line)
+                filtered_lines.append(line)
         module_text = '\n'.join(filtered_lines)
 
     json_schema = LessonListSchema.model_json_schema()
@@ -172,7 +166,8 @@ def extract_lessons_for_module(
 
     try:
         client, model_name = get_llm_client()
-        response = client.chat.completions.create(
+        response = safe_chat_completion(
+            client=client,
             model=model_name,
             messages=[
                 {
@@ -192,7 +187,7 @@ def extract_lessons_for_module(
                 },
             },
             temperature=0.2,
-            max_tokens=4096,
+            default_max_tokens=2048,
         )
 
         raw_content = response.choices[0].message.content

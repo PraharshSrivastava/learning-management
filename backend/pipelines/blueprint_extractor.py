@@ -4,7 +4,7 @@ import pdfplumber
 from typing import List
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_client
+from pipelines.config import get_llm_client, safe_chat_completion
 from pipelines.prompts import MODULE_EXTRACTION_PROMPT
 
 
@@ -248,7 +248,8 @@ def extract_modules_with_llm(remaining_text: str) -> tuple[List[dict], list]:
 
     try:
         client, model_name = get_llm_client()
-        response = client.chat.completions.create(
+        response = safe_chat_completion(
+            client=client,
             model=model_name,
             messages=[
                 {
@@ -280,7 +281,7 @@ def extract_modules_with_llm(remaining_text: str) -> tuple[List[dict], list]:
                 }
             },
             temperature=0.1,
-            max_tokens=4096
+            default_max_tokens=1024
         )
 
         raw_content = response.choices[0].message.content
@@ -392,7 +393,12 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
             
             # Extract and assign images to modules
             import fitz
-            from pipelines.image_extractor import extract_images_from_pdf, assign_images_to_modules
+            from pipelines.image_extractor import (
+                extract_images_from_pdf,
+                assign_images_to_modules,
+                find_matching_line,
+                get_caption_lines
+            )
             
             doc = fitz.open(pdf_path)
             total_pages = len(doc)
@@ -413,29 +419,32 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
                 print(f"PDF does not contain images. Skipping image extraction.")
                 images = []
             
-            # Remove image captions from module text so they don't get treated as content lines
-            for module in modules:
-                mod_images = module.get("images", [])
-                if mod_images:
-                    clean_captions = {
-                        re.sub(r'[^a-zA-Z0-9]', '', img['caption'].lower())
-                        for img in mod_images
-                        if img.get('caption')
-                    }
+            # Remove image captions from module text while preserving image tags
+            if images:
+                caption_lines_to_remove = set()
+                for img in images:
+                    if img.get("caption"):
+                        line_num = find_matching_line(img["caption"], original_lines)
+                        if line_num != -1:
+                            lines_set = get_caption_lines(img["caption"], line_num, original_lines)
+                            caption_lines_to_remove.update(lines_set)
+                
+                for module in modules:
                     lines = module.get("text", "").split('\n')
                     filtered_lines = []
-                    for line in lines:
-                        clean_line = re.sub(r'[^a-zA-Z0-9]', '', line.lower())
-                        if clean_line:
-                            is_caption = False
-                            for clean_cap in clean_captions:
-                                if clean_line == clean_cap:
-                                    is_caption = True
-                                    break
-                            if is_caption:
+                    for rel_idx, line in enumerate(lines):
+                        global_line_num = module["start_line"] + rel_idx
+                        if global_line_num in caption_lines_to_remove:
+                            # Keep only [IMAGE: img_xxxx] tags if present
+                            image_tags = re.findall(r'(\[IMAGE:\s*\w+\])', line)
+                            if image_tags:
+                                cleaned_line = " ".join(image_tags)
+                                print(f"  Removing caption text but keeping image tags: '{line}' -> '{cleaned_line}'")
+                                filtered_lines.append(cleaned_line)
+                            else:
                                 print(f"  Removing caption line from Module '{module.get('title')}' text: '{line}'")
-                                continue
-                        filtered_lines.append(line)
+                        else:
+                            filtered_lines.append(line)
                     module["text"] = '\n'.join(filtered_lines)
         except Exception as e:
             print(f"  [ERROR] Module extraction/image assignment failed: {e}")

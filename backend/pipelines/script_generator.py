@@ -3,7 +3,7 @@ import requests
 from typing import List
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_client
+from pipelines.config import get_llm_client, safe_chat_completion
 from pipelines.prompts import SCRIPT_GENERATION_PROMPT
 
 
@@ -88,7 +88,8 @@ def generate_scripts_for_module(
 
     try:
         client, model_name = get_llm_client()
-        response = client.chat.completions.create(
+        response = safe_chat_completion(
+            client=client,
             model=model_name,
             messages=[
                 {"role": "system", "content": SCRIPT_GENERATION_PROMPT},
@@ -102,7 +103,7 @@ def generate_scripts_for_module(
                 },
             },
             temperature=0.2,
-            max_tokens=4096,
+            default_max_tokens=2048,
         )
         raw_content = response.choices[0].message.content
 
