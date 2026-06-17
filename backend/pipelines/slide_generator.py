@@ -229,33 +229,38 @@ def _build_content_slide(prs, slide_title, bullets, slide_num, total_slides, scr
             text_run.font.name = "Calibri"
             text_run.font.bold = False
 
-    # Add image if present (bullets left, image right split layout)
+    # Add images if present (bullets left, images right split layout)
     if images:
-        img_data = images[0]
-        img_path = img_data.get("file_path")
-        abs_img_path = os.path.join(BASE_DIR, img_path)
+        num_imgs = min(len(images), 2)
+        slot_h = int(Inches(4.8) / num_imgs)
+        max_w = int(Inches(4.3))
+        RIGHT_CONTENT_LEFT = int(CONTENT_LEFT + Inches(7.0) + Inches(0.4))
         
-        if os.path.exists(abs_img_path):
-            try:
-                # Add the picture initially at native size to get dimensions
-                RIGHT_CONTENT_LEFT = CONTENT_LEFT + Inches(7.0) + Inches(0.4)
-                pic = slide.shapes.add_picture(abs_img_path, RIGHT_CONTENT_LEFT, Inches(1.9))
-                
-                max_w = Inches(4.3)
-                max_h = Inches(4.8)
-                native_w = pic.width
-                native_h = pic.height
-                
-                # Compute proportional scaling factors to fit within max bounds
-                scale = min(max_w / native_w, max_h / native_h)
-                pic.width = int(native_w * scale)
-                pic.height = int(native_h * scale)
-                
-                # Center the scaled image vertically and horizontally in the right-hand area
-                pic.top = Inches(1.9) + int((max_h - pic.height) / 2)
-                pic.left = RIGHT_CONTENT_LEFT + int((max_w - pic.width) / 2)
-            except Exception as e:
-                print(f"  [SLIDES][WARNING] Failed to insert image {img_path}: {e}")
+        for idx in range(num_imgs):
+            img_data = images[idx]
+            img_path = img_data.get("file_path")
+            abs_img_path = os.path.join(BASE_DIR, img_path)
+            
+            if os.path.exists(abs_img_path):
+                try:
+                    slot_top = int(Inches(1.9) + idx * slot_h)
+                    max_h = int(slot_h - Inches(0.15)) if num_imgs > 1 else slot_h
+                    
+                    # Add picture
+                    pic = slide.shapes.add_picture(abs_img_path, RIGHT_CONTENT_LEFT, slot_top)
+                    native_w = pic.width
+                    native_h = pic.height
+                    
+                    # Compute proportional scale
+                    scale = min(max_w / native_w, max_h / native_h)
+                    pic.width = int(native_w * scale)
+                    pic.height = int(native_h * scale)
+                    
+                    # Center the image inside its slot
+                    pic.top = int(slot_top + (max_h - pic.height) / 2)
+                    pic.left = int(RIGHT_CONTENT_LEFT + (max_w - pic.width) / 2)
+                except Exception as e:
+                    print(f"  [SLIDES][WARNING] Failed to insert image {img_path} in slot {idx}: {e}")
 
     # Slide number
     _add_slide_number(slide, slide_num, total_slides)

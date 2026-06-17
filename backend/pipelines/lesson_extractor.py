@@ -109,36 +109,7 @@ def extract_lessons_for_module(
     if module_images is None:
         module_images = []
 
-    # Filter out image captions from the module text so they don't get treated as content/facts
-    # If the line contains an image tag like [IMAGE: img_xxxx], preserve the tag even if the caption is filtered.
-    if module_images:
-        from pipelines.image_extractor import find_matching_line, get_caption_lines
-        import re
-        
-        module_lines = module_text.split('\n')
-        caption_lines_to_remove = set()
-        for img in module_images:
-            if img.get('caption'):
-                line_num = find_matching_line(img['caption'], module_lines)
-                if line_num != -1:
-                    lines_set = get_caption_lines(img['caption'], line_num, module_lines)
-                    caption_lines_to_remove.update(lines_set)
-                    
-        filtered_lines = []
-        for idx, line in enumerate(module_lines):
-            line_num_1based = idx + 1
-            if line_num_1based in caption_lines_to_remove:
-                # Find all image tags in this line, e.g. [IMAGE: img_xxxx]
-                image_tags = re.findall(r'(\[IMAGE:\s*\w+\])', line)
-                if image_tags:
-                    cleaned_line = " ".join(image_tags)
-                    print(f"    [INFO] Filtering out caption text but keeping image tags: '{line}' -> '{cleaned_line}'")
-                    filtered_lines.append(cleaned_line)
-                else:
-                    print(f"    [INFO] Filtering out caption line from LLM input: '{line}'")
-            else:
-                filtered_lines.append(line)
-        module_text = '\n'.join(filtered_lines)
+
 
     json_schema = LessonListSchema.model_json_schema()
 

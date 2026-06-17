@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -3552,6 +3553,37 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                   Row(
                     children: [
                       ElevatedButton.icon(
+                        icon: const Icon(Icons.present_to_all_rounded, size: 14),
+                        label: const Text('Present'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentOrange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        onPressed: () {
+                          if (_currentLesson == null || _currentLesson!.slides.isEmpty) return;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => FullscreenSlideshowPage(
+                                course: widget.course,
+                                initialModuleIdx: _selectedModuleIdx,
+                                initialLessonIdx: _selectedLessonIdx,
+                                initialSlideIdx: _currentSlideIdx,
+                              ),
+                            ),
+                          ).then((returnedIdx) {
+                            if (returnedIdx is int && mounted) {
+                              setState(() {
+                                _currentSlideIdx = returnedIdx;
+                              });
+                              _pageController.jumpToPage(returnedIdx);
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
                         icon: const Icon(Icons.download, size: 14),
                         label: const Text('Download PPTX'),
                         style: ElevatedButton.styleFrom(
@@ -4075,40 +4107,53 @@ class SlideRenderer extends StatelessWidget {
                               const SizedBox(width: 24),
                               Expanded(
                                 flex: 40,
-                                child: Center(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Image.network(
-                                      '${AppConstants.apiBaseUrl}/${slide.images.first.filePath}',
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.lightGray,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: slide.images.map((img) {
+                                    return Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: img == slide.images.last ? 0.0 : 12.0,
+                                        ),
+                                        child: Center(
+                                          child: ClipRRect(
                                             borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: AppTheme.gray.withOpacity(0.3)),
+                                            child: Image.network(
+                                              '${AppConstants.apiBaseUrl}/${img.filePath}',
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Container(
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.lightGray,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: AppTheme.gray.withOpacity(0.3)),
+                                                  ),
+                                                  padding: const EdgeInsets.all(8),
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      const Icon(Icons.broken_image_rounded, color: AppTheme.accentRed, size: 24),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        'Image failed to load',
+                                                        textAlign: TextAlign.center,
+                                                        style: GoogleFonts.barlow(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: AppTheme.gray,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
                                           ),
-                                          padding: const EdgeInsets.all(16),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(Icons.broken_image_rounded, color: AppTheme.accentRed, size: 32),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Image failed to load',
-                                                textAlign: TextAlign.center,
-                                                style: GoogleFonts.barlow(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.gray,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             ],
@@ -4992,6 +5037,442 @@ class QuizOption {
     return QuizOption(
       key: json['key']?.toString() ?? '',
       text: json['text']?.toString() ?? '',
+    );
+  }
+}
+
+// ============================================================================
+// FULLSCREEN PRESENTATION MODE / SLIDESHOW
+// ============================================================================
+
+class FullscreenSlideshowPage extends StatefulWidget {
+  final Course course;
+  final int initialModuleIdx;
+  final int initialLessonIdx;
+  final int initialSlideIdx;
+
+  const FullscreenSlideshowPage({
+    super.key,
+    required this.course,
+    required this.initialModuleIdx,
+    required this.initialLessonIdx,
+    required this.initialSlideIdx,
+  });
+
+  @override
+  State<FullscreenSlideshowPage> createState() => _FullscreenSlideshowPageState();
+}
+
+class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
+  late int _selectedModuleIdx;
+  late int _selectedLessonIdx;
+  late int _currentSlideIdx;
+  late PageController _pageController;
+  final FocusNode _focusNode = FocusNode();
+  
+  bool _showControls = true;
+  bool _showNotes = false;
+  Timer? _hideControlsTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedModuleIdx = widget.initialModuleIdx;
+    _selectedLessonIdx = widget.initialLessonIdx;
+    _currentSlideIdx = widget.initialSlideIdx;
+    _pageController = PageController(initialPage: _currentSlideIdx);
+    _startHideControlsTimer();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _focusNode.dispose();
+    _hideControlsTimer?.cancel();
+    super.dispose();
+  }
+
+  List<CourseModule> get _modulesWithLessons =>
+      widget.course.modules.where((m) => m.lessons.isNotEmpty).toList();
+
+  CourseModule? get _currentModule {
+    final mods = _modulesWithLessons;
+    if (_selectedModuleIdx >= mods.length) return null;
+    return mods[_selectedModuleIdx];
+  }
+
+  CourseLesson? get _currentLesson {
+    final mod = _currentModule;
+    if (mod == null || _selectedLessonIdx >= mod.lessons.length) return null;
+    return mod.lessons[_selectedLessonIdx];
+  }
+
+  void _goToSlide(int idx) {
+    if (idx < 0 || _currentLesson == null || idx >= _currentLesson!.slides.length) return;
+    _pageController.animateToPage(
+      idx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+        event.logicalKey == LogicalKeyboardKey.space) {
+      if (_currentSlideIdx < (_currentLesson?.slides.length ?? 0) - 1) {
+        _goToSlide(_currentSlideIdx + 1);
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      if (_currentSlideIdx > 0) {
+        _goToSlide(_currentSlideIdx - 1);
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+      Navigator.of(context).pop(_currentSlideIdx);
+    }
+  }
+
+  void _startHideControlsTimer() {
+    _hideControlsTimer?.cancel();
+    if (!_showControls) {
+      setState(() => _showControls = true);
+    }
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() => _showControls = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_currentLesson == null || _currentLesson!.slides.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Text(
+            'No slides to present.',
+            style: GoogleFonts.inter(color: Colors.white, fontSize: 18),
+          ),
+        ),
+      );
+    }
+
+    final slides = _currentLesson!.slides;
+
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0B0F19), // Dark deep background
+        body: MouseRegion(
+          onHover: (_) => _startHideControlsTimer(),
+          child: Stack(
+            children: [
+              // Main Slide in widescreen aspect ratio scaled with FittedBox
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(48.0),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: SizedBox(
+                        width: 960,
+                        height: 540,
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: slides.length,
+                          onPageChanged: (idx) {
+                            setState(() => _currentSlideIdx = idx);
+                            _startHideControlsTimer();
+                          },
+                          itemBuilder: (context, idx) {
+                            return SlideRenderer(
+                              slide: slides[idx],
+                              slideIndex: idx,
+                              totalSlides: slides.length,
+                              courseName: widget.course.courseName,
+                              moduleName: _currentModule!.title,
+                              lessonName: _currentLesson!.lessonTitle,
+                              moduleNumber: _currentModule!.moduleNumber,
+                              lessonNumber: _currentLesson!.lessonNumber,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Side navigation hover arrows
+              if (_currentSlideIdx > 0)
+                Positioned(
+                  left: 24,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _showControls ? 0.8 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: IgnorePointer(
+                        ignoring: !_showControls,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 36),
+                            onPressed: () => _goToSlide(_currentSlideIdx - 1),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_currentSlideIdx < slides.length - 1)
+                Positioned(
+                  right: 24,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _showControls ? 0.8 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: IgnorePointer(
+                        ignoring: !_showControls,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 36),
+                            onPressed: () => _goToSlide(_currentSlideIdx + 1),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Close button in top-right corner
+              Positioned(
+                top: 24,
+                right: 24,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: !_showControls,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white),
+                        tooltip: 'Exit Presentation (Esc)',
+                        onPressed: () => Navigator.of(context).pop(_currentSlideIdx),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Bottom control bar (Glassmorphic)
+              Positioned(
+                left: 48,
+                right: 48,
+                bottom: 24,
+                child: AnimatedOpacity(
+                  opacity: _showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: !_showControls,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        color: Colors.black.withOpacity(0.8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Left Side: Module & Lesson Name
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'MODULE ${_currentModule!.moduleNumber}: ${_currentModule!.title}'.toUpperCase(),
+                                    style: GoogleFonts.barlow(
+                                      color: AppTheme.accentCyan,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Lesson ${_currentLesson!.lessonNumber}: ${_currentLesson!.lessonTitle}',
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            // Center: Slide navigation controls
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.first_page_rounded, color: Colors.white),
+                                  onPressed: _currentSlideIdx > 0 ? () => _goToSlide(0) : null,
+                                  tooltip: 'First Slide',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.chevron_left_rounded, color: Colors.white),
+                                  onPressed: _currentSlideIdx > 0 ? () => _goToSlide(_currentSlideIdx - 1) : null,
+                                  tooltip: 'Previous Slide',
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${_currentSlideIdx + 1} / ${slides.length}',
+                                    style: GoogleFonts.barlow(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                                  onPressed: _currentSlideIdx < slides.length - 1
+                                      ? () => _goToSlide(_currentSlideIdx + 1)
+                                      : null,
+                                  tooltip: 'Next Slide',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.last_page_rounded, color: Colors.white),
+                                  onPressed: _currentSlideIdx < slides.length - 1
+                                      ? () => _goToSlide(slides.length - 1)
+                                      : null,
+                                  tooltip: 'Last Slide',
+                                ),
+                              ],
+                            ),
+
+                            // Right Side: Toggle notes & exit presentation
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (slides[_currentSlideIdx].script.isNotEmpty) ...[
+                                    IconButton(
+                                      icon: Icon(
+                                        _showNotes ? Icons.speaker_notes_rounded : Icons.speaker_notes_off_rounded,
+                                        color: _showNotes ? AppTheme.accentOrange : Colors.white,
+                                      ),
+                                      tooltip: _showNotes ? 'Hide Speaker Notes' : 'Show Speaker Notes',
+                                      onPressed: () {
+                                        setState(() {
+                                          _showNotes = !_showNotes;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 12),
+                                  ],
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.accentRed,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.exit_to_app_rounded, size: 16),
+                                    label: const Text('Exit'),
+                                    onPressed: () => Navigator.of(context).pop(_currentSlideIdx),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Speaker Notes overlay panel
+              if (_showNotes && slides[_currentSlideIdx].script.isNotEmpty)
+                Positioned(
+                  left: 96,
+                  right: 96,
+                  bottom: 96,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      color: Colors.black.withOpacity(0.85),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.record_voice_over_outlined, size: 16, color: AppTheme.accentOrange),
+                              const SizedBox(width: 8),
+                              Text(
+                                'SPEAKER NOTES / NARRATION SCRIPT',
+                                style: GoogleFonts.barlow(
+                                  color: AppTheme.accentOrange,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            slides[_currentSlideIdx].script,
+                            style: GoogleFonts.barlow(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

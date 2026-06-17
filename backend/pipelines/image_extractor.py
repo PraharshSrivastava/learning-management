@@ -33,7 +33,7 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
             iy1 = bbox[3]  # bottom of image
             
             # Find candidate captions (the closest text block below the image)
-            best_caption = None
+            best_caption_raw = None
             min_dist = float('inf')
             
             for b in blocks:
@@ -58,10 +58,10 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                             min_dist = dist
                             # Split by paragraph double newlines and join lines in space-separated form
                             paragraphs = re.split(r'\n\s*\n', text_content)
-                            best_caption = " ".join(paragraphs[0].split())
+                            best_caption_raw = " ".join(paragraphs[0].split())
             
             # Fallback: search top of next page if image is near bottom of the page
-            if not best_caption and (page.rect.height - iy1 < 150) and (page_num + 1 < total_pages):
+            if not best_caption_raw and (page.rect.height - iy1 < 150) and (page_num + 1 < total_pages):
                 next_page = doc[page_num + 1]
                 next_blocks = next_page.get_text("blocks")
                 min_next_page_ty0 = float('inf')
@@ -81,12 +81,20 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                             if ty0 < min_next_page_ty0:
                                 min_next_page_ty0 = ty0
                                 paragraphs = re.split(r'\n\s*\n', text_content)
-                                best_caption = " ".join(paragraphs[0].split())
-                                print(f"    [NEXT PAGE CAPTION] Found wrapped caption at top of page {page_num + 2}: \"{best_caption}\"")
+                                best_caption_raw = " ".join(paragraphs[0].split())
+                                print(f"    [NEXT PAGE CAPTION] Found wrapped caption at top of page {page_num + 2}: \"{best_caption_raw}\"")
                                 
-            if not best_caption:
-                # Fallback caption if none is found
-                best_caption = f"Image on page {page_num + 1}"
+            if not best_caption_raw:
+                best_caption_raw = f"Image on page {page_num + 1}"
+                caption_content = best_caption_raw
+            else:
+                # Parse prefix (e.g. Figure 9: Cosine Similarity -> content="Cosine Similarity")
+                prefix_pattern = re.compile(r'^\s*(figure|fig|img|image|caption|chart)\s*\d*[:.-]?\s*(.*)', re.IGNORECASE)
+                match = prefix_pattern.match(best_caption_raw)
+                if match:
+                    caption_content = match.group(2).strip()
+                else:
+                    caption_content = best_caption_raw
             
             # Extract and save the image
             try:
@@ -105,51 +113,109 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                 
                 extracted.append({
                     "image_id": f"img_{xref}",
-                    "caption": best_caption,
+                    "caption": caption_content,
+                    "raw_caption": best_caption_raw,
                     "file_path": relative_path,
                     "page": page_num + 1,
                     "bbox": bbox
                 })
-                print(f"  Extracted image {xref} on page {page_num+1} with caption: \"{best_caption}\"")
+                print(f"  Extracted image {xref} on page {page_num+1} with caption: \"{caption_content}\"")
             except Exception as e:
                 print(f"  [WARNING] Failed to extract image with xref {xref} on page {page_num + 1}: {e}")
                 
     return extracted
 
 
-def find_matching_line(caption: str, original_lines: List[str]) -> int:
+def parse_caption_prefix(text: str):
+    """
+    Parses a caption string to extract the prefix type, figure number, and the caption body.
+    Example:
+      "Figure 9: ChatGPT" -> ("figure", "9", "ChatGPT")
+      "Fig 1.2 - Diagram" -> ("fig", "1.2", "Diagram")
+      "ChatGPT" -> (None, None, "ChatGPT")
+    """
+    pattern = re.compile(
+        r'^\s*(figure|fig|img|image|caption|chart)\s*(\d+(?:[\.-]\d+)*)?\s*[:.\-]?\s*(.*)', 
+        re.IGNORECASE
+    )
+    match = pattern.match(text)
+    if match:
+        prefix_type = match.group(1).lower()
+        num = match.group(2)
+        body = match.group(3).strip()
+        return prefix_type, num, body
+    return None, None, text.strip()
+
+
+def find_matching_line(caption: str, original_lines: List[str], line_pages: List[int] = None, image_page: int = None, raw_caption: str = None) -> int:
     """
     Finds the 1-based line index in original_lines that matches the caption.
+    If line_pages and image_page are provided, restricts the search to target pages.
     """
-    clean_cap = re.sub(r'[^a-zA-Z0-9]', '', caption.lower())
-    if not clean_cap:
+    match_target = raw_caption if raw_caption else caption
+    target_prefix, target_num, target_body = parse_caption_prefix(match_target)
+    clean_target_body = re.sub(r'[^a-zA-Z0-9]', '', target_body.lower())
+    if not clean_target_body:
         return -1
     
-    # 1. Exact clean match
+    # 1. Exact clean match with prefix alignment
     for idx, line in enumerate(original_lines):
-        clean_line = re.sub(r'[^a-zA-Z0-9]', '', line.lower())
-        if clean_cap == clean_line:
-            return idx + 1
+        if line_pages and image_page and line_pages[idx] not in (image_page, image_page + 1):
+            continue
             
-    # 2. Fallback to substring matching
+        cand_prefix, cand_num, cand_body = parse_caption_prefix(line)
+        clean_cand_body = re.sub(r'[^a-zA-Z0-9]', '', cand_body.lower())
+        
+        if target_prefix is not None:
+            if cand_prefix is None:
+                continue
+            if target_num is not None and cand_num is not None and target_num != cand_num:
+                continue
+            if clean_target_body == clean_cand_body:
+                return idx + 1
+        else:
+            if cand_prefix is not None:
+                continue
+            if clean_target_body == clean_cand_body:
+                return idx + 1
+            
+    # 2. Fallback to substring matching with prefix alignment
     for idx, line in enumerate(original_lines):
-        clean_line = re.sub(r'[^a-zA-Z0-9]', '', line.lower())
-        if len(clean_line) > 3 and clean_line in clean_cap:
-            return idx + 1
-        if len(clean_cap) > 3 and clean_cap in clean_line:
-            return idx + 1
+        if line_pages and image_page and line_pages[idx] not in (image_page, image_page + 1):
+            continue
+            
+        cand_prefix, cand_num, cand_body = parse_caption_prefix(line)
+        clean_cand_body = re.sub(r'[^a-zA-Z0-9]', '', cand_body.lower())
+        
+        if target_prefix is not None:
+            if cand_prefix is None:
+                continue
+            if target_num is not None and cand_num is not None and target_num != cand_num:
+                continue
+            if len(clean_cand_body) > 3 and clean_cand_body in clean_target_body:
+                return idx + 1
+            if len(clean_target_body) > 3 and clean_target_body in clean_cand_body:
+                return idx + 1
+        else:
+            if cand_prefix is not None:
+                continue
+            if len(clean_cand_body) > 3 and clean_cand_body in clean_target_body:
+                return idx + 1
+            if len(clean_target_body) > 3 and clean_target_body in clean_cand_body:
+                return idx + 1
             
     return -1
 
 
-def get_caption_lines(caption: str, start_line_num: int, original_lines: List[str]) -> Set[int]:
+def get_caption_lines(caption: str, start_line_num: int, original_lines: List[str], raw_caption: str = None) -> Set[int]:
     """
-    Given an image caption and the 1-based start line number where it matches,
+    Given an image caption (or raw caption) and the 1-based start line number where it matches,
     reconstructs multi-line captions by consuming consecutive lines in original_lines
     until the full cleaned caption is covered.
     Returns a set of 1-based line numbers containing the caption.
     """
-    clean_cap = re.sub(r'[^a-zA-Z0-9]', '', caption.lower())
+    match_target = raw_caption if raw_caption else caption
+    clean_cap = re.sub(r'[^a-zA-Z0-9]', '', match_target.lower())
     if not clean_cap or start_line_num < 1 or start_line_num > len(original_lines):
         return set()
         
@@ -178,7 +244,7 @@ def get_caption_lines(caption: str, start_line_num: int, original_lines: List[st
     return caption_line_indices
 
 
-def assign_images_to_modules(images: List[Dict[str, Any]], original_lines: List[str], modules: List[Dict[str, Any]], total_pages: int = 1) -> List[Dict[str, Any]]:
+def assign_images_to_modules(images: List[Dict[str, Any]], original_lines: List[str], modules: List[Dict[str, Any]], total_pages: int = 1, line_pages: List[int] = None) -> List[Dict[str, Any]]:
     """
     Assigns each image to the module containing its corresponding line.
     If matching fails, falls back to a page-ratio estimation.
@@ -198,7 +264,13 @@ def assign_images_to_modules(images: List[Dict[str, Any]], original_lines: List[
             module["images"] = []
             
     for img in images:
-        line_num = find_matching_line(img["caption"], original_lines)
+        line_num = find_matching_line(
+            img["caption"], 
+            original_lines, 
+            line_pages=line_pages, 
+            image_page=img.get("page"), 
+            raw_caption=img.get("raw_caption")
+        )
         assigned = False
         
         if line_num != -1:

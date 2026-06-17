@@ -23,16 +23,42 @@ class ModuleListSchema(BaseModel):
 # -------------------------------------------------------
 # PDF Text Extraction
 # -------------------------------------------------------
-def extract_text_from_pdf(pdf_path: str) -> str:
+def extract_text_and_pages(pdf_path: str):
+    """
+    Extracts text page-by-page and returns (metadata, body_lines, body_line_pages).
+    """
     print(f"Extracting text from PDF: {pdf_path}")
-    text_content = []
+    import pdfplumber
+    
+    metadata = None
+    body_lines = []
+    body_line_pages = []
+    
     with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
+        for idx, page in enumerate(pdf.pages):
+            page_num = idx + 1
             text = page.extract_text()
-            if text:
-                text_content.append(text)
-    raw_text = "\n".join(text_content)
-    return clean_extracted_text(raw_text)
+            if not text:
+                continue
+            
+            cleaned_text = clean_extracted_text(text)
+            
+            if page_num == 1:
+                # Parse metadata from the first page
+                metadata, remaining_text = extract_metadata_programmatically(cleaned_text)
+                if not metadata:
+                    remaining_text = cleaned_text
+                norm_text = normalise_to_sentence_lines(remaining_text)
+            else:
+                norm_text = normalise_to_sentence_lines(cleaned_text)
+                
+            if norm_text.strip():
+                # Split by \n and keep non-empty lines
+                lines = [line.strip() for line in norm_text.split('\n') if line.strip()]
+                body_lines.extend(lines)
+                body_line_pages.extend([page_num] * len(lines))
+                
+    return metadata, body_lines, body_line_pages
 
 
 def clean_extracted_text(text: str) -> str:
@@ -225,22 +251,19 @@ def number_lines(text: str) -> tuple[str, list]:
 # -------------------------------------------------------
 # LLM Module Extraction — now uses numbered lines
 # -------------------------------------------------------
-def extract_modules_with_llm(remaining_text: str) -> tuple[List[dict], list]:
+def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
     """
     Number every line of the document body, send to LLM, and get back
     a structured list of modules with integer start_line numbers.
-    Returns (modules_list, original_lines).
     """
-    print("Normalising and numbering document lines for LLM...")
+    print("Numbering document lines for LLM...")
 
-    # FIX 2 & 3: Normalise prose to sentence-per-line before numbering
-    normalised_text = normalise_to_sentence_lines(remaining_text)
-
-    numbered_text, original_lines = number_lines(normalised_text)
+    numbered_lines = [f"[LINE {i + 1}] {line}" for i, line in enumerate(body_lines)]
+    numbered_text = '\n'.join(numbered_lines)
 
     # Truncate to 50,000 chars
     content = numbered_text[:50000]
-    total_lines = len(original_lines)
+    total_lines = len(body_lines)
 
     print(f"  Document body: {total_lines} lines after normalisation.")
 
@@ -291,7 +314,7 @@ def extract_modules_with_llm(remaining_text: str) -> tuple[List[dict], list]:
         modules = [m.model_dump() for m in parsed.modules]
         _validate_start_lines(modules, total_lines)
 
-        return modules, original_lines
+        return modules
 
     except requests.exceptions.Timeout:
         raise RuntimeError("LLM request timed out after 600 seconds.")
@@ -364,13 +387,7 @@ def slice_modules_by_line(original_lines: list, modules: List[dict]) -> List[dic
 # Main Entry Point
 # -------------------------------------------------------
 def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> dict:
-    text = extract_text_from_pdf(pdf_path)
-
-    if not text.strip():
-        raise ValueError("The PDF document does not contain any readable text.")
-
-    print("Extracting course metadata...")
-    metadata, remaining_text = extract_metadata_programmatically(text)
+    metadata, original_lines, original_line_pages = extract_text_and_pages(pdf_path)
 
     if not metadata:
         raise ValueError(
@@ -384,9 +401,9 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
 
     modules = []
     images = []
-    if remaining_text.strip():
+    if original_lines:
         try:
-            raw_modules, original_lines = extract_modules_with_llm(remaining_text)
+            raw_modules = extract_modules_with_llm(original_lines)
             modules = slice_modules_by_line(original_lines, raw_modules)
             good = sum(1 for m in modules if len(m.get('text', '')) >= 100)
             print(f"Successfully sliced text for {good} / {len(modules)} modules.")
@@ -414,7 +431,7 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
             if has_images:
                 print(f"PDF contains images. Proceeding with image extraction.")
                 images = extract_images_from_pdf(pdf_path, course_id)
-                modules = assign_images_to_modules(images, original_lines, modules, total_pages)
+                modules = assign_images_to_modules(images, original_lines, modules, total_pages, original_line_pages)
             else:
                 print(f"PDF does not contain images. Skipping image extraction.")
                 images = []
@@ -424,9 +441,15 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
                 caption_lines_to_remove = set()
                 for img in images:
                     if img.get("caption"):
-                        line_num = find_matching_line(img["caption"], original_lines)
+                        line_num = find_matching_line(
+                            img["caption"], 
+                            original_lines, 
+                            line_pages=original_line_pages, 
+                            image_page=img.get("page"),
+                            raw_caption=img.get("raw_caption")
+                        )
                         if line_num != -1:
-                            lines_set = get_caption_lines(img["caption"], line_num, original_lines)
+                            lines_set = get_caption_lines(img["caption"], line_num, original_lines, raw_caption=img.get("raw_caption"))
                             caption_lines_to_remove.update(lines_set)
                 
                 for module in modules:
