@@ -24,17 +24,8 @@ def map_images_to_slides(course: Dict[str, Any]) -> Dict[str, Any]:
 
     for m_idx, module in enumerate(modules):
         images = module.get("images", [])
-        lessons = module.get("lessons", [])
-        if not images or not lessons:
-            continue
-
-        # Flatten slides for this module
-        slides_flat = []
-        for lesson in lessons:
-            for slide in lesson.get("slides", []):
-                slides_flat.append(slide)
-
-        if not slides_flat:
+        slides_flat = module.get("slides", [])
+        if not images or not slides_flat:
             continue
 
         print(f"    [IMAGE MAPPER] Mapping {len(images)} images to {len(slides_flat)} slides in Module '{module.get('title')}'")

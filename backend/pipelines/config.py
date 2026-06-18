@@ -28,6 +28,7 @@ def get_llm_client():
     client = OpenAI(
         base_url=BASE_URL,
         api_key=credentials.token,
+        timeout=600.0,
     )
     return client, ENDPOINT_ID
 

@@ -3,7 +3,7 @@ from typing import List
 from pydantic import BaseModel
 
 from pipelines.config import get_llm_client, safe_chat_completion
-from pipelines.prompts import LESSON_EXTRACTION_PROMPT
+from pipelines.prompts import SLIDE_EXTRACTION_PROMPT
 
 
 # -------------------------------------------------------
@@ -19,13 +19,8 @@ class SlideSchema(BaseModel):
     image_ids: List[str] = [] # List of image_id strings (e.g. ["img_123"]) that appear in this slide's context
 
 
-class LessonSchema(BaseModel):
-    lesson_title: str         # 4–7 words, outcome-focused
+class SlideListSchema(BaseModel):
     slides: List[SlideSchema]
-
-
-class LessonListSchema(BaseModel):
-    lessons: List[LessonSchema]
 
 
 # -------------------------------------------------------
@@ -42,65 +37,53 @@ def _clamp_bullet_words(text: str) -> str:
     return text
 
 
-def _validate_and_clean(lessons: List[dict]) -> List[dict]:
+def _validate_and_clean_slides(slides: List[dict]) -> List[dict]:
     """
-    Post-process the parsed lesson list:
+    Post-process the parsed slide list:
     - Strip bullet text that is empty
     - Clamp bullets that are far too long
-    - Remove lessons or slides with no content
-    - Re-number lesson_number and slide_number sequentially
+    - Remove slides with no content
+    - Re-number slide_number sequentially
     """
-    cleaned_lessons = []
-    for l_idx, lesson in enumerate(lessons):
-        slides = lesson.get("slides", [])
-        cleaned_slides = []
-        for s_idx, slide in enumerate(slides):
-            bullets = slide.get("bullets", [])
-            cleaned_bullets = [
-                {"text": _clamp_bullet_words(b["text"].strip())}
-                for b in bullets
-                if b.get("text", "").strip()
-            ]
-            if not cleaned_bullets:
-                continue  # skip empty slides
-            cleaned_slides.append({
-                "slide_number": s_idx + 1,
-                "slide_title": slide.get("slide_title", "").strip(),
-                "bullets": cleaned_bullets,
-                "image_ids": slide.get("image_ids", []),
-            })
-
-        if not cleaned_slides:
-            continue  # skip lessons with no valid slides
-
-        cleaned_lessons.append({
-            "lesson_number": l_idx + 1,
-            "lesson_title": lesson.get("lesson_title", "").strip(),
-            "slides": cleaned_slides,
+    cleaned_slides = []
+    for s_idx, slide in enumerate(slides):
+        bullets = slide.get("bullets", [])
+        cleaned_bullets = [
+            {"text": _clamp_bullet_words(b["text"].strip())}
+            for b in bullets
+            if b.get("text", "").strip()
+        ]
+        if not cleaned_bullets:
+            continue  # skip empty slides
+        cleaned_slides.append({
+            "slide_number": len(cleaned_slides) + 1,
+            "slide_title": slide.get("slide_title", "").strip(),
+            "bullets": cleaned_bullets,
+            "image_ids": slide.get("image_ids", []),
         })
 
-    return cleaned_lessons
+    return cleaned_slides
 
 
 # -------------------------------------------------------
 # Core LLM Call — one module at a time
 # -------------------------------------------------------
-def extract_lessons_for_module(
+def extract_slides_for_module(
     module_text: str,
     module_title: str,
     module_number: int,
     total_modules: int,
-    prior_lesson_titles: List[str],
+    prior_slide_titles: List[str],
     module_images: List[dict] = None,
 ) -> List[dict]:
     """
-    Call the LLM to produce a Lessons → Slides → Bullets hierarchy
+    Call the LLM to produce a Slides → Bullets list
     for a single module's text content.
 
-    prior_lesson_titles: flat list of lesson titles already generated
+    prior_slide_titles: flat list of slide titles already generated
     for previous modules. Used as a style anchor.
     """
-    print(f"  Extracting lessons for Module {module_number}/{total_modules}: '{module_title}'")
+    print(f"  Extracting slides for Module {module_number}/{total_modules}: '{module_title}'")
 
     if not module_text.strip():
         print(f"    [WARNING] Module '{module_title}' has no text content — skipping.")
@@ -109,25 +92,23 @@ def extract_lessons_for_module(
     if module_images is None:
         module_images = []
 
-
-
-    json_schema = LessonListSchema.model_json_schema()
+    json_schema = SlideListSchema.model_json_schema()
 
     # Build the style anchor block
-    if prior_lesson_titles:
+    if prior_slide_titles:
         prior_block = (
-            "Previously generated lesson titles from earlier modules in this same course:\n"
-            + "\n".join(f"  - {t}" for t in prior_lesson_titles)
+            "Previously generated slide titles from earlier modules in this same course:\n"
+            + "\n".join(f"  - {t}" for t in prior_slide_titles)
             + "\n\n"
             "You MUST match this exact style, abstraction level, and outcome-focused language "
-            "in every lesson and slide title you produce. The course must feel authored by one person.\n\n"
+            "in every slide title you produce. The course must feel authored by one person.\n\n"
         )
     else:
         prior_block = ""
 
     user_message = (
         f"{prior_block}"
-        f"Generate lessons for the module below.\n\n"
+        f"Generate slides for the module below.\n\n"
         f"Module Title: \"{module_title}\"\n"
         f"Module Number: {module_number} of {total_modules}\n\n"
         f"MODULE CONTENT:\n"
@@ -143,7 +124,7 @@ def extract_lessons_for_module(
             messages=[
                 {
                     "role": "system",
-                    "content": LESSON_EXTRACTION_PROMPT,
+                    "content": SLIDE_EXTRACTION_PROMPT,
                 },
                 {
                     "role": "user",
@@ -153,7 +134,7 @@ def extract_lessons_for_module(
             response_format={
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "LessonListSchema",
+                    "name": "SlideListSchema",
                     "schema": json_schema,
                 },
             },
@@ -163,39 +144,35 @@ def extract_lessons_for_module(
 
         raw_content = response.choices[0].message.content
         
-        # Check if output was truncated (finish_reason != "stop")
-        # In OpenAI python SDK, finish_reason is accessed via response.choices[0].finish_reason
         finish_reason = response.choices[0].finish_reason or "unknown"
         if finish_reason == "length":
             print(f"    [WARNING] LLM output was TRUNCATED (hit max_tokens) for module '{module_title}'.")
         
-        parsed = LessonListSchema.model_validate_json(raw_content)
+        parsed = SlideListSchema.model_validate_json(raw_content)
 
-        lessons_raw = [lesson.model_dump() for lesson in parsed.lessons]
-        lessons = _validate_and_clean(lessons_raw)
+        slides_raw = [slide.model_dump() for slide in parsed.slides]
+        slides = _validate_and_clean_slides(slides_raw)
 
         # Map image_ids to actual image metadata dicts for each slide
-        for lesson in lessons:
-            for slide in lesson.get("slides", []):
-                slide["images"] = []
-                image_ids = slide.pop("image_ids", [])
-                for img_id in image_ids:
-                    # Find matching image metadata in module_images
-                    img_meta = next((img for img in module_images if img.get("image_id") == img_id), None)
-                    if img_meta and not any(x["image_id"] == img_id for x in slide["images"]):
-                        slide["images"].append(img_meta)
-                        print(f"    [MAPPED] Inline mapped image '{img_id}' to slide '{slide.get('slide_title')}'")
+        for slide in slides:
+            slide["images"] = []
+            image_ids = slide.pop("image_ids", [])
+            for img_id in image_ids:
+                # Find matching image metadata in module_images
+                img_meta = next((img for img in module_images if img.get("image_id") == img_id), None)
+                if img_meta and not any(x["image_id"] == img_id for x in slide["images"]):
+                    slide["images"].append(img_meta)
+                    print(f"    [MAPPED] Inline mapped image '{img_id}' to slide '{slide.get('slide_title')}'")
 
         # Ensure all module images are assigned somewhere to prevent loss
         mapped_image_ids = set()
-        for lesson in lessons:
-            for slide in lesson.get("slides", []):
-                for img in slide.get("images", []):
-                    mapped_image_ids.add(img["image_id"])
-                    
+        for slide in slides:
+            for img in slide.get("images", []):
+                mapped_image_ids.add(img["image_id"])
+                
         unmapped_images = [img for img in module_images if img["image_id"] not in mapped_image_ids]
-        if unmapped_images and lessons and lessons[0].get("slides"):
-            first_slide = lessons[0]["slides"][0]
+        if unmapped_images and slides:
+            first_slide = slides[0]
             if "images" not in first_slide:
                 first_slide["images"] = []
             for img in unmapped_images:
@@ -203,11 +180,10 @@ def extract_lessons_for_module(
                 print(f"    [FALLBACK] Inline fallback mapped unassigned image '{img['image_id']}' to slide '{first_slide.get('slide_title')}'")
 
         print(
-            f"    -> {len(lessons)} lessons, "
-            f"{sum(len(l['slides']) for l in lessons)} slides, "
-            f"{sum(len(b['bullets']) for l in lessons for b in l['slides'])} bullets"
+            f"    -> {len(slides)} slides, "
+            f"{sum(len(b['bullets']) for b in slides)} bullets"
         )
-        return lessons
+        return slides
 
     except requests.exceptions.Timeout:
         raise RuntimeError(
@@ -217,5 +193,30 @@ def extract_lessons_for_module(
         raise RuntimeError(f"LLM request failed for module '{module_title}': {str(e)}")
     except Exception as e:
         raise RuntimeError(
-            f"Failed to parse lesson response for module '{module_title}': {str(e)}"
+            f"Failed to parse slide response for module '{module_title}': {str(e)}"
         )
+
+
+# Backward compatibility wrapper
+def extract_lessons_for_module(
+    module_text: str,
+    module_title: str,
+    module_number: int,
+    total_modules: int,
+    prior_lesson_titles: List[str],
+    module_images: List[dict] = None,
+) -> List[dict]:
+    # Adapts the new slide output format into the legacy lessons structure
+    slides = extract_slides_for_module(
+        module_text=module_text,
+        module_title=module_title,
+        module_number=module_number,
+        total_modules=total_modules,
+        prior_slide_titles=prior_lesson_titles,
+        module_images=module_images
+    )
+    return [{
+        "lesson_number": 1,
+        "lesson_title": module_title,
+        "slides": slides
+    }]

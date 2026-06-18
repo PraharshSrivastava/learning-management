@@ -53,10 +53,25 @@ def extract_text_and_pages(pdf_path: str):
                 norm_text = normalise_to_sentence_lines(cleaned_text)
                 
             if norm_text.strip():
-                # Split by \n and keep non-empty lines
-                lines = [line.strip() for line in norm_text.split('\n') if line.strip()]
-                body_lines.extend(lines)
-                body_line_pages.extend([page_num] * len(lines))
+                # Split by \n and clean page lines
+                lines = [line.strip() for line in norm_text.split('\n')]
+                cleaned_lines = []
+                for line in lines:
+                    if not line:
+                        if cleaned_lines and cleaned_lines[-1] != "":
+                            cleaned_lines.append("")
+                    else:
+                        cleaned_lines.append(line)
+                
+                # Strip leading/trailing blank lines of the page
+                while cleaned_lines and cleaned_lines[0] == "":
+                    cleaned_lines.pop(0)
+                while cleaned_lines and cleaned_lines[-1] == "":
+                    cleaned_lines.pop()
+                    
+                if cleaned_lines:
+                    body_lines.extend(cleaned_lines)
+                    body_line_pages.extend([page_num] * len(cleaned_lines))
                 
     return metadata, body_lines, body_line_pages
 
@@ -194,12 +209,6 @@ def extract_metadata_programmatically(text: str):
             last_end = last_end + advance + len(last_val.split()[-1])
 
     remaining_text = text[last_end:].strip()
-
-    # Guard: if remaining_text is empty or tiny, fall back to the simpler cut
-    if len(remaining_text) < 50:
-        last_known_end = max(pos["end"] for pos in positions)
-        remaining_text = text[last_known_end:].strip()
-
     return metadata, remaining_text
 
 
@@ -345,6 +354,87 @@ def _validate_start_lines(modules: List[dict], total_lines: int):
 
 
 # -------------------------------------------------------
+# Adjust start lines programmatically to capture headers
+# -------------------------------------------------------
+def adjust_start_lines_for_headers(modules: List[dict], original_lines: List[str]):
+    """
+    Look backward from each module's start_line. If a preceding line (up to 5 lines back)
+    matches the module's title (contains title, or starts with standard header formats),
+    adjust the start_line backward to capture that header. Skip blank lines and bullet points.
+    """
+    for i in range(1, len(modules)):
+        m = modules[i]
+        curr_start = m["start_line"]
+        title = m["title"].strip().lower()
+        num = m["module_number"]
+        
+        # Clean title for fuzzy comparison
+        clean_title = re.sub(r'[^\w\s]', '', title)
+        
+        for offset in range(1, 6):
+            check_idx = curr_start - 1 - offset
+            if check_idx < 0:
+                break
+                
+            line = original_lines[check_idx].strip()
+            if not line:
+                # Skip blank lines and continue looking backward
+                continue
+                
+            is_bullet = line.startswith((
+                '●', '○', '■', '▪', '▫', '-', '*', '+', '•', 
+                '○', '■', '□', '▲', '▼', '◆', '◇'
+            ))
+            has_letters = any(c.isalpha() for c in line)
+            
+            if is_bullet or not has_letters or len(line) >= 120:
+                # Bullet lines or text-less lines are never headers; stop searching backward
+                break
+                
+            is_header = False
+            
+            # 1. Matches step/module headings (e.g. "Step 13", "Module 5", "12. Bank", roman numerals)
+            generic_header_patterns = [
+                rf'^\s*(?:step|module|chapter|part|section)\s*\d+\b',
+                rf'^\s*\d+[:.)-]?\s+[A-Z]',
+                rf'^\s*[IVXLCDM]+[:.)-]?\s+[A-Z]'
+            ]
+            if any(re.match(pat, line, re.IGNORECASE) for pat in generic_header_patterns):
+                is_header = True
+            elif re.match(rf'^\s*(?:module|chapter|part|section)?\s*{num}\b', line, re.IGNORECASE):
+                is_header = True
+            else:
+                # 2. Fuzzy matches module title by word overlap
+                STOP_WORDS = {
+                    "and", "or", "for", "to", "the", "a", "of", "in", "at", "on", "with", "about", 
+                    "its", "it", "this", "these", "that", "from", "by", "an", "as", "into", "is", "are"
+                }
+                def get_sig_words(text: str) -> set[str]:
+                    words = re.findall(r'[a-z0-9]+', text.lower())
+                    return {w for w in words if w not in STOP_WORDS}
+                
+                words_title = get_sig_words(title)
+                words_line = get_sig_words(line)
+                
+                if words_title and words_line:
+                    intersection = words_title.intersection(words_line)
+                    similarity = len(intersection) / min(len(words_title), len(words_line))
+                    if similarity >= 0.5:
+                        is_header = True
+                        
+                # 3. Substring matching fallback
+                if not is_header:
+                    clean_line = re.sub(r'[^\w\s]', '', line.lower())
+                    if clean_title and (clean_title in clean_line or clean_line in clean_title):
+                        is_header = True
+                        
+            if is_header:
+                new_start = max(modules[i-1]["start_line"] + 1, curr_start - offset)
+                print(f"  [ADJUST] Adjusted Module {num} start_line from {curr_start} backward to {new_start} to capture header: '{line}'")
+                m["start_line"] = new_start
+                break
+
+# -------------------------------------------------------
 # Direct Line-Number Slicing — replaces regex anchor resolution
 # -------------------------------------------------------
 def slice_modules_by_line(original_lines: list, modules: List[dict]) -> List[dict]:
@@ -404,6 +494,7 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
     if original_lines:
         try:
             raw_modules = extract_modules_with_llm(original_lines)
+            adjust_start_lines_for_headers(raw_modules, original_lines)
             modules = slice_modules_by_line(original_lines, raw_modules)
             good = sum(1 for m in modules if len(m.get('text', '')) >= 100)
             print(f"Successfully sliced text for {good} / {len(modules)} modules.")

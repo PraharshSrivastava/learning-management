@@ -9,7 +9,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from pipelines.blueprint_extractor import run_blueprint_extraction
-from pipelines.lesson_extractor import extract_lessons_for_module
+from pipelines.lesson_extractor import extract_slides_for_module
 from pipelines.bullet_refiner import refine_bullets_inplace
 from pipelines.script_generator import generate_scripts_for_module
 from pipelines.config import UPLOAD_DIR, COURSES_FILE
@@ -56,10 +56,10 @@ def generate_course_outline(filename):
 def generate_lessons_for_course(course_id: str) -> dict:
     """
     Pipeline Step 3: For each module in the course, call the LLM once to produce
-    Lessons → Slides → Bullet Points. Runs sequentially so that each module call
-    can be seeded with lesson titles from all previously processed modules.
+    Slides → Bullet Points directly. Runs sequentially so that each module call
+    can be seeded with slide titles from all previously processed modules.
     """
-    print(f"Running pipeline step 3: Generating lessons for course {course_id}...")
+    print(f"Running pipeline step 3: Generating slides for course {course_id}...")
 
     if not os.path.exists(COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
@@ -78,7 +78,7 @@ def generate_lessons_for_course(course_id: str) -> dict:
         raise ValueError("This course has no modules. Generate the blueprint first.")
 
     total_modules = len(modules)
-    prior_lesson_titles: list[str] = []  # accumulated across modules for style anchoring
+    prior_slide_titles: list[str] = []  # accumulated across modules for style anchoring
 
     for i, module in enumerate(modules):
         module_title = module.get("title", f"Module {i + 1}")
@@ -86,27 +86,27 @@ def generate_lessons_for_course(course_id: str) -> dict:
         module_number = i + 1
 
         try:
-            lessons = extract_lessons_for_module(
+            slides = extract_slides_for_module(
                 module_text=module_text,
                 module_title=module_title,
                 module_number=module_number,
                 total_modules=total_modules,
-                prior_lesson_titles=prior_lesson_titles,
+                prior_slide_titles=prior_slide_titles,
                 module_images=module.get("images", []),
             )
-            module["lessons"] = lessons
+            module["slides"] = slides
 
-            # Collect all lesson titles from this module for the next module's anchor
-            for lesson in lessons:
-                title = lesson.get("lesson_title", "")
+            # Collect all slide titles from this module for the next module's anchor
+            for slide in slides:
+                title = slide.get("slide_title", "")
                 if title:
-                    prior_lesson_titles.append(title)
+                    prior_slide_titles.append(title)
 
         except Exception as e:
-            print(f"  [ERROR] Failed to generate lessons for module '{module_title}': {e}")
-            # Leave existing lessons intact (or empty list) rather than crashing the whole job
-            if "lessons" not in module:
-                module["lessons"] = []
+            print(f"  [ERROR] Failed to generate slides for module '{module_title}': {e}")
+            # Leave existing slides intact (or empty list) rather than crashing the whole job
+            if "slides" not in module:
+                module["slides"] = []
 
     course["modules"] = modules
 
@@ -129,7 +129,7 @@ def generate_lessons_for_course(course_id: str) -> dict:
     with open(COURSES_FILE, 'w', encoding='utf-8') as f:
         json.dump(courses, f, indent=2, ensure_ascii=False)
 
-    print(f"Lesson generation complete for course '{course.get('course_name')}'.")
+    print(f"Slide generation complete for course '{course.get('course_name')}'.")
     return course
 
 
@@ -169,11 +169,10 @@ def generate_scripts_for_course(course_id: str) -> dict:
 
             # Accumulate scripts of the current module for the next module's context
             current_scripts = []
-            for lesson in updated_module.get("lessons", []):
-                for slide in lesson.get("slides", []):
-                    slide_script = slide.get("script", "")
-                    if slide_script:
-                        current_scripts.append(slide_script)
+            for slide in updated_module.get("slides", []):
+                slide_script = slide.get("script", "")
+                if slide_script:
+                    current_scripts.append(slide_script)
             if current_scripts:
                 previous_script = " ".join(current_scripts)
         except Exception as e:

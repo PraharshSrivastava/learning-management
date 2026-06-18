@@ -147,34 +147,6 @@ class CourseSlide {
   };
 }
 
-class CourseLesson {
-  final int lessonNumber;
-  final String lessonTitle;
-  final List<CourseSlide> slides;
-
-  CourseLesson({
-    required this.lessonNumber,
-    required this.lessonTitle,
-    required this.slides,
-  });
-
-  factory CourseLesson.fromJson(Map<String, dynamic> json) {
-    return CourseLesson(
-      lessonNumber: (json['lesson_number'] as num?)?.toInt() ?? 0,
-      lessonTitle: json['lesson_title']?.toString() ?? '',
-      slides: (json['slides'] as List? ?? [])
-          .map((s) => CourseSlide.fromJson(s as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'lesson_number': lessonNumber,
-    'lesson_title': lessonTitle,
-    'slides': slides.map((s) => s.toJson()).toList(),
-  };
-}
-
 // ---------- Module Model ----------
 
 // Model for a single Course Module
@@ -184,7 +156,7 @@ class CourseModule {
   final String text;
   final String startLine;
   final String endLine;
-  final List<CourseLesson> lessons;
+  final List<CourseSlide> slides;
   final int numQuestions;
   final Map<String, dynamic>? quiz;
 
@@ -194,7 +166,7 @@ class CourseModule {
     required this.text,
     required this.startLine,
     required this.endLine,
-    this.lessons = const [],
+    this.slides = const [],
     this.numQuestions = 0,
     this.quiz,
   });
@@ -206,8 +178,8 @@ class CourseModule {
       text: json['text']?.toString() ?? '',
       startLine: json['start_line']?.toString() ?? '',
       endLine: json['end_line']?.toString() ?? '',
-      lessons: (json['lessons'] as List? ?? [])
-          .map((l) => CourseLesson.fromJson(l as Map<String, dynamic>))
+      slides: (json['slides'] as List? ?? [])
+          .map((s) => CourseSlide.fromJson(s as Map<String, dynamic>))
           .toList(),
       numQuestions: (json['num_questions'] as num?)?.toInt() ?? 0,
       quiz: json['quiz'] as Map<String, dynamic>?,
@@ -220,7 +192,7 @@ class CourseModule {
     'text': text,
     'start_line': startLine,
     'end_line': endLine,
-    'lessons': lessons.map((l) => l.toJson()).toList(),
+    'slides': slides.map((s) => s.toJson()).toList(),
     'num_questions': numQuestions,
     'quiz': quiz,
   };
@@ -854,14 +826,14 @@ class DashboardPage extends ConsumerWidget {
 
         if (lessonGenState.status == LessonGenStatus.generating)
           const _LoadingOverlay(
-            message: 'Generating lessons for all modules...\n'
-                'Step 1: LLM extracts lessons & slides per module.\n'
+            message: 'Generating slides for all modules...\n'
+                'Step 1: LLM extracts slides per module.\n'
                 'Step 2: Holistic bullet refinement across full course.\n'
                 'This may take 4–6 minutes — please wait.',
           ),
 
         if (ref.watch(slideGenerationProvider).status == SlideGenStatus.generating)
-          const _LoadingOverlay(message: 'Generating PowerPoint slides for all lessons...\nThis usually takes a few seconds.'),
+          const _LoadingOverlay(message: 'Generating PowerPoint slides for all modules...\nThis usually takes a few seconds.'),
 
         if (ref.watch(scriptGenerationProvider).status == ScriptGenStatus.generating)
           const _LoadingOverlay(
@@ -2643,13 +2615,13 @@ class LessonsView extends ConsumerStatefulWidget {
 
 class _LessonsViewState extends ConsumerState<LessonsView> {
   // Nested mutable state mirrors:
-  // _moduleData[m].lessons[l].slides[s].bullets[b]
+  // _moduleData[m].slides[s].bullets[b]
   //
   // We hold controllers only for text fields that need them.
-  // Lesson titles, slide titles, bullet texts are all TextEditingControllers
+  // Slide titles, bullet texts are TextEditingControllers
   // stored in parallel nested lists.
 
-  late List<_ModuleLessonData> _data;
+  late List<_ModuleSlideData> _data;
 
   @override
   void initState() {
@@ -2668,21 +2640,16 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
 
   void _initData() {
     _data = widget.course.modules.map((module) {
-      return _ModuleLessonData(
+      return _ModuleSlideData(
         moduleTitle: module.title,
         moduleNumber: module.moduleNumber,
-        lessons: module.lessons.map((lesson) {
-          return _LessonData(
-            lessonTitleCtrl: TextEditingController(text: lesson.lessonTitle),
-            slides: lesson.slides.map((slide) {
-              return _SlideData(
-                slideTitleCtrl: TextEditingController(text: slide.slideTitle),
-                bulletCtrls: slide.bullets
-                    .map((b) => TextEditingController(text: b.text))
-                    .toList(),
-                images: List<SlideImage>.from(slide.images),
-              );
-            }).toList(),
+        slides: module.slides.map((slide) {
+          return _SlideData(
+            slideTitleCtrl: TextEditingController(text: slide.slideTitle),
+            bulletCtrls: slide.bullets
+                .map((b) => TextEditingController(text: b.text))
+                .toList(),
+            images: List<SlideImage>.from(slide.images),
           );
         }).toList(),
       );
@@ -2691,12 +2658,9 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
 
   void _disposeData() {
     for (final m in _data) {
-      for (final l in m.lessons) {
-        l.lessonTitleCtrl.dispose();
-        for (final s in l.slides) {
-          s.slideTitleCtrl.dispose();
-          for (final b in s.bulletCtrls) b.dispose();
-        }
+      for (final s in m.slides) {
+        s.slideTitleCtrl.dispose();
+        for (final b in s.bulletCtrls) b.dispose();
       }
     }
     _data.clear();
@@ -2710,35 +2674,9 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
 
   // ---- helpers ----
 
-  void _addLesson(int mIdx) {
+  void _addSlide(int mIdx) {
     setState(() {
-      _data[mIdx].lessons.add(_LessonData(
-        lessonTitleCtrl: TextEditingController(),
-        slides: [
-          _SlideData(
-            slideTitleCtrl: TextEditingController(),
-            bulletCtrls: [TextEditingController()],
-            images: [],
-          ),
-        ],
-      ));
-    });
-  }
-
-  void _deleteLesson(int mIdx, int lIdx) {
-    setState(() {
-      final lesson = _data[mIdx].lessons.removeAt(lIdx);
-      lesson.lessonTitleCtrl.dispose();
-      for (final s in lesson.slides) {
-        s.slideTitleCtrl.dispose();
-        for (final b in s.bulletCtrls) b.dispose();
-      }
-    });
-  }
-
-  void _addSlide(int mIdx, int lIdx) {
-    setState(() {
-      _data[mIdx].lessons[lIdx].slides.add(_SlideData(
+      _data[mIdx].slides.add(_SlideData(
         slideTitleCtrl: TextEditingController(),
         bulletCtrls: [TextEditingController()],
         images: [],
@@ -2746,23 +2684,23 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
     });
   }
 
-  void _deleteSlide(int mIdx, int lIdx, int sIdx) {
+  void _deleteSlide(int mIdx, int sIdx) {
     setState(() {
-      final slide = _data[mIdx].lessons[lIdx].slides.removeAt(sIdx);
+      final slide = _data[mIdx].slides.removeAt(sIdx);
       slide.slideTitleCtrl.dispose();
       for (final b in slide.bulletCtrls) b.dispose();
     });
   }
 
-  void _addBullet(int mIdx, int lIdx, int sIdx) {
+  void _addBullet(int mIdx, int sIdx) {
     setState(() {
-      _data[mIdx].lessons[lIdx].slides[sIdx].bulletCtrls.add(TextEditingController());
+      _data[mIdx].slides[sIdx].bulletCtrls.add(TextEditingController());
     });
   }
 
-  void _deleteBullet(int mIdx, int lIdx, int sIdx, int bIdx) {
+  void _deleteBullet(int mIdx, int sIdx, int bIdx) {
     setState(() {
-      final ctrl = _data[mIdx].lessons[lIdx].slides[sIdx].bulletCtrls.removeAt(bIdx);
+      final ctrl = _data[mIdx].slides[sIdx].bulletCtrls.removeAt(bIdx);
       ctrl.dispose();
     });
   }
@@ -2774,27 +2712,18 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
       final originalModule = mEntry.value;
       final mData = mIdx < _data.length ? _data[mIdx] : null;
 
-      final lessons = mData?.lessons.asMap().entries.map((lEntry) {
-        final lIdx = lEntry.key;
-        final lData = lEntry.value;
-        final slides = lData.slides.asMap().entries.map((sEntry) {
-          final sIdx = sEntry.key;
-          final sData = sEntry.value;
-          final bullets = sData.bulletCtrls
-              .where((c) => c.text.trim().isNotEmpty)
-              .map((c) => {'text': c.text.trim()})
-              .toList();
-          return {
-            'slide_number': sIdx + 1,
-            'slide_title': sData.slideTitleCtrl.text.trim(),
-            'bullets': bullets,
-            'images': sData.images.map((img) => img.toJson()).toList(),
-          };
-        }).toList();
+      final slides = mData?.slides.asMap().entries.map((sEntry) {
+        final sIdx = sEntry.key;
+        final sData = sEntry.value;
+        final bullets = sData.bulletCtrls
+            .where((c) => c.text.trim().isNotEmpty)
+            .map((c) => {'text': c.text.trim()})
+            .toList();
         return {
-          'lesson_number': lIdx + 1,
-          'lesson_title': lData.lessonTitleCtrl.text.trim(),
-          'slides': slides,
+          'slide_number': sIdx + 1,
+          'slide_title': sData.slideTitleCtrl.text.trim(),
+          'bullets': bullets,
+          'images': sData.images.map((img) => img.toJson()).toList(),
         };
       }).toList() ?? [];
 
@@ -2803,7 +2732,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
         'text': originalModule.text,
         'start_line': originalModule.startLine,
         'end_line': originalModule.endLine,
-        'lessons': lessons,
+        'slides': slides,
       };
     }).toList();
 
@@ -2816,7 +2745,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Lessons saved successfully!'),
+          content: Text('Slides saved successfully!'),
           backgroundColor: AppTheme.accentGreen,
         ),
       );
@@ -2827,7 +2756,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
 
   @override
   Widget build(BuildContext context) {
-    final hasLessons = _data.any((m) => m.lessons.isNotEmpty);
+    final hasSlides = _data.any((m) => m.slides.isNotEmpty);
 
     return Container(
       decoration: BoxDecoration(
@@ -2850,7 +2779,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'LESSONS OUTLINE',
+                      'SLIDES OUTLINE',
                       style: GoogleFonts.barlow(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -2869,7 +2798,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
                     ),
                   ],
                 ),
-                if (hasLessons)
+                if (hasSlides)
                   Row(
                     children: [
                       ElevatedButton.icon(
@@ -2995,7 +2924,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
 
           // Body
           Expanded(
-            child: !hasLessons
+            child: !hasSlides
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -3004,7 +2933,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
                             size: 56, color: AppTheme.gray.withOpacity(0.4)),
                         const SizedBox(height: 16),
                         Text(
-                          'No Lessons Generated Yet',
+                          'No Slides Generated Yet',
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -3013,7 +2942,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Go to the Courses tab, open a course blueprint,\nand press "Generate Lessons".',
+                          'Go to the Courses tab, open a course blueprint,\nand press "Generate Slides".',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.barlow(fontSize: 14, color: AppTheme.gray),
                         ),
@@ -3084,91 +3013,9 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
                 ),
                 TextButton.icon(
                   icon: const Icon(Icons.add, size: 14),
-                  label: const Text('Add Lesson'),
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.primaryBlue),
-                  onPressed: () => _addLesson(mIdx),
-                ),
-              ],
-            ),
-          ),
-
-          // Lessons
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: mData.lessons.asMap().entries.map((lEntry) {
-                return _buildLessonBlock(mIdx, lEntry.key);
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLessonBlock(int mIdx, int lIdx) {
-    final lData = _data[mIdx].lessons[lIdx];
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-        borderRadius: AppTheme.pShapeRadiusCustom(6),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Lesson title row
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: AppTheme.accentOrange.withOpacity(0.08),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentOrange,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    'L${lIdx + 1}',
-                    style: GoogleFonts.barlow(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    controller: lData.lessonTitleCtrl,
-                    style: GoogleFonts.barlow(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textBlack,
-                    ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      border: OutlineInputBorder(),
-                      hintText: 'Lesson title...',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  icon: const Icon(Icons.add, size: 13),
                   label: const Text('Add Slide'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.accentOrange,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                  onPressed: () => _addSlide(mIdx, lIdx),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.accentRed, size: 18),
-                  tooltip: 'Delete lesson',
-                  onPressed: () => _deleteLesson(mIdx, lIdx),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.primaryBlue),
+                  onPressed: () => _addSlide(mIdx),
                 ),
               ],
             ),
@@ -3176,10 +3023,10 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
 
           // Slides
           Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             child: Column(
-              children: lData.slides.asMap().entries.map((sEntry) {
-                return _buildSlideBlock(mIdx, lIdx, sEntry.key);
+              children: mData.slides.asMap().entries.map((sEntry) {
+                return _buildSlideBlock(mIdx, sEntry.key);
               }).toList(),
             ),
           ),
@@ -3188,8 +3035,8 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
     );
   }
 
-  Widget _buildSlideBlock(int mIdx, int lIdx, int sIdx) {
-    final sData = _data[mIdx].lessons[lIdx].slides[sIdx];
+  Widget _buildSlideBlock(int mIdx, int sIdx) {
+    final sData = _data[mIdx].slides[sIdx];
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -3240,7 +3087,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
                 tooltip: 'Delete slide',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onPressed: () => _deleteSlide(mIdx, lIdx, sIdx),
+                onPressed: () => _deleteSlide(mIdx, sIdx),
               ),
             ],
           ),
@@ -3280,7 +3127,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
                     tooltip: 'Delete bullet',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    onPressed: () => _deleteBullet(mIdx, lIdx, sIdx, bIdx),
+                    onPressed: () => _deleteBullet(mIdx, sIdx, bIdx),
                   ),
                 ],
               ),
@@ -3297,7 +3144,7 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            onPressed: () => _addBullet(mIdx, lIdx, sIdx),
+            onPressed: () => _addBullet(mIdx, sIdx),
           ),
         ],
       ),
@@ -3307,23 +3154,16 @@ class _LessonsViewState extends ConsumerState<LessonsView> {
 
 // ---- Mutable data holders (no const, holds controllers) ----
 
-class _ModuleLessonData {
+class _ModuleSlideData {
   final int moduleNumber;
   final String moduleTitle;
-  final List<_LessonData> lessons;
-
-  _ModuleLessonData({
-    required this.moduleNumber,
-    required this.moduleTitle,
-    required this.lessons,
-  });
-}
-
-class _LessonData {
-  final TextEditingController lessonTitleCtrl;
   final List<_SlideData> slides;
 
-  _LessonData({required this.lessonTitleCtrl, required this.slides});
+  _ModuleSlideData({
+    required this.moduleNumber,
+    required this.moduleTitle,
+    required this.slides,
+  });
 }
 
 class _SlideData {
@@ -3353,7 +3193,6 @@ class SlidesViewerPage extends ConsumerStatefulWidget {
 
 class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
   int _selectedModuleIdx = 0;
-  int _selectedLessonIdx = 0;
   late PageController _pageController;
   int _currentSlideIdx = 0;
   final FocusNode _focusNode = FocusNode();
@@ -3374,7 +3213,6 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
     if (oldWidget.course.id != widget.course.id) {
       setState(() {
         _selectedModuleIdx = 0;
-        _selectedLessonIdx = 0;
         _currentSlideIdx = 0;
         _loading = true;
         _slidesExist = false;
@@ -3410,23 +3248,17 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
     super.dispose();
   }
 
-  List<CourseModule> get _modulesWithLessons =>
-      widget.course.modules.where((m) => m.lessons.isNotEmpty).toList();
+  List<CourseModule> get _modulesWithSlides =>
+      widget.course.modules.where((m) => m.slides.isNotEmpty).toList();
 
   CourseModule? get _currentModule {
-    final mods = _modulesWithLessons;
+    final mods = _modulesWithSlides;
     if (_selectedModuleIdx >= mods.length) return null;
     return mods[_selectedModuleIdx];
   }
 
-  CourseLesson? get _currentLesson {
-    final mod = _currentModule;
-    if (mod == null || _selectedLessonIdx >= mod.lessons.length) return null;
-    return mod.lessons[_selectedLessonIdx];
-  }
-
   void _goToSlide(int idx) {
-    if (idx < 0 || _currentLesson == null || idx >= _currentLesson!.slides.length) return;
+    if (idx < 0 || _currentModule == null || idx >= _currentModule!.slides.length) return;
     _pageController.animateToPage(
       idx,
       duration: const Duration(milliseconds: 350),
@@ -3452,7 +3284,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
     if (actualModuleIdx < 0) return;
 
     final url = AppConstants.downloadSlideEndpoint(
-      widget.course.id, actualModuleIdx, _selectedLessonIdx,
+      widget.course.id, actualModuleIdx,
     );
     html.window.open(url, '_blank');
   }
@@ -3496,7 +3328,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Go to the Lessons tab, open a course,\nand press "Generate Slides" to create slide decks.',
+                'Go to the Slides tab, open a course,\nand press "Generate Slides" to create slide decks.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.barlow(fontSize: 14, color: AppTheme.gray),
               ),
@@ -3506,8 +3338,8 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
       );
     }
 
-    final modulesWithLessons = _modulesWithLessons;
-    final hasLessons = modulesWithLessons.isNotEmpty;
+    final modulesWithSlides = _modulesWithSlides;
+    final hasSlides = modulesWithSlides.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -3549,7 +3381,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                     ),
                   ],
                 ),
-                if (hasLessons)
+                if (hasSlides)
                   Row(
                     children: [
                       ElevatedButton.icon(
@@ -3562,13 +3394,12 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
                         onPressed: () {
-                          if (_currentLesson == null || _currentLesson!.slides.isEmpty) return;
+                          if (_currentModule == null || _currentModule!.slides.isEmpty) return;
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) => FullscreenSlideshowPage(
                                 course: widget.course,
                                 initialModuleIdx: _selectedModuleIdx,
-                                initialLessonIdx: _selectedLessonIdx,
                                 initialSlideIdx: _currentSlideIdx,
                               ),
                             ),
@@ -3600,7 +3431,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
             ),
           ),
 
-          if (!hasLessons)
+          if (!hasSlides)
             Expanded(
               child: Center(
                 child: Column(
@@ -3619,7 +3450,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Generate lessons first from the Courses tab,\nthen come back to view slides.',
+                      'Generate slides first from the Courses tab,\nthen come back to view slides.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.barlow(fontSize: 14, color: AppTheme.gray),
                     ),
@@ -3628,7 +3459,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
               ),
             )
           else ...[
-            // Module and Lesson selectors
+            // Module selectors
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
@@ -3645,7 +3476,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                       label: 'Module',
                       icon: Icons.view_module_rounded,
                       accentColor: AppTheme.primaryBlue,
-                      items: modulesWithLessons.asMap().entries.map((e) {
+                      items: modulesWithSlides.asMap().entries.map((e) {
                         return DropdownMenuItem<int>(
                           value: e.key,
                           child: Text(
@@ -3654,14 +3485,13 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                           ),
                         );
                       }).toList(),
-                      value: _selectedModuleIdx < modulesWithLessons.length
+                      value: _selectedModuleIdx < modulesWithSlides.length
                           ? _selectedModuleIdx
                           : 0,
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {
                             _selectedModuleIdx = val;
-                            _selectedLessonIdx = 0;
                             _currentSlideIdx = 0;
                           });
                           _pageController.jumpToPage(0);
@@ -3669,47 +3499,16 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  // Lesson selector
-                  if (_currentModule != null)
-                    Expanded(
-                      child: _SelectorDropdown(
-                        label: 'Lesson',
-                        icon: Icons.auto_stories_rounded,
-                        accentColor: AppTheme.accentOrange,
-                        items: _currentModule!.lessons.asMap().entries.map((e) {
-                          return DropdownMenuItem<int>(
-                            value: e.key,
-                            child: Text(
-                              'L${e.key + 1}: ${e.value.lessonTitle}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
-                        value: _selectedLessonIdx < _currentModule!.lessons.length
-                            ? _selectedLessonIdx
-                            : 0,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _selectedLessonIdx = val;
-                              _currentSlideIdx = 0;
-                            });
-                            _pageController.jumpToPage(0);
-                          }
-                        },
-                      ),
-                    ),
                 ],
               ),
             ),
 
             // Slide viewer
             Expanded(
-              child: _currentLesson == null || _currentLesson!.slides.isEmpty
+              child: _currentModule == null || _currentModule!.slides.isEmpty
                   ? Center(
                       child: Text(
-                        'This lesson has no slides.',
+                        'This module has no slides.',
                         style: GoogleFonts.barlow(fontSize: 14, color: AppTheme.gray),
                       ),
                     )
@@ -3724,20 +3523,18 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                               padding: const EdgeInsets.fromLTRB(32, 20, 32, 8),
                               child: PageView.builder(
                                 controller: _pageController,
-                                itemCount: _currentLesson!.slides.length,
+                                itemCount: _currentModule!.slides.length,
                                 onPageChanged: (idx) {
                                   setState(() => _currentSlideIdx = idx);
                                 },
                                 itemBuilder: (context, idx) {
                                   return SlideRenderer(
-                                    slide: _currentLesson!.slides[idx],
+                                    slide: _currentModule!.slides[idx],
                                     slideIndex: idx,
-                                    totalSlides: _currentLesson!.slides.length,
+                                    totalSlides: _currentModule!.slides.length,
                                     courseName: widget.course.courseName,
                                     moduleName: _currentModule!.title,
-                                    lessonName: _currentLesson!.lessonTitle,
                                     moduleNumber: _currentModule!.moduleNumber,
-                                    lessonNumber: _currentLesson!.lessonNumber,
                                   );
                                 },
                               ),
@@ -3766,7 +3563,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
 
                                 // Dot indicators
                                 ...List.generate(
-                                  _currentLesson!.slides.length,
+                                  _currentModule!.slides.length,
                                   (i) => GestureDetector(
                                     onTap: () => _goToSlide(i),
                                     child: AnimatedContainer(
@@ -3790,10 +3587,10 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                                 IconButton(
                                   icon: const Icon(Icons.chevron_right_rounded),
                                   iconSize: 32,
-                                  color: _currentSlideIdx < _currentLesson!.slides.length - 1
+                                  color: _currentSlideIdx < _currentModule!.slides.length - 1
                                       ? AppTheme.primaryBlue
                                       : AppTheme.gray.withOpacity(0.3),
-                                  onPressed: _currentSlideIdx < _currentLesson!.slides.length - 1
+                                  onPressed: _currentSlideIdx < _currentModule!.slides.length - 1
                                       ? () => _goToSlide(_currentSlideIdx + 1)
                                       : null,
                                 ),
@@ -3808,7 +3605,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    'Slide ${_currentSlideIdx + 1} of ${_currentLesson!.slides.length}',
+                                    'Slide ${_currentSlideIdx + 1} of ${_currentModule!.slides.length}',
                                     style: GoogleFonts.barlow(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
@@ -3821,8 +3618,8 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                           ),
 
                           // Speaker Notes / Narration Script Block
-                          if (_currentSlideIdx < _currentLesson!.slides.length &&
-                              _currentLesson!.slides[_currentSlideIdx].script.isNotEmpty)
+                          if (_currentSlideIdx < _currentModule!.slides.length &&
+                              _currentModule!.slides[_currentSlideIdx].script.isNotEmpty)
                             Container(
                               margin: const EdgeInsets.fromLTRB(32, 0, 32, 20),
                               padding: const EdgeInsets.all(16),
@@ -3860,7 +3657,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                                         constraints: const BoxConstraints(),
                                         onPressed: () {
                                           Clipboard.setData(ClipboardData(
-                                            text: _currentLesson!.slides[_currentSlideIdx].script
+                                            text: _currentModule!.slides[_currentSlideIdx].script
                                           ));
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             const SnackBar(content: Text('Script copied to clipboard!')),
@@ -3871,7 +3668,7 @@ class _SlidesViewerPageState extends ConsumerState<SlidesViewerPage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    _currentLesson!.slides[_currentSlideIdx].script,
+                                    _currentModule!.slides[_currentSlideIdx].script,
                                     style: GoogleFonts.barlow(
                                       fontSize: 13.5,
                                       height: 1.45,
@@ -3966,9 +3763,7 @@ class SlideRenderer extends StatelessWidget {
   final int totalSlides;
   final String courseName;
   final String moduleName;
-  final String lessonName;
   final int moduleNumber;
-  final int lessonNumber;
 
   const SlideRenderer({
     super.key,
@@ -3977,9 +3772,7 @@ class SlideRenderer extends StatelessWidget {
     required this.totalSlides,
     required this.courseName,
     required this.moduleName,
-    required this.lessonName,
     required this.moduleNumber,
-    required this.lessonNumber,
   });
 
   @override
@@ -4038,7 +3831,7 @@ class SlideRenderer extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        'M$moduleNumber · L$lessonNumber',
+                        'M$moduleNumber · Slide ${slideIndex + 1}',
                         style: GoogleFonts.barlow(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -5048,14 +4841,12 @@ class QuizOption {
 class FullscreenSlideshowPage extends StatefulWidget {
   final Course course;
   final int initialModuleIdx;
-  final int initialLessonIdx;
   final int initialSlideIdx;
 
   const FullscreenSlideshowPage({
     super.key,
     required this.course,
     required this.initialModuleIdx,
-    required this.initialLessonIdx,
     required this.initialSlideIdx,
   });
 
@@ -5065,7 +4856,6 @@ class FullscreenSlideshowPage extends StatefulWidget {
 
 class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
   late int _selectedModuleIdx;
-  late int _selectedLessonIdx;
   late int _currentSlideIdx;
   late PageController _pageController;
   final FocusNode _focusNode = FocusNode();
@@ -5078,7 +4868,6 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
   void initState() {
     super.initState();
     _selectedModuleIdx = widget.initialModuleIdx;
-    _selectedLessonIdx = widget.initialLessonIdx;
     _currentSlideIdx = widget.initialSlideIdx;
     _pageController = PageController(initialPage: _currentSlideIdx);
     _startHideControlsTimer();
@@ -5092,23 +4881,19 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
     super.dispose();
   }
 
-  List<CourseModule> get _modulesWithLessons =>
-      widget.course.modules.where((m) => m.lessons.isNotEmpty).toList();
+  List<CourseModule> get _modulesWithSlides =>
+      widget.course.modules.where((m) => m.slides.isNotEmpty).toList();
 
   CourseModule? get _currentModule {
-    final mods = _modulesWithLessons;
+    final mods = _modulesWithSlides;
     if (_selectedModuleIdx >= mods.length) return null;
     return mods[_selectedModuleIdx];
   }
 
-  CourseLesson? get _currentLesson {
-    final mod = _currentModule;
-    if (mod == null || _selectedLessonIdx >= mod.lessons.length) return null;
-    return mod.lessons[_selectedLessonIdx];
-  }
+  List<CourseSlide> get _currentSlides => _currentModule?.slides ?? [];
 
   void _goToSlide(int idx) {
-    if (idx < 0 || _currentLesson == null || idx >= _currentLesson!.slides.length) return;
+    if (idx < 0 || _currentModule == null || idx >= _currentSlides.length) return;
     _pageController.animateToPage(
       idx,
       duration: const Duration(milliseconds: 350),
@@ -5120,7 +4905,7 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
     if (event is! KeyDownEvent) return;
     if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
         event.logicalKey == LogicalKeyboardKey.space) {
-      if (_currentSlideIdx < (_currentLesson?.slides.length ?? 0) - 1) {
+      if (_currentSlideIdx < _currentSlides.length - 1) {
         _goToSlide(_currentSlideIdx + 1);
       }
     } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -5146,7 +4931,7 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentLesson == null || _currentLesson!.slides.isEmpty) {
+    if (_currentModule == null || _currentSlides.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -5158,7 +4943,7 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
       );
     }
 
-    final slides = _currentLesson!.slides;
+    final slides = _currentSlides;
 
     return KeyboardListener(
       focusNode: _focusNode,
@@ -5195,9 +4980,7 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
                               totalSlides: slides.length,
                               courseName: widget.course.courseName,
                               moduleName: _currentModule!.title,
-                              lessonName: _currentLesson!.lessonTitle,
                               moduleNumber: _currentModule!.moduleNumber,
-                              lessonNumber: _currentLesson!.lessonNumber,
                             );
                           },
                         ),
@@ -5301,7 +5084,7 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Left Side: Module & Lesson Name
+                            // Left Side: Module & Slide Title
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -5320,7 +5103,7 @@ class _FullscreenSlideshowPageState extends State<FullscreenSlideshowPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Lesson ${_currentLesson!.lessonNumber}: ${_currentLesson!.lessonTitle}',
+                                    'Slide ${_currentSlideIdx + 1}: ${slides[_currentSlideIdx].slideTitle}',
                                     style: GoogleFonts.inter(
                                       color: Colors.white,
                                       fontSize: 14,

@@ -21,12 +21,8 @@ class RefinedSlide(BaseModel):
     bullets: List[RefinedBullet]
 
 
-class RefinedLesson(BaseModel):
-    slides: List[RefinedSlide]
-
-
 class RefinedModule(BaseModel):
-    lessons: List[RefinedLesson]
+    slides: List[RefinedSlide]
 
 
 class RefinedCourse(BaseModel):
@@ -57,13 +53,11 @@ def _build_edit_prompt(course: dict) -> str:
 
     for mi, module in enumerate(modules):
         lines.append(f"[MODULE {mi}] {module.get('title', '')}")
-        for li, lesson in enumerate(module.get("lessons", [])):
-            lines.append(f"  [LESSON {li}] {lesson.get('lesson_title', '')}")
-            for si, slide in enumerate(lesson.get("slides", [])):
-                lines.append(f"    [SLIDE {si}] {slide.get('slide_title', '')}")
-                for bi, bullet in enumerate(slide.get("bullets", [])):
-                    bullet_text = bullet.get("text", "")
-                    lines.append(f"      • {bullet_text}")
+        for si, slide in enumerate(module.get("slides", [])):
+            lines.append(f"    [SLIDE {si}] {slide.get('slide_title', '')}")
+            for bi, bullet in enumerate(slide.get("bullets", [])):
+                bullet_text = bullet.get("text", "")
+                lines.append(f"      • {bullet_text}")
         lines.append("")
 
     lines.append("Return the RefinedCourse JSON with style-edited bullets for every slide.")
@@ -87,15 +81,14 @@ def refine_bullets_inplace(course: dict) -> dict:
     """
     modules = course.get("modules", [])
 
-    if not modules or not any(m.get("lessons") for m in modules):
-        print("  [REFINE] No lessons found — skipping bullet refinement.")
+    if not modules or not any(m.get("slides") for m in modules):
+        print("  [REFINE] No slides found — skipping bullet refinement.")
         return course
 
     total_bullets = sum(
         len(slide.get("bullets", []))
         for m in modules
-        for lesson in m.get("lessons", [])
-        for slide in lesson.get("slides", [])
+        for slide in m.get("slides", [])
     )
     print(f"  [REFINE] Starting style edit pass: {len(modules)} modules, {total_bullets} input bullets.")
 
@@ -141,40 +134,33 @@ def refine_bullets_inplace(course: dict) -> dict:
 
         ref_mod = refined.modules[mi]
 
-        for li, lesson in enumerate(module.get("lessons", [])):
-            if li >= len(ref_mod.lessons):
-                print(f"  [REFINE][WARNING] No refined data for module {mi} lesson {li}. Keeping original.")
+        for si, slide in enumerate(module.get("slides", [])):
+            if si >= len(ref_mod.slides):
+                print(f"  [REFINE][WARNING] No refined data for mod {mi} slide {si}. Keeping original.")
                 continue
 
-            ref_les = ref_mod.lessons[li]
+            ref_slide = ref_mod.slides[si]
+            clean_bullets = [
+                {"text": b.text.strip()}
+                for b in ref_slide.bullets
+                if b.text.strip()
+            ]
 
-            for si, slide in enumerate(lesson.get("slides", [])):
-                if si >= len(ref_les.slides):
-                    print(f"  [REFINE][WARNING] No refined data for mod {mi} les {li} slide {si}. Keeping original.")
-                    continue
+            original_count = len(slide.get("bullets", []))
 
-                ref_slide = ref_les.slides[si]
-                clean_bullets = [
-                    {"text": b.text.strip()}
-                    for b in ref_slide.bullets
-                    if b.text.strip()
-                ]
+            if not clean_bullets:
+                print(f"  [REFINE][WARNING] Empty bullets for mod {mi} slide {si}. Keeping original.")
+                continue
 
-                original_count = len(slide.get("bullets", []))
+            # Safety: if refiner returned way fewer bullets than original, keep original
+            # (the refiner might have hallucinated and dropped content)
+            if len(clean_bullets) < original_count * 0.5:
+                print(f"  [REFINE][WARNING] Refiner dropped too many bullets for mod {mi} slide {si} "
+                      f"({original_count} → {len(clean_bullets)}). Keeping original.")
+                continue
 
-                if not clean_bullets:
-                    print(f"  [REFINE][WARNING] Empty bullets for mod {mi} les {li} slide {si}. Keeping original.")
-                    continue
-
-                # Safety: if refiner returned way fewer bullets than original, keep original
-                # (the refiner might have hallucinated and dropped content)
-                if len(clean_bullets) < original_count * 0.5:
-                    print(f"  [REFINE][WARNING] Refiner dropped too many bullets for mod {mi} les {li} slide {si} "
-                          f"({original_count} → {len(clean_bullets)}). Keeping original.")
-                    continue
-
-                slide["bullets"] = clean_bullets
-                bullets_written += len(clean_bullets)
+            slide["bullets"] = clean_bullets
+            bullets_written += len(clean_bullets)
 
     print(f"  [REFINE] Done. {bullets_written} bullets written (input had {total_bullets}).")
     return course

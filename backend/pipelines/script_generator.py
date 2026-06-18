@@ -16,12 +16,8 @@ class SlideScriptSchema(BaseModel):
     script: str
 
 
-class LessonScriptSchema(BaseModel):
-    slides: List[SlideScriptSchema]
-
-
 class ModuleScriptSchema(BaseModel):
-    lessons: List[LessonScriptSchema]
+    slides: List[SlideScriptSchema]
 
 
 # -------------------------------------------------------
@@ -30,7 +26,7 @@ class ModuleScriptSchema(BaseModel):
 
 def _build_script_prompt(module_text: str, module: dict, previous_script: str = None) -> str:
     """
-    Builds the user prompt showing the raw text, the lesson/slide structure,
+    Builds the user prompt showing the raw text, the slide structure,
     and the optional previous module script for transition continuity.
     """
     lines = []
@@ -47,15 +43,13 @@ def _build_script_prompt(module_text: str, module: dict, previous_script: str = 
     lines.append(module_text)
     lines.append("=======================================================")
     lines.append("")
-    lines.append("=== CURRENT MODULE OUTLINE (LESSONS & SLIDES) ===")
+    lines.append("=== CURRENT MODULE OUTLINE (SLIDES) ===")
 
-    lessons = module.get("lessons", [])
-    for li, lesson in enumerate(lessons):
-        lines.append(f"  [LESSON {li + 1}] Title: {lesson.get('lesson_title', '')}")
-        for si, slide in enumerate(lesson.get("slides", [])):
-            lines.append(f"    [SLIDE {si + 1}] Title: {slide.get('slide_title', '')}")
-            for bi, bullet in enumerate(slide.get("bullets", [])):
-                lines.append(f"      - {bullet.get('text', '')}")
+    slides = module.get("slides", [])
+    for si, slide in enumerate(slides):
+        lines.append(f"    [SLIDE {si + 1}] Title: {slide.get('slide_title', '')}")
+        for bi, bullet in enumerate(slide.get("bullets", [])):
+            lines.append(f"      - {bullet.get('text', '')}")
 
     lines.append("")
     lines.append("Please output the ModuleScriptSchema JSON containing the spoken script for each slide in order.")
@@ -75,12 +69,12 @@ def generate_scripts_for_module(
     Call the LLM to generate slide narration scripts for a single module.
     Returns the updated module dict with "script" added to each slide.
     """
-    lessons = module.get("lessons", [])
-    if not lessons:
-        print(f"  [SCRIPT] No lessons found for module '{module.get('title')}' — skipping script generation.")
+    slides = module.get("slides", [])
+    if not slides:
+        print(f"  [SCRIPT] No slides found for module '{module.get('title')}' — skipping script generation.")
         return module
 
-    total_slides = sum(len(l.get("slides", [])) for l in lessons)
+    total_slides = len(slides)
     print(f"  [SCRIPT] Starting script generation: '{module.get('title')}', {total_slides} slides.")
 
     json_schema = ModuleScriptSchema.model_json_schema()
@@ -108,27 +102,21 @@ def generate_scripts_for_module(
         raw_content = response.choices[0].message.content
 
         parsed = ModuleScriptSchema.model_validate_json(raw_content)
-        print(f"  [SCRIPT] LLM successfully returned {len(parsed.lessons)} lessons.")
+        print(f"  [SCRIPT] LLM successfully returned {len(parsed.slides)} slides.")
 
         # Match and merge back positionally
-        for li, lesson in enumerate(lessons):
-            if li >= len(parsed.lessons):
-                print(f"    [WARNING] No script lesson at index {li}. Using fallback empty script.")
+        for si, slide in enumerate(slides):
+            if si >= len(parsed.slides):
+                print(f"    [WARNING] No script slide at index {si}. Using fallback empty script.")
+                slide["script"] = ""
                 continue
-            ref_lesson = parsed.lessons[li]
-            for si, slide in enumerate(lesson.get("slides", [])):
-                if si >= len(ref_lesson.slides):
-                    print(f"    [WARNING] No script slide at index {si} for lesson {li}. Using fallback empty script.")
-                    slide["script"] = ""
-                    continue
-                slide["script"] = ref_lesson.slides[si].script.strip()
+            slide["script"] = parsed.slides[si].script.strip()
 
     except Exception as e:
         print(f"  [SCRIPT][ERROR] LLM script generation failed for module '{module.get('title')}': {e}")
         # Inject empty fallback script for all slides to prevent front-end or save errors
-        for lesson in lessons:
-            for slide in lesson.get("slides", []):
-                if "script" not in slide:
-                    slide["script"] = ""
+        for slide in slides:
+            if "script" not in slide:
+                slide["script"] = ""
 
     return module

@@ -1,7 +1,7 @@
 """
-Slide Generator — converts lesson data into branded .pptx files.
+Slide Generator — converts module data into branded .pptx files.
 
-One .pptx per lesson, stored in backend/slides/{course_id}/.
+One .pptx per module, stored in backend/slides/{course_id}/.
 Uses a programmatic template: navy header bar, white body, Calibri fonts.
 """
 
@@ -112,8 +112,8 @@ def _add_slide_number(slide, number, total):
 # Slide Builders
 # -------------------------------------------------------
 
-def _build_title_slide(prs, course_name, module_title, lesson_title, module_number, lesson_number):
-    """First slide: full navy background, course → module → lesson hierarchy."""
+def _build_title_slide(prs, course_name, module_title, module_number):
+    """First slide: full navy background, course → module hierarchy."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank layout
 
     # Full navy background
@@ -133,19 +133,11 @@ def _build_title_slide(prs, course_name, module_title, lesson_title, module_numb
         bold=True, font_name="Calibri",
     )
 
-    # Module label
+    # Module title — the hero text
     _add_text_box(
         slide,
-        Inches(0.8), Inches(2.5), Inches(10), Inches(0.5),
-        f"Module {module_number}  ·  {module_title}",
-        font_size=18, font_color=BRAND_CYAN, bold=False,
-    )
-
-    # Lesson title — the hero text
-    _add_text_box(
-        slide,
-        Inches(0.8), Inches(3.3), Inches(11), Inches(2.0),
-        lesson_title,
+        Inches(0.8), Inches(2.6), Inches(11), Inches(2.5),
+        f"Module {module_number}\n{module_title}",
         font_size=36, font_color=WHITE, bold=True,
     )
 
@@ -155,11 +147,11 @@ def _build_title_slide(prs, course_name, module_title, lesson_title, module_numb
         Inches(0.8), Inches(5.8), Inches(3), Inches(0.06), BRAND_ORANGE
     )
 
-    # Lesson number badge
+    # Module badge
     _add_text_box(
         slide,
         Inches(0.8), Inches(6.2), Inches(4), Inches(0.4),
-        f"Lesson {lesson_number}",
+        f"Module Presentation",
         font_size=14, font_color=BRAND_ORANGE, bold=True,
     )
 
@@ -278,8 +270,8 @@ def _build_content_slide(prs, slide_title, bullets, slide_num, total_slides, scr
             print(f"  [SLIDES][WARNING] Failed to write speaker notes: {e}")
 
 
-def _build_end_slide(prs, lesson_title, module_title):
-    """Final slide: navy background, end-of-lesson marker."""
+def _build_end_slide(prs, module_title):
+    """Final slide: navy background, end-of-module marker."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
 
     # Full navy
@@ -294,21 +286,14 @@ def _build_end_slide(prs, lesson_title, module_title):
     _add_text_box(
         slide,
         Inches(0.8), Inches(2.5), Inches(10), Inches(0.6),
-        "LESSON COMPLETE", font_size=16, font_color=BRAND_ORANGE, bold=True,
+        "MODULE COMPLETE", font_size=16, font_color=BRAND_ORANGE, bold=True,
     )
 
-    # Lesson title recap
+    # Module title recap
     _add_text_box(
         slide,
         Inches(0.8), Inches(3.3), Inches(10), Inches(1.5),
-        lesson_title, font_size=32, font_color=WHITE, bold=True,
-    )
-
-    # Module reference
-    _add_text_box(
-        slide,
-        Inches(0.8), Inches(5.2), Inches(10), Inches(0.5),
-        module_title, font_size=16, font_color=BRAND_CYAN, bold=False,
+        module_title, font_size=32, font_color=WHITE, bold=True,
     )
 
     # Bottom bar
@@ -321,13 +306,12 @@ def _build_end_slide(prs, lesson_title, module_title):
 # Main Generator
 # -------------------------------------------------------
 
-def generate_lesson_pptx(
+def generate_module_pptx(
     course: dict,
     module_index: int,
-    lesson_index: int,
 ) -> str:
     """
-    Generate a branded .pptx for one lesson.
+    Generate a branded .pptx for one module.
 
     Returns the absolute path of the generated file.
     """
@@ -341,15 +325,7 @@ def generate_lesson_pptx(
     module = modules[module_index]
     module_title = module.get("title", f"Module {module_index + 1}")
     module_number = module.get("module_number", module_index + 1)
-    lessons = module.get("lessons", [])
-
-    if lesson_index >= len(lessons):
-        raise ValueError(f"Lesson index {lesson_index} out of range (module has {len(lessons)} lessons).")
-
-    lesson = lessons[lesson_index]
-    lesson_title = lesson.get("lesson_title", f"Lesson {lesson_index + 1}")
-    lesson_number = lesson.get("lesson_number", lesson_index + 1)
-    slides = lesson.get("slides", [])
+    slides = module.get("slides", [])
 
     # ---- Build the presentation ----
     prs = Presentation()
@@ -357,10 +333,9 @@ def generate_lesson_pptx(
     prs.slide_height = SLIDE_HEIGHT
 
     total_content_slides = len(slides)
-    total_slides_with_bookends = total_content_slides + 2  # title + end
 
     # Title slide
-    _build_title_slide(prs, course_name, module_title, lesson_title, module_number, lesson_number)
+    _build_title_slide(prs, course_name, module_title, module_number)
 
     # Content slides
     for i, slide_data in enumerate(slides):
@@ -370,13 +345,13 @@ def generate_lesson_pptx(
         _build_content_slide(prs, s_title, bullet_texts, i + 1, total_content_slides, script, slide_data.get("images", []))
 
     # End slide
-    _build_end_slide(prs, lesson_title, module_title)
+    _build_end_slide(prs, module_title)
 
     # ---- Save ----
     output_dir = os.path.join(SLIDES_DIR, course_id)
     os.makedirs(output_dir, exist_ok=True)
 
-    filename = f"module_{module_index + 1}_lesson_{lesson_index + 1}.pptx"
+    filename = f"module_{module_index + 1}.pptx"
     output_path = os.path.join(output_dir, filename)
     prs.save(output_path)
 
@@ -384,10 +359,15 @@ def generate_lesson_pptx(
     return output_path
 
 
+def generate_lesson_pptx(course: dict, module_index: int, lesson_index: int) -> str:
+    # Deprecated fallback wrapper
+    return generate_module_pptx(course, module_index)
+
+
 def generate_all_slides_for_course(course_id: str) -> dict:
     """
-    Generate .pptx for every lesson in every module of a course.
-    Returns a manifest dict: {module_index: {lesson_index: filepath}}.
+    Generate .pptx for every module of a course.
+    Returns a manifest dict: {module_index: filepath}.
     """
     if not os.path.exists(COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
@@ -403,29 +383,24 @@ def generate_all_slides_for_course(course_id: str) -> dict:
     manifest = {}
 
     for mi, module in enumerate(modules):
-        lessons = module.get("lessons", [])
-        if not lessons:
+        slides = module.get("slides", [])
+        if not slides:
             continue
-        manifest[mi] = {}
-        for li, lesson in enumerate(lessons):
-            slides = lesson.get("slides", [])
-            if not slides:
-                continue
-            try:
-                path = generate_lesson_pptx(course, mi, li)
-                manifest[mi][li] = path
-            except Exception as e:
-                print(f"  [SLIDES][ERROR] Module {mi+1} Lesson {li+1}: {e}")
-                manifest[mi][li] = None
+        try:
+            path = generate_module_pptx(course, mi)
+            manifest[mi] = path
+        except Exception as e:
+            print(f"  [SLIDES][ERROR] Module {mi+1}: {e}")
+            manifest[mi] = None
 
-    total = sum(1 for m in manifest.values() for p in m.values() if p)
+    total = sum(1 for p in manifest.values() if p)
     print(f"  [SLIDES] Generated {total} PPTX files for course '{course.get('course_name')}'.")
     return manifest
 
 
-def get_slide_path(course_id: str, module_index: int, lesson_index: int) -> str | None:
-    """Return the expected path for a lesson PPTX, or None if not found."""
-    filename = f"module_{module_index + 1}_lesson_{lesson_index + 1}.pptx"
+def get_slide_path(course_id: str, module_index: int, lesson_index: int = 0) -> str | None:
+    """Return the expected path for a module PPTX, or None if not found."""
+    filename = f"module_{module_index + 1}.pptx"
     path = os.path.join(SLIDES_DIR, course_id, filename)
     return path if os.path.exists(path) else None
 
@@ -439,14 +414,13 @@ def list_available_slides(course_id: str) -> list[dict]:
     results = []
     for filename in sorted(os.listdir(course_dir)):
         if filename.endswith(".pptx"):
-            # Parse module_X_lesson_Y.pptx
+            # Parse module_X.pptx
             parts = filename.replace(".pptx", "").split("_")
             try:
                 mi = int(parts[1]) - 1  # 0-indexed
-                li = int(parts[3]) - 1
                 results.append({
                     "module_index": mi,
-                    "lesson_index": li,
+                    "lesson_index": 0, # compatibility field
                     "filename": filename,
                     "path": os.path.join(course_dir, filename),
                 })

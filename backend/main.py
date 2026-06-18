@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from pipelines.run_pipeline import generate_course_outline, generate_lessons_for_course, generate_scripts_for_course
 from pipelines.bullet_refiner import refine_bullets_for_course
-from pipelines.slide_generator import generate_all_slides_for_course, generate_lesson_pptx, get_slide_path, list_available_slides
+from pipelines.slide_generator import generate_all_slides_for_course, generate_module_pptx, get_slide_path, list_available_slides
 from pipelines.config import COURSES_FILE
 
 app = FastAPI(title="LMS Document Management System Backend")
@@ -99,7 +99,7 @@ async def generate_lessons(course_id: str):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate lessons: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate slides: {str(e)}")
 
 @app.post("/api/courses/{course_id}/refine-bullets")
 async def refine_bullets(course_id: str):
@@ -159,7 +159,7 @@ async def update_course(course_id: str, updated_fields: dict):
             updated_modules_data = updated_fields["modules"]
             new_modules = []
             
-            # Map original modules by start_line and title to preserve sub-fields (like lessons)
+            # Map original modules by start_line and title to preserve sub-fields (like slides)
             original_modules = original_course.get("modules", [])
 
             # start_line can now be an int (new) or str (legacy) — normalise to str key for lookup
@@ -190,7 +190,7 @@ async def update_course(course_id: str, updated_fields: dict):
                     incoming_start_line = item.get("start_line", None)
                     incoming_num_questions = item.get("num_questions", 0)
 
-                # Look for a match in original modules to preserve lessons
+                # Look for a match in original modules to preserve slides
                 matched = None
                 sl_key = _sl_key(incoming_start_line)
                 if sl_key and sl_key in original_by_start_line:
@@ -199,7 +199,7 @@ async def update_course(course_id: str, updated_fields: dict):
                     matched = original_by_title[incoming_title.strip()]
 
                 if matched:
-                    # Found match: preserve lessons and other existing keys, update editable ones
+                    # Found match: preserve slides and other existing keys, update editable ones
                     existing = dict(matched)
                     existing["module_number"] = idx + 1
                     existing["title"] = incoming_title
@@ -207,9 +207,9 @@ async def update_course(course_id: str, updated_fields: dict):
                     existing["start_line"] = incoming_start_line
                     existing["num_questions"] = incoming_num_questions
                     existing.pop("end_line", None)
-                    # Preserve generated lessons — blueprint edits must never wipe them
-                    if "lessons" not in existing:
-                        existing["lessons"] = []
+                    # Preserve generated slides — blueprint edits must never wipe them
+                    if "slides" not in existing:
+                        existing["slides"] = []
                     new_modules.append(existing)
                 else:
                     # Brand-new module added manually via the UI
@@ -219,7 +219,7 @@ async def update_course(course_id: str, updated_fields: dict):
                         "text": incoming_text,
                         "start_line": incoming_start_line,
                         "num_questions": incoming_num_questions,
-                        "lessons": []
+                        "slides": []
                     })
             original_course["modules"] = new_modules
                 
@@ -243,7 +243,7 @@ async def update_course(course_id: str, updated_fields: dict):
 async def generate_slides(course_id: str):
     try:
         manifest = generate_all_slides_for_course(course_id)
-        total = sum(1 for m in manifest.values() for p in m.values() if p)
+        total = sum(1 for p in manifest.values() if p)
         return {"message": f"Generated {total} slide decks.", "course_id": course_id}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -253,10 +253,10 @@ async def generate_slides(course_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to generate slides: {str(e)}")
 
 
-@app.get("/api/courses/{course_id}/slides/{module_index}/{lesson_index}")
-async def download_slide(course_id: str, module_index: int, lesson_index: int):
-    """Download a specific lesson's PPTX. Must be generated first via POST /generate-slides."""
-    path = get_slide_path(course_id, module_index, lesson_index)
+@app.get("/api/courses/{course_id}/slides/{module_index}")
+async def download_slide(course_id: str, module_index: int):
+    """Download a specific module's PPTX. Must be generated first via POST /generate-slides."""
+    path = get_slide_path(course_id, module_index)
 
     if not path:
         raise HTTPException(

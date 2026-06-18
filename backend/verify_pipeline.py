@@ -26,24 +26,22 @@ def main():
         for img in images:
             print(f"  - Image ID: {img.get('image_id')}, Caption: \"{img.get('caption')}\", Path: {img.get('file_path')}")
             
-    # 2. Generate Lessons & Bullet Refinement & Image-to-Slide Mapping
-    print("\n--- STAGE 2: Lesson Extraction & Image Mapping ---")
+    # 2. Generate Slides & Bullet Refinement & Image-to-Slide Mapping
+    print("\n--- STAGE 2: Slide Extraction & Image Mapping ---")
     course = generate_lessons_for_course(course_id)
     
     # Check if images are assigned to slides
     for m_idx, m in enumerate(course.get("modules", [])):
         print(f"\nModule '{m.get('title')}':")
-        for l_idx, lesson in enumerate(m.get("lessons", [])):
-            print(f"  Lesson '{lesson.get('lesson_title')}':")
-            # Images assigned at lesson level (original assignments before mapping)
-            lesson_imgs = lesson.get("images", [])
-            print(f"    - Original Lesson images ({len(lesson_imgs)}): {[img.get('image_id') for img in lesson_imgs]}")
-            
-            for s_idx, slide in enumerate(lesson.get("slides", [])):
-                slide_imgs = slide.get("images", [])
-                print(f"    - Slide {slide.get('slide_number')}: '{slide.get('slide_title')}' has {len(slide_imgs)} images.")
-                for img in slide_imgs:
-                    print(f"        * Image ID: {img.get('image_id')}, Path: {img.get('file_path')}")
+        # Images assigned at module level (original assignments before mapping)
+        module_imgs = m.get("images", [])
+        print(f"    - Original Module images ({len(module_imgs)}): {[img.get('image_id') for img in module_imgs]}")
+        
+        for s_idx, slide in enumerate(m.get("slides", [])):
+            slide_imgs = slide.get("images", [])
+            print(f"    - Slide {slide.get('slide_number')}: '{slide.get('slide_title')}' has {len(slide_imgs)} images.")
+            for img in slide_imgs:
+                print(f"        * Image ID: {img.get('image_id')}, Path: {img.get('file_path')}")
                     
     # 3. Generate PowerPoint slides
     print("\n--- STAGE 3: PPTX Generation ---")

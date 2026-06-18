@@ -16,7 +16,7 @@ class AppConstants {
   static String refineBulletsEndpoint(String id) => '$apiBaseUrl/api/courses/$id/refine-bullets';
   static String generateScriptsEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-scripts';
   static String generateSlidesEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-slides';
-  static String downloadSlideEndpoint(String id, int moduleIdx, int lessonIdx) =>
-      '$apiBaseUrl/api/courses/$id/slides/$moduleIdx/$lessonIdx';
+  static String downloadSlideEndpoint(String id, int moduleIdx) =>
+      '$apiBaseUrl/api/courses/$id/slides/$moduleIdx';
   static String listSlidesEndpoint(String id) => '$apiBaseUrl/api/courses/$id/slides';
 }

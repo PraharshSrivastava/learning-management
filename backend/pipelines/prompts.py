@@ -6,7 +6,7 @@ MODULE COUNT:
 - You MUST create between 3 and 6 modules for the entire document.
 - Do NOT output only 1 or 2 modules for the entire document unless it is extremely short (less than 2 pages).
 - Only exceed 6 modules if the document EXPLICITLY defines more via clearly labeled chapters, modules, or major section headings in the source text (e.g. "Module 1:", "Chapter 3:", "Part II:").
-- When in doubt, aim for 4 or 5 modules. Keep distinct high-level topics in separate modules, but group granular sections, steps, and sub-steps under them.
+- When in doubt, aim for 4 to 6 modules. Keep distinct high-level topics in separate modules, but group granular sections, steps, and sub-steps under them.
 
 GROUPING — WHAT IS AND IS NOT A MODULE:
 - A module represents a MAJOR TOPIC SHIFT in the document (e.g. from "Verification" to "Payment" to "Compliance").
@@ -24,19 +24,21 @@ CONTENT COVERAGE:
 - The content is contiguous: module N's content ends exactly where module N+1's content begins. There must be no gaps.
 
 START LINE NUMBER:
-- For each module, provide start_line: the INTEGER line number (the N in [LINE N]) where that module's content begins.
+- For each module, provide start_line: the INTEGER line number (the N in [LINE N]) where that module begins.
+- Use this conditional rule to determine start_line:
+  1. If the new module is introduced by a heading, step label, or section title (e.g. "Step X", "Section Y", "Module Z", or a plain title), set start_line to that heading line.
+  2. If the new module starts directly with a paragraph and has no heading, set start_line to the first sentence/line of that paragraph.
+- NEVER set start_line to a body paragraph or bullet point below a heading, leaving the heading stranded at the end of the previous module.
 - The first module's start_line MUST be 1 (the very first line of the document).
-- start_line values must be strictly increasing across modules (each module starts after the previous one).
+- start_line values must be strictly increasing across modules.
 - Do NOT guess or estimate — read the [LINE N] prefix from the document content directly.
 
 Return a JSON object with a "modules" array following the provided schema exactly.
 """
 
-LESSON_EXTRACTION_PROMPT = """You are an instructional designer creating lesson content for a corporate LMS.
+SLIDE_EXTRACTION_PROMPT = """You are an instructional designer creating content for a corporate LMS.
 
-Transform the module content into: Lessons → Slides → Bullet Points.
-
-LESSONS: 4–7 word titles describing what the learner will know or do. Never use step numbers or vague titles like "Overview" or "Introduction".
+Transform the module content into a sequential list of Slides with Bullet Points.
 
 SLIDES: 3–6 word titles for each specific topic. Never copy document headings verbatim.
 
@@ -50,8 +52,11 @@ IMAGES:
 - If you see an image marker like `[IMAGE: img_xxxx]` in the module content, you MUST assign that `img_xxxx` ID to the `image_ids` list of the slide that summarizes or discusses the text immediately surrounding that marker.
 - Do not lose or ignore any image markers.
 
-Return a JSON object with a "lessons" array following the provided schema exactly.
+Return a JSON object with a "slides" array following the provided schema exactly.
 """
+
+# Keep alias for backward compatibility
+LESSON_EXTRACTION_PROMPT = SLIDE_EXTRACTION_PROMPT
 
 BULLET_REFINEMENT_PROMPT = """You are a copy editor doing a final consistency pass on a training course.
 
@@ -75,7 +80,7 @@ SCRIPT_GENERATION_PROMPT = """You are a professional corporate trainer and narra
 
 You will receive:
 1. The raw text content of the current module.
-2. The structured lesson/slide/bullet outline of the current module.
+2. The structured slide/bullet outline of the current module.
 3. The narration script generated for the previous module (for continuity, if any).
 
 Your task is to write a natural, engaging narration script for each slide in the current module.
