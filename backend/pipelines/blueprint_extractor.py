@@ -45,10 +45,58 @@ def extract_text_and_pages(pdf_path: str):
             
             if page_num == 1:
                 # Parse metadata from the first page
-                metadata, remaining_text = extract_metadata_programmatically(cleaned_text)
-                if not metadata:
-                    remaining_text = cleaned_text
-                norm_text = normalise_to_sentence_lines(remaining_text)
+                # First try table extraction
+                tables = page.find_tables()
+                if tables:
+                    parsed_meta = {}
+                    first_table = tables[0]
+                    rows = first_table.extract()
+                    labels = [
+                        ("course_name",        "Course Name"),
+                        ("course_description", "Course Description"),
+                        ("course_objective",   "Course Objective"),
+                        ("course_difficulty",  "Course Difficulty"),
+                        ("language",           "Language"),
+                        ("target_audience",    "Target Audience"),
+                        ("course_type",        "Course Type"),
+                    ]
+                    for row in rows:
+                        if len(row) >= 2:
+                            label_cell = (row[0] or "").strip()
+                            val_cell = (row[1] or "").strip()
+                            
+                            # Normalize cell text
+                            norm_label_cell = re.sub(r'\s+', ' ', label_cell).strip().lower()
+                            for key, label in labels:
+                                norm_label = label.lower()
+                                if norm_label_cell == norm_label:
+                                    val_cleaned = re.sub(r'\s+', ' ', val_cell).strip()
+                                    parsed_meta[key] = val_cleaned
+                                    break
+                    
+                    if "course_name" in parsed_meta:
+                        metadata = parsed_meta
+                        try:
+                            # Crop page below the table to get the remaining text
+                            cropped_page = page.crop((0, first_table.bbox[3], page.width, page.height))
+                            remaining_text = cropped_page.extract_text() or ""
+                            cleaned_remaining = clean_extracted_text(remaining_text)
+                        except Exception as e:
+                            print(f"      [WARNING] Cropping page below table failed: {e}. Falling back to empty remaining text.")
+                            cleaned_remaining = ""
+                        norm_text = normalise_to_sentence_lines(cleaned_remaining)
+                    else:
+                        # Table didn't look like our metadata table, fallback to programmatic parsing
+                        metadata, remaining_text = extract_metadata_programmatically(cleaned_text)
+                        if not metadata:
+                            remaining_text = cleaned_text
+                        norm_text = normalise_to_sentence_lines(remaining_text)
+                else:
+                    # No tables found, fallback to programmatic parsing
+                    metadata, remaining_text = extract_metadata_programmatically(cleaned_text)
+                    if not metadata:
+                        remaining_text = cleaned_text
+                    norm_text = normalise_to_sentence_lines(remaining_text)
             else:
                 norm_text = normalise_to_sentence_lines(cleaned_text)
                 

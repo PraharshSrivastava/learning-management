@@ -9,10 +9,10 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from pipelines.blueprint_extractor import run_blueprint_extraction
-from pipelines.lesson_extractor import extract_slides_for_module
+from pipelines.lesson_extractor import extract_lessons_for_module
 from pipelines.bullet_refiner import refine_bullets_inplace
-from pipelines.script_generator import generate_scripts_for_module
-from pipelines.config import UPLOAD_DIR, COURSES_FILE
+from pipelines.config import UPLOAD_DIR, COURSES_FILE, BASE_DIR
+from pipelines.script_generator import generate_scripts_for_module, synthesize_speech_for_slide
 
 def generate_course_outline(filename):
     print(f"Running pipeline step 2: Extracting blueprint for file {filename}...")
@@ -56,10 +56,10 @@ def generate_course_outline(filename):
 def generate_lessons_for_course(course_id: str) -> dict:
     """
     Pipeline Step 3: For each module in the course, call the LLM once to produce
-    Slides → Bullet Points directly. Runs sequentially so that each module call
-    can be seeded with slide titles from all previously processed modules.
+    Lessons → Bullet Points directly. Runs sequentially so that each module call
+    can be seeded with lesson titles from all previously processed modules.
     """
-    print(f"Running pipeline step 3: Generating slides for course {course_id}...")
+    print(f"Running pipeline step 3: Generating lessons for course {course_id}...")
 
     if not os.path.exists(COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
@@ -78,7 +78,7 @@ def generate_lessons_for_course(course_id: str) -> dict:
         raise ValueError("This course has no modules. Generate the blueprint first.")
 
     total_modules = len(modules)
-    prior_slide_titles: list[str] = []  # accumulated across modules for style anchoring
+    prior_lesson_titles: list[str] = []  # accumulated across modules for style anchoring
 
     for i, module in enumerate(modules):
         module_title = module.get("title", f"Module {i + 1}")
@@ -86,27 +86,27 @@ def generate_lessons_for_course(course_id: str) -> dict:
         module_number = i + 1
 
         try:
-            slides = extract_slides_for_module(
+            lessons = extract_lessons_for_module(
                 module_text=module_text,
                 module_title=module_title,
                 module_number=module_number,
                 total_modules=total_modules,
-                prior_slide_titles=prior_slide_titles,
+                prior_lesson_titles=prior_lesson_titles,
                 module_images=module.get("images", []),
             )
-            module["slides"] = slides
+            module["lessons"] = lessons
 
-            # Collect all slide titles from this module for the next module's anchor
-            for slide in slides:
-                title = slide.get("slide_title", "")
+            # Collect all lesson titles from this module for the next module's anchor
+            for lesson in lessons:
+                title = lesson.get("lesson_title", "")
                 if title:
-                    prior_slide_titles.append(title)
+                    prior_lesson_titles.append(title)
 
         except Exception as e:
-            print(f"  [ERROR] Failed to generate slides for module '{module_title}': {e}")
-            # Leave existing slides intact (or empty list) rather than crashing the whole job
-            if "slides" not in module:
-                module["slides"] = []
+            print(f"  [ERROR] Failed to generate lessons for module '{module_title}': {e}")
+            # Leave existing lessons intact (or empty list) rather than crashing the whole job
+            if "lessons" not in module:
+                module["lessons"] = []
 
     course["modules"] = modules
 
@@ -117,25 +117,32 @@ def generate_lessons_for_course(course_id: str) -> dict:
     except Exception as e:
         print(f"  [WARNING] Bullet refinement failed ({e}). Saving with original bullets.")
 
-    # Step 4.5: Map images to slides
+    # Step 4.5: Map images to lessons
     try:
-        from pipelines.image_mapper import map_images_to_slides
-        course = map_images_to_slides(course)
+        from pipelines.image_mapper import map_images_to_lessons
+        course = map_images_to_lessons(course)
     except Exception as e:
-        print(f"  [WARNING] Image mapping to slides failed: {e}")
+        print(f"  [WARNING] Image mapping to lessons failed: {e}")
 
-    courses[course_idx] = course
+    # Load fresh courses list from disk to prevent race conditions during long LLM calls
+    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+        fresh_courses = json.load(f)
+    fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
+    if fresh_idx is not None:
+        fresh_courses[fresh_idx] = course
+    else:
+        fresh_courses.append(course)
 
     with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(courses, f, indent=2, ensure_ascii=False)
+        json.dump(fresh_courses, f, indent=2, ensure_ascii=False)
 
-    print(f"Slide generation complete for course '{course.get('course_name')}'.")
+    print(f"Lesson generation complete for course '{course.get('course_name')}'.")
     return course
 
 
 def generate_scripts_for_course(course_id: str) -> dict:
     """
-    Sequentially generate narration scripts for all modules in a course
+    Sequentially generate narration scripts and speech audio for all modules in a course
     and save them to courses.json.
     """
     print(f"Generating narration scripts for course {course_id}...")
@@ -159,6 +166,7 @@ def generate_scripts_for_course(course_id: str) -> dict:
     previous_script = ""
     for i, module in enumerate(modules):
         module_text = module.get("text", "")
+        module_number = i + 1
         try:
             updated_module = generate_scripts_for_module(
                 module_text=module_text,
@@ -166,6 +174,23 @@ def generate_scripts_for_course(course_id: str) -> dict:
                 previous_script=previous_script
             )
             modules[i] = updated_module
+
+            # Synthesize speech per slide in module
+            for s_idx, slide in enumerate(updated_module.get("slides", [])):
+                script_text = slide.get("script", "").strip()
+                if script_text:
+                    audio_dir_rel = f"assets/audio/course_{course_id}/module_{module_number}"
+                    audio_path_rel = f"{audio_dir_rel}/slide_{s_idx + 1}.wav"
+                    audio_path_abs = os.path.join(BASE_DIR, audio_path_rel)
+                    
+                    print(f"  [TTS] Synthesizing speech for slide {s_idx + 1}...")
+                    success = synthesize_speech_for_slide(script_text, audio_path_abs)
+                    if success:
+                        slide["audio_path"] = audio_path_rel
+                    else:
+                        slide["audio_path"] = ""
+                else:
+                    slide["audio_path"] = ""
 
             # Accumulate scripts of the current module for the next module's context
             current_scripts = []
@@ -176,15 +201,23 @@ def generate_scripts_for_course(course_id: str) -> dict:
             if current_scripts:
                 previous_script = " ".join(current_scripts)
         except Exception as e:
-            print(f"  [WARNING] Script generation failed for module '{module.get('title', '')}': {e}")
+            print(f"  [WARNING] Script generation/synthesis failed for module '{module.get('title', '')}': {e}")
 
     course["modules"] = modules
-    courses[course_idx] = course
+    
+    # Reload courses to prevent overwrite races
+    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+        fresh_courses = json.load(f)
+    fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
+    if fresh_idx is not None:
+        fresh_courses[fresh_idx] = course
+    else:
+        fresh_courses.append(course)
 
     with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(courses, f, indent=2, ensure_ascii=False)
+        json.dump(fresh_courses, f, indent=2, ensure_ascii=False)
 
-    print(f"Script generation complete for course '{course.get('course_name')}'!")
+    print(f"Script and TTS generation complete for course '{course.get('course_name')}'!")
     return course
 
 
@@ -198,3 +231,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error executing pipeline: {e}")
         sys.exit(1)
+

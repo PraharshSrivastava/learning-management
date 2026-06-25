@@ -13,10 +13,17 @@ backend/uploads/*
 backend/slides/*
 !backend/slides/.gitkeep
 backend/assets/images/course_*
+backend/assets/audio/*
+backend/assets/slides/*
+backend/assets/videos/*
 backend/.venv/
 backend/venv/
 backend/env/
 *.pyc
+
+# Temp / Local audio files
+audio-esv2-90p-bg-10p (7).mp3
+improvements.txt
 
 # Editor & System
 .vscode/

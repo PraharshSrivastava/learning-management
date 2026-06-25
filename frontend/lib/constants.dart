@@ -14,9 +14,7 @@ class AppConstants {
   static String updateCourseEndpoint(String id) => '$apiBaseUrl/api/courses/$id';
   static String generateLessonsEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-lessons';
   static String refineBulletsEndpoint(String id) => '$apiBaseUrl/api/courses/$id/refine-bullets';
-  static String generateScriptsEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-scripts';
   static String generateSlidesEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-slides';
-  static String downloadSlideEndpoint(String id, int moduleIdx) =>
-      '$apiBaseUrl/api/courses/$id/slides/$moduleIdx';
-  static String listSlidesEndpoint(String id) => '$apiBaseUrl/api/courses/$id/slides';
+  static String generateScriptsEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-scripts';
+  static String slideshowHtmlUrl(String courseId, int moduleNum) => '$apiBaseUrl/assets/slides/$courseId/module_$moduleNum.html';
 }

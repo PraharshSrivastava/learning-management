@@ -7,9 +7,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from fastapi.staticfiles import StaticFiles
-from pipelines.run_pipeline import generate_course_outline, generate_lessons_for_course, generate_scripts_for_course
+from pipelines.run_pipeline import generate_course_outline, generate_lessons_for_course
 from pipelines.bullet_refiner import refine_bullets_for_course
-from pipelines.slide_generator import generate_all_slides_for_course, generate_module_pptx, get_slide_path, list_available_slides
 from pipelines.config import COURSES_FILE
 
 app = FastAPI(title="LMS Document Management System Backend")
@@ -99,7 +98,7 @@ async def generate_lessons(course_id: str):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate slides: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate lessons: {str(e)}")
 
 @app.post("/api/courses/{course_id}/refine-bullets")
 async def refine_bullets(course_id: str):
@@ -113,17 +112,7 @@ async def refine_bullets(course_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to refine bullets: {str(e)}")
 
-@app.post("/api/courses/{course_id}/generate-scripts")
-async def generate_scripts(course_id: str):
-    try:
-        updated_course = generate_scripts_for_course(course_id)
-        return updated_course
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate narration scripts: {str(e)}")
+
 
 @app.get("/api/courses")
 async def list_courses():
@@ -190,7 +179,7 @@ async def update_course(course_id: str, updated_fields: dict):
                     incoming_start_line = item.get("start_line", None)
                     incoming_num_questions = item.get("num_questions", 0)
 
-                # Look for a match in original modules to preserve slides
+                # Look for a match in original modules to preserve lessons
                 matched = None
                 sl_key = _sl_key(incoming_start_line)
                 if sl_key and sl_key in original_by_start_line:
@@ -199,7 +188,7 @@ async def update_course(course_id: str, updated_fields: dict):
                     matched = original_by_title[incoming_title.strip()]
 
                 if matched:
-                    # Found match: preserve slides and other existing keys, update editable ones
+                    # Found match: preserve lessons and other existing keys, update editable ones
                     existing = dict(matched)
                     existing["module_number"] = idx + 1
                     existing["title"] = incoming_title
@@ -207,9 +196,9 @@ async def update_course(course_id: str, updated_fields: dict):
                     existing["start_line"] = incoming_start_line
                     existing["num_questions"] = incoming_num_questions
                     existing.pop("end_line", None)
-                    # Preserve generated slides — blueprint edits must never wipe them
-                    if "slides" not in existing:
-                        existing["slides"] = []
+                    # Preserve generated lessons — blueprint edits must never wipe them
+                    if "lessons" not in existing:
+                        existing["lessons"] = []
                     new_modules.append(existing)
                 else:
                     # Brand-new module added manually via the UI
@@ -219,7 +208,7 @@ async def update_course(course_id: str, updated_fields: dict):
                         "text": incoming_text,
                         "start_line": incoming_start_line,
                         "num_questions": incoming_num_questions,
-                        "slides": []
+                        "lessons": []
                     })
             original_course["modules"] = new_modules
                 
@@ -233,51 +222,6 @@ async def update_course(course_id: str, updated_fields: dict):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update course: {str(e)}")
-
-
-# -------------------------------------------------------
-# Slide Generation Endpoints
-# -------------------------------------------------------
-
-@app.post("/api/courses/{course_id}/generate-slides")
-async def generate_slides(course_id: str):
-    try:
-        manifest = generate_all_slides_for_course(course_id)
-        total = sum(1 for p in manifest.values() if p)
-        return {"message": f"Generated {total} slide decks.", "course_id": course_id}
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate slides: {str(e)}")
-
-
-@app.get("/api/courses/{course_id}/slides/{module_index}")
-async def download_slide(course_id: str, module_index: int):
-    """Download a specific module's PPTX. Must be generated first via POST /generate-slides."""
-    path = get_slide_path(course_id, module_index)
-
-    if not path:
-        raise HTTPException(
-            status_code=404,
-            detail="Slides not generated yet. Please generate slides first.",
-        )
-
-    filename = os.path.basename(path)
-    return FileResponse(
-        path,
-        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@app.get("/api/courses/{course_id}/slides")
-async def list_slides(course_id: str):
-    """List all available generated slide files for a course."""
-    available = list_available_slides(course_id)
-    return available
-
 
 # -------------------------------------------------------
 # Quiz Generation Endpoints
@@ -297,6 +241,72 @@ async def generate_quiz(course_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
 
 
+# -------------------------------------------------------
+# Slide Deck Generation Endpoints
+# -------------------------------------------------------
+
+@app.post("/api/courses/{course_id}/generate-slides")
+async def generate_slides(course_id: str):
+    try:
+        from pipelines.slide_planner import generate_slides_for_course
+        from pipelines.slides_generator import compile_slides_for_course
+        # Plan layout types and map images/scripts
+        updated_course = generate_slides_for_course(course_id)
+        # Compile visual slide pages into static HTML slide decks
+        compile_slides_for_course(course_id)
+        return updated_course
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate slideshow: {str(e)}")
+
+
+@app.post("/api/courses/{course_id}/generate-scripts")
+async def generate_scripts(course_id: str):
+    try:
+        from pipelines.run_pipeline import generate_scripts_for_course
+        from pipelines.slides_generator import compile_slides_for_course
+        updated_course = generate_scripts_for_course(course_id)
+        # Re-compile slideshow files to ensure slide speaker notes are synchronized
+        compile_slides_for_course(course_id)
+        return updated_course
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate narration scripts: {str(e)}")
+
+
+@app.post("/api/courses/{course_id}/modules/{module_number}/generate-video")
+async def generate_video(course_id: str, module_number: int):
+    try:
+        from pipelines.video_generator import generate_video_for_module
+        from pipelines.config import COURSES_FILE
+        
+        generate_video_for_module(course_id, module_number)
+        
+        with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+            courses = json.load(f)
+        course = next((c for c in courses if c.get("id") == course_id), None)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found after video generation")
+        return course
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate course video: {str(e)}")
+
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+

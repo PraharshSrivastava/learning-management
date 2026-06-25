@@ -3,40 +3,51 @@ import requests
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from pipelines.config import get_llm_client, safe_chat_completion
-from pipelines.prompts import IMAGE_SLIDE_MAPPING_PROMPT
+from pipelines.prompts import IMAGE_LESSON_MAPPING_PROMPT
 
 class ImageMapping(BaseModel):
     image_id: str
-    slide_index: int  # 1-based index in the flat list of slides for this module
+    bullet_index: int  # 1-based index in the flat list of bullets for this module
 
 class ImageMappingResult(BaseModel):
     mappings: List[ImageMapping]
 
-def map_images_to_slides(course: Dict[str, Any]) -> Dict[str, Any]:
+def map_images_to_lessons(course: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Dedicated pass to map images to slides using a semantic LLM matching prompt.
+    Dedicated pass to map images to lessons using a semantic LLM matching prompt at the bullet point level.
     """
     modules = course.get("modules", [])
     if not modules:
         return course
 
-    print("  [IMAGE MAPPER] Running dedicated image-to-slide mapping pass...")
+    print("  [IMAGE MAPPER] Running dedicated image-to-lesson mapping pass...")
 
     for m_idx, module in enumerate(modules):
         images = module.get("images", [])
-        slides_flat = module.get("slides", [])
-        if not images or not slides_flat:
+        lessons_flat = module.get("lessons", [])
+        if not images or not lessons_flat:
             continue
 
-        print(f"    [IMAGE MAPPER] Mapping {len(images)} images to {len(slides_flat)} slides in Module '{module.get('title')}'")
+        print(f"    [IMAGE MAPPER] Mapping {len(images)} images to {len(lessons_flat)} lessons in Module '{module.get('title')}'")
 
-        # Build slides string for the prompt
-        slides_str = ""
-        for idx, slide in enumerate(slides_flat):
-            slides_str += f"Slide {idx + 1}: {slide.get('slide_title')}\n"
-            for b in slide.get("bullets", []):
-                slides_str += f"  - {b.get('text')}\n"
-            slides_str += "\n"
+        # Build lessons string with sequential bullet indexing
+        lessons_str = ""
+        bullet_to_lesson = {}  # 1-based bullet index -> 0-based lesson index
+        bullet_to_text = {}    # 1-based bullet index -> bullet text
+        bullet_counter = 1
+
+        for idx, lesson in enumerate(lessons_flat):
+            lessons_str += f"Lesson {idx + 1}: {lesson.get('lesson_title')}\n"
+            bullets = lesson.get("bullets", [])
+            for b in bullets:
+                bullet_text = b.get("text", "")
+                lessons_str += f"  - Bullet {bullet_counter}: {bullet_text}\n"
+                bullet_to_lesson[bullet_counter] = idx
+                bullet_to_text[bullet_counter] = bullet_text
+                bullet_counter += 1
+            if not bullets:
+                lessons_str += "  - (No bullets in this lesson)\n"
+            lessons_str += "\n"
 
         # Build images string for the prompt
         images_str = ""
@@ -51,8 +62,8 @@ def map_images_to_slides(course: Dict[str, Any]) -> Dict[str, Any]:
                 client=client,
                 model=model_name,
                 messages=[
-                    {"role": "system", "content": IMAGE_SLIDE_MAPPING_PROMPT},
-                    {"role": "user", "content": f"SLIDES:\n{slides_str}\n\nIMAGES:\n{images_str}"}
+                    {"role": "system", "content": IMAGE_LESSON_MAPPING_PROMPT},
+                    {"role": "user", "content": f"LESSONS:\n{lessons_str}\n\nIMAGES:\n{images_str}"}
                 ],
                 response_format={
                     "type": "json_schema",
@@ -69,37 +80,43 @@ def map_images_to_slides(course: Dict[str, Any]) -> Dict[str, Any]:
             result = ImageMappingResult.model_validate_json(raw_content)
 
             # Clear any existing images to prevent duplication/stale mappings
-            for slide in slides_flat:
-                slide["images"] = []
+            for lesson in lessons_flat:
+                lesson["images"] = []
 
             mapped_ids = set()
             for mapping in result.mappings:
-                slide_idx = mapping.slide_index - 1
-                if 0 <= slide_idx < len(slides_flat):
+                bullet_idx = mapping.bullet_index
+                lesson_idx = bullet_to_lesson.get(bullet_idx, 0)
+                if 0 <= lesson_idx < len(lessons_flat):
                     img_meta = next((img for img in images if img.get("image_id") == mapping.image_id), None)
                     if img_meta:
-                        if "images" not in slides_flat[slide_idx]:
-                            slides_flat[slide_idx]["images"] = []
-                        slides_flat[slide_idx]["images"].append(img_meta)
+                        if "images" not in lessons_flat[lesson_idx]:
+                            lessons_flat[lesson_idx]["images"] = []
+                        if not any(existing.get("image_id") == mapping.image_id for existing in lessons_flat[lesson_idx]["images"]):
+                            img_copy = dict(img_meta)
+                            img_copy["mapped_bullet_text"] = bullet_to_text.get(bullet_idx, "")
+                            lessons_flat[lesson_idx]["images"].append(img_copy)
                         mapped_ids.add(mapping.image_id)
-                        print(f"      Mapped {mapping.image_id} to Slide {mapping.slide_index} ('{slides_flat[slide_idx].get('slide_title')}')")
+                        print(f"      Mapped {mapping.image_id} to Lesson {lesson_idx + 1} ('{lessons_flat[lesson_idx].get('lesson_title')}') via Bullet {bullet_idx}")
 
             # Fallback for unmapped images to prevent loss
             for img in images:
                 if img.get("image_id") not in mapped_ids:
-                    if "images" not in slides_flat[0]:
-                        slides_flat[0]["images"] = []
-                    slides_flat[0]["images"].append(img)
-                    print(f"      [FALLBACK] Mapped unassigned image {img.get('image_id')} to Slide 1")
+                    if "images" not in lessons_flat[0]:
+                        lessons_flat[0]["images"] = []
+                    if not any(existing.get("image_id") == img.get("image_id") for existing in lessons_flat[0]["images"]):
+                        lessons_flat[0]["images"].append(img)
+                    print(f"      [FALLBACK] Mapped unassigned image {img.get('image_id')} to Lesson 1")
 
         except Exception as e:
             print(f"      [WARNING] Image mapping failed for module '{module.get('title')}': {e}")
-            # In case of error, fall back to assigning all module images to slide 1 so we don't lose them
-            for slide in slides_flat:
-                slide["images"] = []
+            # In case of error, fall back to assigning all module images to lesson 1 so we don't lose them
+            for lesson in lessons_flat:
+                lesson["images"] = []
             for img in images:
-                if "images" not in slides_flat[0]:
-                    slides_flat[0]["images"] = []
-                slides_flat[0]["images"].append(img)
+                if "images" not in lessons_flat[0]:
+                    lessons_flat[0]["images"] = []
+                if not any(existing.get("image_id") == img.get("image_id") for existing in lessons_flat[0]["images"]):
+                    lessons_flat[0]["images"].append(img)
 
     return course
