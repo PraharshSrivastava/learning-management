@@ -130,12 +130,12 @@ DESIGN PRINCIPLES:
 - A topic is NOT a slide. Analyze the bullet points of each lesson and group/split them into professional layouts. A slide should contain at most 4-5 bullet points.
 - Select the layout template that best fits the relationship between the bullets:
   * 'concept': Use when introducing a core term/definition (requires concept_data with core_term, definition, and key_takeaways as a list of 0 to N key takeaways).
-  * 'steps': Use ONLY when the bullets describe a strict chronological timeline, process workflow, or sequence where order is crucial (e.g. Step 1 -> Step 2 -> Step 3). NEVER use 'steps' for unordered lists, such as lists of principles, guidelines, features, rules, or general content.
+  * 'steps': Use ONLY when the bullets describe a strict chronological timeline, process workflow, or sequence where order is crucial (e.g. Step 1 -> Step 2 -> Step 3). Requires steps_data containing a list of StepItem elements.
   * 'comparison': Use when bullets contrast two ideas, or list pros/cons (requires comparison_data with left/right columns and points).
   * 'grid': Use when bullets represent 3 to 4 distinct pillars, categories, independent principles, guidelines, or options (requires grid_data with columns list).
     - CRITICAL: Each grid card must represent a single specific topic. The card's 'header' MUST be the unique title of that specific topic (e.g., 'Machine Learning', 'Natural Language Processing'), NOT a generic category name repeated across all cards (e.g., NOT 'Technology', 'Pillar', 'Section', 'Option').
     - The card's 'content' must contain only the explanation and details of that specific topic. Do not include the topic title in the content.
-  * 'bullets': Use as a fallback for general lists, guidelines, or rules that do not fit other templates and are not sequential.
+  * 'bullets': Use as a fallback for general lists, guidelines, or rules that do not fit other templates and are not sequential. Requires bullets_data as a list of strings.
 - Segment lessons into 2 slides if they contain too many bullets to fit on one slide, or if they cover separate concepts.
 
 Return a JSON object containing a "slides" array matching the schema exactly.
