@@ -1,15 +1,15 @@
 import os
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-COURSES_FILE = os.path.join(BASE_DIR, "courses_draft.json")
-CLEAN_COURSES_FILE = os.path.join(BASE_DIR, "courses.json")
+from core.config import BASE_DIR, UPLOAD_DIR, DRAFT_COURSES_FILE, PUBLISHED_COURSES_FILE, IMAGE_DIR
 
 import requests
 
-# New LLM Client Generator using Qwen Model Endpoint
-def get_llm_client(purpose: str = None):
+# LLM Endpoint Resolver — returns (base_url, model_name) for the given
+# purpose. NOTE: this does NOT return a client object (e.g. not an OpenAI
+# SDK client instance) — it returns a raw base-URL string and model-name
+# string, which callers pass into safe_chat_completion() to make a direct
+# HTTP request. Renamed from the old get_llm_client() to avoid implying
+# this returns an actual client instance.
+def get_llm_endpoint(purpose: str = None):
     if purpose in ("slides", "scripts"):
         BASE_URL = "http://34.180.105.203:8002/v1"
         MODEL_NAME = "google/gemma-4-E4B-it"
@@ -17,13 +17,6 @@ def get_llm_client(purpose: str = None):
         BASE_URL = "http://35.238.33.238:8001/v1"
         MODEL_NAME = "Qwen/Qwen3-8B"
     return BASE_URL, MODEL_NAME
-
-# Ensure upload directory exists
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# Image assets configuration
-IMAGE_DIR = os.path.join(BASE_DIR, "assets", "images")
-os.makedirs(IMAGE_DIR, exist_ok=True)
 
 
 class ChatCompletionMessage:
@@ -42,8 +35,8 @@ class ChatCompletionResponse:
         self.choices = choices
 
 
-def _post_chat_completion(client, model, messages, response_format, temperature, max_tokens):
-    url = f"{client}/chat/completions"
+def _post_chat_completion(base_url, model, messages, response_format, temperature, max_tokens):
+    url = f"{base_url}/chat/completions"
     headers = {
         "Content-Type": "application/json"
     }
@@ -58,7 +51,6 @@ def _post_chat_completion(client, model, messages, response_format, temperature,
         
     response = requests.post(url, headers=headers, json=payload, timeout=600.0)
     
-    # vLLM returns a 400 Bad Request error if context window is exceeded
     if response.status_code == 400:
         raise ValueError(response.text)
         
@@ -75,7 +67,7 @@ def _post_chat_completion(client, model, messages, response_format, temperature,
     return ChatCompletionResponse(choices)
 
 
-def safe_chat_completion(client, model, messages, response_format=None, temperature=0.2, default_max_tokens=4096):
+def safe_chat_completion(base_url, model, messages, response_format=None, temperature=0.2, default_max_tokens=4096):
     """
     Wrapper around vLLM direct chat endpoint completions that:
     1. Dynamically estimates input tokens based on message characters.
@@ -83,23 +75,18 @@ def safe_chat_completion(client, model, messages, response_format=None, temperat
     3. Catches bad request errors due to context limit and retries with a lower max_tokens value.
     """
     import re
-    # Estimate input tokens: ~3.7 characters per token
     total_chars = sum(len(msg.get("content", "")) for msg in messages)
     estimated_input = int(total_chars / 3.7)
     
-    # 32768 is the max context window for Qwen/Qwen3-8B
     max_context = 32768
-    
-    # Safety buffer of 150 tokens
     available_tokens = max_context - estimated_input - 150
-    # Set a floor of 256 tokens so we don't request negative or zero tokens
     max_tokens = min(default_max_tokens, max(256, available_tokens))
     
     print(f"    [LLM] Requesting completion with estimated input={estimated_input} tokens, max_tokens={max_tokens} (default={default_max_tokens})")
     
     try:
         return _post_chat_completion(
-            client=client,
+            base_url=base_url,
             model=model,
             messages=messages,
             response_format=response_format,
@@ -111,18 +98,16 @@ def safe_chat_completion(client, model, messages, response_format=None, temperat
         if "max_tokens" in err_str or "context length" in err_str or "400" in err_str or "token" in err_str:
             print(f"    [WARNING] LLM call failed with context/token limit error: {e}. Retrying with clamped max_tokens...")
             
-            # Try to parse actual input tokens from the error message
             match = re.search(r"request has (\d+) input tokens", err_str)
             if match:
                 actual_input = int(match.group(1))
                 max_tokens = max(256, max_context - actual_input - 100)
             else:
-                # Fallback to a safe low default
                 max_tokens = 512
                 
             print(f"    [INFO] Retrying with max_tokens={max_tokens}")
             return _post_chat_completion(
-                client=client,
+                base_url=base_url,
                 model=model,
                 messages=messages,
                 response_format=response_format,
@@ -132,9 +117,7 @@ def safe_chat_completion(client, model, messages, response_format=None, temperat
         else:
             raise e
 
-# Qwen-TTS Configuration
 TTS_ENDPOINT = os.environ.get("VERTEX_TTS_ENDPOINT_ID", "http://35.238.33.238:8081")
-# Selected voice profile for TTS generation. Choose from: 'ref_srk' (male narrator)
 TTS_VOICE = os.environ.get("TTS_VOICE", "ref_srk")
 
 VOICE_TRANSCRIPTS = {
@@ -142,7 +125,3 @@ VOICE_TRANSCRIPTS = {
     "ref_nitin": "mutual funds in an actual are professionally managed investments, wearing a money is pooled and invested across different markets by experts. No daily tracking, no stocks speaking, no asset allocation stress.",
     "ref_shreya": "We all work hard to earn and save while trying to do the right thing with money. Yet it never seems to grow the way we expect."
 }
-
-
-
-

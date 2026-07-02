@@ -830,12 +830,8 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
 
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
-      if (oldIndex < newIndex) {
-        newIndex -= 1;
-      }
-      final CourseModule item = _moduleData.removeAt(oldIndex);
-      _moduleData.insert(newIndex, item);
-
+      if (oldIndex < newIndex) newIndex -= 1;
+      
       final TextEditingController titleController = _moduleTitleControllers.removeAt(oldIndex);
       _moduleTitleControllers.insert(newIndex, titleController);
 
@@ -844,6 +840,9 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
 
       final TextEditingController questionsController = _moduleQuestionsControllers.removeAt(oldIndex);
       _moduleQuestionsControllers.insert(newIndex, questionsController);
+
+      final CourseModule module = _moduleData.removeAt(oldIndex);
+      _moduleData.insert(newIndex, module);
     });
   }
 

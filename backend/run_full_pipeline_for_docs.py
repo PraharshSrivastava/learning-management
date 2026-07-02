@@ -17,7 +17,7 @@ from pipelines.quiz_generator import generate_quiz_for_course
 from pipelines.slide_planner import generate_slides_for_course
 from pipelines.slides_generator import compile_slides_for_course
 from pipelines.video_generator import generate_video_for_module
-from pipelines.config import COURSES_FILE, get_llm_client
+from pipelines.config import DRAFT_COURSES_FILE, get_llm_endpoint
 from pipelines.exporter import sync_clean_database
 
 def run_pipeline_for_file(filename):
@@ -27,7 +27,7 @@ def run_pipeline_for_file(filename):
     
     # Step 1: Outline / Blueprint Extraction
     try:
-        url, model = get_llm_client()
+        url, model = get_llm_endpoint()
         print(f"[STEP 1][MODEL CHECK] Blueprint extraction will run using: {model} at {url}")
         outline = generate_course_outline(filename)
         course_id = outline.get("id")
@@ -39,7 +39,7 @@ def run_pipeline_for_file(filename):
         
     # Step 1.5: Set num_questions = 3 for all modules so quiz generation executes
     try:
-        with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
             courses = json.load(f)
         course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
         if course_idx is not None:
@@ -47,7 +47,7 @@ def run_pipeline_for_file(filename):
             for m in course.get("modules", []):
                 m["num_questions"] = 3
             courses[course_idx] = course
-            with open(COURSES_FILE, 'w', encoding='utf-8') as f:
+            with open(DRAFT_COURSES_FILE, 'w', encoding='utf-8') as f:
                 json.dump(courses, f, indent=2, ensure_ascii=False)
             print("[INFO] Set num_questions = 3 for all modules.")
         else:
@@ -59,7 +59,7 @@ def run_pipeline_for_file(filename):
 
     # Step 2: Lesson Generation & Bullet Refinement & Image Mapping
     try:
-        url, model = get_llm_client()
+        url, model = get_llm_endpoint()
         print(f"[STEP 2][MODEL CHECK] Lesson extraction will run using: {model} at {url}")
         generate_lessons_for_course(course_id)
         print("[SUCCESS] Step 2: Lessons generated and image-mapped.")
@@ -70,7 +70,7 @@ def run_pipeline_for_file(filename):
 
     # Step 3: MCQ Quiz Generation
     try:
-        url, model = get_llm_client()
+        url, model = get_llm_endpoint()
         print(f"[STEP 3][MODEL CHECK] Quiz generation will run using: {model} at {url}")
         generate_quiz_for_course(course_id)
         print("[SUCCESS] Step 3: Quizzes generated.")
@@ -81,7 +81,7 @@ def run_pipeline_for_file(filename):
 
     # Step 4: Slides Planning & Compilation
     try:
-        url, model = get_llm_client("slides")
+        url, model = get_llm_endpoint("slides")
         print(f"[STEP 4][MODEL CHECK] Slide planning will run using: {model} at {url}")
         generate_slides_for_course(course_id)
         compile_slides_for_course(course_id)
@@ -93,7 +93,7 @@ def run_pipeline_for_file(filename):
 
     # Step 5: Scripts Generation & Text-to-Speech Narration Synthesis
     try:
-        url, model = get_llm_client("scripts")
+        url, model = get_llm_endpoint("scripts")
         print(f"[STEP 5][MODEL CHECK] Script generation will run using: {model} at {url}")
         generate_scripts_for_course(course_id)
         compile_slides_for_course(course_id) # Re-compile slides to sync narrations
@@ -105,7 +105,7 @@ def run_pipeline_for_file(filename):
 
     # Step 6: Slide-to-Video compilation (FFmpeg) per module
     try:
-        with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
             courses = json.load(f)
         course = next((c for c in courses if c.get("id") == course_id), None)
         if course:

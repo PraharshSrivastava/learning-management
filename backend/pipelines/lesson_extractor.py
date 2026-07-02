@@ -2,7 +2,7 @@ import requests
 from typing import List
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_client, safe_chat_completion
+from pipelines.config import get_llm_endpoint, safe_chat_completion
 from pipelines.prompts import LESSON_EXTRACTION_PROMPT
 
 
@@ -117,9 +117,9 @@ def extract_lessons_for_module(
     )
 
     try:
-        client, model_name = get_llm_client()
+        base_url, model_name = get_llm_endpoint()
         response = safe_chat_completion(
-            client=client,
+            base_url=base_url,
             model=model_name,
             messages=[
                 {

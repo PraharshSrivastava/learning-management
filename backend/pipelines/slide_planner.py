@@ -5,8 +5,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
-from pipelines.config import get_llm_client, COURSES_FILE, safe_chat_completion
+from pipelines.config import get_llm_endpoint, DRAFT_COURSES_FILE, safe_chat_completion
 from pipelines.prompts import SLIDE_PLANNER_PROMPT
+from core.io_utils import atomic_write_json
 
 
 # -------------------------------------------------------
@@ -60,6 +61,41 @@ class ModuleSlidesSchema(BaseModel):
     slides: List[SlidePlan] = Field(description="Sequential list of planned slides forming the chapter presentation.")
 
 
+def _slide_text_parts(slide: Dict[str, Any]) -> List[str]:
+    """
+    Flattens a slide's layout-specific content into a flat list of text
+    fragments, for fuzzy text-overlap matching against lesson bullets and
+    image captions. Shared by both the lesson-title matching pass and the
+    image-to-slide mapping pass below, so a fix or a new layout type only
+    needs to be added in one place instead of two.
+    """
+    parts = [slide.get("slide_title", "")]
+    layout = slide.get("layout_type")
+    if layout == "concept" and slide.get("concept_data"):
+        cd = slide["concept_data"]
+        takeaways = cd.get("key_takeaways", [])
+        if not takeaways and cd.get("key_takeaway"):
+            takeaways = [cd["key_takeaway"]]
+        parts.extend([cd.get("core_term", ""), cd.get("definition", "")] + takeaways)
+    elif layout == "steps" and slide.get("steps_data"):
+        for step in slide["steps_data"].get("steps", []):
+            parts.extend([step.get("title", ""), step.get("description", "")])
+    elif layout == "comparison" and slide.get("comparison_data"):
+        cd = slide["comparison_data"]
+        parts.extend([cd.get("left_column_title", ""), cd.get("right_column_title", "")])
+        parts.extend(cd.get("left_column_points", []))
+        parts.extend(cd.get("right_column_points", []))
+    elif layout == "grid" and slide.get("grid_data"):
+        for col in slide["grid_data"].get("columns", []):
+            parts.extend([col.get("header", ""), col.get("content", "")])
+    elif layout == "bullets" and slide.get("bullets_data"):
+        parts.extend(slide.get("bullets_data", []))
+    elif layout == "bullets" and slide.get("bullets"):
+        for b in slide.get("bullets", []):
+            parts.append(b if isinstance(b, str) else b.get("text", ""))
+    return parts
+
+
 # -------------------------------------------------------
 # Core Generation Functions
 # -------------------------------------------------------
@@ -102,12 +138,12 @@ def plan_slides_for_module(
         f"{json.dumps(lessons_context, indent=2)}\n"
     )
 
-    client, model_name = get_llm_client("slides")
+    base_url, model_name = get_llm_endpoint("slides")
     json_schema = ModuleSlidesSchema.model_json_schema()
 
     try:
         response = safe_chat_completion(
-            client=client,
+            base_url=base_url,
             model=model_name,
             messages=[
                 {"role": "system", "content": SLIDE_PLANNER_PROMPT},
@@ -136,32 +172,7 @@ def plan_slides_for_module(
             assigned_eyebrow = f"Module: {module_title}"
             
             # Gather slide visual text content to compare against lesson bullets
-            parts = [slide.get("slide_title", "")]
-            layout = slide.get("layout_type")
-            if layout == "concept" and slide.get("concept_data"):
-                cd = slide["concept_data"]
-                takeaways = cd.get("key_takeaways", [])
-                if not takeaways and cd.get("key_takeaway"):
-                    takeaways = [cd["key_takeaway"]]
-                parts.extend([cd.get("core_term", ""), cd.get("definition", "")] + takeaways)
-            elif layout == "steps" and slide.get("steps_data"):
-                for step in slide["steps_data"].get("steps", []):
-                    parts.extend([step.get("title", ""), step.get("description", "")])
-            elif layout == "comparison" and slide.get("comparison_data"):
-                cd = slide["comparison_data"]
-                parts.extend([cd.get("left_column_title", ""), cd.get("right_column_title", "")])
-                parts.extend(cd.get("left_column_points", []))
-                parts.extend(cd.get("right_column_points", []))
-            elif layout == "grid" and slide.get("grid_data"):
-                for col in slide["grid_data"].get("columns", []):
-                    parts.extend([col.get("header", ""), col.get("content", "")])
-            elif layout == "bullets" and slide.get("bullets_data"):
-                parts.extend(slide.get("bullets_data", []))
-            elif layout == "bullets" and slide.get("bullets"):
-                for b in slide.get("bullets", []):
-                    parts.extend(b if isinstance(b, str) else b.get("text", ""))
-            
-            combined_slide_text = " ".join(parts).lower()
+            combined_slide_text = " ".join(_slide_text_parts(slide)).lower()
             best_overlap = -1
             matched_lesson_title = None
             
@@ -200,32 +211,7 @@ def plan_slides_for_module(
                 
                 for slide in lesson_slides:
                     # Gather slide text content to compare against bullet text and caption
-                    parts = [slide.get("slide_title", "")]
-                    layout = slide.get("layout_type")
-                    if layout == "concept" and slide.get("concept_data"):
-                        cd = slide["concept_data"]
-                        takeaways = cd.get("key_takeaways", [])
-                        if not takeaways and cd.get("key_takeaway"):
-                            takeaways = [cd["key_takeaway"]]
-                        parts.extend([cd.get("core_term", ""), cd.get("definition", "")] + takeaways)
-                    elif layout == "steps" and slide.get("steps_data"):
-                        for step in slide["steps_data"].get("steps", []):
-                            parts.extend([step.get("title", ""), step.get("description", "")])
-                    elif layout == "comparison" and slide.get("comparison_data"):
-                        cd = slide["comparison_data"]
-                        parts.extend([cd.get("left_column_title", ""), cd.get("right_column_title", "")])
-                        parts.extend(cd.get("left_column_points", []))
-                        parts.extend(cd.get("right_column_points", []))
-                    elif layout == "grid" and slide.get("grid_data"):
-                        for col in slide["grid_data"].get("columns", []):
-                            parts.extend([col.get("header", ""), col.get("content", "")])
-                    elif layout == "bullets" and slide.get("bullets_data"):
-                        parts.extend(slide.get("bullets_data", []))
-                    elif layout == "bullets" and slide.get("bullets"):
-                        for b in slide.get("bullets", []):
-                            parts.extend(b if isinstance(b, str) else b.get("text", ""))
-                        
-                    combined_text = " ".join(parts).lower()
+                    combined_text = " ".join(_slide_text_parts(slide)).lower()
                     
                     score = 0
                     if mapped_bullet_text:
@@ -283,10 +269,10 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
     """
     print(f"Generating slides database models for course {course_id}...")
 
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
 
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         courses = json.load(f)
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
@@ -305,8 +291,8 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
     course["modules"] = modules
 
     # Load fresh courses list from disk to prevent race conditions during long LLM calls
-    if os.path.exists(COURSES_FILE):
-        with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    if os.path.exists(DRAFT_COURSES_FILE):
+        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
             fresh_courses = json.load(f)
     else:
         fresh_courses = []
@@ -317,8 +303,7 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
     else:
         fresh_courses.append(course)
 
-    with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(fresh_courses, f, indent=2, ensure_ascii=False)
+    atomic_write_json(DRAFT_COURSES_FILE, fresh_courses)
 
     # Compile static HTML slide files
     try:

@@ -16,13 +16,13 @@ from pipelines.run_pipeline import (
     generate_lessons_for_course
 )
 from pipelines.quiz_generator import generate_quiz_for_course
-from pipelines.config import COURSES_FILE
+from pipelines.config import DRAFT_COURSES_FILE
 
 def get_latest_course_id():
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         return None
     try:
-        with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
             courses = json.load(f)
             if courses:
                 return courses[-1].get("id")
@@ -118,10 +118,10 @@ def run_step_4_quiz(course_id):
     print(f"\n--- STAGE 4: Generating Quizzes for Course ID {course_id} ---")
     
     # Load the course to check and update num_questions if needed for testing
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
         
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         courses = json.load(f)
         
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
@@ -145,7 +145,7 @@ def run_step_4_quiz(course_id):
         for m in course.get("modules", []):
             m["num_questions"] = 3
         courses[course_idx] = course
-        with open(COURSES_FILE, 'w', encoding='utf-8') as f:
+        with open(DRAFT_COURSES_FILE, 'w', encoding='utf-8') as f:
             json.dump(courses, f, indent=2, ensure_ascii=False)
             
     course = generate_quiz_for_course(course_id)

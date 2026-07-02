@@ -11,8 +11,9 @@ if BASE_DIR not in sys.path:
 from pipelines.blueprint_extractor import run_blueprint_extraction
 from pipelines.lesson_extractor import extract_lessons_for_module
 from pipelines.bullet_refiner import refine_bullets_inplace
-from pipelines.config import UPLOAD_DIR, COURSES_FILE, BASE_DIR
+from pipelines.config import UPLOAD_DIR, DRAFT_COURSES_FILE, BASE_DIR
 from pipelines.script_generator import generate_scripts_for_module, synthesize_speech_for_slide
+from core.io_utils import atomic_write_json
 
 def generate_course_outline(filename):
     print(f"Running pipeline step 2: Extracting blueprint for file {filename}...")
@@ -21,9 +22,9 @@ def generate_course_outline(filename):
         raise FileNotFoundError(f"PDF file not found at {pdf_path}")
         
     courses = []
-    if os.path.exists(COURSES_FILE):
+    if os.path.exists(DRAFT_COURSES_FILE):
         try:
-            with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+            with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
                 courses = json.load(f)
         except Exception:
             courses = []
@@ -46,8 +47,7 @@ def generate_course_outline(filename):
     
     courses.append(outline)
         
-    with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(courses, f, indent=2, ensure_ascii=False)
+    atomic_write_json(DRAFT_COURSES_FILE, courses)
         
     print(f"Successfully generated and stored course outline for {filename}!")
     return outline
@@ -61,10 +61,10 @@ def generate_lessons_for_course(course_id: str) -> dict:
     """
     print(f"Running pipeline step 3: Generating lessons for course {course_id}...")
 
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
 
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         courses = json.load(f)
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
@@ -125,7 +125,7 @@ def generate_lessons_for_course(course_id: str) -> dict:
         print(f"  [WARNING] Image mapping to lessons failed: {e}")
 
     # Load fresh courses list from disk to prevent race conditions during long LLM calls
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         fresh_courses = json.load(f)
     fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
     if fresh_idx is not None:
@@ -133,8 +133,7 @@ def generate_lessons_for_course(course_id: str) -> dict:
     else:
         fresh_courses.append(course)
 
-    with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(fresh_courses, f, indent=2, ensure_ascii=False)
+    atomic_write_json(DRAFT_COURSES_FILE, fresh_courses)
 
     print(f"Lesson generation complete for course '{course.get('course_name')}'.")
     return course
@@ -147,10 +146,10 @@ def generate_scripts_for_course(course_id: str) -> dict:
     """
     print(f"Generating narration scripts for course {course_id}...")
 
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
 
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         courses = json.load(f)
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
@@ -206,7 +205,7 @@ def generate_scripts_for_course(course_id: str) -> dict:
     course["modules"] = modules
     
     # Reload courses to prevent overwrite races
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         fresh_courses = json.load(f)
     fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
     if fresh_idx is not None:
@@ -214,8 +213,7 @@ def generate_scripts_for_course(course_id: str) -> dict:
     else:
         fresh_courses.append(course)
 
-    with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(fresh_courses, f, indent=2, ensure_ascii=False)
+    atomic_write_json(DRAFT_COURSES_FILE, fresh_courses)
 
     print(f"Script and TTS generation complete for course '{course.get('course_name')}'!")
     return course

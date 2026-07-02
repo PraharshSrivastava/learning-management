@@ -5,8 +5,10 @@ import tempfile
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 import imageio_ffmpeg
+from pathlib import Path
+from core.io_utils import atomic_write_json
 
-from pipelines.config import BASE_DIR, COURSES_FILE
+from pipelines.config import BASE_DIR, DRAFT_COURSES_FILE
 VIDEO_DIR = os.path.join(BASE_DIR, "assets", "videos")
 
 # Colors from PhillipCapital Design System
@@ -20,14 +22,33 @@ ACCENT_ORANGE = (247, 143, 32)   # #F78F20
 ACCENT_GREEN = (20, 196, 150)    # #14C496
 ACCENT_RED = (255, 21, 21)       # #FF1515
 
-# Safe font loader
+# Safe font loader — checks a bundled-fonts directory first (recommended:
+# place metric-compatible .ttf files, e.g. Liberation Sans, under
+# backend/assets/fonts/ named arial.ttf and arialbd.ttf), then falls back
+# to common per-OS system font locations, and only uses PIL's low-quality
+# default font as a last resort — with a visible warning so this never
+# fails silently again.
+_FONT_SEARCH_DIRS = [
+    os.path.join(BASE_DIR, "assets", "fonts"),
+    "C:\\Windows\\Fonts",
+    "/usr/share/fonts/truetype/dejavu",
+    "/usr/share/fonts/truetype/liberation",
+    "/usr/share/fonts/truetype/msttcorefonts",
+    "/System/Library/Fonts",
+    "/System/Library/Fonts/Supplemental",
+]
+
 def load_font(font_name="arial.ttf", size=24):
-    font_path = os.path.join("C:\\Windows\\Fonts", font_name)
-    if os.path.exists(font_path):
-        try:
-            return ImageFont.truetype(font_path, size)
-        except Exception:
-            pass
+    for font_dir in _FONT_SEARCH_DIRS:
+        font_path = os.path.join(font_dir, font_name)
+        if os.path.exists(font_path):
+            try:
+                return ImageFont.truetype(font_path, size)
+            except Exception:
+                pass
+    print(f"    [WARNING] Font '{font_name}' not found in any known location "
+          f"({_FONT_SEARCH_DIRS}). Falling back to PIL's low-quality default "
+          f"font. Bundle a real .ttf file under backend/assets/fonts/{font_name} to fix this.")
     return ImageFont.load_default()
 
 def get_text_width(text, font, draw=None):
@@ -403,10 +424,10 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
     Renders slides to PNG, merges with slide speech clips,
     concatenates clips together, and exports the final MP4 slideshow video.
     """
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
         
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         courses = json.load(f)
         
     course = next((c for c in courses if c.get("id") == course_id), None)
@@ -453,8 +474,7 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1920, "height": 1080})
             
-            abs_path = os.path.abspath(html_file_path)
-            file_url = f"file:///{abs_path.replace('\\', '/')}"
+            file_url = Path(html_file_path).resolve().as_uri()
             page.goto(file_url)
             
             # Inject CSS to disable animations during capture
@@ -537,13 +557,12 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
     print(f"Module video generated successfully: {final_output_path}")
     
     # Save the video path in courses.json database
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         fresh_courses = json.load(f)
     fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
     if fresh_idx is not None:
         fresh_courses[fresh_idx]["modules"][module_number - 1]["video_path"] = f"assets/videos/course_{course_id}/module_{module_number}.mp4"
-        with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(fresh_courses, f, indent=2, ensure_ascii=False)
+        atomic_write_json(DRAFT_COURSES_FILE, fresh_courses)
             
     # Return relative URL path
     return f"assets/videos/course_{course_id}/module_{module_number}.mp4"

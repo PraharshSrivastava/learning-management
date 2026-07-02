@@ -7,7 +7,7 @@ import requests
 from typing import List, Dict, Any
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_client, safe_chat_completion, BASE_DIR, TTS_ENDPOINT, TTS_VOICE, VOICE_TRANSCRIPTS
+from pipelines.config import get_llm_endpoint, safe_chat_completion, BASE_DIR, TTS_ENDPOINT, TTS_VOICE, VOICE_TRANSCRIPTS
 from pipelines.prompts import SCRIPT_GENERATION_PROMPT
 
 
@@ -174,9 +174,9 @@ def generate_scripts_for_module(
     user_message = _build_script_prompt(module_text, module, previous_script)
 
     try:
-        client, model_name = get_llm_client("scripts")
+        base_url, model_name = get_llm_endpoint("scripts")
         response = safe_chat_completion(
-            client=client,
+            base_url=base_url,
             model=model_name,
             messages=[
                 {"role": "system", "content": SCRIPT_GENERATION_PROMPT},

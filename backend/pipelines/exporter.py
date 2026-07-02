@@ -1,7 +1,8 @@
 import os
 import json
 import uuid
-from pipelines.config import COURSES_FILE, CLEAN_COURSES_FILE
+from pipelines.config import DRAFT_COURSES_FILE, PUBLISHED_COURSES_FILE
+from core.io_utils import atomic_write_json
 
 def sync_clean_database():
     """
@@ -9,14 +10,13 @@ def sync_clean_database():
     saves the updated draft back to disk, maps to the standardized production format,
     and writes the results to courses.json.
     """
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         # If no draft database exists yet, write empty list to clean database
-        with open(CLEAN_COURSES_FILE, 'w', encoding='utf-8') as f:
-            json.dump([], f, indent=2, ensure_ascii=False)
+        atomic_write_json(PUBLISHED_COURSES_FILE, [])
         return
 
     try:
-        with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
             draft_courses = json.load(f)
     except Exception as e:
         print(f"[EXPORTER][ERROR] Failed to load draft database: {e}")
@@ -77,17 +77,15 @@ def sync_clean_database():
     # If we generated any new UUIDs for course ids or question ids, save them back to draft file
     if draft_modified:
         try:
-            with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-                json.dump(draft_courses, f, indent=2, ensure_ascii=False)
+            atomic_write_json(DRAFT_COURSES_FILE, draft_courses)
             print("[EXPORTER] Saved generated IDs back to courses_draft.json")
         except Exception as e:
             print(f"[EXPORTER][WARNING] Failed to write updated draft database: {e}")
 
     # Write the clean production-ready database to courses.json
     try:
-        with open(CLEAN_COURSES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(clean_courses, f, indent=2, ensure_ascii=False)
-        print(f"[EXPORTER] Successfully synchronized clean database to {CLEAN_COURSES_FILE}")
+        atomic_write_json(PUBLISHED_COURSES_FILE, clean_courses)
+        print(f"[EXPORTER] Successfully synchronized clean database to {PUBLISHED_COURSES_FILE}")
     except Exception as e:
         print(f"[EXPORTER][ERROR] Failed to write clean database: {e}")
 

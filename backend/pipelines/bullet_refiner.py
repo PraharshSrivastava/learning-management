@@ -3,8 +3,9 @@ import requests
 from typing import List
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_client, safe_chat_completion
+from pipelines.config import get_llm_endpoint, safe_chat_completion
 from pipelines.prompts import BULLET_REFINEMENT_PROMPT
+from core.io_utils import atomic_write_json
 
 
 # -------------------------------------------------------
@@ -98,9 +99,9 @@ def refine_bullets_inplace(course: dict) -> dict:
 
     try:
         print("  [REFINE] Calling LLM for style editing...")
-        client, model_name = get_llm_client()
+        base_url, model_name = get_llm_endpoint()
         response = safe_chat_completion(
-            client=client,
+            base_url=base_url,
             model=model_name,
             messages=[
                 {"role": "system", "content": BULLET_REFINEMENT_PROMPT},
@@ -171,9 +172,9 @@ def refine_bullets_inplace(course: dict) -> dict:
 # -------------------------------------------------------
 
 def refine_bullets_for_course(course_id: str) -> dict:
-    from pipelines.config import COURSES_FILE
+    from pipelines.config import DRAFT_COURSES_FILE
 
-    with open(COURSES_FILE, "r", encoding="utf-8") as f:
+    with open(DRAFT_COURSES_FILE, "r", encoding="utf-8") as f:
         courses = json.load(f)
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
@@ -184,7 +185,7 @@ def refine_bullets_for_course(course_id: str) -> dict:
     course = refine_bullets_inplace(course)
 
     # Load fresh courses list from disk to prevent race conditions during long LLM calls
-    with open(COURSES_FILE, "r", encoding="utf-8") as f:
+    with open(DRAFT_COURSES_FILE, "r", encoding="utf-8") as f:
         fresh_courses = json.load(f)
     fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
     if fresh_idx is not None:
@@ -192,7 +193,6 @@ def refine_bullets_for_course(course_id: str) -> dict:
     else:
         fresh_courses.append(course)
 
-    with open(COURSES_FILE, "w", encoding="utf-8") as f:
-        json.dump(fresh_courses, f, indent=2, ensure_ascii=False)
+    atomic_write_json(DRAFT_COURSES_FILE, fresh_courses)
 
     return course

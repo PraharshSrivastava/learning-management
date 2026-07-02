@@ -1,8 +1,21 @@
 import os
 import json
+import html
 from typing import Dict, Any, List
 
-from pipelines.config import BASE_DIR, COURSES_FILE
+from pipelines.config import BASE_DIR, DRAFT_COURSES_FILE
+
+
+def _esc(value) -> str:
+    """
+    HTML-escapes any interpolated content before embedding it in generated
+    slide HTML. Necessary because slide text originates from LLM-extracted
+    PDF content, which may contain characters like <, >, &, or quotes that
+    would otherwise break the HTML structure or allow injected markup.
+    """
+    if value is None:
+        return ""
+    return html.escape(str(value), quote=True)
 
 def generate_html_slides_for_module(
     course_id: str,
@@ -39,7 +52,7 @@ def generate_html_slides_for_module(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{module_title} - Slideshow</title>
+    <title>{_esc(module_title)} - Slideshow</title>
     <link rel="stylesheet" href="../../slides.css">
 </head>
 <body>
@@ -67,7 +80,7 @@ def generate_html_slides_for_module(
         # and do not render the header/title block for concept layout.
         if layout_type_str != "concept":
             html_content.append(f"""            <div class="slide-header">
-                <h1 class="slide-title">{slide_title}</h1>
+                <h1 class="slide-title">{_esc(slide_title)}</h1>
             </div>""")
 
         html_content.append(f"""            
@@ -91,10 +104,10 @@ def generate_html_slides_for_module(
             if takeaways:
                 if len(takeaways) == 1:
                     takeaways_html = f"""                        <div class="takeaway-banner">
-                            <strong>Key Takeaway:</strong> {takeaways[0]}
+                            <strong>Key Takeaway:</strong> {_esc(takeaways[0])}
                         </div>"""
                 else:
-                    bullets_li = "\n".join([f"                            <li style='margin-bottom: 0.25rem;'>{t}</li>" for t in takeaways])
+                    bullets_li = "\n".join([f"                            <li style='margin-bottom: 0.25rem;'>{_esc(t)}</li>" for t in takeaways])
                     takeaways_html = f"""                        <div class="takeaway-banner">
                             <strong>Key Takeaways:</strong>
                             <ul class="takeaway-list" style="margin-top: 0.5rem; padding-left: 1.25rem; list-style-type: square; line-height: 1.4;">
@@ -105,8 +118,8 @@ def generate_html_slides_for_module(
             html_content.append(f"""
                     <div class="concept-container">
                         <div class="concept-definition">
-                            <h2 class="concept-term">{data.get("core_term", "")}</h2>
-                            <p class="concept-desc">{data.get("definition", "")}</p>
+                            <h2 class="concept-term">{_esc(data.get("core_term", ""))}</h2>
+                            <p class="concept-desc">{_esc(data.get("definition", ""))}</p>
                         </div>
 {takeaways_html}
                     </div>
@@ -118,8 +131,8 @@ def generate_html_slides_for_module(
             for step in data.get("steps", []):
                 html_content.append(f"""
                             <div class="timeline-step">
-                                <h3 class="step-title">{step.get("title", "")}</h3>
-                                <p class="step-desc">{step.get("description", "")}</p>
+                                <h3 class="step-title">{_esc(step.get("title", ""))}</h3>
+                                <p class="step-desc">{_esc(step.get("description", ""))}</p>
                             </div>
 """)
             html_content.append('                        </div>')
@@ -129,20 +142,20 @@ def generate_html_slides_for_module(
             html_content.append(f"""
                     <div class="comparison-container">
                         <div class="comparison-column left-col">
-                            <h2 class="column-header">{data.get("left_column_title", "")}</h2>
+                            <h2 class="column-header">{_esc(data.get("left_column_title", ""))}</h2>
                             <ul class="column-list">
 """)
             for point in data.get("left_column_points", []):
-                html_content.append(f'                                <li>{point}</li>')
+                html_content.append(f'                                <li>{_esc(point)}</li>')
             html_content.append(f"""
                             </ul>
                         </div>
                         <div class="comparison-column right-col">
-                            <h2 class="column-header">{data.get("right_column_title", "")}</h2>
+                            <h2 class="column-header">{_esc(data.get("right_column_title", ""))}</h2>
                             <ul class="column-list">
 """)
             for point in data.get("right_column_points", []):
-                html_content.append(f'                                <li>{point}</li>')
+                html_content.append(f'                                <li>{_esc(point)}</li>')
             html_content.append(f"""
                             </ul>
                         </div>
@@ -154,8 +167,8 @@ def generate_html_slides_for_module(
             for col in data.get("columns", []):
                 html_content.append(f"""
                         <div class="grid-card">
-                            <h3 class="card-header">{col.get("header", "")}</h3>
-                            <p class="card-content">{col.get("content", "")}</p>
+                            <h3 class="card-header">{_esc(col.get("header", ""))}</h3>
+                            <p class="card-content">{_esc(col.get("content", ""))}</p>
                         </div>
 """)
             html_content.append('                    </div>')
@@ -171,7 +184,7 @@ def generate_html_slides_for_module(
             for b in bullets:
                 b_text = b if isinstance(b, str) else b.get("text", "")
                 if b_text:
-                    html_content.append(f'                            <li>{b_text}</li>')
+                    html_content.append(f'                            <li>{_esc(b_text)}</li>')
             html_content.append('                        </ul>')
             html_content.append('                    </div>')
 
@@ -194,8 +207,8 @@ def generate_html_slides_for_module(
                     caption = img_meta.get("caption", "")
                     html_content.append(f"""
                     <div class="p-shape-frame">
-                        <img src="{rel_img_path}" alt="{caption}">
-                        <div class="image-caption">{caption}</div>
+                        <img src="{rel_img_path}" alt="{_esc(caption)}">
+                        <div class="image-caption">{_esc(caption)}</div>
                     </div>
 """)
             else:
@@ -209,8 +222,8 @@ def generate_html_slides_for_module(
                         caption = img_meta.get("caption", "")
                         html_content.append(f"""
                         <div class="p-shape-frame">
-                            <img src="{rel_img_path}" alt="{caption}">
-                            <div class="image-caption">{caption}</div>
+                            <img src="{rel_img_path}" alt="{_esc(caption)}">
+                            <div class="image-caption">{_esc(caption)}</div>
                         </div>
 """)
                 html_content.append('                    </div>')
@@ -321,10 +334,10 @@ def compile_slides_for_course(course_id: str) -> List[str]:
     """
     print(f"Compiling HTML Slide decks for course {course_id}...")
 
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
 
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         courses = json.load(f)
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)

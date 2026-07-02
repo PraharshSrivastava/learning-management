@@ -4,7 +4,7 @@ import pdfplumber
 from typing import List
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_client, safe_chat_completion
+from pipelines.config import get_llm_endpoint, safe_chat_completion
 from pipelines.prompts import MODULE_EXTRACTION_PROMPT
 
 
@@ -328,9 +328,9 @@ def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
     json_schema = ModuleListSchema.model_json_schema()
 
     try:
-        client, model_name = get_llm_client()
+        base_url, model_name = get_llm_endpoint()
         response = safe_chat_completion(
-            client=client,
+            base_url=base_url,
             model=model_name,
             messages=[
                 {
@@ -371,7 +371,7 @@ def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
 
         modules = [m.model_dump() for m in parsed.modules]
         for m in modules:
-            m.setdefault("num_questions", 3)
+            m["num_questions"] = 3
         _validate_start_lines(modules, total_lines)
 
         return modules

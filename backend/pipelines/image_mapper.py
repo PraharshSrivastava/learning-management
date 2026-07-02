@@ -2,7 +2,7 @@ import json
 import requests
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from pipelines.config import get_llm_client, safe_chat_completion
+from pipelines.config import get_llm_endpoint, safe_chat_completion
 from pipelines.prompts import IMAGE_LESSON_MAPPING_PROMPT
 
 class ImageMapping(BaseModel):
@@ -57,9 +57,9 @@ def map_images_to_lessons(course: Dict[str, Any]) -> Dict[str, Any]:
 
         # Call LLM for mapping
         try:
-            client, model_name = get_llm_client()
+            base_url, model_name = get_llm_endpoint()
             response = safe_chat_completion(
-                client=client,
+                base_url=base_url,
                 model=model_name,
                 messages=[
                     {"role": "system", "content": IMAGE_LESSON_MAPPING_PROMPT},

@@ -263,38 +263,41 @@ class DocumentListCard extends ConsumerWidget {
                               final file = fileListState.files[index];
                               final isSelected = selectedFile?.filename == file.filename;
 
-                              return ListTile(
-                                selected: isSelected,
-                                selectedTileColor: AppTheme.primaryBlue.withOpacity(0.05),
-                                leading: Icon(
-                                  Icons.picture_as_pdf,
-                                  color: isSelected ? AppTheme.primaryBlue : AppTheme.gray,
-                                ),
-                                title: Text(
-                                  file.filename,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.barlow(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                    color: isSelected ? AppTheme.primaryBlue : AppTheme.textBlack,
+                              return Material(
+                                color: Colors.transparent,
+                                child: ListTile(
+                                  selected: isSelected,
+                                  selectedTileColor: AppTheme.primaryBlue.withOpacity(0.05),
+                                  leading: Icon(
+                                    Icons.picture_as_pdf,
+                                    color: isSelected ? AppTheme.primaryBlue : AppTheme.gray,
                                   ),
-                                ),
-                                subtitle: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      file.formattedSize,
-                                      style: Theme.of(context).textTheme.bodySmall,
+                                  title: Text(
+                                    file.filename,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.barlow(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isSelected ? AppTheme.primaryBlue : AppTheme.textBlack,
                                     ),
-                                    Text(
-                                      file.formattedDate,
-                                      style: Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
+                                  ),
+                                  subtitle: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        file.formattedSize,
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                      Text(
+                                        file.formattedDate,
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    ref.read(selectedFileProvider.notifier).state = file;
+                                  },
                                 ),
-                                onTap: () {
-                                  ref.read(selectedFileProvider.notifier).state = file;
-                                },
                               );
                             },
                           ),

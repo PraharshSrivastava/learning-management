@@ -3,8 +3,9 @@ import json
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
-from pipelines.config import get_llm_client, COURSES_FILE, safe_chat_completion
+from pipelines.config import get_llm_endpoint, DRAFT_COURSES_FILE, safe_chat_completion
 from pipelines.prompts import QUIZ_GENERATION_PROMPT
+from core.io_utils import atomic_write_json
 
 
 # -------------------------------------------------------
@@ -36,10 +37,10 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
     """
     print(f"Generating quizzes for course {course_id}...")
 
-    if not os.path.exists(COURSES_FILE):
+    if not os.path.exists(DRAFT_COURSES_FILE):
         raise FileNotFoundError("Courses database not found.")
 
-    with open(COURSES_FILE, 'r', encoding='utf-8') as f:
+    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
         courses = json.load(f)
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
@@ -53,7 +54,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
     if not modules:
         raise ValueError("This course has no modules. Save a blueprint first.")
 
-    client, model_name = get_llm_client()
+    base_url, model_name = get_llm_endpoint()
     json_schema = ModuleQuiz.model_json_schema()
 
     for i, module in enumerate(modules):
@@ -88,7 +89,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
 
         try:
             response = safe_chat_completion(
-                client=client,
+                base_url=base_url,
                 model=model_name,
                 messages=[
                     {"role": "system", "content": QUIZ_GENERATION_PROMPT},
@@ -121,8 +122,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
     course["modules"] = modules
     courses[course_idx] = course
 
-    with open(COURSES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(courses, f, indent=2, ensure_ascii=False)
+    atomic_write_json(DRAFT_COURSES_FILE, courses)
 
     print(f"Quiz generation complete for course '{course.get('course_name')}'!")
     return course
