@@ -10,7 +10,7 @@ import requests
 # HTTP request. Renamed from the old get_llm_client() to avoid implying
 # this returns an actual client instance.
 def get_llm_endpoint(purpose: str = None):
-    if purpose in ("slides", "scripts"):
+    if purpose in ("slides", "scripts", "quiz"):
         BASE_URL = "http://34.180.105.203:8002/v1"
         MODEL_NAME = "google/gemma-4-E4B-it"
     else:

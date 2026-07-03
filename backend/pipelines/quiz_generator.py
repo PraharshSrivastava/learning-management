@@ -54,7 +54,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
     if not modules:
         raise ValueError("This course has no modules. Save a blueprint first.")
 
-    base_url, model_name = get_llm_endpoint()
+    base_url, model_name = get_llm_endpoint("quiz")
     json_schema = ModuleQuiz.model_json_schema()
 
     for i, module in enumerate(modules):

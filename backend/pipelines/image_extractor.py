@@ -46,19 +46,23 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                 # Check vertical distance from bottom of image to top of text
                 dist = abs(ty0 - iy1)
                 
-                # Text block must be below or slightly overlapping the bottom of the image
-                if ty0 > iy1 - 20:
+                # Check if it starts with a caption prefix
+                is_caption_format = bool(re.match(r'^\s*(figure|fig|img|image|caption|chart)\b', text_content, re.IGNORECASE))
+                
+                # Text block must be below or slightly overlapping the bottom of the image, OR be a caption format ending below the image
+                if ty0 > iy1 - 20 or (is_caption_format and ty1 > iy1 - 20):
                     # Check horizontal alignment/overlap
                     ix0, ix1 = bbox[0], bbox[2]
                     overlap = max(0, min(ix1, tx1) - max(ix0, tx0))
                     
                     # If they overlap horizontally or the text starts close to the image's x0
                     if overlap > 0 or (abs(tx0 - ix0) < 50):
-                        if dist < min_dist and dist < 30:  # 30 points threshold
-                            min_dist = dist
+                        effective_dist = 0 if is_caption_format else dist
+                        if effective_dist < min_dist:
+                            min_dist = effective_dist
                             # Split by paragraph double newlines and join lines in space-separated form
-                            paragraphs = re.split(r'\n\s*\n', text_content)
-                            best_caption_raw = " ".join(paragraphs[0].split())
+                            paragraphs = [p for p in re.split(r'\n\s*\n', text_content) if p.strip()]
+                            best_caption_raw = " ".join(paragraphs[0].split()) if paragraphs else text_content
             
             # Fallback: search top of next page if image is near bottom of the page
             if not best_caption_raw and (page.rect.height - iy1 < 150) and (page_num + 1 < total_pages):
