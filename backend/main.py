@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from pipelines.routes import router
+from pipelines.employee_routes import router as employee_router
 
 app = FastAPI(title="LMS Document Management System Backend")
 
@@ -22,6 +23,7 @@ app.add_middleware(
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 app.include_router(router)
+app.include_router(employee_router)
 
 @app.get("/health")
 def health_check():

@@ -1,1 +1,669 @@
-[]
+[
+  {
+    "course_name": "PhillipX CRM",
+    "course_description": "This user manual has been developed to guide end users through the comprehensive functionalities of the PhillipX CRM System. It provides step-by-step instructions, business process explanations, and best practices to ensure effective utilization of the platform for lead management, customer engagement, and sales operations",
+    "course_objective": "To enable users to effectively navigate and utilize the PhillipX CRM application for managing leads, tracking customer interactions, optimizing sales activities, and improving overall business productivity.",
+    "course_difficulty": "Beginner to Intermediate",
+    "language": "English",
+    "target_audience": "• Sales Users (Relationship Managers) responsible for managing and converting leads.• Sales Managers who oversee sales teams and assign leads.• Sales Master Managers (HODs and Branch Heads) with organization-wide visibility and control.• Business stakeholders who need to understand CRM workflows and reporting processes",
+    "course_type": "User Manual / System Training Guide / Mobile Application Guide",
+    "modules": [
+      {
+        "module_number": 1,
+        "title": "Logging in to PhillipX CRM",
+        "start_line": 1,
+        "num_questions": 3,
+        "text": "Module 1: Logging in to PhillipX CRM\nFollow these steps to log in to the PhillipX CRM mobile application:\n1.\nDownload and install the PhillipX CRM mobile application from the Google Play\nStore (Android) or Apple App Store (iOS).\n2.\nLaunch the application and enter your registered email address or username.\n3.\nDuring your first login, enter the password provided by the system administrator.\n4.\nThe application will prompt you to enable biometric authentication, such as\nfingerprint or facial recognition.\n5.\nOnce enabled, you can use biometric authentication for faster and more secure\naccess during future logins.\n6.\nUpon successful login, the system will send a notification to your reporting\nmanager, confirming your active status for the day.\nImportant: Sales Users are required to log in to the mobile application daily to receive\nlead assignments and updates\n[IMAGE: img_22]",
+        "images": [
+          {
+            "image_id": "img_22",
+            "caption": "Enter the site name, registered email address provided for the CRM application, and your password. Click Sign In to access the PhillipX mobile application.",
+            "raw_caption": "Figure 1: Enter the site name, registered email address provided for the CRM application, and your password. Click Sign In to access the PhillipX mobile application.",
+            "file_path": "assets/images/course_1783074491_0/page_2_img_1_22.jpeg",
+            "page": 2,
+            "bbox": [
+              72.0,
+              328.28997802734375,
+              230.1999969482422,
+              672.469970703125
+            ]
+          }
+        ],
+        "lessons": [
+          {
+            "lesson_number": 1,
+            "lesson_title": "Getting Started with PhillipX CRM",
+            "bullets": [
+              {
+                "text": "Download and install the PhillipX CRM mobile app from Google Play (Android) or Apple App Store (iOS)."
+              },
+              {
+                "text": "Launch the app and enter your registered email or username."
+              },
+              {
+                "text": "During first login, input the password provided by the system administrator."
+              },
+              {
+                "text": "Enable biometric authentication (fingerprint or facial recognition) upon first login."
+              },
+              {
+                "text": "Biometric authentication allows faster and more secure access for future logins."
+              },
+              {
+                "text": "Successful login notifies your reporting manager of your active status for the day."
+              }
+            ],
+            "images": [
+              {
+                "image_id": "img_22",
+                "caption": "Enter the site name, registered email address provided for the CRM application, and your password. Click Sign In to access the PhillipX mobile application.",
+                "raw_caption": "Figure 1: Enter the site name, registered email address provided for the CRM application, and your password. Click Sign In to access the PhillipX mobile application.",
+                "file_path": "assets/images/course_1783074491_0/page_2_img_1_22.jpeg",
+                "page": 2,
+                "bbox": [
+                  72.0,
+                  328.28997802734375,
+                  230.1999969482422,
+                  672.469970703125
+                ],
+                "mapped_bullet_text": "Launch the app and enter your registered email or username."
+              }
+            ]
+          },
+          {
+            "lesson_number": 2,
+            "lesson_title": "Daily Login Requirements",
+            "bullets": [
+              {
+                "text": "Important: Sales Users are required to log in to the mobile application daily to receive lead assignments and updates."
+              }
+            ],
+            "images": []
+          }
+        ],
+        "quiz": {
+          "questions": [
+            {
+              "question_text": "What is the first step required to begin using the PhillipX CRM mobile application?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "Enter your registered email address."
+                },
+                {
+                  "key": "B",
+                  "text": "Enable biometric authentication."
+                },
+                {
+                  "key": "C",
+                  "text": "Download and install the application from the appropriate app store."
+                },
+                {
+                  "key": "D",
+                  "text": "Wait for a notification from your reporting manager."
+                }
+              ],
+              "correct_option": "C",
+              "explanation": "The module explicitly states that the first step is to 'Download and install the PhillipX CRM mobile application from the Google Play Store (Android) or Apple App Store (iOS).' Option A is step 2, and Option B is step 4.",
+              "question_id": "60d1a7b4-da3a-45e6-9308-04350e7b481d"
+            },
+            {
+              "question_text": "What is the purpose of the system administrator-provided password during the initial login?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "To verify that the user has downloaded the application correctly."
+                },
+                {
+                  "key": "B",
+                  "text": "To allow the system to send a daily status notification."
+                },
+                {
+                  "key": "C",
+                  "text": "To grant initial access to the application before biometric setup."
+                },
+                {
+                  "key": "D",
+                  "text": "To confirm the user's role as a Sales User."
+                }
+              ],
+              "correct_option": "C",
+              "explanation": "Step 3 specifies that during the *first login*, the user must enter the password provided by the system administrator. This is the initial credential required to gain access before subsequent security features like biometrics are enabled.",
+              "question_id": "28e43b8e-113a-4dee-8b5b-41f22031671e"
+            },
+            {
+              "question_text": "Which group of users is specifically required to log into the mobile application daily?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "System Administrators."
+                },
+                {
+                  "key": "B",
+                  "text": "Reporting Managers."
+                },
+                {
+                  "key": "C",
+                  "text": "All users who have enabled biometric authentication."
+                },
+                {
+                  "key": "D",
+                  "text": "Sales Users."
+                }
+              ],
+              "correct_option": "D",
+              "explanation": "The 'Important' note at the end of the module clearly states: 'Sales Users are required to log in to the mobile application daily to receive lead assignments and updates.' Options A, B, and C are not specified as having this daily requirement.",
+              "question_id": "a0d6ce10-2fff-40d5-9dac-cc18b3ef6a48"
+            }
+          ]
+        },
+        "slides": [
+          {
+            "slide_title": "Getting Started with PhillipX CRM: Initial Setup",
+            "layout_type": "bullets",
+            "concept_data": null,
+            "steps_data": null,
+            "comparison_data": null,
+            "grid_data": null,
+            "bullets_data": [
+              "Download and install the PhillipX CRM mobile app from Google Play (Android) or Apple App Store (iOS).",
+              "Launch the app and enter your registered email or username.",
+              "During first login, input the password provided by the system administrator."
+            ],
+            "image_ids": [
+              "img_22"
+            ],
+            "parent_lesson_topic": "Getting Started with PhillipX CRM",
+            "script": "Welcome to our guide on getting started with the PhillipX CRM. To begin, we need to get the application onto your device. Please download and install the PhillipX CRM mobile app, making sure you get it from either the Google Play Store for Android or the Apple App Store for iOS. Once installed, launch the app and enter your registered email address or username to proceed.",
+            "audio_path": "assets/audio/course_course_1783074491_0/module_1/slide_1.wav"
+          },
+          {
+            "slide_title": "Getting Started with PhillipX CRM: Security & Confirmation",
+            "layout_type": "bullets",
+            "concept_data": null,
+            "steps_data": null,
+            "comparison_data": null,
+            "grid_data": null,
+            "bullets_data": [
+              "Enable biometric authentication (fingerprint or facial recognition) upon first login.",
+              "Biometric authentication allows faster and more secure access for future logins.",
+              "Successful login notifies your reporting manager of your active status for the day."
+            ],
+            "image_ids": [],
+            "parent_lesson_topic": "Getting Started with PhillipX CRM",
+            "script": "Now that you're logged in for the first time, the system will prompt you to set up biometric authentication. This means you can enable features like fingerprint or facial recognition. Once this is active, your future logins will be much faster and more secure. Finally, just so you know, a successful login automatically sends a notification to your reporting manager confirming you are active for the day.",
+            "audio_path": "assets/audio/course_course_1783074491_0/module_1/slide_2.wav"
+          },
+          {
+            "slide_title": "Daily Login Requirements",
+            "layout_type": "bullets",
+            "concept_data": null,
+            "steps_data": null,
+            "comparison_data": null,
+            "grid_data": null,
+            "bullets_data": [
+              "Important: Sales Users are required to log in to the mobile application daily to receive lead assignments and updates."
+            ],
+            "image_ids": [],
+            "parent_lesson_topic": "Daily Login Requirements",
+            "script": "To wrap up our initial setup, I want to emphasize a key requirement for our sales team. It is important that all Sales Users log into the mobile application every single day. This daily login is essential because it ensures you receive all your necessary lead assignments and the latest updates throughout the day.",
+            "audio_path": "assets/audio/course_course_1783074491_0/module_1/slide_3.wav"
+          }
+        ],
+        "video_path": "assets/videos/course_course_1783074491_0/module_1.mp4"
+      },
+      {
+        "module_number": 2,
+        "title": "Check-In to PhillipX CRM",
+        "start_line": 24,
+        "num_questions": 3,
+        "text": "Module 2: Check-In to PhillipX CRM\nFollow these steps to complete your daily check-in:\n1.\nLog in to the PhillipX CRM mobile application.\n2.\nOn the home screen, tap the Check In button.\n3.\nReview the confirmation message displayed on the screen.\n4.\nClick OK to confirm your check-in.\n5.\nWhen prompted, grant GPS location access permissions.\n6.\nAfter location verification is completed, the system will successfully register your\ncheck-in status.\nImportant: Sales Users must complete the daily check-in process to receive lead\nassignments and update their availability status for the day.\nNote: Ensure that your device's location services are enabled and that you have an\nactive internet connection before initiating the check-in process.\n[IMAGE: img_27]\n[IMAGE: img_30]",
+        "images": [
+          {
+            "image_id": "img_27",
+            "caption": "After successfully logging in to the application, users must click the Check In button. A confirmation pop-up message will be displayed. Click OK to proceed with the check-in process",
+            "raw_caption": "Figure 2: After successfully logging in to the application, users must click the Check In button. A confirmation pop-up message will be displayed. Click OK to proceed with the check-in process",
+            "file_path": "assets/images/course_1783074491_0/page_4_img_1_27.jpeg",
+            "page": 4,
+            "bbox": [
+              72.0,
+              72.0,
+              313.5,
+              594.0
+            ]
+          },
+          {
+            "image_id": "img_30",
+            "caption": "The application will prompt the user to allow GPS location access. Select Allow or While Using the App to enable location services. Once location access is granted, the user will be successfully checked in to the application",
+            "raw_caption": "Figure 3: The application will prompt the user to allow GPS location access. Select Allow or While Using the App to enable location services. Once location access is granted, the user will be successfully checked in to the application",
+            "file_path": "assets/images/course_1783074491_0/page_5_img_1_30.jpeg",
+            "page": 5,
+            "bbox": [
+              72.0,
+              72.0,
+              308.8500061035156,
+              585.739990234375
+            ]
+          }
+        ],
+        "lessons": [
+          {
+            "lesson_number": 1,
+            "lesson_title": "Check-In Process Overview",
+            "bullets": [
+              {
+                "text": "Follow these steps to complete your daily check-in: Log in to the PhillipX CRM mobile application."
+              },
+              {
+                "text": "On the home screen, tap the Check In button."
+              },
+              {
+                "text": "Review the confirmation message displayed on the screen."
+              },
+              {
+                "text": "Click OK to confirm your check-in."
+              },
+              {
+                "text": "When prompted, grant GPS location access permissions."
+              },
+              {
+                "text": "After location verification is completed, the system will successfully register your check-in status."
+              }
+            ],
+            "images": [
+              {
+                "image_id": "img_27",
+                "caption": "After successfully logging in to the application, users must click the Check In button. A confirmation pop-up message will be displayed. Click OK to proceed with the check-in process",
+                "raw_caption": "Figure 2: After successfully logging in to the application, users must click the Check In button. A confirmation pop-up message will be displayed. Click OK to proceed with the check-in process",
+                "file_path": "assets/images/course_1783074491_0/page_4_img_1_27.jpeg",
+                "page": 4,
+                "bbox": [
+                  72.0,
+                  72.0,
+                  313.5,
+                  594.0
+                ],
+                "mapped_bullet_text": "On the home screen, tap the Check In button."
+              },
+              {
+                "image_id": "img_30",
+                "caption": "The application will prompt the user to allow GPS location access. Select Allow or While Using the App to enable location services. Once location access is granted, the user will be successfully checked in to the application",
+                "raw_caption": "Figure 3: The application will prompt the user to allow GPS location access. Select Allow or While Using the App to enable location services. Once location access is granted, the user will be successfully checked in to the application",
+                "file_path": "assets/images/course_1783074491_0/page_5_img_1_30.jpeg",
+                "page": 5,
+                "bbox": [
+                  72.0,
+                  72.0,
+                  308.8500061035156,
+                  585.739990234375
+                ],
+                "mapped_bullet_text": "When prompted, grant GPS location access permissions."
+              }
+            ]
+          },
+          {
+            "lesson_number": 2,
+            "lesson_title": "Check-In Requirements",
+            "bullets": [
+              {
+                "text": "Sales Users must complete the daily check-in process to receive lead assignments and update their availability status for the day."
+              },
+              {
+                "text": "Ensure that your device's location services are enabled and that you have an active internet connection before initiating the check-in process."
+              }
+            ],
+            "images": []
+          }
+        ],
+        "quiz": {
+          "questions": [
+            {
+              "question_text": "What is the first step required to begin the daily check-in process in PhillipX CRM?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "Reviewing the confirmation message."
+                },
+                {
+                  "key": "B",
+                  "text": "Granting GPS location access permissions."
+                },
+                {
+                  "key": "C",
+                  "text": "Logging in to the PhillipX CRM mobile application."
+                },
+                {
+                  "key": "D",
+                  "text": "Clicking the OK button."
+                }
+              ],
+              "correct_option": "C",
+              "explanation": "The module explicitly states that the first step is to 'Log in to the PhillipX CRM mobile application.' Option A and D occur later in the process, and Option B occurs after tapping the Check In button.",
+              "question_id": "19fab298-0170-4aa3-b249-2ab9fe20c331"
+            },
+            {
+              "question_text": "Why is it important for Sales Users to complete the daily check-in process?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "To automatically generate a daily performance report."
+                },
+                {
+                  "key": "B",
+                  "text": "To receive lead assignments and update their availability status."
+                },
+                {
+                  "key": "C",
+                  "text": "To ensure the CRM system updates the company's operational hours."
+                },
+                {
+                  "key": "D",
+                  "text": "To verify that the device has an active internet connection."
+                }
+              ],
+              "correct_option": "B",
+              "explanation": "The module clearly states: 'Sales Users must complete the daily check-in process to receive lead assignments and update their availability status for the day.' Options A, C, and D are either not mentioned or are prerequisites, not the direct outcome of completing the check-in.",
+              "question_id": "e61d67b7-4956-47d8-aa21-f7031df69f38"
+            },
+            {
+              "question_text": "Before starting the check-in, what two prerequisites must the user ensure are active on their device?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "The application must be updated and the GPS must be enabled."
+                },
+                {
+                  "key": "B",
+                  "text": "The user must have completed training and the account must be verified."
+                },
+                {
+                  "key": "C",
+                  "text": "Location services must be enabled and an active internet connection must be present."
+                },
+                {
+                  "key": "D",
+                  "text": "The Check In button must be tapped and the confirmation message must be reviewed."
+                }
+              ],
+              "correct_option": "C",
+              "explanation": "The 'Note' section specifies: 'Ensure that your device's location services are enabled and that you have an active internet connection before initiating the check-in process.' Option C accurately reflects these two required conditions.",
+              "question_id": "e0e48cbf-2d0c-45fe-942e-d93f7dd7a575"
+            }
+          ]
+        },
+        "slides": [
+          {
+            "slide_title": "Check-In Process Overview: Step-by-Step Guide",
+            "layout_type": "steps",
+            "concept_data": null,
+            "steps_data": {
+              "steps": [
+                {
+                  "step_number": 1,
+                  "title": "Log In",
+                  "description": "Log in to the PhillipX CRM mobile application."
+                },
+                {
+                  "step_number": 2,
+                  "title": "Initiate Check-In",
+                  "description": "On the home screen, tap the Check In button."
+                },
+                {
+                  "step_number": 3,
+                  "title": "Review & Confirm",
+                  "description": "Review the confirmation message displayed on the screen, then click OK to confirm your check-in."
+                },
+                {
+                  "step_number": 4,
+                  "title": "Location Verification",
+                  "description": "When prompted, grant GPS location access permissions. After location verification is completed, the system will successfully register your check-in status."
+                }
+              ]
+            },
+            "comparison_data": null,
+            "grid_data": null,
+            "bullets_data": null,
+            "image_ids": [
+              "img_27",
+              "img_30"
+            ],
+            "parent_lesson_topic": "Check-In Process Overview",
+            "script": "Now that we've successfully logged into the application, let's move on to the daily check-in process. This is a quick, essential routine. First, after logging in, you'll need to tap the 'Check In' button right on the home screen. Next, take a moment to review the confirmation message that appears, and then click OK to finalize that step. Finally, the system will ask for your GPS location access, which is necessary for verification before your check-in is officially registered.",
+            "audio_path": "assets/audio/course_course_1783074491_0/module_2/slide_1.wav"
+          },
+          {
+            "slide_title": "Check-In Requirements and Prerequisites",
+            "layout_type": "bullets",
+            "concept_data": null,
+            "steps_data": null,
+            "comparison_data": null,
+            "grid_data": null,
+            "bullets_data": [
+              "Sales Users must complete the daily check-in process to receive lead assignments and update their availability status for the day.",
+              "Ensure that your device's location services are enabled before initiating the check-in process."
+            ],
+            "image_ids": [],
+            "parent_lesson_topic": "Check-In Requirements",
+            "script": "To make sure your check-in goes smoothly, there are a couple of important prerequisites we need to cover. Remember, for all our Sales Users, completing this daily check-in is mandatory. It's how you receive your lead assignments and how the system knows your availability for the day. Also, before you even start the process, please double-check that your device's location services are turned on and that you have a stable internet connection.",
+            "audio_path": "assets/audio/course_course_1783074491_0/module_2/slide_2.wav"
+          }
+        ],
+        "video_path": "assets/videos/course_course_1783074491_0/module_2.mp4"
+      },
+      {
+        "module_number": 3,
+        "title": "Offline Meeting to PhillipX CRM",
+        "start_line": 52,
+        "num_questions": 3,
+        "text": "Module 3: Offline Meeting to PhillipX CRM\n• Upon saving the event, the system automatically sends an email reminder to the client with\nmeeting details\n• The event syncs with your Outlook Calendar if integration is enabled\n• Your Sales Manager as well as Sales Master Manager receives a notification that you have\ncreated an event and can view it in their dashboard\n• For Direct Visit events, you will be required to perform GPS check-in when you arrive at the\nlocation\n[IMAGE: img_43]",
+        "images": [
+          {
+            "image_id": "img_43",
+            "caption": "Navigate to Events → Event List and confirm your new event appears. Check your Outlook Calendar to verify the event has synced. On the day of the meeting, ensure you receive a reminder notification.",
+            "raw_caption": "Figure 4: Navigate to Events → Event List and confirm your new event appears. Check your Outlook Calendar to verify the event has synced. On the day of the meeting, ensure you receive a reminder notification.",
+            "file_path": "assets/images/course_1783074491_0/page_6_img_1_43.jpeg",
+            "page": 6,
+            "bbox": [
+              72.0,
+              211.25,
+              280.6000061035156,
+              610.75
+            ]
+          }
+        ],
+        "lessons": [
+          {
+            "lesson_number": 1,
+            "lesson_title": "Offline Meeting Setup",
+            "bullets": [
+              {
+                "text": "Upon saving the event, the system automatically sends an email reminder to the client with meeting details."
+              },
+              {
+                "text": "The event syncs with your Outlook Calendar if integration is enabled."
+              },
+              {
+                "text": "Your Sales Manager as well as Sales Master Manager receives a notification that you have created an event and can view it in their dashboard."
+              },
+              {
+                "text": "For Direct Visit events, you will be required to perform GPS check-in when you arrive at the location."
+              }
+            ],
+            "images": [
+              {
+                "image_id": "img_43",
+                "caption": "Navigate to Events → Event List and confirm your new event appears. Check your Outlook Calendar to verify the event has synced. On the day of the meeting, ensure you receive a reminder notification.",
+                "raw_caption": "Figure 4: Navigate to Events → Event List and confirm your new event appears. Check your Outlook Calendar to verify the event has synced. On the day of the meeting, ensure you receive a reminder notification.",
+                "file_path": "assets/images/course_1783074491_0/page_6_img_1_43.jpeg",
+                "page": 6,
+                "bbox": [
+                  72.0,
+                  211.25,
+                  280.6000061035156,
+                  610.75
+                ],
+                "mapped_bullet_text": "The event syncs with your Outlook Calendar if integration is enabled."
+              }
+            ]
+          }
+        ],
+        "quiz": {
+          "questions": [
+            {
+              "question_text": "What happens automatically after an event is saved in the system?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "The system automatically updates the client's billing record."
+                },
+                {
+                  "key": "B",
+                  "text": "An email reminder containing the meeting details is sent to the client."
+                },
+                {
+                  "key": "C",
+                  "text": "The Sales Manager is automatically assigned as the event owner."
+                },
+                {
+                  "key": "D",
+                  "text": "The event is immediately deleted if the client has not responded."
+                }
+              ],
+              "correct_option": "B",
+              "explanation": "The module states, 'Upon saving the event, the system automatically sends an email reminder to the client with meeting details.' Option B directly reflects this fact. Options A, C, and D are not mentioned in the provided text.",
+              "question_id": "1e58307d-7a3c-40f8-8227-00ad1e4f8064"
+            },
+            {
+              "question_text": "If calendar integration is enabled, what action occurs when an event is saved?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "The event is automatically added to the Sales Master Manager's calendar."
+                },
+                {
+                  "key": "B",
+                  "text": "The system sends a notification to the client's personal email."
+                },
+                {
+                  "key": "C",
+                  "text": "The event syncs with the user's Outlook Calendar."
+                },
+                {
+                  "key": "D",
+                  "text": "The event is flagged as a 'Direct Visit' requiring GPS check-in."
+                }
+              ],
+              "correct_option": "C",
+              "explanation": "The text explicitly states, 'The event syncs with your Outlook Calendar if integration is enabled.' Option C is the direct confirmation of this feature. Options A, B, and D describe other features or are incorrect based on the text.",
+              "question_id": "e03cf933-4c06-4c04-967e-9c8773656ca4"
+            },
+            {
+              "question_text": "What specific requirement must be met when scheduling a 'Direct Visit' event?",
+              "options": [
+                {
+                  "key": "A",
+                  "text": "The Sales Manager must approve the event before it can be saved."
+                },
+                {
+                  "key": "B",
+                  "text": "The client must confirm attendance via a separate portal."
+                },
+                {
+                  "key": "C",
+                  "text": "The user must perform a GPS check-in upon arrival at the location."
+                },
+                {
+                  "key": "D",
+                  "text": "The event must be manually marked as 'Offline' before saving."
+                }
+              ],
+              "correct_option": "C",
+              "explanation": "The module specifies, 'For Direct Visit events, you will be required to perform GPS check-in when you arrive at the location.' Option C accurately captures this mandatory step. Options A, B, and D are not mentioned as requirements for Direct Visit events in the provided text.",
+              "question_id": "0b59b505-260a-4d83-a639-08067a8b39ad"
+            }
+          ]
+        },
+        "slides": [
+          {
+            "slide_title": "Offline Meeting Setup: Key Features",
+            "layout_type": "bullets",
+            "concept_data": null,
+            "steps_data": null,
+            "comparison_data": null,
+            "grid_data": null,
+            "bullets_data": [
+              "Upon saving the event, the system automatically sends an email reminder to the client with meeting details.",
+              "The event syncs with your Outlook Calendar if integration is enabled.",
+              "Your Sales Manager as well as Sales Master Manager receives a notification that you have created an event and can view it in their dashboard.",
+              "For Direct Visit events, you will be required to perform GPS check-in when you arrive at the location."
+            ],
+            "image_ids": [
+              "img_43"
+            ],
+            "parent_lesson_topic": "Offline Meeting Setup",
+            "script": "Now that we understand the importance of the daily check-in, let's transition to how we manage offline meetings using PhillipX CRM. When you successfully save an event, the system handles a lot of the follow-up for you. Specifically, it automatically sends an email reminder containing all the meeting details directly to your client. Furthermore, if your integration is active, this event will seamlessly sync right over to your Outlook Calendar, keeping everything organized in one place.",
+            "audio_path": "assets/audio/course_course_1783074491_0/module_3/slide_1.wav"
+          }
+        ],
+        "video_path": "assets/videos/course_course_1783074491_0/module_3.mp4"
+      }
+    ],
+    "images": [
+      {
+        "image_id": "img_22",
+        "caption": "Enter the site name, registered email address provided for the CRM application, and your password. Click Sign In to access the PhillipX mobile application.",
+        "raw_caption": "Figure 1: Enter the site name, registered email address provided for the CRM application, and your password. Click Sign In to access the PhillipX mobile application.",
+        "file_path": "assets/images/course_1783074491_0/page_2_img_1_22.jpeg",
+        "page": 2,
+        "bbox": [
+          72.0,
+          328.28997802734375,
+          230.1999969482422,
+          672.469970703125
+        ]
+      },
+      {
+        "image_id": "img_27",
+        "caption": "After successfully logging in to the application, users must click the Check In button. A confirmation pop-up message will be displayed. Click OK to proceed with the check-in process",
+        "raw_caption": "Figure 2: After successfully logging in to the application, users must click the Check In button. A confirmation pop-up message will be displayed. Click OK to proceed with the check-in process",
+        "file_path": "assets/images/course_1783074491_0/page_4_img_1_27.jpeg",
+        "page": 4,
+        "bbox": [
+          72.0,
+          72.0,
+          313.5,
+          594.0
+        ]
+      },
+      {
+        "image_id": "img_30",
+        "caption": "The application will prompt the user to allow GPS location access. Select Allow or While Using the App to enable location services. Once location access is granted, the user will be successfully checked in to the application",
+        "raw_caption": "Figure 3: The application will prompt the user to allow GPS location access. Select Allow or While Using the App to enable location services. Once location access is granted, the user will be successfully checked in to the application",
+        "file_path": "assets/images/course_1783074491_0/page_5_img_1_30.jpeg",
+        "page": 5,
+        "bbox": [
+          72.0,
+          72.0,
+          308.8500061035156,
+          585.739990234375
+        ]
+      },
+      {
+        "image_id": "img_43",
+        "caption": "Navigate to Events → Event List and confirm your new event appears. Check your Outlook Calendar to verify the event has synced. On the day of the meeting, ensure you receive a reminder notification.",
+        "raw_caption": "Figure 4: Navigate to Events → Event List and confirm your new event appears. Check your Outlook Calendar to verify the event has synced. On the day of the meeting, ensure you receive a reminder notification.",
+        "file_path": "assets/images/course_1783074491_0/page_6_img_1_43.jpeg",
+        "page": 6,
+        "bbox": [
+          72.0,
+          211.25,
+          280.6000061035156,
+          610.75
+        ]
+      }
+    ],
+    "source_file": "3_Modules.pdf",
+    "id": "course_1783074491_0",
+    "created_at": 1783074494.2153609
+  }
+]

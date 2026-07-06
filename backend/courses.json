@@ -1,1 +1,142 @@
-[]
+[
+  {
+    "course_id": "course_1783074491_0",
+    "title": "PhillipX CRM",
+    "course_description": "This user manual has been developed to guide end users through the comprehensive functionalities of the PhillipX CRM System. It provides step-by-step instructions, business process explanations, and best practices to ensure effective utilization of the platform for lead management, customer engagement, and sales operations",
+    "created_at": 1783074494.2153609,
+    "modules": [
+      {
+        "module_number": 1,
+        "title": "Logging in to PhillipX CRM",
+        "video_url": "assets/videos/course_course_1783074491_0/module_1.mp4",
+        "quiz": [
+          {
+            "question_id": "60d1a7b4-da3a-45e6-9308-04350e7b481d",
+            "question": "What is the first step required to begin using the PhillipX CRM mobile application?",
+            "options": [
+              "Enter your registered email address.",
+              "Enable biometric authentication.",
+              "Download and install the application from the appropriate app store.",
+              "Wait for a notification from your reporting manager."
+            ],
+            "correct": "C",
+            "explanation": "The module explicitly states that the first step is to 'Download and install the PhillipX CRM mobile application from the Google Play Store (Android) or Apple App Store (iOS).' Option A is step 2, and Option B is step 4."
+          },
+          {
+            "question_id": "28e43b8e-113a-4dee-8b5b-41f22031671e",
+            "question": "What is the purpose of the system administrator-provided password during the initial login?",
+            "options": [
+              "To verify that the user has downloaded the application correctly.",
+              "To allow the system to send a daily status notification.",
+              "To grant initial access to the application before biometric setup.",
+              "To confirm the user's role as a Sales User."
+            ],
+            "correct": "C",
+            "explanation": "Step 3 specifies that during the *first login*, the user must enter the password provided by the system administrator. This is the initial credential required to gain access before subsequent security features like biometrics are enabled."
+          },
+          {
+            "question_id": "a0d6ce10-2fff-40d5-9dac-cc18b3ef6a48",
+            "question": "Which group of users is specifically required to log into the mobile application daily?",
+            "options": [
+              "System Administrators.",
+              "Reporting Managers.",
+              "All users who have enabled biometric authentication.",
+              "Sales Users."
+            ],
+            "correct": "D",
+            "explanation": "The 'Important' note at the end of the module clearly states: 'Sales Users are required to log in to the mobile application daily to receive lead assignments and updates.' Options A, B, and C are not specified as having this daily requirement."
+          }
+        ],
+        "pass_mark": 0.67
+      },
+      {
+        "module_number": 2,
+        "title": "Check-In to PhillipX CRM",
+        "video_url": "assets/videos/course_course_1783074491_0/module_2.mp4",
+        "quiz": [
+          {
+            "question_id": "19fab298-0170-4aa3-b249-2ab9fe20c331",
+            "question": "What is the first step required to begin the daily check-in process in PhillipX CRM?",
+            "options": [
+              "Reviewing the confirmation message.",
+              "Granting GPS location access permissions.",
+              "Logging in to the PhillipX CRM mobile application.",
+              "Clicking the OK button."
+            ],
+            "correct": "C",
+            "explanation": "The module explicitly states that the first step is to 'Log in to the PhillipX CRM mobile application.' Option A and D occur later in the process, and Option B occurs after tapping the Check In button."
+          },
+          {
+            "question_id": "e61d67b7-4956-47d8-aa21-f7031df69f38",
+            "question": "Why is it important for Sales Users to complete the daily check-in process?",
+            "options": [
+              "To automatically generate a daily performance report.",
+              "To receive lead assignments and update their availability status.",
+              "To ensure the CRM system updates the company's operational hours.",
+              "To verify that the device has an active internet connection."
+            ],
+            "correct": "B",
+            "explanation": "The module clearly states: 'Sales Users must complete the daily check-in process to receive lead assignments and update their availability status for the day.' Options A, C, and D are either not mentioned or are prerequisites, not the direct outcome of completing the check-in."
+          },
+          {
+            "question_id": "e0e48cbf-2d0c-45fe-942e-d93f7dd7a575",
+            "question": "Before starting the check-in, what two prerequisites must the user ensure are active on their device?",
+            "options": [
+              "The application must be updated and the GPS must be enabled.",
+              "The user must have completed training and the account must be verified.",
+              "Location services must be enabled and an active internet connection must be present.",
+              "The Check In button must be tapped and the confirmation message must be reviewed."
+            ],
+            "correct": "C",
+            "explanation": "The 'Note' section specifies: 'Ensure that your device's location services are enabled and that you have an active internet connection before initiating the check-in process.' Option C accurately reflects these two required conditions."
+          }
+        ],
+        "pass_mark": 0.67
+      },
+      {
+        "module_number": 3,
+        "title": "Offline Meeting to PhillipX CRM",
+        "video_url": "assets/videos/course_course_1783074491_0/module_3.mp4",
+        "quiz": [
+          {
+            "question_id": "1e58307d-7a3c-40f8-8227-00ad1e4f8064",
+            "question": "What happens automatically after an event is saved in the system?",
+            "options": [
+              "The system automatically updates the client's billing record.",
+              "An email reminder containing the meeting details is sent to the client.",
+              "The Sales Manager is automatically assigned as the event owner.",
+              "The event is immediately deleted if the client has not responded."
+            ],
+            "correct": "B",
+            "explanation": "The module states, 'Upon saving the event, the system automatically sends an email reminder to the client with meeting details.' Option B directly reflects this fact. Options A, C, and D are not mentioned in the provided text."
+          },
+          {
+            "question_id": "e03cf933-4c06-4c04-967e-9c8773656ca4",
+            "question": "If calendar integration is enabled, what action occurs when an event is saved?",
+            "options": [
+              "The event is automatically added to the Sales Master Manager's calendar.",
+              "The system sends a notification to the client's personal email.",
+              "The event syncs with the user's Outlook Calendar.",
+              "The event is flagged as a 'Direct Visit' requiring GPS check-in."
+            ],
+            "correct": "C",
+            "explanation": "The text explicitly states, 'The event syncs with your Outlook Calendar if integration is enabled.' Option C is the direct confirmation of this feature. Options A, B, and D describe other features or are incorrect based on the text."
+          },
+          {
+            "question_id": "0b59b505-260a-4d83-a639-08067a8b39ad",
+            "question": "What specific requirement must be met when scheduling a 'Direct Visit' event?",
+            "options": [
+              "The Sales Manager must approve the event before it can be saved.",
+              "The client must confirm attendance via a separate portal.",
+              "The user must perform a GPS check-in upon arrival at the location.",
+              "The event must be manually marked as 'Offline' before saving."
+            ],
+            "correct": "C",
+            "explanation": "The module specifies, 'For Direct Visit events, you will be required to perform GPS check-in when you arrive at the location.' Option C accurately captures this mandatory step. Options A, B, and D are not mentioned as requirements for Direct Visit events in the provided text."
+          }
+        ],
+        "pass_mark": 0.67
+      }
+    ]
+  }
+]

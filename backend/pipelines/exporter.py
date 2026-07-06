@@ -31,6 +31,23 @@ def sync_clean_database():
             course["id"] = course_id
             draft_modified = True
 
+        modules = course.get("modules", [])
+        if not modules:
+            continue
+            
+        is_fully_made = True
+        for m in modules:
+            if not m.get("video_path"):
+                is_fully_made = False
+                break
+            quiz = m.get("quiz")
+            if not quiz or not isinstance(quiz, dict) or not quiz.get("questions"):
+                is_fully_made = False
+                break
+                
+        if not is_fully_made:
+            continue
+
         clean_modules = []
         for m in course.get("modules", []):
             clean_quiz = []
@@ -71,6 +88,8 @@ def sync_clean_database():
         clean_courses.append({
             "course_id": course_id,
             "title": course.get("course_name", ""),
+            "course_description": course.get("course_description", ""),
+            "created_at": course.get("created_at", 0),
             "modules": clean_modules
         })
 
@@ -86,6 +105,14 @@ def sync_clean_database():
     try:
         atomic_write_json(PUBLISHED_COURSES_FILE, clean_courses)
         print(f"[EXPORTER] Successfully synchronized clean database to {PUBLISHED_COURSES_FILE}")
+        
+        # Automatically assign to employees and broadcast
+        try:
+            from pipelines.employee_routes import assign_published_courses_to_employees
+            assign_published_courses_to_employees(clean_courses)
+        except Exception as e:
+            print(f"[EXPORTER][ERROR] Failed to assign courses to employees: {e}")
+            
     except Exception as e:
         print(f"[EXPORTER][ERROR] Failed to write clean database: {e}")
 
