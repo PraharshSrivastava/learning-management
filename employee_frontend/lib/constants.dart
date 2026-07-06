@@ -10,7 +10,10 @@ class AppConstants {
   static const String generateCourseEndpoint = '$apiBaseUrl/api/courses/generate';
   static const String listCoursesEndpoint = '$apiBaseUrl/api/courses';
   static const String employeeCoursesEndpoint = '$apiBaseUrl/api/employee/courses';
-  static const String employeeCoursesWsEndpoint = 'ws://localhost:8000/api/employee/courses/ws';
+  static String get employeeCoursesWsEndpoint {
+    final wsBase = apiBaseUrl.replaceFirst('http://', 'ws://').replaceFirst('https://', 'wss://');
+    return '$wsBase/api/employee/courses/ws';
+  }
   
   static String viewFileUrl(String filename) => '$apiBaseUrl/api/files/$filename';
   static String videoAssetUrl(String videoPath) {
