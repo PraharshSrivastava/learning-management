@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import os
 import sys
 import json
@@ -39,8 +40,7 @@ def run_pipeline_for_file(filename):
         
     # Step 1.5: Set num_questions = 3 for all modules so quiz generation executes
     try:
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+        courses = get_all_courses('draft')
         course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
         if course_idx is not None:
             course = courses[course_idx]
@@ -105,8 +105,7 @@ def run_pipeline_for_file(filename):
 
     # Step 6: Slide-to-Video compilation (FFmpeg) per module
     try:
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+        courses = get_all_courses('draft')
         course = next((c for c in courses if c.get("id") == course_id), None)
         if course:
             modules = course.get("modules", [])

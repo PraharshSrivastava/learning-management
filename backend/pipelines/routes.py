@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import os
 import re
 import shutil
@@ -116,10 +117,7 @@ def list_courses(response: Response):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        if not os.path.exists(DRAFT_COURSES_FILE):
-            return []
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+        courses = get_all_courses('draft')
         return courses
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve courses: {str(e)}")
@@ -127,11 +125,7 @@ def list_courses(response: Response):
 @router.put("/api/courses/{course_id}")
 def update_course(course_id: str, updated_fields: dict):
     try:
-        if not os.path.exists(DRAFT_COURSES_FILE):
-            raise HTTPException(status_code=404, detail="Courses database not found")
-            
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+        courses = get_all_courses('draft')
             
         course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
         if course_idx is None:
@@ -206,7 +200,7 @@ def update_course(course_id: str, updated_fields: dict):
                 
         courses[course_idx] = original_course
         
-        atomic_write_json(DRAFT_COURSES_FILE, courses)
+        save_all_courses(courses, "draft")
             
         sync_clean_database()
         return original_course
@@ -268,8 +262,7 @@ def generate_video(course_id: str, module_number: int):
         
         generate_video_for_module(course_id, module_number)
         
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+        courses = get_all_courses('draft')
         course = next((c for c in courses if c.get("id") == course_id), None)
         if not course:
             raise HTTPException(status_code=404, detail="Course not found after video generation")
@@ -300,11 +293,7 @@ def generate_full_course(course_id: str):
         generate_scripts_for_course(course_id)
         compile_slides_for_course(course_id)
 
-        if not os.path.exists(DRAFT_COURSES_FILE):
-            raise FileNotFoundError("Courses database not found.")
-
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+        courses = get_all_courses('draft')
 
         course = next((c for c in courses if c.get("id") == course_id), None)
         if not course:
@@ -317,8 +306,7 @@ def generate_full_course(course_id: str):
 
         sync_clean_database()
 
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+        courses = get_all_courses('draft')
         course = next((c for c in courses if c.get("id") == course_id), None)
 
         return course

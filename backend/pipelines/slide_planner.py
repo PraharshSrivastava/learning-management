@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import os
 import json
 import requests
@@ -269,11 +270,7 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
     """
     print(f"Generating slides database models for course {course_id}...")
 
-    if not os.path.exists(DRAFT_COURSES_FILE):
-        raise FileNotFoundError("Courses database not found.")
-
-    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-        courses = json.load(f)
+    courses = get_all_courses('draft')
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
     if course_idx is None:
@@ -292,8 +289,7 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
 
     # Load fresh courses list from disk to prevent race conditions during long LLM calls
     if os.path.exists(DRAFT_COURSES_FILE):
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            fresh_courses = json.load(f)
+        fresh_courses = get_all_courses('draft')
     else:
         fresh_courses = []
 
@@ -303,7 +299,7 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
     else:
         fresh_courses.append(course)
 
-    atomic_write_json(DRAFT_COURSES_FILE, fresh_courses)
+    save_all_courses(fresh_courses, "draft")
 
     # Compile static HTML slide files
     try:

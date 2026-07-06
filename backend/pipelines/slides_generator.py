@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import os
 import json
 import html
@@ -334,11 +335,7 @@ def compile_slides_for_course(course_id: str) -> List[str]:
     """
     print(f"Compiling HTML Slide decks for course {course_id}...")
 
-    if not os.path.exists(DRAFT_COURSES_FILE):
-        raise FileNotFoundError("Courses database not found.")
-
-    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-        courses = json.load(f)
+    courses = get_all_courses('draft')
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
     if course_idx is None:

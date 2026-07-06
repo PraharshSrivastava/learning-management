@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import sys
 import io
 import os
@@ -19,11 +20,7 @@ from pipelines.quiz_generator import generate_quiz_for_course
 from pipelines.config import DRAFT_COURSES_FILE
 
 def get_latest_course_id():
-    if not os.path.exists(DRAFT_COURSES_FILE):
-        return None
-    try:
-        with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-            courses = json.load(f)
+    courses = get_all_courses('draft')
             if courses:
                 return courses[-1].get("id")
     except Exception as e:
@@ -118,11 +115,7 @@ def run_step_4_quiz(course_id):
     print(f"\n--- STAGE 4: Generating Quizzes for Course ID {course_id} ---")
     
     # Load the course to check and update num_questions if needed for testing
-    if not os.path.exists(DRAFT_COURSES_FILE):
-        raise FileNotFoundError("Courses database not found.")
-        
-    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-        courses = json.load(f)
+    courses = get_all_courses('draft')
         
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
     if course_idx is None:

@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import os
 import re
 import json
@@ -424,11 +425,7 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
     Renders slides to PNG, merges with slide speech clips,
     concatenates clips together, and exports the final MP4 slideshow video.
     """
-    if not os.path.exists(DRAFT_COURSES_FILE):
-        raise FileNotFoundError("Courses database not found.")
-        
-    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-        courses = json.load(f)
+    courses = get_all_courses('draft')
         
     course = next((c for c in courses if c.get("id") == course_id), None)
     if not course:
@@ -557,12 +554,11 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
     print(f"Module video generated successfully: {final_output_path}")
     
     # Save the video path in courses.json database
-    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-        fresh_courses = json.load(f)
+    fresh_courses = get_all_courses('draft')
     fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
     if fresh_idx is not None:
         fresh_courses[fresh_idx]["modules"][module_number - 1]["video_path"] = f"assets/videos/course_{course_id}/module_{module_number}.mp4"
-        atomic_write_json(DRAFT_COURSES_FILE, fresh_courses)
+        save_all_courses(fresh_courses, "draft")
             
     # Return relative URL path
     return f"assets/videos/course_{course_id}/module_{module_number}.mp4"

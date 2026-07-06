@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import os
 import json
 import asyncio
@@ -10,20 +11,17 @@ from core.io_utils import atomic_write_json
 router = APIRouter()
 active_websockets = []
 
+from core.database import get_all_progress, save_progress
+
 def get_employee_progress():
-    if not os.path.exists(EMPLOYEE_PROGRESS_FILE):
-        return {}
-    with open(EMPLOYEE_PROGRESS_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    return get_all_progress()
 
 def save_employee_progress(progress):
-    atomic_write_json(EMPLOYEE_PROGRESS_FILE, progress)
+    for course_id, prog_data in progress.items():
+        save_progress(course_id, prog_data)
 
 def get_enriched_employee_courses():
-    if not os.path.exists(PUBLISHED_COURSES_FILE):
-        return []
-    with open(PUBLISHED_COURSES_FILE, 'r', encoding='utf-8') as f:
-        courses = json.load(f)
+    courses = get_all_courses('published')
         
     progress = get_employee_progress()
     now = datetime.now()
@@ -155,9 +153,8 @@ async def update_module_progress(course_id: str, module_number: str, payload: di
     course_progress["modules"][module_number] = mod_prog
     
     # Auto-update course status
-    if os.path.exists(PUBLISHED_COURSES_FILE):
-        with open(PUBLISHED_COURSES_FILE, 'r', encoding='utf-8') as f:
-            published_courses = json.load(f)
+    published_courses = get_all_courses('published')
+    if True:
         for pub_course in published_courses:
             if pub_course.get("course_id") == course_id:
                 total_modules = len(pub_course.get("modules", []))

@@ -1,3 +1,4 @@
+from core.database import get_all_courses, save_all_courses
 import os
 import json
 from pydantic import BaseModel
@@ -37,11 +38,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
     """
     print(f"Generating quizzes for course {course_id}...")
 
-    if not os.path.exists(DRAFT_COURSES_FILE):
-        raise FileNotFoundError("Courses database not found.")
-
-    with open(DRAFT_COURSES_FILE, 'r', encoding='utf-8') as f:
-        courses = json.load(f)
+    courses = get_all_courses('draft')
 
     course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
     if course_idx is None:
@@ -122,7 +119,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
     course["modules"] = modules
     courses[course_idx] = course
 
-    atomic_write_json(DRAFT_COURSES_FILE, courses)
+    save_all_courses(courses, "draft")
 
     print(f"Quiz generation complete for course '{course.get('course_name')}'!")
     return course

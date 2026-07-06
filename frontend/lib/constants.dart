@@ -1,14 +1,13 @@
-class AppConstants {
-  // Base API URL. Can be overridden using environment variables in flutter run / build.
-  static const String apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:8000',
-  );
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-  static const String uploadEndpoint = '$apiBaseUrl/api/upload';
-  static const String listFilesEndpoint = '$apiBaseUrl/api/files';
-  static const String generateCourseEndpoint = '$apiBaseUrl/api/courses/generate';
-  static const String listCoursesEndpoint = '$apiBaseUrl/api/courses';
+class AppConstants {
+  static String get apiBaseUrl => dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000';
+
+  static String get uploadEndpoint => '$apiBaseUrl/api/upload';
+  static String get listFilesEndpoint => '$apiBaseUrl/api/files';
+  static String get generateCourseEndpoint => '$apiBaseUrl/api/courses/generate';
+  static String get listCoursesEndpoint => '$apiBaseUrl/api/courses';
+
   
   static String viewFileUrl(String filename) => '$apiBaseUrl/api/files/$filename';
   static String updateCourseEndpoint(String id) => '$apiBaseUrl/api/courses/$id';
