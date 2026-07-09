@@ -288,9 +288,9 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
     course["modules"] = modules
 
     # Load fresh courses list from disk to prevent race conditions during long LLM calls
-    if os.path.exists(DRAFT_COURSES_FILE):
+    try:
         fresh_courses = get_all_courses('draft')
-    else:
+    except Exception:
         fresh_courses = []
 
     fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)

@@ -228,7 +228,9 @@ def generate_slides(course_id: str):
     try:
         from pipelines.slide_planner import generate_slides_for_course
         from pipelines.slides_generator import compile_slides_for_course
+        from pipelines.image_generator import enrich_sparse_slides_with_flux
         updated_course = generate_slides_for_course(course_id)
+        enrich_sparse_slides_with_flux(course_id)
         compile_slides_for_course(course_id)
         sync_clean_database()
         return updated_course
@@ -285,10 +287,12 @@ def generate_full_course(course_id: str):
         from pipelines.slide_planner import generate_slides_for_course
         from pipelines.slides_generator import compile_slides_for_course
         from pipelines.video_generator import generate_video_for_module
+        from pipelines.image_generator import enrich_sparse_slides_with_flux
 
         generate_lessons_for_course(course_id)
         generate_quiz_for_course(course_id)
         generate_slides_for_course(course_id)
+        enrich_sparse_slides_with_flux(course_id)
         compile_slides_for_course(course_id)
         generate_scripts_for_course(course_id)
         compile_slides_for_course(course_id)

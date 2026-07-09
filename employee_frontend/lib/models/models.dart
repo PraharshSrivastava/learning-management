@@ -165,18 +165,36 @@ class EmployeeModuleProgress {
   final bool videoWatched;
   final bool quizPassed;
   final num? quizScore;
+  final Map<int, String>? selectedAnswers;
 
   EmployeeModuleProgress({
     this.videoWatched = false,
     this.quizPassed = false,
     this.quizScore,
+    this.selectedAnswers,
   });
 
   factory EmployeeModuleProgress.fromJson(Map<String, dynamic> json) {
+    Map<int, String>? parsedAnswers;
+    final bool quizPassed = json['quiz_passed'] == true;
+    
+    // Only load saved answers if the user actually passed the quiz.
+    // If they failed, we ignore any saved answers so they can retake it.
+    if (quizPassed && json['selected_answers'] != null && json['selected_answers'] is Map) {
+      parsedAnswers = {};
+      (json['selected_answers'] as Map).forEach((key, value) {
+        final parsedKey = int.tryParse(key.toString());
+        if (parsedKey != null) {
+          parsedAnswers![parsedKey] = value.toString();
+        }
+      });
+    }
+
     return EmployeeModuleProgress(
       videoWatched: json['video_watched'] == true,
-      quizPassed: json['quiz_passed'] == true,
+      quizPassed: quizPassed,
       quizScore: json['quiz_score'] as num?,
+      selectedAnswers: parsedAnswers,
     );
   }
 }
@@ -322,7 +340,9 @@ class Course {
       language: '',
       targetAudience: '',
       modules: [], // simplified for employee dashboard
-      images: [],
+      images: (json['images'] as List? ?? [])
+          .map((img) => LessonImage.fromJson(img as Map<String, dynamic>))
+          .toList(),
       sourceFile: '',
       createdAt: (json['created_at'] as num?)?.toDouble() ?? 0.0,
       employeeStatus: json['employee_status'] as String?,

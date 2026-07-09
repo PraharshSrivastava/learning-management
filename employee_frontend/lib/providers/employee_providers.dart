@@ -7,6 +7,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants.dart';
 import '../models/models.dart';
 
+final currentEmployeeTabProvider = StateProvider<int>((ref) => 0);
+
 class EmployeeCourseListState {
   final List<Course> courses;
   final bool isLoading;

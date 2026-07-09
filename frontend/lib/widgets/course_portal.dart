@@ -354,18 +354,19 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                           Consumer(
                             builder: (context, ref, _) {
                               final hasModules = widget.course.modules.isNotEmpty;
+                              final isFullyGenerated = hasModules && widget.course.modules.every((m) => m.videoPath != null && m.quiz != null && (m.quiz!['questions'] as List?)?.isNotEmpty == true);
                               return ElevatedButton.icon(
                                 icon: const Icon(Icons.auto_awesome, size: 14),
-                                label: const Text('Generate Course'),
+                                label: Text(isFullyGenerated ? 'Already Generated' : 'Generate Course'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.accentOrange,
+                                  backgroundColor: isFullyGenerated ? Colors.grey[700] : AppTheme.accentOrange,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                 ),
-                                onPressed: hasModules
+                                onPressed: (hasModules && !isFullyGenerated)
                                     ? () => ref
                                         .read(fullCourseGenerationProvider.notifier)
                                         .generateFullCourse(widget.course.id, ref)

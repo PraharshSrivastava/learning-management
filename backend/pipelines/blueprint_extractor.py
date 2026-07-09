@@ -600,14 +600,7 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
                     for rel_idx, line in enumerate(lines):
                         global_line_num = module["start_line"] + rel_idx
                         if global_line_num in caption_lines_to_remove:
-                            # Keep only [IMAGE: img_xxxx] tags if present
-                            image_tags = re.findall(r'(\[IMAGE:\s*\w+\])', line)
-                            if image_tags:
-                                cleaned_line = " ".join(image_tags)
-                                print(f"  Removing caption text but keeping image tags: '{line}' -> '{cleaned_line}'")
-                                filtered_lines.append(cleaned_line)
-                            else:
-                                print(f"  Removing caption line from Module '{module.get('title')}' text: '{line}'")
+                            print(f"  Removing caption line from Module '{module.get('title')}' text: '{line}'")
                         else:
                             filtered_lines.append(line)
                     module["text"] = '\n'.join(filtered_lines)

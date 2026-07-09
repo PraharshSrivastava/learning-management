@@ -179,25 +179,28 @@ body, html {
 .concept-container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2rem;
+  height: 100%;
 }
 
 .concept-definition {
-  border-left: 5px solid var(--accent-cyan);
-  padding-left: 1.5rem;
-  margin: 1rem 0;
+  margin: 0;
+  max-width: 85%;
 }
 
 .concept-term {
   font-family: var(--font-display);
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   font-weight: 700;
   color: var(--primary-blue);
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .concept-desc {
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   line-height: 1.5;
   color: var(--text-black);
 }
@@ -205,10 +208,16 @@ body, html {
 .takeaway-banner {
   background-color: var(--light-gray);
   border-radius: 8px;
-  padding: 1.25rem 1.5rem;
-  border-left: 4px solid var(--primary-blue);
-  font-size: 1.05rem;
+  padding: 1.5rem 2rem;
+  font-size: 1.1rem;
   line-height: 1.4;
+  width: 90%;
+  text-align: center;
+}
+
+.takeaway-banner .takeaway-list {
+  display: inline-block;
+  text-align: left;
 }
 
 /* 2. STEPS LAYOUT (Timeline Process Flow) */
@@ -385,6 +394,30 @@ body, html {
   font-size: 1.2rem;
   line-height: 1.2;
 }
+
+/* 6. SPARSE BULLETS (1-2 Items) */
+.bullet-list li:first-child:nth-last-child(1),
+.bullet-list li:first-child:nth-last-child(1) ~ li,
+.bullet-list li:first-child:nth-last-child(2),
+.bullet-list li:first-child:nth-last-child(2) ~ li {
+  background: #ffffff;
+  border: 1px solid var(--light-gray);
+  border-left: 6px solid var(--accent-blue);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+  font-size: 1.4rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.bullet-list li:first-child:nth-last-child(1)::before,
+.bullet-list li:first-child:nth-last-child(1) ~ li::before,
+.bullet-list li:first-child:nth-last-child(2)::before,
+.bullet-list li:first-child:nth-last-child(2) ~ li::before {
+  content: none;
+}
+
 
 /* ----------------------------------------------------
    PRESENTATION CONTROLS (Floating controls overlay)

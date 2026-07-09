@@ -80,12 +80,24 @@ def sync_clean_database():
                 "pass_mark": 0.67
             })
 
+        first_slide = None
+        for m_draft in course.get("modules", []):
+            for l_draft in m_draft.get("lessons", []):
+                for img in l_draft.get("images", []):
+                    first_slide = img
+                    break
+                if first_slide: break
+            if first_slide: break
+        
+        course_images = [first_slide] if first_slide else []
+
         clean_courses.append({
             "course_id": course_id,
             "title": course.get("course_name", ""),
             "course_description": course.get("course_description", ""),
             "created_at": course.get("created_at", 0),
-            "modules": clean_modules
+            "modules": clean_modules,
+            "images": course_images
         })
 
     # If we generated any new UUIDs for course ids or question ids, save them back to draft file

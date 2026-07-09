@@ -149,6 +149,10 @@ async def update_module_progress(course_id: str, module_number: str, payload: di
         mod_prog["quiz_passed"] = payload["quiz_passed"]
     if "quiz_score" in payload:
         mod_prog["quiz_score"] = payload["quiz_score"]
+    if "selected_answers" in payload:
+        # payload["selected_answers"] will be a dict with string keys like {"0": "A", "1": "C"}
+        # because JSON object keys must be strings.
+        mod_prog["selected_answers"] = payload["selected_answers"]
         
     course_progress["modules"][module_number] = mod_prog
     

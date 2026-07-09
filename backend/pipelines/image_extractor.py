@@ -285,14 +285,6 @@ def assign_images_to_modules(images: List[Dict[str, Any]], original_lines: List[
                         module["images"].append(img)
                     assigned = True
                     print(f"  Assigned image {img['image_id']} to Module '{module['title']}' (matched to line {line_num})")
-                    
-                    # Inject inline image tag into the module's text
-                    module_lines = module.get("text", "").split('\n')
-                    rel_idx = line_num - module["start_line"]
-                    if 0 <= rel_idx < len(module_lines):
-                        module_lines[rel_idx] = f"[IMAGE: {img['image_id']}] {module_lines[rel_idx]}"
-                        module["text"] = '\n'.join(module_lines)
-                        print(f"    Injected inline marker [IMAGE: {img['image_id']}] at relative line {rel_idx} of module '{module['title']}'")
                     break
         
         # Fallback: estimate module by page number distribution

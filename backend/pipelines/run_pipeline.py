@@ -22,12 +22,10 @@ def generate_course_outline(filename):
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF file not found at {pdf_path}")
         
-    courses = []
-    if os.path.exists(DRAFT_COURSES_FILE):
-        try:
-            courses = get_all_courses('draft')
-        except Exception:
-            courses = []
+    try:
+        courses = get_all_courses('draft')
+    except Exception:
+        courses = []
             
     course_id = f"course_{int(time.time())}_{len(courses)}"
     outline = run_blueprint_extraction(pdf_path, course_id=course_id)
@@ -80,6 +78,10 @@ def generate_lessons_for_course(course_id: str) -> dict:
         module_title = module.get("title", f"Module {i + 1}")
         module_text = module.get("text", "")
         module_number = i + 1
+
+        # Scrub any flux_img_ entries generated from previous runs so they don't stack up
+        if "images" in module:
+            module["images"] = [img for img in module["images"] if not img.get("image_id", "").startswith("flux_img_")]
 
         try:
             lessons = extract_lessons_for_module(
@@ -173,7 +175,7 @@ def generate_scripts_for_course(course_id: str) -> dict:
                     audio_path_rel = f"{audio_dir_rel}/slide_{s_idx + 1}.wav"
                     audio_path_abs = os.path.join(BASE_DIR, audio_path_rel)
                     
-                    print(f"  [TTS] Synthesizing speech for slide {s_idx + 1}...")
+                    # print(f"  [TTS] Skipping speech synthesis for testing...")
                     success = synthesize_speech_for_slide(script_text, audio_path_abs)
                     if success:
                         slide["audio_path"] = audio_path_rel

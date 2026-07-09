@@ -77,10 +77,8 @@ def generate_html_slides_for_module(
         <div class="slide" id="slide-{slide_idx}">
 """)
         
-        # Requirement 1 & 3: Do not write parent lesson title (eyebrow) in any layout,
-        # and do not render the header/title block for concept layout.
-        if layout_type_str != "concept":
-            html_content.append(f"""            <div class="slide-header">
+        # Render the header/title block for all layouts.
+        html_content.append(f"""            <div class="slide-header">
                 <h1 class="slide-title">{_esc(slide_title)}</h1>
             </div>""")
 
@@ -208,8 +206,7 @@ def generate_html_slides_for_module(
                     caption = img_meta.get("caption", "")
                     html_content.append(f"""
                     <div class="p-shape-frame">
-                        <img src="{rel_img_path}" alt="{_esc(caption)}">
-                        <div class="image-caption">{_esc(caption)}</div>
+                        <img src="{rel_img_path}">
                     </div>
 """)
             else:
@@ -223,8 +220,7 @@ def generate_html_slides_for_module(
                         caption = img_meta.get("caption", "")
                         html_content.append(f"""
                         <div class="p-shape-frame">
-                            <img src="{rel_img_path}" alt="{_esc(caption)}">
-                            <div class="image-caption">{_esc(caption)}</div>
+                            <img src="{rel_img_path}">
                         </div>
 """)
                 html_content.append('                    </div>')

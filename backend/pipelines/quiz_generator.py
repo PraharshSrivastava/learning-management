@@ -100,7 +100,7 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
                     },
                 },
                 temperature=0.2,
-                default_max_tokens=2048,
+                default_max_tokens=4096,
             )
 
             raw_content = response.choices[0].message.content

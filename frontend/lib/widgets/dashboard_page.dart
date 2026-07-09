@@ -37,20 +37,14 @@ class DashboardPage extends ConsumerWidget {
           appBar: AppBar(
             title: Row(
               children: [
-                Image.asset(
-                  'assets/logos/Type=Primary.png',
-                  height: 28,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Text(
-                      'PHILLIPCAPITAL',
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryBlue,
-                        letterSpacing: 1.5,
-                      ),
-                    );
-                  },
+                Text(
+                  'PhillipCapital',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                    letterSpacing: -0.5,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Container(

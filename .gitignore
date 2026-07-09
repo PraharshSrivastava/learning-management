@@ -30,3 +30,8 @@ improvements.txt
 .idea/
 .DS_Store
 *.bak
+
+# Ignored experiment and scratch directories
+scratch/
+slide_experiment/
+.agents/

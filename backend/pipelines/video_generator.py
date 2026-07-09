@@ -136,18 +136,7 @@ def draw_slide_image(draw, bg_image, image_meta, x, y, max_w, max_h):
         bg_image.paste(rounded_img, (x, y), rounded_img)
         
         # Draw translucent blue caption banner on the lower-left side of the frame
-        caption = image_meta.get("caption", "")
-        if caption:
-            caption_font = load_font("arial.ttf", 20)
-            caption_w = rounded_img.size[0]
-            caption_h = get_text_height(caption, caption_font) + 20
-            
-            # Caption box
-            cap_box = Image.new('RGBA', (caption_w, caption_h), (0, 49, 122, 230))
-            cap_draw = ImageDraw.Draw(cap_box)
-            cap_draw.text((10, 10), caption, font=caption_font, fill=(255, 255, 255))
-            
-            bg_image.paste(cap_box, (x, y + rounded_img.size[1] - caption_h), cap_box)
+        # (Caption rendering has been removed as per requirements)
             
     except Exception as e:
         print(f"Error drawing slide image: {e}")
@@ -469,10 +458,14 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
         
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page(viewport={"width": 1920, "height": 1080})
+            page = browser.new_page(viewport={"width": 1280, "height": 720})
             
             file_url = Path(html_file_path).resolve().as_uri()
             page.goto(file_url)
+            
+            # Wait for images and web fonts to fully load
+            page.wait_for_load_state("networkidle")
+            page.evaluate("document.fonts.ready")
             
             # Inject CSS to disable animations during capture
             page.add_style_tag(content=".slide { animation: none !important; transition: none !important; }")
