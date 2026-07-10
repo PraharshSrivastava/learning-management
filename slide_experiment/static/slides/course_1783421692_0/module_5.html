@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 5: The Darkside of AI (Ethics, Bias, Safety) - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1 -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">⚠️ AI Bias: Inherited Flaws</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="warning-callout">
+                        <h3 class="warning-title">AI inherits human flaws and prejudices from its data and creators.</h3>
+                        <p class="warning-desc">Algorithmic bias occurs when flawed training data leads to discriminatory AI decisions. [IMAGE: img_38] (Example: Hiring tool penalized resumes mentioning &#x27;women&#x27;s&#x27;).</p>
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2 -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">The Deepfake Threat</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>AI-generated synthetic media mimicking real people.</li>
+                        <li>Used for scams, political manipulation, and spreading disinformation.</li>
+                    </ul></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3 -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">Copyright Crisis in AI</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="warning-callout">
+                        <h3 class="warning-title">Massive Data Ingestion: AI models currently scrape billions of images and articles from the internet.</h3>
+                        <p class="warning-desc">Legal Backlash: Artists and journalists are actively suing AI companies over copyright violations.</p>
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4 -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">Automation and Workforce Impact</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>AI automates routine tasks like data entry and basic customer service.</li>
+                        <li>Upskilling is crucial for workers to navigate job changes and avoid displacement.</li>
+                    </ul></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

@@ -32,6 +32,4 @@ improvements.txt
 *.bak
 
 # Ignored experiment and scratch directories
-scratch/
-slide_experiment/
 .agents/

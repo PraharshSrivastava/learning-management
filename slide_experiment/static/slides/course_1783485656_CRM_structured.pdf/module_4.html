@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheduling, Check-in, Check-out &amp; MOM - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1: grid -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">Module Overview: Scheduling, Check-in, Check-out &amp; MOM</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-grid">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2: steps -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">Step-by-Step: Scheduling a New Meeting</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-steps">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3: comparison -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">Managing On-Site Visits: GPS Check-in &amp; Check-out</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-comparison">
+                        <div class="comp-col comp-left">
+                            <h3 class="comp-title">Concept A</h3><ul class="comp-list">
+                            </ul>
+                        </div>
+                        <div class="comp-divider">VS</div>
+                        <div class="comp-col comp-right">
+                            <h3 class="comp-title">Concept B</h3><ul class="comp-list">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4: grid -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">Handling Exceptions: Missed Check-Outs</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-grid">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 5: grid -->
+        <div class="slide" id="slide-4">
+            <div class="slide-header">
+                <h1 class="slide-title">Minutes of Meeting (MOM) Structure and Requirements</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-grid">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 6: steps -->
+        <div class="slide" id="slide-5">
+            <div class="slide-header">
+                <h1 class="slide-title">Post-Meeting Workflow: Feedback and Reminders</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-steps">
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

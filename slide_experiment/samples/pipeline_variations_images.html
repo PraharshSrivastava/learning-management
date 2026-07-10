@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Layout Variations with Images</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #0F172A; 
+            --primary-light: #1E293B;
+            --bg-color: #F8FAFC;
+            --bg-card: #FFFFFF;
+            
+            --accent-blue: #3B82F6;
+            --accent-indigo: #6366F1;
+            --accent-purple: #8B5CF6;
+            --accent-teal: #14B8A6;
+            --accent-rose: #F43F5E;
+            
+            --text-main: #334155;
+            --text-muted: #64748B;
+            
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            
+            --radius-sm: 12px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: #E2E8F0;
+            font-family: var(--font-body);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 40px;
+            gap: 80px;
+        }
+
+        .slide {
+            width: 1024px;
+            height: 576px; /* 16:9 */
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(20, 184, 166, 0.08) 0px, transparent 50%);
+            border-radius: 20px;
+            box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0,0,0,0.05);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 48px;
+        }
+
+        h1, h2, h3, h4 { font-family: var(--font-display); color: var(--primary); }
+
+        .slide-header { margin-bottom: 32px; position: relative; }
+        .slide-header::after {
+            content: ''; position: absolute; bottom: -12px; left: 0;
+            width: 60px; height: 4px; border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-purple));
+        }
+
+        .eyebrow {
+            font-size: 14px; text-transform: uppercase; letter-spacing: 0.15em;
+            color: var(--accent-indigo); font-weight: 700; margin-bottom: 8px;
+        }
+
+        .slide-title { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; }
+
+        /* =========================================
+           SPLIT LAYOUT (Content + Images)
+           ========================================= */
+        .slide-body {
+            flex: 1;
+            display: flex;
+            gap: 40px;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .content-area {
+            flex: 1.2; /* slightly larger for text */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .visual-area {
+            flex: 0.8;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            gap: 16px;
+        }
+
+        /* Image Frames */
+        .img-frame {
+            width: 100%;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            border: 4px solid white;
+            background-color: var(--primary-light);
+            position: relative;
+        }
+        
+        .img-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            opacity: 0.8;
+        }
+
+        /* Frame sizes based on N images */
+        .visual-area.n-1 .img-frame {
+            height: 80%;
+            border-radius: 0 48px 0 48px; /* Distinctive P-Shape from your slides.css */
+        }
+        
+        .visual-area.n-2 {
+            flex-direction: column;
+        }
+        .visual-area.n-2 .img-frame {
+            height: 45%;
+            border-radius: 0 24px 0 24px;
+        }
+
+        .visual-area.n-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 16px;
+        }
+        .visual-area.n-3 .img-frame:first-child {
+            grid-column: span 2;
+        }
+        .visual-area.n-3 .img-frame {
+            height: 100%;
+            border-radius: var(--radius-md);
+        }
+
+        /* Simulated Images */
+        .sim-img-1 { background: linear-gradient(45deg, #1e293b, #334155); }
+        .sim-img-2 { background: linear-gradient(45deg, #312e81, #4c1d95); }
+        .sim-img-3 { background: linear-gradient(45deg, #064e3b, #047857); }
+
+        /* =========================================
+           SCALED DOWN LAYOUTS 
+           (Because they now share space with images)
+           ========================================= */
+           
+        /* Concept V1 Scaled */
+        .concept-v1 {
+            background: var(--bg-card);
+            padding: 32px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border-top: 6px solid var(--accent-indigo);
+        }
+        .concept-v1 .term {
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent-indigo));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+        .concept-v1 .def { font-size: 16px; margin-bottom: 24px; line-height: 1.5; }
+        .concept-v1 .takeaways { display: flex; flex-direction: column; gap: 8px; }
+        .takeaway-pill {
+            background: rgba(99, 102, 241, 0.1); color: var(--accent-indigo);
+            padding: 8px 16px; border-radius: 100px; font-weight: 600; font-size: 13px;
+        }
+
+        /* Concept V2 Scaled */
+        .concept-v2 { display: flex; flex-direction: column; gap: 24px; }
+        .concept-v2 .term {
+            font-size: 40px; font-weight: 800; color: var(--primary);
+            border-left: 6px solid var(--accent-teal); padding-left: 16px; line-height: 1;
+        }
+        .concept-v2 .def {
+            font-size: 16px; line-height: 1.5; background: var(--bg-card);
+            padding: 24px; border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+        }
+
+        /* Steps V2 Scaled */
+        .steps-v2 { display: flex; flex-direction: column; gap: 12px; }
+        .step-v2-row {
+            display: flex; align-items: center; background: var(--bg-card);
+            border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--accent-blue);
+        }
+        .step-v2-num { font-size: 28px; font-weight: 800; color: rgba(59, 130, 246, 0.2); padding: 16px; }
+        .step-v2-content { padding: 16px 16px 16px 0; }
+        .step-v2-content h3 { font-size: 16px; margin-bottom: 4px; }
+        .step-v2-content p { font-size: 13px; color: var(--text-muted); }
+
+        /* Grid V1 Scaled */
+        .grid-v1 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-v1-card {
+            background: var(--bg-card); border-radius: var(--radius-md);
+            padding: 20px; box-shadow: var(--shadow-sm);
+        }
+        .grid-v1-card h3 { color: var(--accent-indigo); margin-bottom: 8px; font-size: 16px; }
+        .grid-v1-card p { font-size: 13px; line-height: 1.4; }
+
+        /* Bullets V2 Scaled */
+        .bullets-v2 { display: flex; flex-direction: column; }
+        .bullets-v2 li { display: flex; gap: 20px; padding: 20px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .bullets-v2-num { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--accent-indigo); width: 30px; }
+        .bullets-v2-text { font-size: 16px; line-height: 1.5; }
+
+        .label {
+            position: absolute; top: -40px; left: 0; font-size: 14px;
+            font-weight: bold; color: #64748B; text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1 IMAGE + CONCEPT V1 -->
+    <div style="position:relative;">
+        <div class="label">1 Image + Concept Layout (V1)</div>
+        <div class="slide">
+            <div class="slide-header">
+                <div class="eyebrow">Definition</div>
+                <h2 class="slide-title">Spaced Repetition</h2>
+            </div>
+            <div class="slide-body">
+                <div class="content-area">
+                    <div class="concept-v1">
+                        <div class="term">Active Recall</div>
+                        <div class="def">The process of actively stimulating memory during the learning process to strengthen neural pathways and improve long-term retention.</div>
+                        <div class="takeaways">
+                            <div class="takeaway-pill">Improves test scores</div>
+                            <div class="takeaway-pill">Reduces study time</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-area n-1">
+                    <!-- Note the distinctive P-shape border radius applied here -->
+                    <div class="img-frame sim-img-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2 IMAGES + CONCEPT V2 -->
+    <div style="position:relative;">
+        <div class="label">2 Images + Concept Layout (V2 Split)</div>
+        <div class="slide">
+            <div class="slide-header">
+                <div class="eyebrow">Core Principle</div>
+                <h2 class="slide-title">Cognitive Load Theory</h2>
+            </div>
+            <div class="slide-body">
+                <div class="content-area">
+                    <div class="concept-v2">
+                        <div class="term">Cognitive Load</div>
+                        <div class="def">The total amount of mental effort being used in the working memory. Instruction should be designed to minimize extraneous load.</div>
+                        <div style="display:flex; gap: 8px;">
+                            <span style="color: var(--accent-teal); font-weight: bold;">→</span>
+                            <span style="color: var(--text-muted); font-size: 14px;">Optimize intrinsic load</span>
+                        </div>
+                        <div style="display:flex; gap: 8px;">
+                            <span style="color: var(--accent-teal); font-weight: bold;">→</span>
+                            <span style="color: var(--text-muted); font-size: 14px;">Reduce extraneous load</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-area n-2">
+                    <div class="img-frame sim-img-2"></div>
+                    <div class="img-frame sim-img-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1 IMAGE + STEPS V2 -->
+    <div style="position:relative;">
+        <div class="label">1 Image + Steps Layout (V2 Vertical)</div>
+        <div class="slide">
+            <div class="slide-header">
+                <div class="eyebrow">Implementation</div>
+                <h2 class="slide-title">Rollout Phases</h2>
+            </div>
+            <div class="slide-body">
+                <div class="content-area">
+                    <div class="steps-v2">
+                        <div class="step-v2-row">
+                            <div class="step-v2-num">01</div>
+                            <div class="step-v2-content">
+                                <h3>Alpha Testing</h3>
+                                <p>Internal deployment to a closed group of 50 users to identify critical bugs.</p>
+                            </div>
+                        </div>
+                        <div class="step-v2-row" style="border-left-color: var(--accent-indigo);">
+                            <div class="step-v2-num">02</div>
+                            <div class="step-v2-content">
+                                <h3>Beta Release</h3>
+                                <p>Open access to 500 waitlisted users with mandatory feedback loops.</p>
+                            </div>
+                        </div>
+                        <div class="step-v2-row" style="border-left-color: var(--accent-purple);">
+                            <div class="step-v2-num">03</div>
+                            <div class="step-v2-content">
+                                <h3>General Availability</h3>
+                                <p>Full public launch with complete marketing support and SLA guarantees.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-area n-1">
+                    <div class="img-frame sim-img-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3 IMAGES (GRID) + GRID V1 -->
+    <div style="position:relative;">
+        <div class="label">3 Images + Grid Layout (V1 Bento)</div>
+        <div class="slide">
+            <div class="slide-header">
+                <div class="eyebrow">Capabilities</div>
+                <h2 class="slide-title">Core Competencies</h2>
+            </div>
+            <div class="slide-body">
+                <div class="content-area">
+                    <div class="grid-v1">
+                        <div class="grid-v1-card" style="border-bottom: 4px solid var(--accent-blue);">
+                            <h3>Content Authoring</h3>
+                            <p>Drag-and-drop course builder with rich media support.</p>
+                        </div>
+                        <div class="grid-v1-card" style="border-bottom: 4px solid var(--accent-indigo);">
+                            <h3>User Management</h3>
+                            <p>Role-based access control and automated enrollment.</p>
+                        </div>
+                        <div class="grid-v1-card" style="border-bottom: 4px solid var(--accent-purple);">
+                            <h3>Assessment</h3>
+                            <p>Dynamic question banks and automated rubrics.</p>
+                        </div>
+                        <div class="grid-v1-card" style="border-bottom: 4px solid var(--accent-teal);">
+                            <h3>Analytics</h3>
+                            <p>Real-time data export capabilities.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="visual-area n-3">
+                    <div class="img-frame sim-img-1"></div>
+                    <div class="img-frame sim-img-2"></div>
+                    <div class="img-frame sim-img-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1 IMAGE + BULLETS V2 -->
+    <div style="position:relative;">
+        <div class="label">1 Image + Bullets Layout (V2 Elegant)</div>
+        <div class="slide">
+            <div class="slide-header">
+                <div class="eyebrow">Action Items</div>
+                <h2 class="slide-title">Next Steps for Migration</h2>
+            </div>
+            <div class="slide-body">
+                <div class="content-area">
+                    <ul class="bullets-v2">
+                        <li>
+                            <div class="bullets-v2-num">01</div>
+                            <div class="bullets-v2-text">Audit existing content repository and flag outdated materials for archival.</div>
+                        </li>
+                        <li>
+                            <div class="bullets-v2-num">02</div>
+                            <div class="bullets-v2-text">Configure SSO integration with Okta for seamless enterprise access.</div>
+                        </li>
+                        <li>
+                            <div class="bullets-v2-num">03</div>
+                            <div class="bullets-v2-text">Conduct a pilot launch with the Sales Enablement team next Tuesday.</div>
+                        </li>
+                    </ul>
+                </div>
+                <div class="visual-area n-1">
+                    <div class="img-frame sim-img-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

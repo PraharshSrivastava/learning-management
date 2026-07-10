@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 5: The Darkside of AI (Ethics, Bias, Safety) - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1: WARNING_CALLOUT -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">WARNING: AI Bias Risks</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="warning-callout">
+                        <h3 class="warning-title">Algorithmic Bias in AI Systems</h3>
+                        <p class="warning-desc">AI systems can inherit biases from their training data. For example, a hiring AI tool might favor male candidates due to historical data. [IMAGE: img_38]</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2: PILLAR_CARDS_3 -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">The Threat of Synthetic Media</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">AI Mimicry</h3>
+                            <p class="pillar-desc">Deepfakes are AI-generated media that mimic real people&#x27;s appearance and speech.</p>
+                        </div>
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Risk Vectors</h3>
+                            <p class="pillar-desc">These media pose risks for scams, political manipulation, and reputation damage.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3: WARNING_CALLOUT -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">Intellectual Property and Copyright Risks</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="warning-callout">
+                        <h3 class="warning-title">Copyright Infringement Risk</h3>
+                        <p class="warning-desc">AI models train on vast internet content, raising copyright and IP concerns. Artists and authors are currently suing AI companies for using their work without permission.</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4: PILLAR_CARDS_3 -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">Workforce Transformation by AI Automation</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Task Replacement</h3>
+                            <p class="pillar-desc">AI automation is reshaping the workforce by replacing repetitive tasks.</p>
+                        </div>
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Job Vulnerability</h3>
+                            <p class="pillar-desc">Jobs like data entry, customer service, and basic copywriting are at risk.</p>
+                        </div>
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Upskilling Imperative</h3>
+                            <p class="pillar-desc">Workers must upskill to remain competitive, even as AI creates new tech jobs.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

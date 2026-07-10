@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slide Experiment Sandbox</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Slide Experiment Sandbox</h1>
+            <p>Upload a PDF to test the custom slide generation pipeline.</p>
+        </header>
+
+        <main>
+            <div class="card">
+                <h2>1. Select Course (Mock Data)</h2>
+                <select id="mock-course-select">
+                    <option value="">Loading courses...</option>
+                </select>
+                <button id="start-btn" disabled>Start Pipeline</button>
+            </div>
+
+            <div class="card pipeline-status">
+                <h2>Pipeline Progress</h2>
+                <ul id="status-list">
+                    <li id="status-upload" class="status-item"><span class="icon">○</span> Upload PDF</li>
+                    <li id="status-blueprint" class="status-item"><span class="icon">○</span> Step 1: Extract Blueprint</li>
+                    <li id="status-slides" class="status-item"><span class="icon">○</span> Step 2: Slide Planner (LLM)</li>
+                    <li id="status-art-director" class="status-item"><span class="icon">○</span> Step 3: Art Director & HTML Gen</li>
+                </ul>
+            </div>
+
+            <div class="card output-section">
+                <h2>Live Presentation Preview</h2>
+                <div id="preview-container" style="width: 100%; display: none; flex-direction: column;">
+                    <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <label for="module-select"><strong>View Module:</strong></label>
+                            <select id="module-select" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;"></select>
+                        </div>
+                        <button id="fullscreen-btn" style="background-color: #00317A; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Full Screen Preview</button>
+                    </div>
+                    <iframe id="slide-preview" style="width: 100%; aspect-ratio: 16/9; border: 1px solid #ddd; border-radius: 8px;" allowfullscreen></iframe>
+                </div>
+                <p id="preview-placeholder">Waiting for pipeline...</p>
+            </div>
+
+            <div class="card output-section">
+                <h2>Generated Slides & Layouts (Markdown Output)</h2>
+                <pre id="markdown-output" style="white-space: pre-wrap; font-family: monospace;">Waiting for pipeline...</pre>
+            </div>
+
+            <div class="card output-section">
+                <h2>Raw JSON Data</h2>
+                <pre id="json-output">Waiting for pipeline...</pre>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

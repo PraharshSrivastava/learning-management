@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhillipCapital Premium Slides</title>
+    
+    <!-- PhillipCapital Fonts: Inter (Display) & Barlow (Body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* PhillipCapital Brand Colors */
+            --pc-blue: #00317A;
+            --pc-light-gray: #EEEEEE;
+            --pc-gray: #AAAAAA;
+            --pc-black: #000000;
+            
+            /* Accent Colors */
+            --accent-blue: #0080FF;
+            --accent-cyan: #17BCE2;
+            --accent-orange: #F78F20;
+            --accent-green: #14C496;
+            
+            /* Notebook LM Aesthetic Derived Theme */
+            --bg-base: #050505; /* Almost black */
+            --bg-surface: #111111; 
+            --bg-surface-elevated: #1a1a1a;
+            
+            --text-primary: var(--pc-light-gray);
+            --text-secondary: var(--pc-gray);
+            
+            --border-subtle: rgba(238, 238, 238, 0.1); /* Light gray transparent */
+            --border-highlight: rgba(23, 188, 226, 0.3); /* Cyan transparent */
+            
+            --font-display: 'Inter', sans-serif;
+            --font-body: 'Barlow', sans-serif;
+            
+            /* The PhillipCapital "P" Shape Geometry */
+            /* Top-left: sharp, Top-right: round, Bottom-right: sharp, Bottom-left: round */
+            --p-radius: 0 32px 0 32px;
+            --p-radius-sm: 0 16px 0 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--pc-black);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            gap: 60px;
+            overflow-x: hidden;
+        }
+
+        /* Premium Ambient Glows */
+        .ambient-glow {
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 70%;
+            height: 70%;
+            background: radial-gradient(circle, rgba(0, 49, 122, 0.3) 0%, rgba(5,5,5,0) 60%); /* PC Blue */
+            z-index: -1;
+            pointer-events: none;
+        }
+        .ambient-glow-2 {
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 60%;
+            height: 60%;
+            background: radial-gradient(circle, rgba(23, 188, 226, 0.15) 0%, rgba(5,5,5,0) 60%); /* PC Cyan */
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Slide Container */
+        .slide {
+            width: 1024px;
+            height: 576px; /* 16:9 Aspect Ratio */
+            background-color: var(--bg-base);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--p-radius); /* P-Shape on the whole slide */
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Subtle Grid Pattern */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(var(--border-subtle) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+            background-size: 64px 64px;
+            opacity: 0.2;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .slide-content {
+            position: relative;
+            z-index: 1;
+            padding: 48px 56px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            font-family: var(--font-display);
+        }
+
+        /* Header / Eyebrow */
+        .slide-header {
+            margin-bottom: auto;
+        }
+
+        .eyebrow {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--accent-cyan);
+            font-family: var(--font-body);
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .eyebrow::before {
+            content: '';
+            display: block;
+            width: 24px;
+            height: 2px;
+            background-color: var(--accent-orange);
+        }
+
+        .slide-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+            margin-bottom: 32px;
+        }
+
+        /* =========================================
+           PIPELINE 1: CONCEPT LAYOUT
+           ========================================= */
+        .layout-concept {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            height: 100%;
+            max-width: 850px;
+        }
+
+        .concept-term {
+            font-size: 64px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(90deg, var(--text-primary), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 24px;
+        }
+
+        .concept-def {
+            font-size: 26px;
+            line-height: 1.4;
+            color: var(--text-secondary);
+            font-weight: 400;
+            margin-bottom: 40px;
+            border-left: 3px solid var(--pc-blue);
+            padding-left: 24px;
+        }
+
+        .concept-takeaways {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .takeaway-pill {
+            background-color: rgba(0, 49, 122, 0.2); /* PC Blue transparent */
+            border: 1px solid var(--pc-blue);
+            border-radius: var(--p-radius-sm); /* P-Shape on pills */
+            padding: 12px 24px;
+            font-size: 16px;
+            color: var(--text-primary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .takeaway-pill::before {
+            content: '';
+            display: block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-orange);
+        }
+
+        /* =========================================
+           PIPELINE 2: STEPS LAYOUT (Timeline)
+           ========================================= */
+        .layout-steps {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+        }
+
+        .steps-container {
+            display: flex;
+            gap: 24px;
+            width: 100%;
+        }
+
+        .step-card {
+            flex: 1;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--p-radius-sm);
+            padding: 32px 24px;
+            position: relative;
+        }
+
+        /* Progress line */
+        .step-card:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: -24px;
+            top: 50px;
+            width: 24px;
+            height: 2px;
+            background-color: var(--border-highlight);
+        }
+
+        .step-num {
+            font-family: var(--font-display);
+            font-size: 48px;
+            font-weight: 800;
+            color: rgba(23, 188, 226, 0.2);
+            position: absolute;
+            top: -10px;
+            right: 16px;
+        }
+
+        .step-card h3 {
+            font-size: 22px;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-card p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* =========================================
+           PIPELINE 3: COMPARISON LAYOUT
+           ========================================= */
+        .layout-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            height: 100%;
+            align-items: center;
+        }
+
+        .comp-col {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--p-radius);
+            padding: 40px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .comp-col.left-col {
+            border-top: 4px solid var(--accent-cyan);
+            background: linear-gradient(180deg, rgba(23, 188, 226, 0.05) 0%, transparent 100%);
+        }
+
+        .comp-col.right-col {
+            border-top: 4px solid var(--accent-orange);
+            background: linear-gradient(180deg, rgba(247, 143, 32, 0.05) 0%, transparent 100%);
+        }
+
+        .comp-col h2 {
+            font-size: 28px;
+            margin-bottom: 24px;
+            color: var(--text-primary);
+            text-align: center;
+        }
+
+        .comp-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .comp-list li {
+            font-size: 18px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            position: relative;
+            padding-left: 24px;
+        }
+
+        .comp-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--text-primary);
+            font-weight: bold;
+        }
+
+        /* =========================================
+           PIPELINE 4: GRID LAYOUT (Bento)
+           ========================================= */
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            height: 100%;
+        }
+
+        .grid-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--p-radius-sm);
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: border-color 0.3s ease;
+        }
+
+        .grid-card:hover {
+            border-color: var(--border-highlight);
+        }
+
+        .grid-card h3 {
+            font-size: 24px;
+            color: var(--accent-cyan);
+            margin-bottom: 12px;
+        }
+
+        .grid-card p {
+            font-size: 18px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* =========================================
+           PIPELINE 5: BULLETS LAYOUT (Minimal/Scaled)
+           ========================================= */
+        .layout-bullets {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+            max-width: 800px;
+        }
+
+        .bullets-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .bullets-list li {
+            font-size: 28px; /* Large statement size to avoid empty feeling */
+            color: var(--text-primary);
+            line-height: 1.4;
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            background: rgba(255,255,255,0.03);
+            padding: 24px 32px;
+            border-radius: var(--p-radius-sm);
+            border-left: 4px solid var(--pc-blue);
+        }
+
+        .bullets-list li::before {
+            content: '▪';
+            color: var(--accent-orange);
+            font-size: 32px;
+            line-height: 1;
+        }
+
+        /* Presentational label for this demo page */
+        .template-label {
+            color: var(--text-secondary);
+            margin-bottom: -40px;
+            font-size: 14px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow"></div>
+    <div class="ambient-glow-2"></div>
+
+    <!-- 1. CONCEPT LAYOUT -->
+    <div class="template-label">1. Concept Layout</div>
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header">
+                <div class="eyebrow">Module 1 &mdash; Definitions</div>
+            </div>
+            <div class="layout-concept">
+                <div class="concept-term">Alpha Generation</div>
+                <div class="concept-def">
+                    The active return on an investment, gauging the performance of an investment against a market index or benchmark representing the market's movement as a whole.
+                </div>
+                <div class="concept-takeaways">
+                    <div class="takeaway-pill">Requires active management</div>
+                    <div class="takeaway-pill">Measures portfolio manager skill</div>
+                    <div class="takeaway-pill">Independent of market returns</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. STEPS LAYOUT -->
+    <div class="template-label">2. Steps Layout</div>
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header">
+                <div class="eyebrow">Process</div>
+                <h2 class="slide-title">Client Onboarding Workflow</h2>
+            </div>
+            <div class="layout-steps">
+                <div class="steps-container">
+                    <div class="step-card">
+                        <div class="step-num">01</div>
+                        <h3>KYC Verification</h3>
+                        <p>Submit identification documents and complete the standard anti-money laundering screening.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">02</div>
+                        <h3>Risk Profiling</h3>
+                        <p>Complete the financial assessment questionnaire to establish investment risk tolerance.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">03</div>
+                        <h3>Account Funding</h3>
+                        <p>Transfer initial capital via approved banking channels to activate trading capabilities.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. COMPARISON LAYOUT -->
+    <div class="template-label">3. Comparison Layout</div>
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header">
+                <div class="eyebrow">Analysis</div>
+                <h2 class="slide-title">Investment Vehicles</h2>
+            </div>
+            <div class="layout-comparison">
+                <div class="comp-col left-col">
+                    <h2>Equities</h2>
+                    <ul class="comp-list">
+                        <li>Higher potential returns over long term</li>
+                        <li>Represents ownership stake in a company</li>
+                        <li>Higher volatility and market risk</li>
+                        <li>Returns driven by capital appreciation & dividends</li>
+                    </ul>
+                </div>
+                <div class="comp-col right-col">
+                    <h2>Fixed Income</h2>
+                    <ul class="comp-list">
+                        <li>Consistent, predictable cash flows</li>
+                        <li>Represents a loan made by an investor</li>
+                        <li>Lower volatility and capital preservation</li>
+                        <li>Vulnerable to inflation and interest rate changes</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. GRID LAYOUT -->
+    <div class="template-label">4. Grid Layout</div>
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header">
+                <div class="eyebrow">Core Features</div>
+                <h2 class="slide-title">PhillipCapital Trading Platform</h2>
+            </div>
+            <div class="layout-grid">
+                <div class="grid-card">
+                    <h3>Global Access</h3>
+                    <p>Trade across 26 global exchanges from a single integrated account with real-time settlement.</p>
+                </div>
+                <div class="grid-card">
+                    <h3>Advanced Charting</h3>
+                    <p>Access over 100 technical indicators and drawing tools directly integrated into the web platform.</p>
+                </div>
+                <div class="grid-card">
+                    <h3>Algorithmic Trading</h3>
+                    <p>Deploy custom trading scripts using our robust API infrastructure with ultra-low latency.</p>
+                </div>
+                <div class="grid-card">
+                    <h3>Research & Analytics</h3>
+                    <p>Receive daily institutional-grade market research, equity analysis, and macroeconomic forecasts.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. BULLETS LAYOUT -->
+    <div class="template-label">5. Bullets Layout (Scaled up to reduce empty space)</div>
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header">
+                <div class="eyebrow">Key Takeaways</div>
+                <h2 class="slide-title">Market Outlook Summary</h2>
+            </div>
+            <div class="layout-bullets">
+                <ul class="bullets-list">
+                    <li>Interest rates are expected to stabilize by Q3, supporting equity valuations.</li>
+                    <li>Emerging markets offer compelling risk-reward profiles in the technology sector.</li>
+                    <li>Diversification into alternative assets remains critical for hedging inflation.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

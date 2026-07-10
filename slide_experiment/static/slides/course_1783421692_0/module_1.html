@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 1: What is Artificial Intelligence? - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1 -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">What is Artificial Intelligence (AI)?</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>AI: Simulating Human Cognition</li>
+                        <li>AI uses machines to mimic human processes like learning, reasoning, and decision-making. Systems improve via data and algorithms, not just explicit coding. [IMAGE: img_13]</li>
+                    </ul></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2 -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">Core AI Sub-Disciplines</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Machine Learning</h3>
+                            <p class="pillar-desc"> Systems learn patterns directly from historical data without explicit programming.</p>
+                        </div>
+                
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Deep Learning</h3>
+                            <p class="pillar-desc"> Uses multi-layered neural networks to simulate complex human brain decision-making.</p>
+                        </div>
+                
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Natural Language Processing (NLP)</h3>
+                            <p class="pillar-desc"> Enables computers to comprehend and generate human language.</p>
+                        </div>
+                
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3 -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">AI Capability Spectrum: Current vs. Future</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="comparison-vs">
+                        <div class="comp-card"><h3 class="comp-title">Option A</h3><ul class="comp-list">
+                            <li>Traditional: Artificial Narrow Intelligence (ANI)</li>
+                        </ul></div>
+                        <div class="comp-card"><h3 class="comp-title">Option B</h3><ul class="comp-list">
+                            <li>Modern: ANI performs specific tasks (e.g., chess, autonomous driving) and is the only AI type currently operational.</li>
+                            <li>Theoretical: Artificial General Intelligence (AGI)</li>
+                            <li>Theoretical: AGI represents human-level cognition, remaining a goal of ongoing research.</li>
+                        </ul></div>
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4 -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">Generative AI in Modern Applications</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>Generative AI creates original content (text, images, audio, video) using LLMs.</li>
+                        <li>AI powers modern digital experiences: digital assistants, advanced search, and content creation tools. [IMAGE: img_15]</li>
+                    </ul></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 2: How AI Thinks (Data &amp; Machine Learning) - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1 -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">AI Fundamentals: The Role of Data</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>AI requires data to function, much like a car needs fuel.</li>
+                        <li>Data includes facts, numbers, and items AI uses for learning.</li>
+                        <li>Structured data is organized (e.g., Excel spreadsheets).</li>
+                        <li>Unstructured data includes photos, emails, and videos. [IMAGE: img_24]</li>
+                        <li>AI performance is directly tied to the quality of its input data.</li>
+                    </ul></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2 -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">Programming Paradigms: Rules vs. Learning</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="comparison-vs">
+                        <div class="comp-card"><h3 class="comp-title">Option A</h3><ul class="comp-list">
+                            <li>Traditional: Relies on humans defining strict, predefined rules for execution.</li>
+                        </ul></div>
+                        <div class="comp-card"><h3 class="comp-title">Option B</h3><ul class="comp-list">
+                            <li>Modern (ML): Computers autonomously determine rules by analyzing vast amounts of data.</li>
+                        </ul></div>
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3 -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">The Three Pillars of AI Training</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Supervised Learning</h3>
+                            <p class="pillar-desc"> Uses labeled data to make predictions, such as forecasting house prices from examples.</p>
+                        </div>
+                
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Unsupervised Learning</h3>
+                            <p class="pillar-desc"> Finds hidden patterns in unlabeled data, like grouping users by music taste.</p>
+                        </div>
+                
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Reinforcement Learning</h3>
+                            <p class="pillar-desc"> Trains AI via trial and error, guided by rewards and penalties.</p>
+                        </div>
+                
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4 -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">Deep Learning &amp; Neural Networks</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>Deep Learning: Advanced specialization within Machine Learning.</li>
+                        <li>Artificial Neural Networks mimic the human brain&#x27;s structure, functioning like sequential digital filters. [IMAGE: img_23]</li>
+                    </ul></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 5 -->
+        <div class="slide" id="slide-4">
+            <div class="slide-header">
+                <h1 class="slide-title">Deep Learning: Hierarchical Feature Extraction</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Basic Feature Detection</h3>
+                            <p class="pillar-desc"> Initial layers identify fundamental elements like lines and edges in input data.</p>
+                        </div>
+                
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Shape Recognition</h3>
+                            <p class="pillar-desc"> Mid-layers combine these simple features to form complex structures, such as eyes or noses.</p>
+                        </div>
+                
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Pattern Identification</h3>
+                            <p class="pillar-desc"> The final layer synthesizes these shapes to recognize complete, high-level concepts, like a full human face.</p>
+                        </div>
+                
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

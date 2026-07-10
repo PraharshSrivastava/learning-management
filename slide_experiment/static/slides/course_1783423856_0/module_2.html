@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module 2: How AI Thinks (Data &amp; Machine Learning) - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1: PILLAR_CARDS_3 -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">AI Fundamentals: Data as Fuel</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Data as Fuel</h3>
+                            <p class="pillar-desc">AI requires data to function, analogous to how a car needs fuel.</p>
+                        </div>
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Structured Data</h3>
+                            <p class="pillar-desc">This is organized information, exemplified by Excel spreadsheets containing rows of numbers, dates, and names.</p>
+                        </div>
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Unstructured Data</h3>
+                            <p class="pillar-desc">This includes everyday information such as photos, emails, and voice recordings. [IMAGE: img_24]</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2: COMPARISON_VS -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">Data Integrity vs. Algorithmic Autonomy: Two Paths to Intelligence</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="comparison-vs">
+                        <div class="comp-card"><h3 class="comp-title">Rule-Based Systems: The Explicit Instruction Model</h3><ul class="comp-list">
+                            <li>Relies on humans writing strict rules for specific tasks.</li>
+                            <li>Adheres to the &#x27;Garbage in, garbage out&#x27; principle, highlighting the critical importance of data quality for accurate results.</li>
+                        </ul></div>
+                        <div class="comp-card"><h3 class="comp-title">Machine Learning: The Pattern Recognition Paradigm</h3><ul class="comp-list">
+                            <li>Enables computers to determine rules autonomously through data analysis.</li>
+                            <li>Operates like teaching a child to recognize a dog using 50 examples, where the system identifies underlying patterns.</li>
+                        </ul></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3: PILLAR_CARDS_3 -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">AI Training Pillars</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Supervised Learning</h3>
+                            <p class="pillar-desc">AI learns from labeled data where the correct answers are already provided.</p>
+                        </div>
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Unsupervised Learning</h3>
+                            <p class="pillar-desc">AI identifies hidden patterns within unlabeled data to find natural groupings.</p>
+                        </div>
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Reinforcement Learning</h3>
+                            <p class="pillar-desc">This pillar is mentioned as a primary method but lacks specific descriptive content in the source material.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4: STANDARD_SPLIT -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">Reinforcement Learning and Deep Learning</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>Reinforcement learning teaches AI optimal strategies using a system of rewards and penalties.</li>
+                        <li>Example of reinforcement learning: Teaching an AI to play a video game through trial and error.</li>
+                        <li>After millions of trials, the AI learns the best strategy to win the game.</li>
+                        <li>Deep Learning is recognized as an advanced form of Machine Learning.</li>
+                        <li>Artificial Neural Networks, the basis of Deep Learning, are inspired by the structure of the human brain.</li>
+                    </ul></div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 5: PROCESS_TIMELINE -->
+        <div class="slide" id="slide-4">
+            <div class="slide-header">
+                <h1 class="slide-title">Neural Network Processing Timeline</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="process-timeline">
+
+                        <div class="timeline-step">
+                            <h3 class="step-title">Detect Basic Features</h3>
+                            <p class="step-desc">The initial layer detects basic lines and edges within images.</p>
+                        </div>
+
+                        <div class="timeline-step">
+                            <h3 class="step-title">Synthesize Final Output</h3>
+                            <p class="step-desc">The final layer identifies human faces by synthesizing outputs from all preceding layers. [IMAGE: img_23]</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

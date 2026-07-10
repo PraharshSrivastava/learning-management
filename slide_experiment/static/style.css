@@ -1,0 +1,65 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f5f7fa;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+h1 {
+    color: #00317A;
+}
+.card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+button {
+    background-color: #0080FF;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+button:hover {
+    background-color: #0066CC;
+}
+.pipeline-status ul {
+    list-style: none;
+    padding: 0;
+}
+.pipeline-status li {
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    background-color: #eee;
+    color: #888;
+}
+.pipeline-status li.active {
+    background-color: #FFF3CD;
+    color: #856404;
+    font-weight: bold;
+}
+.pipeline-status li.done {
+    background-color: #D4EDDA;
+    color: #155724;
+}
+pre {
+    background: #282C34;
+    color: #ABB2BF;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+    max-height: 500px;
+}

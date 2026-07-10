@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigating the App – Login, Dashboard &amp; Quick Links - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1: steps -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">Getting Started: Accessing PhillipX</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-steps">
+
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <h3 class="step-title">Launch the Application</h3>
+                                <p class="step-desc">Open PhillipX to initiate the login sequence.</p>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">2</div>
+                            <div class="step-content">
+                                <h3 class="step-title">Authentication</h3>
+                                <p class="step-desc">Enter your PhillipCapital User ID and password to verify your identity.</p>
+                            </div>
+                        </div>
+
+                        <div class="step-item">
+                            <div class="step-num">3</div>
+                            <div class="step-content">
+                                <h3 class="step-title">Biometric Security</h3>
+                                <p class="step-desc">Complete secondary authentication using fingerprint (Android) or Face ID (iPhone).</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2: grid -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">The Dashboard Overview: Your Daily Snapshot</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-grid">
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Today&#x27;s Meetings</h3>
+                            <p class="grid-desc">View all scheduled meetings for the current day.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Tomorrow&#x27;s Meetings</h3>
+                            <p class="grid-desc">Preview your schedule for the following day.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Today&#x27;s Due Tasks</h3>
+                            <p class="grid-desc">See all tasks requiring completion today.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3: grid -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">Streamlining Workflow with Quick Links</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-grid">
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Lead Management</h3>
+                            <p class="grid-desc">Quick access to Lead functions.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Daily Activity Tracking</h3>
+                            <p class="grid-desc">Shortcut to log daily activities.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Attendance Records</h3>
+                            <p class="grid-desc">Direct link to attendance module.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Minutes of Meeting (MOM)</h3>
+                            <p class="grid-desc">Fast access to MOM documentation.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Meeting Scheduling</h3>
+                            <p class="grid-desc">Direct link to meeting management.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Task Management</h3>
+                            <p class="grid-desc">Shortcut to view and manage tasks.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4: comparison -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">Persistent Navigation and User Views</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-comparison">
+                        <div class="comp-col comp-left">
+                            <h3 class="comp-title">Global Navigation Feature</h3><ul class="comp-list">
+                                <li>Footer navigation bar is persistent across all screens.</li>
+                                <li>Use the footer navigation bar to jump between sections without pressing Back.</li>
+                            </ul>
+                        </div>
+                        <div class="comp-divider">VS</div>
+                        <div class="comp-col comp-right">
+                            <h3 class="comp-title">Role-Based Dashboard Views</h3><ul class="comp-list">
+                                <li>Sales Managers &amp; HODs: Access two tabs (Self for own schedule, CRM for entire team view).</li>
+                                <li>RMs: View is restricted to their own personal schedule.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

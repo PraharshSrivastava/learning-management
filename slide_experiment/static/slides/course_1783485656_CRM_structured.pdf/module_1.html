@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to PhillipX – Why CRM Matters - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1: bullets -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">Welcome to PhillipX: Your Digital Field Companion</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-bullets"><ul>
+                        <li>PhillipX is your dedicated digital field companion.</li>
+                        <li>It is built upon the robust foundation of ERPNext.</li>
+                        <li>It has been specifically customized to meet the needs of PhillipCapital.</li>
+                    </ul></div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2: bullets -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">Core Capabilities: From Lead to Conversion</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-bullets"><ul>
+                        <li>Learn to securely log in using Biometric and SSO methods.</li>
+                        <li>Master the end-to-end lead management process: from initial creation through successful conversion.</li>
+                        <li>Accurately log all client meetings, complete with GPS location tracking.</li>
+                    </ul></div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3: grid -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">Security &amp; Access: Dual-Factor Authentication</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-grid">
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Authentication Method 1: SSO</h3>
+                            <p class="grid-desc">Uses PhillipCapital Active Directory credentials for secure login.</p>
+                        </div>
+
+                        <div class="grid-card">
+                            <h3 class="grid-title">Authentication Method 2: Biometric Verification</h3>
+                            <p class="grid-desc">Requires fingerprint scan on Android devices or Face ID on iOS devices.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 4: bullets -->
+        <div class="slide" id="slide-3">
+            <div class="slide-header">
+                <h1 class="slide-title">The Mandate: Why Every Interaction Must Be Logged</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-bullets"><ul>
+                        <li>Logging every client interaction in PhillipX is mandatory.</li>
+                        <li>This ensures complete traceability of all client activities.</li>
+                        <li>It provides crucial visibility to management.</li>
+                        <li>It enables automated, timely client communications.</li>
+                        <li>It significantly boosts your personal productivity.</li>
+                    </ul></div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 5: comparison -->
+        <div class="slide" id="slide-4">
+            <div class="slide-header">
+                <h1 class="slide-title">Summary: PhillipX - The Integrated Client Experience</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="layout-comparison">
+                        <div class="comp-col comp-left">
+                            <h3 class="comp-title">What PhillipX Is</h3><ul class="comp-list">
+                                <li>A digital field companion.</li>
+                                <li>Built on ERPNext.</li>
+                                <li>Customized for PhillipCapital.</li>
+                            </ul>
+                        </div>
+                        <div class="comp-divider">VS</div>
+                        <div class="comp-col comp-right">
+                            <h3 class="comp-title">What PhillipX Enables</h3><ul class="comp-list">
+                                <li>Secure access (SSO + Biometric).</li>
+                                <li>Full lead lifecycle management.</li>
+                                <li>Traceability, visibility, and automation.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>

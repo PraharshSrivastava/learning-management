@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logging in to PhillipX CRM - Slideshow</title>
+    <link rel="stylesheet" href="../../slides.css">
+</head>
+<body>
+    <div class="presentation-container">
+
+
+        <!-- SLIDE 1 -->
+        <div class="slide" id="slide-0">
+            <div class="slide-header">
+                <h1 class="slide-title">PhillipX CRM Mobile App Setup</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="process-timeline">
+
+                        <div class="timeline-step">
+                            <h3 class="step-title">Step 1</h3>
+                            <p class="step-desc"> Download the PhillipX CRM mobile app from Google Play (Android) or Apple App Store (iOS).</p>
+                        </div>
+                
+
+                        <div class="timeline-step">
+                            <h3 class="step-title">Step 2</h3>
+                            <p class="step-desc"> Launch the app and enter your registered email or username. [IMAGE: img_22]</p>
+                        </div>
+                
+
+                        <div class="timeline-step">
+                            <h3 class="step-title">Step 3</h3>
+                            <p class="step-desc"> Input the password provided by the system administrator during the first login.</p>
+                        </div>
+                
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 2 -->
+        <div class="slide" id="slide-1">
+            <div class="slide-header">
+                <h1 class="slide-title">Security &amp; Daily Usage Mandates</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="pillar-cards">
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Biometric Access</h3>
+                            <p class="pillar-desc"> Enable fingerprint or facial recognition upon prompt for faster, more secure logins.</p>
+                        </div>
+                
+
+                        <div class="pillar-card">
+                            <h3 class="pillar-title">Daily Login Requirement</h3>
+                            <p class="pillar-desc"> Sales Users must log into the mobile app every day to receive lead assignments and updates.</p>
+                        </div>
+                
+                    </div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <!-- SLIDE 3 -->
+        <div class="slide" id="slide-2">
+            <div class="slide-header">
+                <h1 class="slide-title">System Status &amp; Manager Alerts</h1>
+            </div>
+            <div class="slide-body no-image">
+                <div class="content-area">
+
+                    <div class="standard-split"><ul>
+                        <li>Manager Notification on Login</li>
+                        <li>System automatically alerts your reporting manager upon successful login, confirming your active status for the day.</li>
+                    </ul></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+
+        <div class="controls-overlay">
+            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
+            <span class="slide-number"></span>
+            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const slideNumDisplay = document.querySelector('.slide-number');
+
+        function updateSlides() {
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlides();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlides();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'Space') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        updateSlides();
+    </script>
+</body>
+</html>
