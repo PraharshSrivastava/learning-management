@@ -75,6 +75,7 @@ def sync_clean_database():
             clean_modules.append({
                 "module_number": m.get("module_number", 1),
                 "title": m.get("title", ""),
+                "notes": m.get("text", "") or m.get("notes", ""),
                 "video_url": m.get("video_path", "") or "",
                 "quiz": clean_quiz,
                 "pass_mark": 0.67
