@@ -70,15 +70,18 @@ def generate_html_slides_for_module(
 
         # Determine visual wrapper class
         has_images = len(slide_imgs) > 0
-        body_class = "slide-body" if has_images else "slide-body no-image"
+        body_class = f"slide-body layout-{layout_type_str}"
+        if not has_images:
+            body_class += " no-image"
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
-        <div class="slide" id="slide-{slide_idx}">
+        <div class="slide slide-{layout_type_str}" id="slide-{slide_idx}">
 """)
         
         # Render the header/title block for all layouts.
         html_content.append(f"""            <div class="slide-header">
+                <div class="eyebrow">{_esc(eyebrow)}</div>
                 <h1 class="slide-title">{_esc(slide_title)}</h1>
             </div>""")
 
@@ -90,7 +93,30 @@ def generate_html_slides_for_module(
         # ----------------------------------------------------
         # Render Content Layouts
         # ----------------------------------------------------
-        if layout_type_str == "concept" and slide.get("concept_data"):
+        if layout_type_str == "spotlight" and slide.get("spotlight_data"):
+            data = slide["spotlight_data"]
+            supporting_points = [
+                point.strip()
+                for point in data.get("supporting_points", [])
+                if point and point.strip()
+            ]
+            callout = data.get("callout")
+
+            html_content.append(f"""
+                    <div class="spotlight-container">
+                        <p class="spotlight-kicker">Key message</p>
+                        <h2 class="spotlight-message">{_esc(data.get("key_message", ""))}</h2>
+""")
+            if supporting_points:
+                html_content.append('                        <div class="spotlight-points">')
+                for point in supporting_points[:3]:
+                    html_content.append(f'                            <div class="spotlight-point">{_esc(point)}</div>')
+                html_content.append('                        </div>')
+            if callout and callout.strip():
+                html_content.append(f'                        <div class="spotlight-callout">{_esc(callout)}</div>')
+            html_content.append("""                    </div>
+""")
+        elif layout_type_str == "concept" and slide.get("concept_data"):
             data = slide["concept_data"]
             takeaways = data.get("key_takeaways", [])
             if not takeaways and data.get("key_takeaway"):
@@ -206,7 +232,7 @@ def generate_html_slides_for_module(
                     caption = img_meta.get("caption", "")
                     html_content.append(f"""
                     <div class="p-shape-frame">
-                        <img src="{rel_img_path}">
+                        <img src="{_esc(rel_img_path)}" alt="{_esc(caption or slide_title)}">
                     </div>
 """)
             else:
@@ -220,7 +246,7 @@ def generate_html_slides_for_module(
                         caption = img_meta.get("caption", "")
                         html_content.append(f"""
                         <div class="p-shape-frame">
-                            <img src="{rel_img_path}">
+                            <img src="{_esc(rel_img_path)}" alt="{_esc(caption or slide_title)}">
                         </div>
 """)
                 html_content.append('                    </div>')

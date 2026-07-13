@@ -15,11 +15,17 @@ from core.io_utils import atomic_write_json
 # Pydantic Schemas for Slide Plan
 # -------------------------------------------------------
 class SlideLayoutType(str, Enum):
+    SPOTLIGHT = "spotlight"
     CONCEPT = "concept"
     STEPS = "steps"
     COMPARISON = "comparison"
     GRID = "grid"
     BULLETS = "bullets"
+
+class SpotlightData(BaseModel):
+    key_message: str = Field(description="A concise headline-style message that carries the slide's main idea.")
+    supporting_points: List[str] = Field(default_factory=list, description="One to three short proof points or details that support the key message.")
+    callout: Optional[str] = Field(default=None, description="Optional short implication, warning, or action the learner should remember.")
 
 class ConceptData(BaseModel):
     core_term: str = Field(description="The key term or definition keyword being introduced.")
@@ -49,9 +55,10 @@ class GridData(BaseModel):
 
 class SlidePlan(BaseModel):
     slide_title: str = Field(description="Specific, slide-focused child title (3-6 words) detailing the layout contents.")
-    layout_type: SlideLayoutType = Field(description="The chosen visual design structure. Use 'steps' only for sequential processes, and 'grid' or 'bullets' for independent guidelines or principles.")
+    layout_type: SlideLayoutType = Field(description="The chosen visual design structure. Use 'spotlight' for a single high-value message, 'steps' only for sequential processes, and 'grid' or 'bullets' for independent guidelines or principles.")
     
     # Structural layout payloads
+    spotlight_data: Optional[SpotlightData] = None
     concept_data: Optional[ConceptData] = None
     steps_data: Optional[StepsData] = None
     comparison_data: Optional[ComparisonData] = None
@@ -72,7 +79,11 @@ def _slide_text_parts(slide: Dict[str, Any]) -> List[str]:
     """
     parts = [slide.get("slide_title", "")]
     layout = slide.get("layout_type")
-    if layout == "concept" and slide.get("concept_data"):
+    if layout == "spotlight" and slide.get("spotlight_data"):
+        sd = slide["spotlight_data"]
+        parts.extend([sd.get("key_message", ""), sd.get("callout", "")])
+        parts.extend(sd.get("supporting_points", []))
+    elif layout == "concept" and slide.get("concept_data"):
         cd = slide["concept_data"]
         takeaways = cd.get("key_takeaways", [])
         if not takeaways and cd.get("key_takeaway"):

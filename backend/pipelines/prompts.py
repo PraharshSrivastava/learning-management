@@ -129,6 +129,7 @@ CRITICAL REQUIREMENT - ZERO DETAIL OMISSION (NO SKIPPED BULLETS):
 DESIGN PRINCIPLES:
 - A topic is NOT a slide. Analyze the bullet points of each lesson and group/split them into professional layouts. A slide should contain at most 4-5 bullet points.
 - Select the layout template that best fits the relationship between the bullets:
+  * 'spotlight': Use when 1 to 3 facts combine into one important message, rule, warning, or decision point. Requires spotlight_data with key_message, supporting_points, and optional callout. This layout should feel like an executive takeaway slide, not a generic bullet list.
   * 'concept': Use when introducing a core term/definition (requires concept_data with core_term, definition, and key_takeaways as a list of 0 to N key takeaways).
   * 'steps': Use ONLY when the bullets describe a strict chronological timeline, process workflow, or sequence where order is crucial (e.g. Step 1 -> Step 2 -> Step 3). Requires steps_data containing a list of StepItem elements.
   * 'comparison': Use when bullets contrast two ideas, or list pros/cons (requires comparison_data with left/right columns and points).
