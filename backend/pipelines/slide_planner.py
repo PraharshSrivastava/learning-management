@@ -16,16 +16,60 @@ from core.io_utils import atomic_write_json
 # -------------------------------------------------------
 class SlideLayoutType(str, Enum):
     SPOTLIGHT = "spotlight"
+    FLOW = "flow"
+    DECISION_TREE = "decision_tree"
+    METRIC = "metric"
+    ICON_GRID = "icon_grid"
     CONCEPT = "concept"
     STEPS = "steps"
     COMPARISON = "comparison"
     GRID = "grid"
     BULLETS = "bullets"
 
+class VisualStrategy(str, Enum):
+    AUTO = "auto"
+    SOURCE_IMAGE = "source_image"
+    GENERATED_IMAGE = "generated_image"
+    ICONS = "icons"
+    FLOW = "flow"
+    TEXT_ONLY = "text_only"
+
 class SpotlightData(BaseModel):
     key_message: str = Field(description="A concise headline-style message that carries the slide's main idea.")
     supporting_points: List[str] = Field(default_factory=list, description="One to three short proof points or details that support the key message.")
     callout: Optional[str] = Field(default=None, description="Optional short implication, warning, or action the learner should remember.")
+
+class FlowNode(BaseModel):
+    title: str = Field(description="Short node title, usually 1-4 words.")
+    description: str = Field(description="One sentence explaining this point in the flow.")
+    icon_keyword: Optional[str] = Field(default=None, description="Simple keyword for a matching icon, such as document, user, approval, risk, payment, data, target, time, or check.")
+
+class FlowData(BaseModel):
+    flow_type: str = Field(default="horizontal", description="Use horizontal, vertical, cycle, or swimlane based on the relationship.")
+    nodes: List[FlowNode] = Field(description="Ordered flow nodes.")
+
+class DecisionBranch(BaseModel):
+    label: str = Field(description="Branch label such as Yes, No, Eligible, Not eligible, Approved, or Escalate.")
+    outcome: str = Field(description="Resulting action or learner takeaway.")
+    icon_keyword: Optional[str] = Field(default=None, description="Simple keyword for a matching icon.")
+
+class DecisionTreeData(BaseModel):
+    question: str = Field(description="Central decision question.")
+    branches: List[DecisionBranch] = Field(description="Two to four branches from the decision point.")
+
+class MetricData(BaseModel):
+    metric_value: str = Field(description="Primary number, amount, duration, percentage, or short fact.")
+    metric_label: str = Field(description="What the metric represents.")
+    context: str = Field(description="One sentence explaining why the metric matters.")
+    icon_keyword: Optional[str] = Field(default=None, description="Simple keyword for a matching icon.")
+
+class IconGridItem(BaseModel):
+    title: str = Field(description="Short item title.")
+    content: str = Field(description="Concise supporting detail.")
+    icon_keyword: str = Field(description="Simple keyword for a matching icon.")
+
+class IconGridData(BaseModel):
+    items: List[IconGridItem] = Field(description="Three to six icon-backed cards.")
 
 class ConceptData(BaseModel):
     core_term: str = Field(description="The key term or definition keyword being introduced.")
@@ -55,10 +99,17 @@ class GridData(BaseModel):
 
 class SlidePlan(BaseModel):
     slide_title: str = Field(description="Specific, slide-focused child title (3-6 words) detailing the layout contents.")
-    layout_type: SlideLayoutType = Field(description="The chosen visual design structure. Use 'spotlight' for a single high-value message, 'steps' only for sequential processes, and 'grid' or 'bullets' for independent guidelines or principles.")
+    layout_type: SlideLayoutType = Field(description="The chosen visual design structure. Use visual layouts before falling back to plain bullets.")
+    visual_strategy: VisualStrategy = Field(default=VisualStrategy.AUTO, description="Preferred visual treatment. Use generated_image only when no source image exists and a visual metaphor would improve the slide.")
+    icon_keywords: List[str] = Field(default_factory=list, description="Simple icon keywords relevant to this slide.")
+    image_prompt: Optional[str] = Field(default=None, description="Optional textless image-generation prompt when visual_strategy is generated_image.")
     
     # Structural layout payloads
     spotlight_data: Optional[SpotlightData] = None
+    flow_data: Optional[FlowData] = None
+    decision_tree_data: Optional[DecisionTreeData] = None
+    metric_data: Optional[MetricData] = None
+    icon_grid_data: Optional[IconGridData] = None
     concept_data: Optional[ConceptData] = None
     steps_data: Optional[StepsData] = None
     comparison_data: Optional[ComparisonData] = None
@@ -83,6 +134,20 @@ def _slide_text_parts(slide: Dict[str, Any]) -> List[str]:
         sd = slide["spotlight_data"]
         parts.extend([sd.get("key_message", ""), sd.get("callout", "")])
         parts.extend(sd.get("supporting_points", []))
+    elif layout == "flow" and slide.get("flow_data"):
+        for node in slide["flow_data"].get("nodes", []):
+            parts.extend([node.get("title", ""), node.get("description", ""), node.get("icon_keyword", "")])
+    elif layout == "decision_tree" and slide.get("decision_tree_data"):
+        dd = slide["decision_tree_data"]
+        parts.append(dd.get("question", ""))
+        for branch in dd.get("branches", []):
+            parts.extend([branch.get("label", ""), branch.get("outcome", ""), branch.get("icon_keyword", "")])
+    elif layout == "metric" and slide.get("metric_data"):
+        md = slide["metric_data"]
+        parts.extend([md.get("metric_value", ""), md.get("metric_label", ""), md.get("context", ""), md.get("icon_keyword", "")])
+    elif layout == "icon_grid" and slide.get("icon_grid_data"):
+        for item in slide["icon_grid_data"].get("items", []):
+            parts.extend([item.get("title", ""), item.get("content", ""), item.get("icon_keyword", "")])
     elif layout == "concept" and slide.get("concept_data"):
         cd = slide["concept_data"]
         takeaways = cd.get("key_takeaways", [])

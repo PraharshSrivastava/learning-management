@@ -18,6 +18,62 @@ def _esc(value) -> str:
         return ""
     return html.escape(str(value), quote=True)
 
+ICON_ALIASES = {
+    "approval": "check",
+    "approved": "check",
+    "benefit": "check",
+    "compliance": "shield",
+    "customer": "user",
+    "deadline": "time",
+    "document": "file",
+    "documents": "file",
+    "email": "message",
+    "escalate": "alert",
+    "finance": "payment",
+    "goal": "target",
+    "idea": "lightbulb",
+    "kpi": "chart",
+    "learning": "book",
+    "money": "payment",
+    "payment": "payment",
+    "process": "route",
+    "report": "chart",
+    "review": "search",
+    "risk": "alert",
+    "security": "shield",
+    "time": "time",
+}
+
+ICON_PATHS = {
+    "alert": '<path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    "book": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/>',
+    "chart": '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-3"/>',
+    "check": '<path d="M20 6 9 17l-5-5"/>',
+    "data": '<ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
+    "file": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/>',
+    "lightbulb": '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A6 6 0 1 1 15.5 14.5c-.8.6-1.5 1.4-1.5 2.5h-4c0-1.1-.7-1.9-1.5-2.5Z"/>',
+    "message": '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/>',
+    "payment": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/>',
+    "route": '<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h4a5 5 0 0 1 0 10h-1"/>',
+    "search": '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    "shield": '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+    "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    "time": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    "user": '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+}
+
+def _icon_name(keyword) -> str:
+    key = str(keyword or "").strip().lower().replace("_", "-")
+    return ICON_ALIASES.get(key, key if key in ICON_PATHS else "target")
+
+def _icon_svg(keyword, class_name="slide-icon") -> str:
+    icon = _icon_name(keyword)
+    return (
+        f'<svg class="{class_name}" viewBox="0 0 24 24" aria-hidden="true" '
+        f'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        f'{ICON_PATHS[icon]}</svg>'
+    )
+
 def generate_html_slides_for_module(
     course_id: str,
     module_index: int,
@@ -116,6 +172,62 @@ def generate_html_slides_for_module(
                 html_content.append(f'                        <div class="spotlight-callout">{_esc(callout)}</div>')
             html_content.append("""                    </div>
 """)
+        elif layout_type_str == "flow" and slide.get("flow_data"):
+            data = slide["flow_data"]
+            flow_type = str(data.get("flow_type", "horizontal")).lower()
+            html_content.append(f'                    <div class="flow-container flow-{_esc(flow_type)}">')
+            for node in data.get("nodes", []):
+                html_content.append(f"""
+                        <div class="flow-node">
+                            <div class="flow-icon">{_icon_svg(node.get("icon_keyword") or "route")}</div>
+                            <h3>{_esc(node.get("title", ""))}</h3>
+                            <p>{_esc(node.get("description", ""))}</p>
+                        </div>
+""")
+            html_content.append('                    </div>')
+        elif layout_type_str == "decision_tree" and slide.get("decision_tree_data"):
+            data = slide["decision_tree_data"]
+            html_content.append(f"""
+                    <div class="decision-container">
+                        <div class="decision-question">
+                            {_icon_svg("target", "decision-icon")}
+                            <h2>{_esc(data.get("question", ""))}</h2>
+                        </div>
+                        <div class="decision-branches">
+""")
+            for branch in data.get("branches", []):
+                html_content.append(f"""
+                            <div class="decision-branch">
+                                <div class="branch-label">{_esc(branch.get("label", ""))}</div>
+                                <div class="branch-icon">{_icon_svg(branch.get("icon_keyword") or branch.get("label") or "check")}</div>
+                                <p>{_esc(branch.get("outcome", ""))}</p>
+                            </div>
+""")
+            html_content.append("""                        </div>
+                    </div>
+""")
+        elif layout_type_str == "metric" and slide.get("metric_data"):
+            data = slide["metric_data"]
+            html_content.append(f"""
+                    <div class="metric-container">
+                        <div class="metric-icon">{_icon_svg(data.get("icon_keyword") or "chart")}</div>
+                        <div class="metric-value">{_esc(data.get("metric_value", ""))}</div>
+                        <h2 class="metric-label">{_esc(data.get("metric_label", ""))}</h2>
+                        <p class="metric-context">{_esc(data.get("context", ""))}</p>
+                    </div>
+""")
+        elif layout_type_str == "icon_grid" and slide.get("icon_grid_data"):
+            data = slide["icon_grid_data"]
+            html_content.append('                    <div class="icon-grid-container">')
+            for item in data.get("items", []):
+                html_content.append(f"""
+                        <div class="icon-card">
+                            <div class="icon-card-symbol">{_icon_svg(item.get("icon_keyword"))}</div>
+                            <h3>{_esc(item.get("title", ""))}</h3>
+                            <p>{_esc(item.get("content", ""))}</p>
+                        </div>
+""")
+            html_content.append('                    </div>')
         elif layout_type_str == "concept" and slide.get("concept_data"):
             data = slide["concept_data"]
             takeaways = data.get("key_takeaways", [])
