@@ -47,6 +47,7 @@ class ArtDirectorSlidePlan(BaseModel):
     bullets: Optional[List[str]] = Field(None, description="Provide if layout_type is 'bullets'. A list of standard bullet points.")
 
 class ArtDirectorResponse(BaseModel):
+    chain_of_thought: str = Field(description="Step 1: Slide Analysis. Step 2: Relationship Evaluation. Step 3: Layout Selection.")
     slides: List[ArtDirectorSlidePlan] = Field(description="The enhanced slides with assigned layouts and structured data, in the exact same order as the input slides.")
 
 def run_step6_art_director(course_id: str):
@@ -89,18 +90,22 @@ Your job is to transform these generic bullets into visually engaging layouts by
 ### AVAILABLE LAYOUTS:
 1. **concept**: Best for defining a core term or explaining a central idea. Requires a `core_term`, `definition`, and `key_takeaways`.
 2. **steps**: Best for sequential processes, timelines, or ordered phases. Requires a list of `steps` (title + description).
-3. **comparison**: Best for pros/cons, before/after, or contrasting two distinct concepts. Requires left/right headers and points.
-4. **grid**: Best for independent pillars, features, or 2-4 items of equal weight that aren't necessarily a sequence. Requires a list of `columns` (header + content).
+3. **comparison**: USE STRICTLY for mutually exclusive choices, Pros vs Cons, or direct contrasts (e.g., Apples vs Oranges). DO NOT use for complementary concepts (e.g., Problem and Solution) or cause-and-effect. Requires left/right headers and points.
+4. **grid**: Best for complementary concepts, pillars, features, or 2-4 items of equal weight that belong together but don't oppose each other. Requires a list of `columns` (header + content).
 5. **bullets**: The standard fallback layout. Use this if the content doesn't fit the other specific layouts. Just requires a list of `bullets`.
 
 ### INPUT SLIDES:
 {slides_text}
 
-### INSTRUCTIONS:
-- Analyze the semantic meaning of each slide's bullets.
-- Choose the SINGLE best `layout_type` for each slide.
-- Extract, rephrase, or restructure the text from the input bullets to perfectly fit the chosen layout's schema.
-- NEVER lose information. Ensure all the core facts from the input bullets are represented in the chosen layout.
+### INSTRUCTIONS & CHAIN OF THOUGHT:
+You must follow this exact logical progression in your `chain_of_thought` field before assigning layouts:
+1. **Slide Analysis**: Analyze the semantic meaning of the bullets on the slide.
+2. **Relationship Evaluation**: Identify if the bullets are chronological (steps), contrasting (comparison), independent pillars (grid), or a central definition (concept).
+3. **Layout Selection**: Pick the best layout_type based strictly on the relationship. (Remember: Do not use 'comparison' for complementary points).
+
+### CONTENT RULES:
+- **ANTI-HALLUCINATION PROTOCOL**: You are a strict copy-editor. You are FORBIDDEN from adding external knowledge, inventing examples, or inferring missing facts. You may reframe for layout fit, but you must strictly use ONLY the exact facts provided.
+- **Completeness**: NEVER lose information. Ensure all the core facts from the input bullets are represented in the chosen layout.
 - You must output the slides in the exact same order as the input.
 
 Return a JSON object matching the `ArtDirectorResponse` schema.

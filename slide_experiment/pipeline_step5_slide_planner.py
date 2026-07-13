@@ -84,7 +84,7 @@ You must follow this exact logical progression in your `chain_of_thought` field 
 2. **Bullet Evaluation**: Evaluate each bullet individually. 
 3. **Definition Isolation**: Identify any bullets that represent a core definition or a major standalone concept. These MUST be isolated onto their own dedicated slide.
 4. **Subtopic Grouping**: Group all remaining bullets strictly by subtopic.
-5. **Slide Sizing**: Arrange the grouped bullets into slides of exactly 3, 4, or 5 bullets per slide.
+5. **Slide Sizing**: Arrange the grouped bullets into slides of 3, 4, or 5 bullets per slide. CRITICAL: Conceptual cohesion is your highest priority. You are permitted to output 1 or 2 bullets on a slide ONLY IF forcing it to 3 bullets would require merging two completely unrelated concepts.
 6. **No Spillage Rule**: ALL bullets belonging to a specific subtopic must be contained on a single slide. A subtopic must NEVER spill over to the next or previous slide.
 
 ### SLIDE CONTENT RULES

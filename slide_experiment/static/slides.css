@@ -175,8 +175,8 @@ body, html {
 
 .bullets-v1 li {
   font-family: var(--font-body);
-  font-size: min(2.2cqw, 3.5cqh);
-  line-height: 1.35;
+  font-size: min(3cqw, 4.5cqh);
+  line-height: 1.4;
   padding-left: 2rem;
   position: relative;
   text-align: left;
@@ -212,8 +212,8 @@ body, html {
 }
 .bullets-v2-text {
   font-family: var(--font-body);
-  font-size: min(2cqw, 3.2cqh);
-  line-height: 1.35;
+  font-size: min(2.8cqw, 4.2cqh);
+  line-height: 1.4;
 }
 
 /* ====================================================
@@ -270,6 +270,15 @@ body, html {
   color: var(--ink);
   padding: 0.5rem 1.5rem;
   border-radius: var(--radius-pill);
+}
+.takeaways-text {
+  font-family: var(--font-body);
+  font-size: clamp(0.9rem, 1.4cqw, 1.4rem);
+  line-height: 1.4;
+  color: var(--bone);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.8rem 1.2rem;
+  border-radius: 8px;
 }
 
 /* ====================================================
@@ -373,6 +382,7 @@ body, html {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow-y: auto;
 }
 .comp-v1-card.left { background: var(--pc-blue); color: var(--bone); }
 .comp-v1-card.right { background: var(--pc-dark-gray); color: var(--bone); }
@@ -394,7 +404,7 @@ body, html {
 }
 .comp-list li {
   font-family: var(--font-body);
-  font-size: min(1.8cqw, 2.8cqh);
+  font-size: clamp(1rem, 1.8cqw, 1.8rem);
   line-height: 1.35;
   padding-left: 1.5rem;
   position: relative;
@@ -411,39 +421,52 @@ body, html {
 
 .comp-v2 {
   background: var(--bone);
-  border: 2px solid var(--ink);
   border-radius: var(--radius-card);
-  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 .comp-v2-row {
   display: flex;
-  border-bottom: 2px solid var(--ink);
   flex: 1;
-  align-items: center;
+  border-bottom: 1.5px solid rgba(0,0,0,0.1);
 }
-.comp-v2-row:last-child { border-bottom: none; }
+.comp-v2-row:last-child {
+  border-bottom: none;
+}
 .comp-v2-row.header {
+  flex: none;
   background: var(--pc-blue);
   color: var(--bone);
-  font-family: var(--font-display);
-  font-weight: 800;
-  flex: none;
-  padding: 1rem 0;
+  border-bottom: none;
 }
 .comp-v2-col {
   flex: 1;
-  padding: min(1cqw, 2cqh);
-  font-size: min(1.6cqw, 2.5cqh);
-  border-right: 2px solid var(--ink);
+  padding: min(1.5cqw, 2.5cqh) min(2.5cqw, 3cqh);
+  font-size: clamp(1rem, 2cqw, 1.8rem);
   font-family: var(--font-body);
+  line-height: 1.5;
+  overflow-y: auto;
+  border-right: 1.5px solid rgba(0,0,0,0.1);
+}
+.comp-v2-col:last-child {
+  border-right: none;
 }
 .comp-v2-row.header .comp-v2-col {
-  font-size: min(1.8cqw, 2.8cqh);
+  border-right: 1.5px solid rgba(255,255,255,0.2);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.2rem, 2.5cqw, 2.2rem);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.comp-v2-col:last-child { border-right: none; }
+.comp-v2-row.header .comp-v2-col:last-child {
+  border-right: none;
+}
 
 /* ====================================================
    5. GRID

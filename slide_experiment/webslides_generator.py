@@ -119,12 +119,9 @@ def generate_html_slides_for_module(
 """)
             else:
                 takeaways_html = ""
-                for t in takeaways:
-                    takeaways_html += f"""
-                        <div style="display:flex; gap: 8px;">
-                            <span style="color: var(--pc-blue); font-weight: bold;">→</span>
-                            <span style="font-size: 14px;">{_esc(t)}</span>
-                        </div>"""
+                if takeaways:
+                    pills = "".join([f'<div class="takeaways-text">{_esc(t)}</div>' for t in takeaways])
+                    takeaways_html = f'<div class="takeaways">{pills}</div>'
                 
                 html_content.append(f"""
                     <div class="concept-v2">
