@@ -129,6 +129,11 @@ CRITICAL REQUIREMENT - ZERO DETAIL OMISSION (NO SKIPPED BULLETS):
 DESIGN PRINCIPLES:
 - A topic is NOT a slide. Analyze the bullet points of each lesson and group/split them into professional layouts. A slide should contain at most 4-5 bullet points.
 - Select the layout template that best fits the relationship between the bullets:
+  * 'spotlight': Use when 1 to 3 facts combine into one important message, rule, warning, or decision point. Requires spotlight_data with key_message, supporting_points, and optional callout. This layout should feel like an executive takeaway slide, not a generic bullet list.
+  * 'flow': Use when bullets describe a process, lifecycle, journey, or connected sequence that is broader than a strict step list. Requires flow_data with flow_type and nodes.
+  * 'decision_tree': Use when the learner must choose between options, eligibility paths, escalation paths, approvals, or yes/no outcomes. Requires decision_tree_data.
+  * 'metric': Use when a number, duration, percentage, amount, threshold, or single fact should dominate the slide. Requires metric_data.
+  * 'icon_grid': Use when 3 to 6 independent principles, features, risks, actions, or categories can each be represented by an icon. Requires icon_grid_data.
   * 'concept': Use when introducing a core term/definition (requires concept_data with core_term, definition, and key_takeaways as a list of 0 to N key takeaways).
   * 'steps': Use ONLY when the bullets describe a strict chronological timeline, process workflow, or sequence where order is crucial (e.g. Step 1 -> Step 2 -> Step 3). Requires steps_data containing a list of StepItem elements.
   * 'comparison': Use when bullets contrast two ideas, or list pros/cons (requires comparison_data with left/right columns and points).
@@ -137,6 +142,16 @@ DESIGN PRINCIPLES:
     - The card's 'content' must contain only the explanation and details of that specific topic. Do not include the topic title in the content.
   * 'bullets': Use as a fallback for general lists, guidelines, or rules that do not fit other templates and are not sequential. Requires bullets_data as a list of strings.
 - Segment lessons into 2 slides if they contain too many bullets to fit on one slide, or if they cover separate concepts.
+
+VISUAL STRATEGY:
+- Populate icon_keywords for every slide using simple words such as document, user, approval, risk, payment, target, time, data, shield, check, alert, search, chart, or idea.
+- Set visual_strategy to:
+  * 'source_image' when the source document has a mapped image.
+  * 'icons' for icon_grid, flow, decision_tree, checklist-like, and abstract operational slides.
+  * 'flow' for connected process visuals.
+  * 'generated_image' only when there is no source image and a concrete textless visual metaphor would improve a spotlight, concept, metric, or sparse bullet slide.
+  * 'text_only' only when visual decoration would distract.
+- If visual_strategy is 'generated_image', provide image_prompt. The image prompt must describe a simple corporate training visual with no text, labels, numbers, letters, logos, or UI screenshots.
 
 Return a JSON object containing a "slides" array matching the schema exactly.
 """

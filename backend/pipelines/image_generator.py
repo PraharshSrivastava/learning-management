@@ -124,13 +124,42 @@ def flux_worker(gpu_idx, task_queue, results_queue, model_id, steps, guidance, m
         print(f"Error in Flux worker on GPU {gpu_idx}: {e}")
 
 def generate_prompt_for_slide(slide: dict) -> str:
+    if slide.get("image_prompt"):
+        return slide["image_prompt"]
+
     title = slide.get("slide_title", "Concept")
     
     content = ""
     layout = str(slide.get("layout_type", "bullets")).lower().split(".")[-1]
-    if layout == "concept" and slide.get("concept_data"):
+    if layout == "spotlight" and slide.get("spotlight_data"):
+        sd = slide["spotlight_data"]
+        content = " ".join(
+            [sd.get("key_message", ""), sd.get("callout", "")]
+            + sd.get("supporting_points", [])
+        )
+    elif layout == "metric" and slide.get("metric_data"):
+        md = slide["metric_data"]
+        content = " ".join([md.get("metric_value", ""), md.get("metric_label", ""), md.get("context", "")])
+    elif layout == "concept" and slide.get("concept_data"):
         cd = slide["concept_data"]
         content = f"Term: {cd.get('core_term', '')}. Definition: {cd.get('definition', '')}"
+    elif layout == "flow" and slide.get("flow_data"):
+        content = " ".join(
+            f"{node.get('title', '')}: {node.get('description', '')}"
+            for node in slide["flow_data"].get("nodes", [])
+        )
+    elif layout == "decision_tree" and slide.get("decision_tree_data"):
+        dd = slide["decision_tree_data"]
+        branch_text = " ".join(
+            f"{branch.get('label', '')}: {branch.get('outcome', '')}"
+            for branch in dd.get("branches", [])
+        )
+        content = f"{dd.get('question', '')} {branch_text}"
+    elif layout == "icon_grid" and slide.get("icon_grid_data"):
+        content = " ".join(
+            f"{item.get('title', '')}: {item.get('content', '')}"
+            for item in slide["icon_grid_data"].get("items", [])
+        )
     else:
         bullets = slide.get("bullets_data")
         if not bullets:
@@ -166,6 +195,25 @@ def generate_prompt_for_slide(slide: dict) -> str:
         print(f"      [LLM] Error generating prompt for slide '{title}': {e}")
         return f"Abstract representation of {title}"
 
+def should_generate_image_for_slide(slide: dict) -> bool:
+    if slide.get("image_ids"):
+        return False
+
+    strategy = str(slide.get("visual_strategy", "auto")).lower().split(".")[-1]
+    layout = str(slide.get("layout_type", "bullets")).lower().split(".")[-1]
+
+    if strategy == "generated_image" or slide.get("image_prompt"):
+        return True
+    if strategy in {"icons", "flow", "text_only", "source_image"}:
+        return False
+    if layout in {"flow", "decision_tree", "icon_grid"}:
+        return False
+    if layout in {"spotlight", "concept", "metric"}:
+        return True
+
+    bullets = slide.get("bullets_data") or slide.get("bullets", [])
+    return layout == "bullets" and 1 <= len(bullets) <= 2
+
 def enrich_sparse_slides_with_flux(course_id: str):
     print(f"\n[STEP 4.5] Enriching sparse slides with Flux generated images for course {course_id}...")
     
@@ -183,39 +231,24 @@ def enrich_sparse_slides_with_flux(course_id: str):
     results_queue = multiprocessing.Queue()
     tasks_count = 0
     
-    # 1. Identify sparse slides and generate LLM prompts
-    print("  [Enrichment] Scanning modules for sparse slides (<= 2 bullets or concept layout) lacking images...")
+    # 1. Identify slides that need generated visuals and generate prompts.
+    print("  [Enrichment] Scanning modules for slides that need generated visuals...")
     for m_idx, module in enumerate(modules):
         slides = module.get("slides", [])
         for s_idx, slide in enumerate(slides):
-            # Check if it has an image mapped
-            if slide.get("image_ids") and len(slide["image_ids"]) > 0:
+            if not should_generate_image_for_slide(slide):
                 continue
-                
-            # Check if sparse
-            is_sparse = False
-            layout = str(slide.get("layout_type")).lower().split(".")[-1]
-            
-            if layout == "bullets":
-                bullets = slide.get("bullets_data")
-                if not bullets:
-                    bullets = slide.get("bullets", [])
-                if len(bullets) == 1 or len(bullets) == 2:
-                    is_sparse = True
-                    
-            if is_sparse:
-                print(f"    -> Flagging Module {m_idx+1} Slide {s_idx+1} ('{slide.get('slide_title')}') for enrichment.")
-                raw_prompt = generate_prompt_for_slide(slide)
-                
-                # The LLM prompt now handles all formatting and textless rules
-                flux_prompt = raw_prompt
-                print(f"      [LLM] Generated Flux prompt: {flux_prompt}")
-                
-                img_uuid = str(uuid.uuid4())[:8]
-                output_path = os.path.abspath(os.path.join(FLUX_IMAGES_DIR, f"flux_scene_{img_uuid}.png"))
-                
-                task_queue.put((m_idx, s_idx, flux_prompt, output_path))
-                tasks_count += 1
+
+            print(f"    -> Flagging Module {m_idx+1} Slide {s_idx+1} ('{slide.get('slide_title')}') for enrichment.")
+            raw_prompt = generate_prompt_for_slide(slide)
+            flux_prompt = raw_prompt
+            print(f"      [LLM] Generated Flux prompt: {flux_prompt}")
+
+            img_uuid = str(uuid.uuid4())[:8]
+            output_path = os.path.abspath(os.path.join(FLUX_IMAGES_DIR, f"flux_scene_{img_uuid}.png"))
+
+            task_queue.put((m_idx, s_idx, flux_prompt, output_path))
+            tasks_count += 1
                 
     if tasks_count == 0:
         print("  [Enrichment] No sparse slides requiring enrichment found. Skipping Flux generation.")
