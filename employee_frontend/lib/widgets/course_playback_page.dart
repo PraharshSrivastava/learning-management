@@ -1205,7 +1205,7 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                 children: [
                   VideoProgressIndicator(
                     _controller,
-                    allowScrubbing: false,
+                    allowScrubbing: true,
                     colors: const VideoProgressColors(
                       playedColor: AppTheme.accentCyan,
                       bufferedColor: Colors.white24,
@@ -1375,7 +1375,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                     children: [
                       VideoProgressIndicator(
                         widget.controller,
-                        allowScrubbing: false,
+                        allowScrubbing: true,
                         colors: const VideoProgressColors(
                           playedColor: AppTheme.accentCyan,
                           bufferedColor: Colors.white30,

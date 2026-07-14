@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../constants.dart';
 import '../models/course_dashboard_data.dart';
@@ -29,9 +30,9 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
     final courseState = ref.watch(employeeCourseListProvider);
     final width = MediaQuery.sizeOf(context).width;
     final isCompact = width < 840;
-    final usingPreviewData = courseState.courses.isEmpty;
-    final courses =
-        usingPreviewData ? DashboardPreviewData.courses() : courseState.courses;
+    final usingPreviewData = false; // courseState.courses.isEmpty;
+    final courses = courseState.courses;
+    // final courses = usingPreviewData ? DashboardPreviewData.courses() : courseState.courses;
     final metrics = LearningMetrics.fromCourses(courses);
     final unreadCourses = courses
         .where((course) =>
@@ -306,8 +307,18 @@ class _LmsNavigation extends StatelessWidget {
                   SizedBox(
                     height: 40,
                     width: expanded ? 154 : 40,
-                    child: Image.asset('assets/logos/Type=Primary.png',
-                        fit: BoxFit.contain, alignment: Alignment.centerLeft),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        expanded ? 'PhillipCapital' : 'PC',
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
                   ),
                   if (expanded)
                     IconButton(
@@ -812,34 +823,38 @@ class _MetricTile extends StatelessWidget {
       button: true,
       selected: isSelected,
       label: 'Show $label courses',
-      child: Material(
-        color: isSelected ? color : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: isSelected ? color : const Color(0xFFE1E7EF)),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.24),
-                        blurRadius: 16,
-                        offset: const Offset(0, 7),
-                      )
-                    ]
-                  : const [
-                      BoxShadow(
-                        color: Color(0x0A101828),
-                        blurRadius: 10,
-                        offset: Offset(0, 3),
-                      )
-                    ],
-            ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.24),
+                    blurRadius: 16,
+                    offset: const Offset(0, 7),
+                  )
+                ]
+              : const [
+                  BoxShadow(
+                    color: Color(0x0A101828),
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
+                  )
+                ],
+        ),
+        child: Material(
+          color: isSelected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: isSelected ? color : const Color(0xFFE1E7EF)),
+              ),
             child: Row(
               children: [
                 Container(
@@ -883,6 +898,7 @@ class _MetricTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -989,11 +1005,13 @@ class _CourseGrid extends StatelessWidget {
             : constraints.maxWidth >= 520
                 ? 2
                 : 1;
-        final cardExtent = columns == 1
-            ? 510.0
-            : columns == 2
-                ? 512.0
-                : 520.0;
+        final crossAxisSpacing = 16.0;
+        final availableWidth = constraints.maxWidth - (crossAxisSpacing * (columns - 1));
+        final cardWidth = availableWidth / columns;
+        final imageHeight = cardWidth * (9 / 16);
+        final contentHeight = 275.0; // Fixed content height for text, button, etc.
+        final cardExtent = imageHeight + contentHeight;
+
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1001,7 +1019,7 @@ class _CourseGrid extends StatelessWidget {
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             mainAxisExtent: cardExtent,
-            crossAxisSpacing: 16,
+            crossAxisSpacing: crossAxisSpacing,
             mainAxisSpacing: 16,
           ),
           itemBuilder: (context, index) => _CourseCard(
@@ -1202,49 +1220,20 @@ class _CourseThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = course.images.isEmpty ? '' : course.images.first.filePath;
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: imagePath.isEmpty
-          ? Container(
-              color: AppTheme.primaryBlue,
-              child: Stack(
-                children: [
-                  Positioned(
-                      right: 18,
-                      top: 18,
-                      child: Icon(Icons.auto_stories_outlined,
-                          color: Colors.white.withValues(alpha: 0.82),
-                          size: 42)),
-                  const Positioned(
-                      left: 16,
-                      bottom: 14,
-                      child: Text('LEARNING',
-                          style: TextStyle(
-                              color: Colors.white,
-                              letterSpacing: 1.2,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700))),
-                ],
-              ),
-            )
-          : imagePath.startsWith('assets/')
-              ? Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                )
-              : Image.network(
-                  AppConstants.videoAssetUrl(imagePath),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                      color: AppTheme.primaryBlue,
-                      child: const Icon(Icons.image_not_supported_outlined,
-                          color: Colors.white)),
-                  loadingBuilder: (context, child, loadingProgress) =>
-                      loadingProgress == null
-                          ? child
-                          : Container(color: const Color(0xFFE7EFFF)),
-                ),
+      child: Image.network(
+        'https://picsum.photos/seed/${course.id}/400/225',
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+            color: AppTheme.primaryBlue,
+            child: const Icon(Icons.image_not_supported_outlined,
+                color: Colors.white)),
+        loadingBuilder: (context, child, loadingProgress) =>
+            loadingProgress == null
+                ? child
+                : Container(color: const Color(0xFFE7EFFF)),
+      ),
     );
   }
 }
