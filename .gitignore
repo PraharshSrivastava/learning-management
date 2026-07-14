@@ -33,3 +33,4 @@ improvements.txt
 
 # Ignored experiment and scratch directories
 .agents/
+slide_experiment/

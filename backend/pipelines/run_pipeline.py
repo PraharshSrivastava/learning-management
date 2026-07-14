@@ -10,8 +10,6 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from pipelines.blueprint_extractor import run_blueprint_extraction
-from pipelines.lesson_extractor import extract_lessons_for_module
-from pipelines.bullet_refiner import refine_bullets_inplace
 from pipelines.config import UPLOAD_DIR, DRAFT_COURSES_FILE, BASE_DIR
 from pipelines.script_generator import generate_scripts_for_module, synthesize_speech_for_slide
 from core.io_utils import atomic_write_json
@@ -50,90 +48,6 @@ def generate_course_outline(filename):
     print(f"Successfully generated and stored course outline for {filename}!")
     return outline
 
-
-def generate_lessons_for_course(course_id: str) -> dict:
-    """
-    Pipeline Step 3: For each module in the course, call the LLM once to produce
-    Lessons → Bullet Points directly. Runs sequentially so that each module call
-    can be seeded with lesson titles from all previously processed modules.
-    """
-    print(f"Running pipeline step 3: Generating lessons for course {course_id}...")
-
-    courses = get_all_courses('draft')
-
-    course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
-    if course_idx is None:
-        raise ValueError(f"Course '{course_id}' not found in courses database.")
-
-    course = courses[course_idx]
-    modules = course.get("modules", [])
-
-    if not modules:
-        raise ValueError("This course has no modules. Generate the blueprint first.")
-
-    total_modules = len(modules)
-    prior_lesson_titles: list[str] = []  # accumulated across modules for style anchoring
-
-    for i, module in enumerate(modules):
-        module_title = module.get("title", f"Module {i + 1}")
-        module_text = module.get("text", "")
-        module_number = i + 1
-
-        # Scrub any flux_img_ entries generated from previous runs so they don't stack up
-        if "images" in module:
-            module["images"] = [img for img in module["images"] if not img.get("image_id", "").startswith("flux_img_")]
-
-        try:
-            lessons = extract_lessons_for_module(
-                module_text=module_text,
-                module_title=module_title,
-                module_number=module_number,
-                total_modules=total_modules,
-                prior_lesson_titles=prior_lesson_titles,
-                module_images=module.get("images", []),
-            )
-            module["lessons"] = lessons
-
-            # Collect all lesson titles from this module for the next module's anchor
-            for lesson in lessons:
-                title = lesson.get("lesson_title", "")
-                if title:
-                    prior_lesson_titles.append(title)
-
-        except Exception as e:
-            print(f"  [ERROR] Failed to generate lessons for module '{module_title}': {e}")
-            # Leave existing lessons intact (or empty list) rather than crashing the whole job
-            if "lessons" not in module:
-                module["lessons"] = []
-
-    course["modules"] = modules
-
-    # Step 4: Holistic bullet refinement — one LLM call for the entire course
-    print("Running holistic bullet refinement pass...")
-    try:
-        course = refine_bullets_inplace(course)
-    except Exception as e:
-        print(f"  [WARNING] Bullet refinement failed ({e}). Saving with original bullets.")
-
-    # Step 4.5: Map images to lessons
-    try:
-        from pipelines.image_mapper import map_images_to_lessons
-        course = map_images_to_lessons(course)
-    except Exception as e:
-        print(f"  [WARNING] Image mapping to lessons failed: {e}")
-
-    # Load fresh courses list from disk to prevent race conditions during long LLM calls
-    fresh_courses = get_all_courses('draft')
-    fresh_idx = next((i for i, c in enumerate(fresh_courses) if c.get("id") == course_id), None)
-    if fresh_idx is not None:
-        fresh_courses[fresh_idx] = course
-    else:
-        fresh_courses.append(course)
-
-    save_all_courses(fresh_courses, "draft")
-
-    print(f"Lesson generation complete for course '{course.get('course_name')}'.")
-    return course
 
 
 def generate_scripts_for_course(course_id: str) -> dict:

@@ -24,7 +24,7 @@ def generate_html_slides_for_module(
     module: Dict[str, Any]
 ) -> str:
     """
-    Renders planned slides for a single module into a static HTML slideshow.
+    Renders planned slides for a single module into a static HTML slideshow using local templates.
     Saves it to backend/assets/slides/{course_id}/module_{module_index + 1}.html.
     Returns the absolute path of the generated HTML file.
     """
@@ -54,7 +54,13 @@ def generate_html_slides_for_module(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{_esc(module_title)} - Slideshow</title>
+    <!-- Use local static CSS which will contain our new variations -->
     <link rel="stylesheet" href="../../slides.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="presentation-container">
@@ -67,22 +73,26 @@ def generate_html_slides_for_module(
         layout_type = slide.get("layout_type", "bullets")
         layout_type_str = str(layout_type).lower().split(".")[-1]
         slide_imgs = slide.get("image_ids", [])
+        
+        # Decide variation: Even indices get V1, Odd indices get V2
+        is_v1 = (slide_idx % 2 == 0)
 
-        # Determine visual wrapper class
-        has_images = len(slide_imgs) > 0
-        body_class = "slide-body" if has_images else "slide-body no-image"
+        # Determine visual wrapper class based on image count
+        img_count = len(slide_imgs)
+        has_images = img_count > 0
+        body_class = f"slide-body n-{img_count}" if has_images else "slide-body no-image"
+
+        header_html = f"""
+            <div class="slide-header">
+                <div class="eyebrow">{_esc(eyebrow)}</div>
+                <h1 class="slide-title">{_esc(slide_title)}</h1>
+            </div>
+""" if layout_type_str != "concept" else ""
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
         <div class="slide" id="slide-{slide_idx}">
-""")
-        
-        # Render the header/title block for all layouts.
-        html_content.append(f"""            <div class="slide-header">
-                <h1 class="slide-title">{_esc(slide_title)}</h1>
-            </div>""")
-
-        html_content.append(f"""            
+{header_html}            
             <div class="{body_class}">
                 <div class="content-area">
 """)
@@ -95,136 +105,200 @@ def generate_html_slides_for_module(
             takeaways = data.get("key_takeaways", [])
             if not takeaways and data.get("key_takeaway"):
                 takeaways = [data["key_takeaway"]]
-            
-            # Filter empty values
             takeaways = [t.strip() for t in takeaways if t and t.strip()]
             
-            takeaways_html = ""
-            if takeaways:
-                if len(takeaways) == 1:
-                    takeaways_html = f"""                        <div class="takeaway-banner">
-                            <strong>Key Takeaway:</strong> {_esc(takeaways[0])}
-                        </div>"""
-                else:
-                    bullets_li = "\n".join([f"                            <li style='margin-bottom: 0.25rem;'>{_esc(t)}</li>" for t in takeaways])
-                    takeaways_html = f"""                        <div class="takeaway-banner">
-                            <strong>Key Takeaways:</strong>
-                            <ul class="takeaway-list" style="margin-top: 0.5rem; padding-left: 1.25rem; list-style-type: square; line-height: 1.4;">
-{bullets_li}
-                            </ul>
-                        </div>"""
-
-            html_content.append(f"""
-                    <div class="concept-container">
-                        <div class="concept-definition">
-                            <h2 class="concept-term">{_esc(data.get("core_term", ""))}</h2>
-                            <p class="concept-desc">{_esc(data.get("definition", ""))}</p>
-                        </div>
-{takeaways_html}
-                    </div>
-""")
-        elif layout_type_str == "steps" and slide.get("steps_data"):
-            data = slide["steps_data"]
-            html_content.append('                    <div class="steps-container">')
-            html_content.append('                        <div class="timeline-row">')
-            for step in data.get("steps", []):
+            if is_v1:
+                takeaways_html = ""
+                if takeaways:
+                    pills = "".join([f'<div class="takeaway-pill">{_esc(t)}</div>' for t in takeaways])
+                    takeaways_html = f'<div class="takeaways">{pills}</div>'
+                
                 html_content.append(f"""
-                            <div class="timeline-step">
-                                <h3 class="step-title">{_esc(step.get("title", ""))}</h3>
-                                <p class="step-desc">{_esc(step.get("description", ""))}</p>
-                            </div>
-""")
-            html_content.append('                        </div>')
-            html_content.append('                    </div>')
-        elif layout_type_str == "comparison" and slide.get("comparison_data"):
-            data = slide["comparison_data"]
-            html_content.append(f"""
-                    <div class="comparison-container">
-                        <div class="comparison-column left-col">
-                            <h2 class="column-header">{_esc(data.get("left_column_title", ""))}</h2>
-                            <ul class="column-list">
-""")
-            for point in data.get("left_column_points", []):
-                html_content.append(f'                                <li>{_esc(point)}</li>')
-            html_content.append(f"""
-                            </ul>
-                        </div>
-                        <div class="comparison-column right-col">
-                            <h2 class="column-header">{_esc(data.get("right_column_title", ""))}</h2>
-                            <ul class="column-list">
-""")
-            for point in data.get("right_column_points", []):
-                html_content.append(f'                                <li>{_esc(point)}</li>')
-            html_content.append(f"""
-                            </ul>
-                        </div>
-                    </div>
-""")
-        elif layout_type_str == "grid" and slide.get("grid_data"):
-            data = slide["grid_data"]
-            html_content.append('                    <div class="grid-container">')
-            for col in data.get("columns", []):
-                html_content.append(f"""
-                        <div class="grid-card">
-                            <h3 class="card-header">{_esc(col.get("header", ""))}</h3>
-                            <p class="card-content">{_esc(col.get("content", ""))}</p>
-                        </div>
-""")
-            html_content.append('                    </div>')
-        else:
-            # Fallback to standard bullet list
-            bullets = slide.get("bullets_data")
-            if not bullets:
-                # If no direct bullets data, extract from facts list fallback
-                bullets = slide.get("bullets", [])
-            
-            html_content.append('                    <div class="bullets-container">')
-            html_content.append('                        <ul class="bullet-list">')
-            for b in bullets:
-                b_text = b if isinstance(b, str) else b.get("text", "")
-                if b_text:
-                    html_content.append(f'                            <li>{_esc(b_text)}</li>')
-            html_content.append('                        </ul>')
-            html_content.append('                    </div>')
-
-        html_content.append("""
-                </div>
-""")
-
-        # ----------------------------------------------------
-        # Render Visual Asset Area (0 to N images)
-        # ----------------------------------------------------
-        if has_images:
-            html_content.append('                <div class="visual-area">')
-            if len(slide_imgs) == 1:
-                img_id = slide_imgs[0]
-                img_meta = images_by_id.get(img_id)
-                if img_meta:
-                    raw_path = img_meta.get("file_path", "")
-                    # Convert static prefix to relative slideshow path
-                    rel_img_path = raw_path.replace("assets/", "../../")
-                    caption = img_meta.get("caption", "")
-                    html_content.append(f"""
-                    <div class="p-shape-frame">
-                        <img src="{rel_img_path}">
+                    <div class="concept-v1">
+                        <div class="term">{_esc(data.get("core_term", ""))}</div>
+                        <div class="def">{_esc(data.get("definition", ""))}</div>
+                        {takeaways_html}
                     </div>
 """)
             else:
-                # Render a grid of images
-                html_content.append('                    <div class="visual-grid">')
-                for img_id in slide_imgs:
-                    img_meta = images_by_id.get(img_id)
-                    if img_meta:
-                        raw_path = img_meta.get("file_path", "")
-                        rel_img_path = raw_path.replace("assets/", "../../")
-                        caption = img_meta.get("caption", "")
+                takeaways_html = ""
+                if takeaways:
+                    pills = "".join([f'<div class="takeaways-text">{_esc(t)}</div>' for t in takeaways])
+                    takeaways_html = f'<div class="takeaways">{pills}</div>'
+                
+                html_content.append(f"""
+                    <div class="concept-v2">
+                        <div class="term">{_esc(data.get("core_term", ""))}</div>
+                        <div class="def">{_esc(data.get("definition", ""))}</div>
+                        {takeaways_html}
+                    </div>
+""")
+
+        elif layout_type_str == "steps" and slide.get("steps_data"):
+            data = slide["steps_data"]
+            steps = data.get("steps", [])
+            
+            if is_v1:
+                html_content.append('<div class="steps-v1">')
+                for i, step in enumerate(steps):
+                    html_content.append(f"""
+                        <div class="step-v1-card">
+                            <div class="step-v1-num">{i+1}</div>
+                            <h3>{_esc(step.get("title", ""))}</h3>
+                            <p>{_esc(step.get("description", ""))}</p>
+                        </div>
+""")
+                html_content.append('</div>')
+            else:
+                html_content.append('<div class="steps-v2">')
+                colors = ["var(--accent-blue)", "var(--accent-indigo)", "var(--accent-purple)", "var(--accent-teal)"]
+                for i, step in enumerate(steps):
+                    color = colors[i % len(colors)]
+                    html_content.append(f"""
+                        <div class="step-v2-row" style="border-left-color: {color};">
+                            <div class="step-v2-num">{i+1:02d}</div>
+                            <div class="step-v2-content">
+                                <h3>{_esc(step.get("title", ""))}</h3>
+                                <p>{_esc(step.get("description", ""))}</p>
+                            </div>
+                        </div>
+""")
+                html_content.append('</div>')
+
+        elif layout_type_str == "comparison" and slide.get("comparison_data"):
+            data = slide["comparison_data"]
+            
+            if is_v1:
+                html_content.append('<div class="comp-v1">')
+                # Left
+                html_content.append(f"""
+                    <div class="comp-v1-card left">
+                        <h2 style="font-size: 24px; text-align: center; margin-bottom: 16px;">{_esc(data.get("left_column_title", ""))}</h2>
+                        <ul class="comp-list">
+""")
+                for pt in data.get("left_column_points", []):
+                    html_content.append(f'<li>{_esc(pt)}</li>')
+                html_content.append('</ul></div>')
+                
+                # VS
+                html_content.append('<div class="vs-circle">VS</div>')
+                
+                # Right
+                html_content.append(f"""
+                    <div class="comp-v1-card right">
+                        <h2 style="font-size: 24px; text-align: center; margin-bottom: 16px;">{_esc(data.get("right_column_title", ""))}</h2>
+                        <ul class="comp-list">
+""")
+                for pt in data.get("right_column_points", []):
+                    html_content.append(f'<li>{_esc(pt)}</li>')
+                html_content.append('</ul></div></div>')
+            else:
+                html_content.append(f"""
+                    <div class="comp-v2">
+                        <div class="comp-v2-row header">
+                            <div class="comp-v2-col">{_esc(data.get("left_column_title", ""))}</div>
+                            <div class="comp-v2-col">{_esc(data.get("right_column_title", ""))}</div>
+                        </div>
+""")
+                left_pts = data.get("left_column_points", [])
+                right_pts = data.get("right_column_points", [])
+                max_pts = max(len(left_pts), len(right_pts))
+                
+                for i in range(max_pts):
+                    l_pt = _esc(left_pts[i]) if i < len(left_pts) else "-"
+                    r_pt = _esc(right_pts[i]) if i < len(right_pts) else "-"
+                    html_content.append(f"""
+                        <div class="comp-v2-row">
+                            <div class="comp-v2-col">{l_pt}</div>
+                            <div class="comp-v2-col">{r_pt}</div>
+                        </div>
+""")
+                html_content.append('</div>')
+
+        elif layout_type_str == "grid" and slide.get("grid_data"):
+            data = slide["grid_data"]
+            cols = data.get("columns", [])
+            
+            if is_v1 or len(cols) != 3:
+                # Standard Bento
+                css_class = "grid-v1 grid-4" if len(cols) == 4 else "grid-v1"
+                html_content.append(f'<div class="{css_class}">')
+                colors = ["var(--accent-blue)", "var(--accent-indigo)", "var(--accent-purple)", "var(--accent-teal)"]
+                for i, col in enumerate(cols):
+                    color = colors[i % len(colors)]
+                    html_content.append(f"""
+                        <div class="grid-v1-card" style="border-bottom: 4px solid {color};">
+                            <h3>{_esc(col.get("header", ""))}</h3>
+                            <p>{_esc(col.get("content", ""))}</p>
+                        </div>
+""")
+                html_content.append('</div>')
+            else:
+                # Asymmetric Hero (works best with 3 items)
+                html_content.append('<div class="grid-v2">')
+                for i, col in enumerate(cols):
+                    if i == 0:
                         html_content.append(f"""
-                        <div class="p-shape-frame">
+                            <div class="grid-v2-card grid-v2-hero">
+                                <h3>{_esc(col.get("header", ""))}</h3>
+                                <p>{_esc(col.get("content", ""))}</p>
+                            </div>
+""")
+                    else:
+                        html_content.append(f"""
+                            <div class="grid-v2-card">
+                                <h3>{_esc(col.get("header", ""))}</h3>
+                                <p>{_esc(col.get("content", ""))}</p>
+                            </div>
+""")
+                html_content.append('</div>')
+                
+        else:
+            # Fallback to standard bullets
+            bullets = slide.get("bullets_data")
+            if not bullets:
+                bullets = slide.get("bullets")
+            if not bullets:
+                bullets = slide.get("content", [])
+                
+            if is_v1:
+                html_content.append('<ul class="bullets-v1">')
+                for b in bullets:
+                    b_text = b if isinstance(b, str) else b.get("text", "")
+                    if b_text:
+                        html_content.append(f'<li>{_esc(b_text)}</li>')
+                html_content.append('</ul>')
+            else:
+                html_content.append('<ul class="bullets-v2">')
+                for i, b in enumerate(bullets):
+                    b_text = b if isinstance(b, str) else b.get("text", "")
+                    if b_text:
+                        html_content.append(f"""
+                            <li>
+                                <div class="bullets-v2-num">{i+1:02d}</div>
+                                <div class="bullets-v2-text">{_esc(b_text)}</div>
+                            </li>
+""")
+                html_content.append('</ul>')
+
+        html_content.append('</div>') # end content-area
+
+        # ----------------------------------------------------
+        # Render Visual Asset Area
+        # ----------------------------------------------------
+        if has_images:
+            html_content.append(f'<div class="visual-area n-{min(img_count, 3)}">')
+            for img_id in slide_imgs[:3]: # Cap at 3 for layout safety
+                img_meta = images_by_id.get(img_id)
+                if img_meta:
+                    raw_path = img_meta.get("file_path", "")
+                    rel_img_path = raw_path.replace("assets/", "../../")
+                    html_content.append(f"""
+                        <div class="img-frame">
                             <img src="{rel_img_path}">
                         </div>
 """)
-                html_content.append('                    </div>')
-            html_content.append('                </div>')
+            html_content.append('</div>')
 
         html_content.append("""
             </div>

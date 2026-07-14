@@ -11,7 +11,6 @@ if BACKEND_DIR not in sys.path:
 
 from pipelines.run_pipeline import (
     generate_course_outline,
-    generate_lessons_for_course,
     generate_scripts_for_course
 )
 from pipelines.quiz_generator import generate_quiz_for_course
@@ -20,7 +19,6 @@ from pipelines.slides_generator import compile_slides_for_course
 from pipelines.video_generator import generate_video_for_module
 from pipelines.config import DRAFT_COURSES_FILE, get_llm_endpoint
 from pipelines.exporter import sync_clean_database
-from pipelines.image_generator import enrich_sparse_slides_with_flux
 
 def run_pipeline_for_file(filename):
     print("\n" + "="*80)
@@ -58,16 +56,7 @@ def run_pipeline_for_file(filename):
         traceback.print_exc()
         return False
 
-    # Step 2: Lesson Generation & Bullet Refinement & Image Mapping
-    try:
-        url, model = get_llm_endpoint()
-        print(f"[STEP 2][MODEL CHECK] Lesson extraction will run using: {model} at {url}")
-        generate_lessons_for_course(course_id)
-        print("[SUCCESS] Step 2: Lessons generated and image-mapped.")
-    except Exception as e:
-        print(f"[ERROR] Step 2 failed: {e}")
-        traceback.print_exc()
-        return False
+
 
     # Step 3: MCQ Quiz Generation
     try:
@@ -85,9 +74,8 @@ def run_pipeline_for_file(filename):
         url, model = get_llm_endpoint("slides")
         print(f"[STEP 4][MODEL CHECK] Slide planning will run using: {model} at {url}")
         generate_slides_for_course(course_id)
-        enrich_sparse_slides_with_flux(course_id)
         compile_slides_for_course(course_id)
-        print("[SUCCESS] Step 4: Slides planned, enriched, and compiled.")
+        print("[SUCCESS] Step 4: Slides planned and compiled.")
     except Exception as e:
         print(f"[ERROR] Step 4 failed: {e}")
         traceback.print_exc()

@@ -14,15 +14,17 @@ if BACKEND_DIR not in sys.path:
 
 from pipelines.run_pipeline import (
     generate_course_outline,
-    generate_lessons_for_course
+    generate_scripts_for_course
 )
 from pipelines.quiz_generator import generate_quiz_for_course
+from pipelines.video_generator import generate_video_for_module
 from pipelines.config import DRAFT_COURSES_FILE
 
 def get_latest_course_id():
-    courses = get_all_courses('draft')
-            if courses:
-                return courses[-1].get("id")
+    try:
+        courses = get_all_courses('draft')
+        if courses:
+            return courses[-1].get("id")
     except Exception as e:
         print(f"Error reading courses.json: {e}")
     return None
@@ -51,26 +53,6 @@ def print_course_outline_summary(outline):
             print(f"        Path: {img.get('file_path')}")
     print("==================================================\n")
 
-def print_lessons_summary(course):
-    print("\n==================================================")
-    print("STAGE 2 SUMMARY: Lesson Generation & Image Mapping")
-    print("==================================================")
-    print(f"Course Name: {course.get('course_name')}")
-    print(f"Course ID:   {course.get('id')}")
-    
-    modules = course.get("modules", [])
-    for m in modules:
-        lessons = m.get("lessons", [])
-        module_imgs = m.get("images", [])
-        print(f"\n* Module {m.get('module_number')}: '{m.get('title')}'")
-        print(f"  - Original Module images ({len(module_imgs)}): {[img.get('image_id') for img in module_imgs]}")
-        print(f"  - Lessons Generated ({len(lessons)}):")
-        for lesson in lessons:
-            lesson_imgs = lesson.get("images", [])
-            print(f"    - Lesson {lesson.get('lesson_number')}: '{lesson.get('lesson_title')}' ({len(lesson.get('bullets', []))} bullets)")
-            for img in lesson_imgs:
-                print(f"      * Mapped Image ID: {img.get('image_id')}, Path: {img.get('file_path')}")
-    print("==================================================\n")
 
 
 
@@ -102,12 +84,6 @@ def run_step_1_blueprint(filename):
     outline = generate_course_outline(filename)
     print_course_outline_summary(outline)
     return outline.get("id")
-
-def run_step_2_lessons(course_id):
-    print(f"\n--- STAGE 2: Generating Lessons & Image Mappings for Course ID {course_id} ---")
-    course = generate_lessons_for_course(course_id)
-    print_lessons_summary(course)
-    return course
 
 
 
@@ -174,6 +150,27 @@ def run_step_5_slides(course_id):
     print_slides_summary(course, html_files)
     return course
 
+def run_step_6_scripts(course_id):
+    print(f"\n--- STAGE 6: Generating Narration Scripts & Audio for Course ID {course_id} ---")
+    from pipelines.slides_generator import compile_slides_for_course
+    
+    course = generate_scripts_for_course(course_id)
+    compile_slides_for_course(course_id) # Re-compile to embed audio
+    print(f"STAGE 6 SUMMARY: Scripts & TTS Audio synthesized for course {course_id}")
+    return course
+
+def run_step_7_video(course_id):
+    print(f"\n--- STAGE 7: Compiling Final MP4 Videos for Course ID {course_id} ---")
+    courses = get_all_courses('draft')
+    course = next((c for c in courses if c.get("id") == course_id), None)
+    if course:
+        for m in course.get("modules", []):
+            mod_num = m.get("module_number")
+            print(f"  -> Rendering Video for Module {mod_num}...")
+            generate_video_for_module(course_id, mod_num)
+        print(f"STAGE 7 SUMMARY: Video generation complete for course {course_id}")
+    return course
+
 def main():
     parser = argparse.ArgumentParser(
         description="LMS Pipeline Verification & Interactive Step Runner Utility",
@@ -191,7 +188,6 @@ def main():
         choices=["1", "2", "4", "5", "blueprint", "lessons", "quiz", "slides"],
         help="Run an individual stage of the pipeline:\n"
              "  1, blueprint : Stage 1 (Blueprint Outline Slicing)\n"
-             "  2, lessons   : Stage 2 (Lessons Generation & Bullet Refinement & Image Mapping)\n"
              "  4, quiz      : Stage 4 (MCQ Quiz Generation)\n"
              "  5, slides    : Stage 5 (HTML Slide Deck Generation)"
     )
@@ -215,9 +211,10 @@ def main():
         print("RUNNING THE FULL LMS PIPELINE END-TO-END")
         print("==================================================")
         course_id = run_step_1_blueprint(args.file)
-        run_step_2_lessons(course_id)
         run_step_4_quiz(course_id)
         run_step_5_slides(course_id)
+        run_step_6_scripts(course_id)
+        run_step_7_video(course_id)
         print("==================================================")
         print("FULL PIPELINE END-TO-END RUN COMPLETED SUCCESSFULLY!")
         print("==================================================")
@@ -235,9 +232,7 @@ def main():
                     sys.exit(1)
                 print(f"[INFO] Using latest course from courses.json: '{course_id}'")
             
-            if step in ["2", "lessons"]:
-                run_step_2_lessons(course_id)
-            elif step in ["4", "quiz"]:
+            if step in ["4", "quiz"]:
                 run_step_4_quiz(course_id)
             elif step in ["5", "slides"]:
                 run_step_5_slides(course_id)

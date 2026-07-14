@@ -9,8 +9,7 @@ from pydantic import BaseModel
 
 from core.config import UPLOAD_DIR, DRAFT_COURSES_FILE
 from core.io_utils import atomic_write_json
-from pipelines.run_pipeline import generate_course_outline, generate_lessons_for_course
-from pipelines.bullet_refiner import refine_bullets_for_course
+from pipelines.run_pipeline import generate_course_outline
 from pipelines.exporter import sync_clean_database
 
 router = APIRouter()
@@ -85,31 +84,6 @@ def generate_course(request: GenerateCourseRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate course: {str(e)}")
 
-@router.post("/api/courses/{course_id}/generate-lessons")
-def generate_lessons(course_id: str):
-    try:
-        updated_course = generate_lessons_for_course(course_id)
-        sync_clean_database()
-        return updated_course
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate lessons: {str(e)}")
-
-@router.post("/api/courses/{course_id}/refine-bullets")
-def refine_bullets(course_id: str):
-    try:
-        updated_course = refine_bullets_for_course(course_id)
-        sync_clean_database()
-        return updated_course
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to refine bullets: {str(e)}")
 
 @router.get("/api/courses")
 def list_courses(response: Response):
@@ -228,9 +202,7 @@ def generate_slides(course_id: str):
     try:
         from pipelines.slide_planner import generate_slides_for_course
         from pipelines.slides_generator import compile_slides_for_course
-        from pipelines.image_generator import enrich_sparse_slides_with_flux
         updated_course = generate_slides_for_course(course_id)
-        enrich_sparse_slides_with_flux(course_id)
         compile_slides_for_course(course_id)
         sync_clean_database()
         return updated_course
@@ -282,17 +254,14 @@ def generate_video(course_id: str, module_number: int):
 @router.post("/api/courses/{course_id}/generate-full-course")
 def generate_full_course(course_id: str):
     try:
-        from pipelines.run_pipeline import generate_lessons_for_course, generate_scripts_for_course
+        from pipelines.run_pipeline import generate_scripts_for_course
         from pipelines.quiz_generator import generate_quiz_for_course
         from pipelines.slide_planner import generate_slides_for_course
         from pipelines.slides_generator import compile_slides_for_course
         from pipelines.video_generator import generate_video_for_module
-        from pipelines.image_generator import enrich_sparse_slides_with_flux
 
-        generate_lessons_for_course(course_id)
         generate_quiz_for_course(course_id)
         generate_slides_for_course(course_id)
-        enrich_sparse_slides_with_flux(course_id)
         compile_slides_for_course(course_id)
         generate_scripts_for_course(course_id)
         compile_slides_for_course(course_id)
