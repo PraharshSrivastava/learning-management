@@ -24,7 +24,8 @@ class PDFFile {
   }
 
   String get formattedDate {
-    final dateTime = DateTime.fromMillisecondsSinceEpoch((created * 1000).toInt());
+    final dateTime =
+        DateTime.fromMillisecondsSinceEpoch((created * 1000).toInt());
     return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 }
@@ -61,10 +62,10 @@ class LessonImage {
   }
 
   Map<String, dynamic> toJson() => {
-    'image_id': imageId,
-    'caption': caption,
-    'file_path': filePath,
-  };
+        'image_id': imageId,
+        'caption': caption,
+        'file_path': filePath,
+      };
 }
 
 class CourseLesson {
@@ -94,11 +95,11 @@ class CourseLesson {
   }
 
   Map<String, dynamic> toJson() => {
-    'lesson_number': lessonNumber,
-    'lesson_title': lessonTitle,
-    'bullets': bullets.map((b) => b.toJson()).toList(),
-    'images': images.map((img) => img.toJson()).toList(),
-  };
+        'lesson_number': lessonNumber,
+        'lesson_title': lessonTitle,
+        'bullets': bullets.map((b) => b.toJson()).toList(),
+        'images': images.map((img) => img.toJson()).toList(),
+      };
 }
 
 // ---------- Module Model ----------
@@ -148,17 +149,17 @@ class CourseModule {
   }
 
   Map<String, dynamic> toJson() => {
-    'module_number': moduleNumber,
-    'title': title,
-    'text': text,
-    'start_line': startLine,
-    'end_line': endLine,
-    'lessons': lessons.map((s) => s.toJson()).toList(),
-    'num_questions': numQuestions,
-    'quiz': quiz,
-    'slides': slides,
-    'video_path': videoPath,
-  };
+        'module_number': moduleNumber,
+        'title': title,
+        'text': text,
+        'start_line': startLine,
+        'end_line': endLine,
+        'lessons': lessons.map((s) => s.toJson()).toList(),
+        'num_questions': numQuestions,
+        'quiz': quiz,
+        'slides': slides,
+        'video_path': videoPath,
+      };
 }
 
 class EmployeeModuleProgress {
@@ -177,10 +178,12 @@ class EmployeeModuleProgress {
   factory EmployeeModuleProgress.fromJson(Map<String, dynamic> json) {
     Map<int, String>? parsedAnswers;
     final bool quizPassed = json['quiz_passed'] == true;
-    
+
     // Only load saved answers if the user actually passed the quiz.
     // If they failed, we ignore any saved answers so they can retake it.
-    if (quizPassed && json['selected_answers'] != null && json['selected_answers'] is Map) {
+    if (quizPassed &&
+        json['selected_answers'] != null &&
+        json['selected_answers'] is Map) {
       parsedAnswers = {};
       (json['selected_answers'] as Map).forEach((key, value) {
         final parsedKey = int.tryParse(key.toString());
@@ -218,7 +221,8 @@ class PublishedQuizQuestion {
     return PublishedQuizQuestion(
       questionId: json['question_id']?.toString() ?? '',
       question: json['question']?.toString() ?? '',
-      options: (json['options'] as List? ?? []).map((e) => e.toString()).toList(),
+      options:
+          (json['options'] as List? ?? []).map((e) => e.toString()).toList(),
       correct: json['correct']?.toString() ?? '',
       explanation: json['explanation']?.toString() ?? '',
     );
@@ -228,6 +232,7 @@ class PublishedQuizQuestion {
 class PublishedCourseModule {
   final int moduleNumber;
   final String title;
+  final String notes;
   final String videoUrl;
   final List<PublishedQuizQuestion> quiz;
   final double passMark;
@@ -235,6 +240,7 @@ class PublishedCourseModule {
   PublishedCourseModule({
     required this.moduleNumber,
     required this.title,
+    this.notes = '',
     required this.videoUrl,
     required this.quiz,
     required this.passMark,
@@ -244,8 +250,11 @@ class PublishedCourseModule {
     return PublishedCourseModule(
       moduleNumber: (json['module_number'] as num?)?.toInt() ?? 0,
       title: json['title']?.toString() ?? '',
+      notes: json['notes']?.toString() ?? '',
       videoUrl: json['video_url']?.toString() ?? '',
-      quiz: (json['quiz'] as List? ?? []).map((q) => PublishedQuizQuestion.fromJson(q as Map<String, dynamic>)).toList(),
+      quiz: (json['quiz'] as List? ?? [])
+          .map((q) => PublishedQuizQuestion.fromJson(q as Map<String, dynamic>))
+          .toList(),
       passMark: (json['pass_mark'] as num?)?.toDouble() ?? 0.67,
     );
   }
@@ -267,7 +276,7 @@ class Course {
   final String? employeeStatus;
   final String? assignedAt;
   final String? deadline;
-  
+
   final List<PublishedCourseModule> publishedModules;
   final Map<String, EmployeeModuleProgress> employeeProgress;
 
@@ -348,7 +357,9 @@ class Course {
       employeeStatus: json['employee_status'] as String?,
       assignedAt: json['assigned_at'] as String?,
       deadline: json['deadline'] as String?,
-      publishedModules: (json['modules'] as List? ?? []).map((m) => PublishedCourseModule.fromJson(m as Map<String, dynamic>)).toList(),
+      publishedModules: (json['modules'] as List? ?? [])
+          .map((m) => PublishedCourseModule.fromJson(m as Map<String, dynamic>))
+          .toList(),
       employeeProgress: progressMap,
     );
   }

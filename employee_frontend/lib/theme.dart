@@ -33,55 +33,53 @@ class AppTheme {
 
   static ThemeData get lightTheme {
     return ThemeData(
+      useMaterial3: true,
       primaryColor: primaryBlue,
       scaffoldBackgroundColor: Colors.white,
       colorScheme: const ColorScheme.light(
         primary: primaryBlue,
         secondary: gray,
-        background: lightGray,
         surface: lightGray,
         onPrimary: Colors.white,
         onSecondary: textBlack,
       ),
-      textTheme: TextTheme(
-        // Use 'Barlow' for standard text
-        bodyLarge: GoogleFonts.barlow(
+      textTheme: GoogleFonts.dmSansTextTheme().copyWith(
+        bodyLarge: GoogleFonts.dmSans(
           fontSize: 16.0,
           fontWeight: FontWeight.normal,
           color: textBlack,
         ),
-        bodyMedium: GoogleFonts.barlow(
+        bodyMedium: GoogleFonts.dmSans(
           fontSize: 14.0,
           fontWeight: FontWeight.normal,
           color: textBlack,
         ),
-        bodySmall: GoogleFonts.barlow(
+        bodySmall: GoogleFonts.dmSans(
           fontSize: 12.0,
           fontWeight: FontWeight.normal,
           color: gray,
         ),
-        titleMedium: GoogleFonts.barlow(
+        titleMedium: GoogleFonts.manrope(
           fontSize: 18.0,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w700,
           color: primaryBlue,
         ),
-        // Use 'Inter' for headers / brand text
-        displayLarge: GoogleFonts.inter(
+        displayLarge: GoogleFonts.manrope(
           fontSize: 32.0,
           fontWeight: FontWeight.bold,
           color: primaryBlue,
         ),
-        displayMedium: GoogleFonts.inter(
+        displayMedium: GoogleFonts.manrope(
           fontSize: 24.0,
           fontWeight: FontWeight.bold,
           color: primaryBlue,
         ),
-        displaySmall: GoogleFonts.inter(
+        displaySmall: GoogleFonts.manrope(
           fontSize: 20.0,
           fontWeight: FontWeight.w600,
           color: primaryBlue,
         ),
-        labelLarge: GoogleFonts.barlow(
+        labelLarge: GoogleFonts.dmSans(
           fontSize: 14.0,
           fontWeight: FontWeight.w600,
           color: primaryBlue,
@@ -90,7 +88,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.white,
         elevation: 0,
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: GoogleFonts.manrope(
           fontSize: 20.0,
           fontWeight: FontWeight.bold,
           color: primaryBlue,
@@ -106,7 +104,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: pShapeRadiusCustom(8.0),
           ),
-          textStyle: GoogleFonts.barlow(
+          textStyle: GoogleFonts.dmSans(
             fontSize: 14.0,
             fontWeight: FontWeight.bold,
           ),

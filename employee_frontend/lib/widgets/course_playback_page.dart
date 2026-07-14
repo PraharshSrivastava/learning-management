@@ -10,7 +10,9 @@ import '../constants.dart';
 
 class CoursePlaybackView extends ConsumerStatefulWidget {
   final Course course;
-  const CoursePlaybackView({super.key, required this.course});
+  final VoidCallback? onBack;
+
+  const CoursePlaybackView({super.key, required this.course, this.onBack});
 
   @override
   ConsumerState<CoursePlaybackView> createState() => _CoursePlaybackViewState();
@@ -19,6 +21,9 @@ class CoursePlaybackView extends ConsumerStatefulWidget {
 class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   int _activeModuleIndex = 0;
   final Map<int, String> _selectedAnswers = {};
+  final Set<int> _locallyWatchedModules = <int>{};
+  final Set<int> _locallyPassedModules = <int>{};
+  final GlobalKey _quizSectionKey = GlobalKey();
   bool _isQuizSubmitted = false;
 
   @override
@@ -33,6 +38,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
     if (oldWidget.course.id != widget.course.id) {
       setState(() {
         _activeModuleIndex = 0;
+        _locallyWatchedModules.clear();
+        _locallyPassedModules.clear();
         _loadProgressForCurrentModule();
       });
     } else {
@@ -52,10 +59,12 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
     _isQuizSubmitted = false;
 
     if (widget.course.publishedModules.isEmpty) return;
-    
-    final currModuleStr = widget.course.publishedModules[_activeModuleIndex].moduleNumber.toString();
+
+    final currModuleStr = widget
+        .course.publishedModules[_activeModuleIndex].moduleNumber
+        .toString();
     final currProgress = widget.course.employeeProgress[currModuleStr];
-    
+
     if (currProgress != null && currProgress.selectedAnswers != null) {
       _selectedAnswers.addAll(currProgress.selectedAnswers!);
       // If there are answers, it was submitted at least once
@@ -65,21 +74,29 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
   bool _isVideoUnlocked(int moduleIndex) {
     if (moduleIndex == 0) return true;
-    final prevModuleStr = widget.course.publishedModules[moduleIndex - 1].moduleNumber.toString();
+    final prevModuleStr =
+        widget.course.publishedModules[moduleIndex - 1].moduleNumber.toString();
     final prevProgress = widget.course.employeeProgress[prevModuleStr];
-    return prevProgress?.quizPassed == true;
+    final prevModuleNumber =
+        widget.course.publishedModules[moduleIndex - 1].moduleNumber;
+    return prevProgress?.quizPassed == true ||
+        _locallyPassedModules.contains(prevModuleNumber);
   }
 
   bool _isQuizUnlocked(int moduleIndex) {
-    final currModuleStr = widget.course.publishedModules[moduleIndex].moduleNumber.toString();
+    final currModuleStr =
+        widget.course.publishedModules[moduleIndex].moduleNumber.toString();
     final currProgress = widget.course.employeeProgress[currModuleStr];
-    return currProgress?.videoWatched == true;
+    final currModuleNumber =
+        widget.course.publishedModules[moduleIndex].moduleNumber;
+    return currProgress?.videoWatched == true ||
+        _locallyWatchedModules.contains(currModuleNumber);
   }
 
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 900;
-    
+
     if (widget.course.publishedModules.isEmpty) {
       return Center(
         child: Container(
@@ -113,61 +130,134 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   Widget _buildDesktopLayout() {
     final module = widget.course.publishedModules[_activeModuleIndex];
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
       children: [
-        // Main Content Area (Left side)
+        _buildCourseWorkspaceHeader(),
         Expanded(
-          flex: 7,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(right: 24, bottom: 40, left: 24, top: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeaderSection(module),
-                const SizedBox(height: 20),
-                _buildVideoPlayerSection(module),
-                const SizedBox(height: 32),
-                const Divider(color: AppTheme.lightGray, height: 1),
-                const SizedBox(height: 28),
-                _buildQuizSection(module),
-              ],
-            ),
-          ),
-        ),
-        // Sidebar (Right side)
-        SizedBox(
-          width: 340,
-          child: Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                left: BorderSide(color: AppTheme.lightGray, width: 1),
-              ),
-            ),
-            padding: const EdgeInsets.only(left: 20, top: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'COURSE CONTENT',
-                    style: GoogleFonts.barlow(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.gray,
-                      letterSpacing: 1.5,
-                    ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 7,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(28, 28, 28, 44),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeaderSection(module),
+                      const SizedBox(height: 20),
+                      _buildVideoPlayerSection(module),
+                      const SizedBox(height: 20),
+                      _buildNotesSection(module),
+                      const SizedBox(height: 32),
+                      const Divider(color: AppTheme.lightGray, height: 1),
+                      const SizedBox(height: 28),
+                      KeyedSubtree(
+                        key: _quizSectionKey,
+                        child: _buildQuizSection(module),
+                      ),
+                    ],
                   ),
                 ),
-                Expanded(
-                  child: _buildModuleList(),
+              ),
+              SizedBox(
+                width: 330,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(left: BorderSide(color: Color(0xFFE6E9EF))),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(18, 24, 14, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Course content',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${widget.course.publishedModules.length} modules',
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFF667085)),
+                      ),
+                      const SizedBox(height: 18),
+                      Expanded(child: _buildModuleList()),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCourseWorkspaceHeader() {
+    final total = widget.course.publishedModules.length;
+    final passed = widget.course.publishedModules.where((module) {
+      return widget
+              .course.employeeProgress['${module.moduleNumber}']?.quizPassed ==
+          true;
+    }).length;
+    final progress = total == 0 ? 0.0 : passed / total;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE6E9EF))),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: widget.onBack,
+            tooltip: 'Back to dashboard',
+            icon: const Icon(Icons.arrow_back),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.course.courseName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(
+                  '$passed of $total modules completed',
+                  style:
+                      const TextStyle(fontSize: 13, color: Color(0xFF667085)),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 160,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('${(progress * 100).round()}%',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primaryBlue)),
+                const SizedBox(height: 7),
+                LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(4),
+                  backgroundColor: const Color(0xFFE6E9EF),
+                  color: AppTheme.primaryBlue,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -179,6 +269,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildCourseWorkspaceHeader(),
+          const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -190,8 +282,10 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
               child: DropdownButton<int>(
                 value: _activeModuleIndex,
                 isExpanded: true,
-                icon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.primaryBlue),
-                items: List.generate(widget.course.publishedModules.length, (idx) {
+                icon: const Icon(Icons.keyboard_arrow_down,
+                    color: AppTheme.primaryBlue),
+                items:
+                    List.generate(widget.course.publishedModules.length, (idx) {
                   final m = widget.course.publishedModules[idx];
                   final unlocked = _isVideoUnlocked(idx);
                   return DropdownMenuItem<int>(
@@ -219,10 +313,15 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
           _buildHeaderSection(module),
           const SizedBox(height: 16),
           _buildVideoPlayerSection(module),
+          const SizedBox(height: 16),
+          _buildNotesSection(module),
           const SizedBox(height: 24),
           const Divider(color: AppTheme.lightGray),
           const SizedBox(height: 20),
-          _buildQuizSection(module),
+          KeyedSubtree(
+            key: _quizSectionKey,
+            child: _buildQuizSection(module),
+          ),
         ],
       ),
     );
@@ -237,7 +336,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withOpacity(0.08),
+                color: AppTheme.primaryBlue.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -283,7 +382,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
     final moduleStr = module.moduleNumber.toString();
     final progress = widget.course.employeeProgress[moduleStr];
-    final bool initiallyWatched = progress?.videoWatched == true;
+    final bool initiallyWatched = progress?.videoWatched == true ||
+        _locallyWatchedModules.contains(module.moduleNumber);
 
     return Container(
       decoration: BoxDecoration(
@@ -291,7 +391,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         borderRadius: AppTheme.pShapeRadius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -303,39 +403,89 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         moduleNumber: module.moduleNumber,
         videoFilename: module.videoUrl,
         initiallyWatched: initiallyWatched,
-        key: ValueKey('${widget.course.id}_${module.moduleNumber}_$initiallyWatched'),
+        onVideoCompleted: () => _handleVideoCompleted(module.moduleNumber),
+        key: ValueKey(
+            '${widget.course.id}_${module.moduleNumber}_$initiallyWatched'),
+      ),
+    );
+  }
+
+  Widget _buildNotesSection(PublishedCourseModule module) {
+    final notes = module.notes.trim().isNotEmpty
+        ? module.notes.trim()
+        : widget.course.courseDescription.trim().isNotEmpty
+            ? widget.course.courseDescription.trim()
+            : 'Complete the video lesson, then use the quiz to confirm your understanding of this module.';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE1E7EF)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppTheme.accentCyan.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.notes_outlined, color: AppTheme.accentCyan),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Notes',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(notes,
+                    style: const TextStyle(
+                        fontSize: 14, height: 1.55, color: Color(0xFF475467))),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildQuizSection(PublishedCourseModule module) {
     final isQuizUnlocked = _isQuizUnlocked(_activeModuleIndex);
-    
+
     if (!isQuizUnlocked) {
       return Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.lightGray),
+          color: const Color(0xFFFFF8E8),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFF3D19C)),
         ),
-        child: Column(
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.lock_outline, size: 48, color: AppTheme.gray),
-            const SizedBox(height: 12),
-            Text(
-              'Quiz Locked',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: AppTheme.gray,
+            Icon(Icons.lock_outline, color: Color(0xFF8A5A00)),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Quiz locked',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF704A00))),
+                  SizedBox(height: 4),
+                  Text(
+                      'Finish the video lesson to unlock this knowledge check.',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF704A00))),
+                ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'You must watch the entire video lesson to unlock the quiz.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.barlow(color: AppTheme.gray, fontSize: 13),
             ),
           ],
         ),
@@ -349,7 +499,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
     final moduleStr = module.moduleNumber.toString();
     final progress = widget.course.employeeProgress[moduleStr];
-    final bool isAlreadyPassed = progress?.quizPassed == true;
+    final bool isAlreadyPassed = progress?.quizPassed == true ||
+        _locallyPassedModules.contains(module.moduleNumber);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -368,11 +519,11 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppTheme.accentGreen.withOpacity(0.12),
+                color: AppTheme.accentGreen.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '${questionsList.length} Questions',
+                '${_selectedAnswers.length}/${questionsList.length} answered',
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -388,7 +539,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.accentGreen.withOpacity(0.1),
+                color: AppTheme.accentGreen.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.accentGreen),
               ),
@@ -399,7 +550,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   Expanded(
                     child: Text(
                       'You have already passed this quiz with a score of ${((progress!.quizScore ?? 0) * 100).toStringAsFixed(1)}%. You can review the questions below.',
-                      style: GoogleFonts.inter(color: AppTheme.accentGreen, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.inter(
+                          color: AppTheme.accentGreen,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -420,12 +573,19 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryBlue,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: _isQuizSubmitted ? null : () => _submitQuiz(module),
+                  onPressed: _isQuizSubmitted ||
+                          _selectedAnswers.length < questionsList.length
+                      ? null
+                      : () => _submitQuiz(module),
                   child: Text(
                     _isQuizSubmitted ? 'Submitted' : 'Submit Quiz',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
                 ),
               );
@@ -439,7 +599,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
     );
   }
 
-  Widget _buildQuestionCard(int questionIndex, PublishedQuizQuestion question, bool isAlreadyPassed) {
+  Widget _buildQuestionCard(
+      int questionIndex, PublishedQuizQuestion question, bool isAlreadyPassed) {
     final selectedAnswer = _selectedAnswers[questionIndex];
     final isSubmitted = _isQuizSubmitted || isAlreadyPassed;
 
@@ -474,77 +635,94 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             ),
           ),
           const SizedBox(height: 16),
-          ...question.options.map((optionText) {
-            final optIndex = question.options.indexOf(optionText);
-            final optKey = String.fromCharCode(65 + optIndex); // A, B, C, D
-            final isOptSelected = selectedAnswer == optKey;
-            
-            final isCorrectOpt = question.correct == optKey;
-            
-            Color cardBorderColor = AppTheme.lightGray;
-            Color cardBgColor = Colors.white;
-            Widget? suffixIcon;
-
-            if (isSubmitted) {
-              if (isCorrectOpt) {
-                cardBorderColor = AppTheme.accentGreen;
-                cardBgColor = AppTheme.accentGreen.withOpacity(0.08);
-                suffixIcon = const Icon(Icons.check_circle_rounded, color: AppTheme.accentGreen, size: 18);
-              } else if (isOptSelected && !isAlreadyPassed) {
-                cardBorderColor = AppTheme.accentRed;
-                cardBgColor = AppTheme.accentRed.withOpacity(0.08);
-                suffixIcon = const Icon(Icons.cancel_rounded, color: AppTheme.accentRed, size: 18);
-              } else {
-                cardBgColor = Colors.grey.shade50;
+          RadioGroup<String>(
+            groupValue: isAlreadyPassed ? question.correct : selectedAnswer,
+            onChanged: (val) {
+              if (!isSubmitted && val != null) {
+                setState(() => _selectedAnswers[questionIndex] = val);
               }
-            } else if (isOptSelected) {
-              cardBorderColor = AppTheme.primaryBlue;
-              cardBgColor = AppTheme.primaryBlue.withOpacity(0.05);
-            }
+            },
+            child: Column(
+              children: question.options.map((optionText) {
+                final optIndex = question.options.indexOf(optionText);
+                final optKey = String.fromCharCode(65 + optIndex); // A, B, C, D
+                final isOptSelected = selectedAnswer == optKey;
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: cardBgColor,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: cardBorderColor, width: isOptSelected || (isSubmitted && isCorrectOpt) ? 2 : 1),
-              ),
-              child: RadioListTile<String>(
-                title: Text(
-                  optionText,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: isSubmitted && isCorrectOpt ? AppTheme.accentGreen : AppTheme.textBlack,
-                    fontWeight: isOptSelected || (isSubmitted && isCorrectOpt) ? FontWeight.w600 : FontWeight.normal,
+                final isCorrectOpt = question.correct == optKey;
+
+                Color cardBorderColor = AppTheme.lightGray;
+                Color cardBgColor = Colors.white;
+                Widget? suffixIcon;
+
+                if (isSubmitted) {
+                  if (isCorrectOpt) {
+                    cardBorderColor = AppTheme.accentGreen;
+                    cardBgColor = AppTheme.accentGreen.withValues(alpha: 0.08);
+                    suffixIcon = const Icon(Icons.check_circle_rounded,
+                        color: AppTheme.accentGreen, size: 18);
+                  } else if (isOptSelected && !isAlreadyPassed) {
+                    cardBorderColor = AppTheme.accentRed;
+                    cardBgColor = AppTheme.accentRed.withValues(alpha: 0.08);
+                    suffixIcon = const Icon(Icons.cancel_rounded,
+                        color: AppTheme.accentRed, size: 18);
+                  } else {
+                    cardBgColor = Colors.grey.shade50;
+                  }
+                } else if (isOptSelected) {
+                  cardBorderColor = AppTheme.primaryBlue;
+                  cardBgColor = AppTheme.primaryBlue.withValues(alpha: 0.05);
+                }
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: cardBgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: cardBorderColor,
+                        width: isOptSelected || (isSubmitted && isCorrectOpt)
+                            ? 2
+                            : 1),
                   ),
-                ),
-                value: optKey,
-                groupValue: isAlreadyPassed ? question.correct : selectedAnswer,
-                activeColor: isSubmitted && isCorrectOpt ? AppTheme.accentGreen : AppTheme.primaryBlue,
-                onChanged: isSubmitted
-                    ? null
-                    : (val) {
-                        setState(() {
-                          _selectedAnswers[questionIndex] = val!;
-                        });
-                      },
-                secondary: suffixIcon,
-              ),
-            );
-          }),
+                  child: RadioListTile<String>(
+                    title: Text(
+                      optionText,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: isSubmitted && isCorrectOpt
+                            ? AppTheme.accentGreen
+                            : AppTheme.textBlack,
+                        fontWeight:
+                            isOptSelected || (isSubmitted && isCorrectOpt)
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                      ),
+                    ),
+                    value: optKey,
+                    enabled: !isSubmitted,
+                    activeColor: isSubmitted && isCorrectOpt
+                        ? AppTheme.accentGreen
+                        : AppTheme.primaryBlue,
+                    secondary: suffixIcon,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
           if (isSubmitted && question.explanation.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.lightGray.withOpacity(0.5),
+                  color: AppTheme.lightGray.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.lightbulb_outline, size: 18, color: AppTheme.accentOrange),
+                    const Icon(Icons.lightbulb_outline,
+                        size: 18, color: AppTheme.accentOrange),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -552,7 +730,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontStyle: FontStyle.italic,
-                          color: AppTheme.textBlack.withOpacity(0.8),
+                          color: AppTheme.textBlack.withValues(alpha: 0.8),
                         ),
                       ),
                     ),
@@ -568,7 +746,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   void _submitQuiz(PublishedCourseModule module) async {
     if (_selectedAnswers.length < module.quiz.length) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please answer all questions before submitting.')),
+        const SnackBar(
+            content: Text('Please answer all questions before submitting.')),
       );
       return;
     }
@@ -584,10 +763,12 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       }
     }
 
-    final double score = module.quiz.isEmpty ? 1.0 : correctCount / module.quiz.length;
+    final double score =
+        module.quiz.isEmpty ? 1.0 : correctCount / module.quiz.length;
     final bool passed = score >= module.passMark;
 
-    final formattedAnswers = _selectedAnswers.map((key, value) => MapEntry(key.toString(), value));
+    final formattedAnswers =
+        _selectedAnswers.map((key, value) => MapEntry(key.toString(), value));
 
     await ref.read(employeeCourseListProvider.notifier).updateModuleProgress(
       widget.course.id,
@@ -596,26 +777,53 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         "quiz_passed": passed,
         "quiz_score": score,
         "selected_answers": passed ? formattedAnswers : null,
-        if (!passed) "video_watched": false, // Reset video requirement if failed
+        if (!passed)
+          "video_watched": false, // Reset video requirement if failed
       },
     );
 
     if (!mounted) return;
 
-    final isFinalModule = _activeModuleIndex == widget.course.publishedModules.length - 1;
+    final isFinalModule =
+        _activeModuleIndex == widget.course.publishedModules.length - 1;
+
+    if (passed) {
+      setState(() {
+        _locallyPassedModules.add(module.moduleNumber);
+        _locallyWatchedModules.add(module.moduleNumber);
+      });
+
+      if (!isFinalModule) {
+        final nextModule =
+            widget.course.publishedModules[_activeModuleIndex + 1];
+        _showLearningSuccessSnackBar(
+          context,
+          message: 'Quiz passed. Opening Module ${nextModule.moduleNumber}.',
+          icon: Icons.verified_rounded,
+        );
+        _onModuleChanged(_activeModuleIndex + 1);
+        return;
+      }
+    } else {
+      setState(() {
+        _locallyWatchedModules.remove(module.moduleNumber);
+      });
+    }
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Text(
-          passed ? (isFinalModule ? 'Course Completed!' : 'Quiz Passed!') : 'Quiz Failed', 
-          style: TextStyle(color: passed ? AppTheme.accentGreen : AppTheme.accentRed)
-        ),
+            passed
+                ? (isFinalModule ? 'Course Completed!' : 'Quiz Passed!')
+                : 'Quiz Failed',
+            style: TextStyle(
+                color: passed ? AppTheme.accentGreen : AppTheme.accentRed)),
         content: Text(
-          passed 
-            ? 'You scored ${(score * 100).toStringAsFixed(1)}%. ${isFinalModule ? "You have successfully finished the course." : "The next module is now unlocked!"}'
-            : 'You scored ${(score * 100).toStringAsFixed(1)}%. You need ${(module.passMark * 100).toStringAsFixed(1)}% to pass.\n\nYou must re-watch the video lesson to try the quiz again.',
+          passed
+              ? 'You scored ${(score * 100).toStringAsFixed(1)}%. ${isFinalModule ? "You have successfully finished the course." : "The next module is now unlocked!"}'
+              : 'You scored ${(score * 100).toStringAsFixed(1)}%. You need ${(module.passMark * 100).toStringAsFixed(1)}% to pass.\n\nYou must re-watch the video lesson to try the quiz again.',
         ),
         actions: [
           TextButton(
@@ -629,10 +837,76 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                 });
               }
             },
-            child: Text(passed && isFinalModule ? 'Finish' : (passed ? 'Continue' : 'Try Again')),
+            child: Text(passed && isFinalModule
+                ? 'Finish'
+                : (passed ? 'Continue' : 'Try Again')),
           ),
         ],
       ),
+    );
+  }
+
+  void _handleVideoCompleted(int moduleNumber) {
+    setState(() => _locallyWatchedModules.add(moduleNumber));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final quizContext = _quizSectionKey.currentContext;
+      if (!mounted || quizContext == null) return;
+      Scrollable.ensureVisible(
+        quizContext,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutCubic,
+        alignment: 0.12,
+      );
+    });
+  }
+
+  bool _isModuleVideoWatched(PublishedCourseModule module) {
+    final progress =
+        widget.course.employeeProgress[module.moduleNumber.toString()];
+    return progress?.videoWatched == true ||
+        _locallyWatchedModules.contains(module.moduleNumber);
+  }
+
+  bool _isModuleQuizPassed(PublishedCourseModule module) {
+    final progress =
+        widget.course.employeeProgress[module.moduleNumber.toString()];
+    return progress?.quizPassed == true ||
+        _locallyPassedModules.contains(module.moduleNumber);
+  }
+
+  ({IconData icon, Color color, Color background, String label}) _moduleStatus(
+      PublishedCourseModule module, bool unlocked) {
+    final videoWatched = _isModuleVideoWatched(module);
+    final quizPassed = _isModuleQuizPassed(module);
+    if (!unlocked) {
+      return (
+        icon: Icons.lock_outline_rounded,
+        color: const Color(0xFF667085),
+        background: const Color(0xFFF2F4F7),
+        label: 'Locked'
+      );
+    }
+    if (quizPassed) {
+      return (
+        icon: Icons.verified_rounded,
+        color: const Color(0xFF087E5B),
+        background: const Color(0xFFE7F7F0),
+        label: 'Completed'
+      );
+    }
+    if (videoWatched) {
+      return (
+        icon: Icons.assignment_turned_in_rounded,
+        color: const Color(0xFF087E5B),
+        background: const Color(0xFFE7F7F0),
+        label: 'Quiz ready'
+      );
+    }
+    return (
+      icon: Icons.play_circle_outline_rounded,
+      color: AppTheme.primaryBlue,
+      background: const Color(0xFFE7EFFF),
+      label: 'In progress'
     );
   }
 
@@ -642,75 +916,85 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       itemBuilder: (context, index) {
         final m = widget.course.publishedModules[index];
         final isSelected = _activeModuleIndex == index;
-        final hasVideo = m.videoUrl.isNotEmpty;
-        final hasQuiz = m.quiz.isNotEmpty;
         final unlocked = _isVideoUnlocked(index);
+        final status = _moduleStatus(m, unlocked);
 
         return InkWell(
-          onTap: unlocked ? () {
-            setState(() {
-              _activeModuleIndex = index;
-              _selectedAnswers.clear();
-              _isQuizSubmitted = false;
-            });
-          } : null,
+          onTap: unlocked ? () => _onModuleChanged(index) : null,
           borderRadius: BorderRadius.circular(8),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.primaryBlue.withOpacity(0.06) : Colors.white,
+              color: isSelected
+                  ? AppTheme.primaryBlue.withValues(alpha: 0.06)
+                  : Colors.white,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected ? AppTheme.primaryBlue : AppTheme.lightGray,
                 width: isSelected ? 1.5 : 1,
               ),
             ),
-            child: Opacity(
-              opacity: unlocked ? 1.0 : 0.5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'MODULE ${m.moduleNumber}',
-                        style: GoogleFonts.barlow(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? AppTheme.primaryBlue : AppTheme.gray,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (hasVideo)
-                        const Icon(Icons.play_circle_fill, color: AppTheme.accentGreen, size: 14)
-                      else
-                        const Icon(Icons.video_call, color: AppTheme.gray, size: 14),
-                      const SizedBox(width: 6),
-                      if (hasQuiz)
-                        const Icon(Icons.assignment_turned_in, color: AppTheme.accentGreen, size: 14)
-                      else
-                        const Icon(Icons.assignment_outlined, color: AppTheme.gray, size: 14),
-                      if (!unlocked) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.lock, color: AppTheme.accentRed, size: 12),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    m.title,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: isSelected ? AppTheme.primaryBlue : AppTheme.textBlack,
+            child: Row(
+              children: [
+                Tooltip(
+                  message: status.label,
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: status.background,
+                      shape: BoxShape.circle,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    child: Icon(status.icon, color: status.color, size: 20),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Opacity(
+                    opacity: unlocked ? 1.0 : 0.62,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'MODULE ${m.moduleNumber}',
+                          style: GoogleFonts.barlow(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? AppTheme.primaryBlue
+                                : const Color(0xFF667085),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          m.title,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight:
+                                isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected
+                                ? AppTheme.primaryBlue
+                                : AppTheme.textBlack,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          status.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: status.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -719,11 +1003,55 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   }
 }
 
+void _showLearningSuccessSnackBar(
+  BuildContext context, {
+  required String message,
+  required IconData icon,
+}) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      elevation: 8,
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFFD6E8E2)),
+      ),
+      content: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE7F7F0),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFF087E5B), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF101828),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      duration: const Duration(seconds: 3),
+    ),
+  );
+}
+
 class EmployeeVideoPlayer extends ConsumerStatefulWidget {
   final String courseId;
   final int moduleNumber;
   final String videoFilename;
   final bool initiallyWatched;
+  final VoidCallback? onVideoCompleted;
 
   const EmployeeVideoPlayer({
     super.key,
@@ -731,10 +1059,12 @@ class EmployeeVideoPlayer extends ConsumerStatefulWidget {
     required this.moduleNumber,
     required this.videoFilename,
     required this.initiallyWatched,
+    this.onVideoCompleted,
   });
 
   @override
-  ConsumerState<EmployeeVideoPlayer> createState() => _EmployeeVideoPlayerState();
+  ConsumerState<EmployeeVideoPlayer> createState() =>
+      _EmployeeVideoPlayerState();
 }
 
 class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
@@ -761,10 +1091,10 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
       });
 
     _controller.addListener(() {
-      if (_controller.value.isInitialized && 
-          !_controller.value.isPlaying && 
-          _controller.value.duration == _controller.value.position &&
-          !_markedWatched) {
+      final value = _controller.value;
+      final isNearEnd = value.duration.inMilliseconds > 0 &&
+          value.position.inMilliseconds >= value.duration.inMilliseconds - 350;
+      if (value.isInitialized && isNearEnd && !_markedWatched) {
         _markWatched();
       }
     });
@@ -773,7 +1103,7 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
   Future<void> _markWatched() async {
     if (_markedWatched) return;
     _markedWatched = true;
-    
+
     await ref.read(employeeCourseListProvider.notifier).updateModuleProgress(
       widget.courseId,
       widget.moduleNumber,
@@ -781,8 +1111,11 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video completed! Quiz unlocked.', style: TextStyle(color: Colors.white)), backgroundColor: AppTheme.accentGreen),
+      widget.onVideoCompleted?.call();
+      _showLearningSuccessSnackBar(
+        context,
+        message: 'Video completed. Quiz unlocked.',
+        icon: Icons.assignment_turned_in_rounded,
       );
     }
   }
@@ -816,11 +1149,15 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, color: AppTheme.accentRed, size: 48),
+              const Icon(Icons.error_outline_rounded,
+                  color: AppTheme.accentRed, size: 48),
               const SizedBox(height: 16),
               Text(
                 'Failed to load video player',
-                style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 16),
               ),
               const SizedBox(height: 8),
               Text(
@@ -857,12 +1194,11 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
               child: VideoPlayer(_controller),
             ),
           ),
-          
           AnimatedOpacity(
             opacity: _isHovering || !_controller.value.isPlaying ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 250),
             child: Container(
-              color: Colors.black.withOpacity(0.55),
+              color: Colors.black.withValues(alpha: 0.55),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -884,7 +1220,9 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                         children: [
                           IconButton(
                             icon: Icon(
-                              _controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              _controller.value.isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
                               color: Colors.white,
                             ),
                             onPressed: () {
@@ -903,7 +1241,8 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                             builder: (context, VideoPlayerValue value, child) {
                               return Text(
                                 '${_formatDuration(value.position)} / ${_formatDuration(_controller.value.duration)}',
-                                style: GoogleFonts.barlow(color: Colors.white, fontSize: 13),
+                                style: GoogleFonts.barlow(
+                                    color: Colors.white, fontSize: 13),
                               );
                             },
                           ),
@@ -912,13 +1251,16 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
+                            icon: const Icon(Icons.fullscreen_rounded,
+                                color: Colors.white),
                             onPressed: _enterFullscreen,
                             tooltip: 'Fullscreen View',
                           ),
                           const SizedBox(width: 8),
                           Icon(
-                            _controller.value.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                            _controller.value.volume == 0
+                                ? Icons.volume_off_rounded
+                                : Icons.volume_up_rounded,
                             color: Colors.white,
                             size: 20,
                           ),
@@ -928,7 +1270,8 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                             child: SliderTheme(
                               data: SliderTheme.of(context).copyWith(
                                 trackHeight: 3,
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 6),
                                 activeTrackColor: Colors.white,
                                 inactiveTrackColor: Colors.white24,
                                 thumbColor: Colors.white,
@@ -993,18 +1336,21 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                 child: VideoPlayer(widget.controller),
               ),
             ),
-            
+
             // Exit button top-right
             Positioned(
               top: 24,
               right: 24,
               child: AnimatedOpacity(
-                opacity: _isHovering || !widget.controller.value.isPlaying ? 1.0 : 0.0,
+                opacity: _isHovering || !widget.controller.value.isPlaying
+                    ? 1.0
+                    : 0.0,
                 duration: const Duration(milliseconds: 200),
                 child: FloatingActionButton(
-                  backgroundColor: Colors.black.withOpacity(0.5),
+                  backgroundColor: Colors.black.withValues(alpha: 0.5),
                   mini: true,
-                  child: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white),
+                  child: const Icon(Icons.fullscreen_exit_rounded,
+                      color: Colors.white),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -1016,11 +1362,14 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
               left: 0,
               right: 0,
               child: AnimatedOpacity(
-                opacity: _isHovering || !widget.controller.value.isPlaying ? 1.0 : 0.0,
+                opacity: _isHovering || !widget.controller.value.isPlaying
+                    ? 1.0
+                    : 0.0,
                 duration: const Duration(milliseconds: 200),
                 child: Container(
-                  color: Colors.black.withOpacity(0.6),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  color: Colors.black.withValues(alpha: 0.6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1042,7 +1391,9 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                               IconButton(
                                 iconSize: 28,
                                 icon: Icon(
-                                  widget.controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  widget.controller.value.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
                                   color: Colors.white,
                                 ),
                                 onPressed: () {
@@ -1058,10 +1409,12 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                               const SizedBox(width: 12),
                               ValueListenableBuilder(
                                 valueListenable: widget.controller,
-                                builder: (context, VideoPlayerValue value, child) {
+                                builder:
+                                    (context, VideoPlayerValue value, child) {
                                   return Text(
                                     '${_formatDuration(value.position)} / ${_formatDuration(widget.controller.value.duration)}',
-                                    style: GoogleFonts.barlow(color: Colors.white, fontSize: 14),
+                                    style: GoogleFonts.barlow(
+                                        color: Colors.white, fontSize: 14),
                                   );
                                 },
                               ),
@@ -1069,7 +1422,8 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                           ),
                           IconButton(
                             iconSize: 28,
-                            icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white),
+                            icon: const Icon(Icons.fullscreen_exit_rounded,
+                                color: Colors.white),
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ],
