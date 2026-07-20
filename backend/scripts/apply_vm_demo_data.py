@@ -135,6 +135,110 @@ def _fetch_courses(cursor: sqlite3.Cursor) -> List[Tuple[str, str, Dict[str, Any
     return [(row["id"], row["status"], json.loads(row["data"])) for row in rows]
 
 
+def _ensure_schema(cursor: sqlite3.Cursor) -> None:
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS courses (
+            id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            data TEXT NOT NULL
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS employee_progress (
+            course_id TEXT PRIMARY KEY,
+            data TEXT NOT NULL
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS employees (
+            id TEXT PRIMARY KEY,
+            employee_code TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            department TEXT NOT NULL,
+            role TEXT NOT NULL,
+            level TEXT NOT NULL,
+            manager_id TEXT,
+            join_date TEXT NOT NULL,
+            location TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS employee_course_progress (
+            employee_id TEXT NOT NULL,
+            course_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            assigned_at TEXT NOT NULL,
+            deadline TEXT NOT NULL,
+            started_at TEXT,
+            completed_at TEXT,
+            modules_json TEXT NOT NULL DEFAULT '{}',
+            attempts_json TEXT NOT NULL DEFAULT '{}',
+            last_activity_at TEXT,
+            PRIMARY KEY (employee_id, course_id),
+            FOREIGN KEY (employee_id) REFERENCES employees(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS course_assignment_rules (
+            course_id TEXT PRIMARY KEY,
+            include_all INTEGER NOT NULL DEFAULT 1,
+            include_match_mode TEXT NOT NULL DEFAULT 'all',
+            include_groups_json TEXT NOT NULL DEFAULT '[]',
+            include_employee_ids_json TEXT NOT NULL DEFAULT '[]',
+            include_departments_json TEXT NOT NULL DEFAULT '[]',
+            include_roles_json TEXT NOT NULL DEFAULT '[]',
+            joined_less_than_days_ago INTEGER,
+            exclude_groups_json TEXT NOT NULL DEFAULT '[]',
+            exclude_employee_ids_json TEXT NOT NULL DEFAULT '[]',
+            exclude_departments_json TEXT NOT NULL DEFAULT '[]',
+            exclude_roles_json TEXT NOT NULL DEFAULT '[]',
+            deadline_days INTEGER NOT NULL DEFAULT 7,
+            applied_deadline_days INTEGER,
+            published_at TEXT,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    cursor.execute("PRAGMA table_info(course_assignment_rules)")
+    assignment_columns = {row["name"] for row in cursor.fetchall()}
+    if "include_employee_ids_json" not in assignment_columns:
+        cursor.execute("ALTER TABLE course_assignment_rules ADD COLUMN include_employee_ids_json TEXT NOT NULL DEFAULT '[]'")
+    if "include_match_mode" not in assignment_columns:
+        cursor.execute("ALTER TABLE course_assignment_rules ADD COLUMN include_match_mode TEXT NOT NULL DEFAULT 'all'")
+    if "include_groups_json" not in assignment_columns:
+        cursor.execute("ALTER TABLE course_assignment_rules ADD COLUMN include_groups_json TEXT NOT NULL DEFAULT '[]'")
+    if "exclude_groups_json" not in assignment_columns:
+        cursor.execute("ALTER TABLE course_assignment_rules ADD COLUMN exclude_groups_json TEXT NOT NULL DEFAULT '[]'")
+    if "applied_deadline_days" not in assignment_columns:
+        cursor.execute("ALTER TABLE course_assignment_rules ADD COLUMN applied_deadline_days INTEGER")
+
+    cursor.execute("PRAGMA table_info(employee_course_progress)")
+    progress_columns = {row["name"] for row in cursor.fetchall()}
+    if "started_at" not in progress_columns:
+        cursor.execute("ALTER TABLE employee_course_progress ADD COLUMN started_at TEXT")
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_employees_role ON employees(role)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_employee_course_progress_employee ON employee_course_progress(employee_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_employee_course_progress_course ON employee_course_progress(course_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_employee_course_progress_status ON employee_course_progress(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_course_assignment_rules_course ON course_assignment_rules(course_id)")
+
+
 def apply_migration(
     db_path: Path,
     bundle_path: Path,
@@ -162,6 +266,7 @@ def apply_migration(
 
     with _connect(db_path) as conn:
         cursor = conn.cursor()
+        _ensure_schema(cursor)
         existing_courses = _fetch_courses(cursor)
         removed_intro_ids = []
 

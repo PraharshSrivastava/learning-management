@@ -159,3 +159,59 @@ def test_apply_migration_keeps_two_deployed_courses_and_assigns_final_five(tmp_p
     assert rule_count == 5
     assert result["removed_intro_course_ids"] == ["old-intro"]
     assert not (backend_dir / "assets" / "videos" / "old-intro" / "module_1.mp4").exists()
+
+
+def test_apply_migration_creates_missing_employee_tables_for_old_vm_db(tmp_path):
+    db_path = tmp_path / "lms.db"
+    bundle_path = tmp_path / "bundle.json"
+    backend_dir = tmp_path / "backend"
+    backend_dir.mkdir()
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE courses (id TEXT PRIMARY KEY, status TEXT NOT NULL, data TEXT NOT NULL)")
+        cursor.execute("CREATE TABLE employee_progress (course_id TEXT PRIMARY KEY, data TEXT NOT NULL)")
+        _insert_course(cursor, "vm-course-1", "published", "Existing VM Course One")
+        _insert_course(cursor, "vm-course-2", "published", "Existing VM Course Two")
+        _insert_course(cursor, "old-intro", "published", "Introduction to Artificial Intelligence")
+
+    bundle_path.write_text(
+        json.dumps(
+            {
+                "courses": [
+                    {
+                        "id": "local-intro",
+                        "status": "published",
+                        "data": {"course_id": "local-intro", "title": "Introduction to Artificial Intelligence"},
+                    },
+                    {
+                        "id": "local-prompting",
+                        "status": "published",
+                        "data": {"course_id": "local-prompting", "title": "Prompting AI"},
+                    },
+                    {
+                        "id": "local-workflows",
+                        "status": "published",
+                        "data": {"course_id": "local-workflows", "title": "Building AI Powered Workflows"},
+                    },
+                ]
+            }
+        )
+    )
+
+    apply_migration(db_path=db_path, bundle_path=bundle_path, backend_dir=backend_dir)
+
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        tables = {
+            row[0]
+            for row in cursor.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        assert {
+            "employees",
+            "employee_course_progress",
+            "course_assignment_rules",
+        }.issubset(tables)
+        assert cursor.execute("SELECT COUNT(*) FROM employees").fetchone()[0] == 2
+        assert cursor.execute("SELECT COUNT(*) FROM courses WHERE status = 'published'").fetchone()[0] == 5
+        assert cursor.execute("SELECT COUNT(*) FROM employee_course_progress").fetchone()[0] == 10
