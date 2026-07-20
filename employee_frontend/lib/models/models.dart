@@ -30,6 +30,50 @@ class PDFFile {
   }
 }
 
+class Employee {
+  final String id;
+  final String employeeCode;
+  final String name;
+  final String email;
+  final String department;
+  final String role;
+  final String level;
+  final String? managerId;
+  final String joinDate;
+  final String? location;
+  final String status;
+
+  Employee({
+    required this.id,
+    required this.employeeCode,
+    required this.name,
+    required this.email,
+    required this.department,
+    required this.role,
+    required this.level,
+    this.managerId,
+    required this.joinDate,
+    this.location,
+    required this.status,
+  });
+
+  factory Employee.fromJson(Map<String, dynamic> json) {
+    return Employee(
+      id: json['id']?.toString() ?? '',
+      employeeCode: json['employee_code']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      department: json['department']?.toString() ?? '',
+      role: json['role']?.toString() ?? '',
+      level: json['level']?.toString() ?? '',
+      managerId: json['manager_id']?.toString(),
+      joinDate: json['join_date']?.toString() ?? '',
+      location: json['location']?.toString(),
+      status: json['status']?.toString() ?? 'active',
+    );
+  }
+}
+
 // ---------- Lessons Data Models ----------
 
 class BulletPoint {
@@ -167,12 +211,14 @@ class EmployeeModuleProgress {
   final bool quizPassed;
   final num? quizScore;
   final Map<int, String>? selectedAnswers;
+  final int attemptCount;
 
   EmployeeModuleProgress({
     this.videoWatched = false,
     this.quizPassed = false,
     this.quizScore,
     this.selectedAnswers,
+    this.attemptCount = 0,
   });
 
   factory EmployeeModuleProgress.fromJson(Map<String, dynamic> json) {
@@ -198,6 +244,7 @@ class EmployeeModuleProgress {
       quizPassed: quizPassed,
       quizScore: json['quiz_score'] as num?,
       selectedAnswers: parsedAnswers,
+      attemptCount: (json['attempt_count'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -271,11 +318,14 @@ class Course {
   final String targetAudience;
   final List<CourseModule> modules;
   final List<LessonImage> images;
+  final String thumbnailUrl;
   final String sourceFile;
   final double createdAt;
   final String? employeeStatus;
   final String? assignedAt;
   final String? deadline;
+  final String? startedAt;
+  final String? completedAt;
 
   final List<PublishedCourseModule> publishedModules;
   final Map<String, EmployeeModuleProgress> employeeProgress;
@@ -290,11 +340,14 @@ class Course {
     required this.targetAudience,
     required this.modules,
     required this.images,
+    this.thumbnailUrl = '',
     required this.sourceFile,
     required this.createdAt,
     this.employeeStatus,
     this.assignedAt,
     this.deadline,
+    this.startedAt,
+    this.completedAt,
     this.publishedModules = const [],
     this.employeeProgress = const {},
   });
@@ -323,20 +376,31 @@ class Course {
       images: (json['images'] as List? ?? [])
           .map((img) => LessonImage.fromJson(img as Map<String, dynamic>))
           .toList(),
+      thumbnailUrl:
+          (json['thumbnail_url'] ?? json['thumbnail'] ?? '').toString(),
       sourceFile: json['source_file'] as String? ?? '',
       createdAt: (json['created_at'] as num?)?.toDouble() ?? 0.0,
       employeeStatus: json['employee_status'] as String?,
       assignedAt: json['assigned_at'] as String?,
       deadline: json['deadline'] as String?,
+      startedAt: json['started_at'] as String?,
+      completedAt: json['completed_at'] as String?,
     );
   }
 
   factory Course.fromPublishedJson(Map<String, dynamic> json) {
     final progressMap = <String, EmployeeModuleProgress>{};
     final progJson = json['employee_progress'] as Map<String, dynamic>? ?? {};
+    final attemptsJson =
+        json['employee_attempts'] as Map<String, dynamic>? ?? {};
     progJson.forEach((key, value) {
       if (value is Map<String, dynamic>) {
-        progressMap[key] = EmployeeModuleProgress.fromJson(value);
+        final merged = Map<String, dynamic>.from(value);
+        final attempt = attemptsJson[key];
+        if (attempt is Map<String, dynamic>) {
+          merged['attempt_count'] = attempt['count'];
+        }
+        progressMap[key] = EmployeeModuleProgress.fromJson(merged);
       }
     });
 
@@ -352,11 +416,15 @@ class Course {
       images: (json['images'] as List? ?? [])
           .map((img) => LessonImage.fromJson(img as Map<String, dynamic>))
           .toList(),
+      thumbnailUrl:
+          (json['thumbnail_url'] ?? json['thumbnail'] ?? '').toString(),
       sourceFile: '',
       createdAt: (json['created_at'] as num?)?.toDouble() ?? 0.0,
       employeeStatus: json['employee_status'] as String?,
       assignedAt: json['assigned_at'] as String?,
       deadline: json['deadline'] as String?,
+      startedAt: json['started_at'] as String?,
+      completedAt: json['completed_at'] as String?,
       publishedModules: (json['modules'] as List? ?? [])
           .map((m) => PublishedCourseModule.fromJson(m as Map<String, dynamic>))
           .toList(),

@@ -4,6 +4,7 @@ import json
 import uuid
 from pipelines.config import DRAFT_COURSES_FILE, PUBLISHED_COURSES_FILE
 from core.io_utils import atomic_write_json
+from pipelines.thumbnail_generator import course_thumbnail_signature, generate_course_thumbnail
 
 def sync_clean_database():
     """
@@ -35,6 +36,12 @@ def sync_clean_database():
             if not m.get("video_path"):
                 is_fully_made = False
                 break
+            try:
+                num_questions = int(m.get("num_questions", 0))
+            except (TypeError, ValueError):
+                num_questions = 0
+            if num_questions <= 0:
+                continue
             quiz = m.get("quiz")
             if not quiz or not isinstance(quiz, dict) or not quiz.get("questions"):
                 is_fully_made = False
@@ -90,6 +97,20 @@ def sync_clean_database():
             if first_slide: break
         
         course_images = [first_slide] if first_slide else []
+        thumbnail_signature = course_thumbnail_signature(course)
+        thumbnail_path = course.get("thumbnail") or course.get("thumbnail_url")
+        if course.get("thumbnail_prompt_hash") != thumbnail_signature:
+            thumbnail_path = ""
+        if not thumbnail_path:
+            try:
+                thumbnail_path = generate_course_thumbnail(course, course_id)
+                if thumbnail_path:
+                    course["thumbnail"] = thumbnail_path
+                    course["thumbnail_url"] = thumbnail_path
+                    course["thumbnail_prompt_hash"] = thumbnail_signature
+                    draft_modified = True
+            except Exception as e:
+                print(f"[EXPORTER][WARNING] Failed to generate thumbnail for {course_id}: {e}")
 
         clean_courses.append({
             "course_id": course_id,
@@ -97,7 +118,10 @@ def sync_clean_database():
             "course_description": course.get("course_description", ""),
             "created_at": course.get("created_at", 0),
             "modules": clean_modules,
-            "images": course_images
+            "images": course_images,
+            "thumbnail": thumbnail_path or "",
+            "thumbnail_url": thumbnail_path or "",
+            "thumbnail_prompt_hash": thumbnail_signature if thumbnail_path else "",
         })
 
     # If we generated any new UUIDs for course ids or question ids, save them back to draft file
@@ -113,13 +137,6 @@ def sync_clean_database():
         save_all_courses(clean_courses, "published")
         print(f"[EXPORTER] Successfully synchronized clean database to {PUBLISHED_COURSES_FILE}")
         
-        # Automatically assign to employees and broadcast
-        try:
-            from pipelines.employee_routes import assign_published_courses_to_employees
-            assign_published_courses_to_employees(clean_courses)
-        except Exception as e:
-            print(f"[EXPORTER][ERROR] Failed to assign courses to employees: {e}")
-            
     except Exception as e:
         print(f"[EXPORTER][ERROR] Failed to write clean database: {e}")
 

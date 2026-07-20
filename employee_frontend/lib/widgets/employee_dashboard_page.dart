@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../constants.dart';
 import '../models/course_dashboard_data.dart';
-import '../models/dashboard_preview_data.dart';
 import '../models/models.dart';
 import '../providers/employee_providers.dart';
 import '../theme.dart';
@@ -22,16 +21,28 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
   bool _navigationExpanded = true;
   String _selectedFilter = 'Assigned';
   int _activeNavigationIndex = 0;
-  Course? _openCourse;
+  String? _openCourseId;
   final Set<String> _seenNotifications = <String>{};
 
   @override
   Widget build(BuildContext context) {
     final courseState = ref.watch(employeeCourseListProvider);
+    final authState = ref.watch(demoAuthProvider);
     final width = MediaQuery.sizeOf(context).width;
     final isCompact = width < 840;
-    final usingPreviewData = false; // courseState.courses.isEmpty;
+    const usingPreviewData = false; // courseState.courses.isEmpty;
     final courses = courseState.courses;
+    final openCourse = _openCourseId == null
+        ? null
+        : courses.cast<Course?>().firstWhere(
+              (course) => course?.id == _openCourseId,
+              orElse: () => null,
+            );
+    if (_openCourseId != null && openCourse == null && courses.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _openCourseId = null);
+      });
+    }
     // final courses = usingPreviewData ? DashboardPreviewData.courses() : courseState.courses;
     final metrics = LearningMetrics.fromCourses(courses);
     final unreadCourses = courses
@@ -70,12 +81,15 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
                     isCompact: isCompact,
                     activeIndex: _activeNavigationIndex,
                     unreadCount: unreadCourses.length,
+                    employee: authState.employee,
                     onMenu: () => Scaffold.of(scaffoldContext).openDrawer(),
                     onNotifications: () => _showNotifications(unreadCourses),
+                    onLogout: () =>
+                        ref.read(demoAuthProvider.notifier).logout(),
                   ),
                 ),
                 Expanded(
-                  child: _openCourse == null
+                  child: openCourse == null
                       ? _buildActiveView(
                           courses: courses,
                           metrics: metrics,
@@ -84,8 +98,8 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
                           usingPreviewData: usingPreviewData,
                         )
                       : CoursePlaybackView(
-                          course: _openCourse!,
-                          onBack: () => setState(() => _openCourse = null),
+                          course: openCourse,
+                          onBack: () => setState(() => _openCourseId = null),
                         ),
                 ),
               ],
@@ -97,7 +111,10 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
   }
 
   void _handleNavigation(int index) {
-    setState(() => _activeNavigationIndex = index);
+    setState(() {
+      _activeNavigationIndex = index;
+      _openCourseId = null;
+    });
     if (Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
@@ -136,7 +153,7 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
   }
 
   void _showCourseAction(Course course) {
-    setState(() => _openCourse = course);
+    setState(() => _openCourseId = course.id);
   }
 
   Future<void> _showNotifications(List<Course> courses) async {
@@ -192,15 +209,19 @@ class _DashboardAppBar extends StatelessWidget {
   final bool isCompact;
   final int activeIndex;
   final int unreadCount;
+  final Employee? employee;
   final VoidCallback onMenu;
   final VoidCallback onNotifications;
+  final VoidCallback onLogout;
 
   const _DashboardAppBar({
     required this.isCompact,
     required this.activeIndex,
     required this.unreadCount,
+    required this.employee,
     required this.onMenu,
     required this.onNotifications,
+    required this.onLogout,
   });
 
   @override
@@ -256,19 +277,81 @@ class _DashboardAppBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const CircleAvatar(
-              radius: 18,
-              backgroundColor: Color(0xFFE7EFFF),
-              child: Text('PS',
-                  style: TextStyle(
-                      color: AppTheme.primaryBlue,
-                      fontWeight: FontWeight.w700)),
+            PopupMenuButton<String>(
+              tooltip: 'Employee session',
+              onSelected: (value) {
+                if (value == 'logout') onLogout();
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  enabled: false,
+                  child: SizedBox(
+                    width: 220,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          employee?.name ?? 'Employee',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF101828),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            employee?.employeeCode,
+                            employee?.department,
+                            employee?.role,
+                          ]
+                              .whereType<String>()
+                              .where((v) => v.isNotEmpty)
+                              .join(' - '),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF667085),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.swap_horiz, size: 18),
+                      SizedBox(width: 8),
+                      Text('Switch employee'),
+                    ],
+                  ),
+                ),
+              ],
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: const Color(0xFFE7EFFF),
+                child: Text(
+                  _employeeInitials(employee?.name),
+                  style: const TextStyle(
+                    color: AppTheme.primaryBlue,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+String _employeeInitials(String? name) {
+  final value = name?.trim() ?? '';
+  if (value.isEmpty) return 'PC';
+  final parts = value.split(RegExp(r'\s+')).where((part) => part.isNotEmpty);
+  return parts.take(2).map((part) => part[0]).join().toUpperCase();
 }
 
 const _appBarLabels = ['Dashboard', 'My Courses', 'Notifications'];
@@ -855,50 +938,50 @@ class _MetricTile extends StatelessWidget {
                 border: Border.all(
                     color: isSelected ? color : const Color(0xFFE1E7EF)),
               ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Colors.white.withValues(alpha: 0.18)
-                        : color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.18)
+                          : color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon,
+                        color: isSelected ? Colors.white : color, size: 21),
                   ),
-                  child: Icon(icon,
-                      color: isSelected ? Colors.white : color, size: 21),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('$value',
-                          style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w700,
-                              height: 1,
-                              color: foreground)),
-                      const SizedBox(height: 5),
-                      Text(label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.82)
-                                  : const Color(0xFF667085))),
-                    ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('$value',
+                            style: TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w700,
+                                height: 1,
+                                color: foreground)),
+                        const SizedBox(height: 5),
+                        Text(label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: isSelected
+                                    ? Colors.white.withValues(alpha: 0.82)
+                                    : const Color(0xFF667085))),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -1005,11 +1088,13 @@ class _CourseGrid extends StatelessWidget {
             : constraints.maxWidth >= 520
                 ? 2
                 : 1;
-        final crossAxisSpacing = 16.0;
-        final availableWidth = constraints.maxWidth - (crossAxisSpacing * (columns - 1));
+        const crossAxisSpacing = 16.0;
+        final availableWidth =
+            constraints.maxWidth - (crossAxisSpacing * (columns - 1));
         final cardWidth = availableWidth / columns;
         final imageHeight = cardWidth * (9 / 16);
-        final contentHeight = 275.0; // Fixed content height for text, button, etc.
+        const contentHeight =
+            275.0; // Fixed content height for text, button, etc.
         final cardExtent = imageHeight + contentHeight;
 
         return GridView.builder(
@@ -1220,19 +1305,39 @@ class _CourseThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imagePath = course.thumbnailUrl.isNotEmpty
+        ? course.thumbnailUrl
+        : (course.images.isNotEmpty ? course.images.first.filePath : '');
+    final imageUrl =
+        imagePath.isNotEmpty ? AppConstants.assetUrl(imagePath) : '';
+
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: Image.network(
-        'https://picsum.photos/seed/${course.id}/400/225',
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-            color: AppTheme.primaryBlue,
-            child: const Icon(Icons.image_not_supported_outlined,
-                color: Colors.white)),
-        loadingBuilder: (context, child, loadingProgress) =>
-            loadingProgress == null
-                ? child
-                : Container(color: const Color(0xFFE7EFFF)),
+      child: imageUrl.isEmpty
+          ? const _ThumbnailFallback()
+          : Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const _ThumbnailFallback(),
+              loadingBuilder: (context, child, loadingProgress) =>
+                  loadingProgress == null
+                      ? child
+                      : Container(color: const Color(0xFFE7EFFF)),
+            ),
+    );
+  }
+}
+
+class _ThumbnailFallback extends StatelessWidget {
+  const _ThumbnailFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppTheme.primaryBlue,
+      child: const Icon(
+        Icons.image_not_supported_outlined,
+        color: Colors.white,
       ),
     );
   }
@@ -1248,11 +1353,11 @@ class _StatusInfo {
 _StatusInfo _statusInfo(DashboardCourseStatus status, bool dueSoon) {
   if (status == DashboardCourseStatus.passed) {
     return const _StatusInfo(
-        'Passed', Icons.verified_outlined, AppTheme.accentGreen);
+        'Completed', Icons.verified_outlined, AppTheme.accentGreen);
   }
   if (status == DashboardCourseStatus.inProgress) {
     return const _StatusInfo(
-        'In progress', Icons.play_circle_outline, AppTheme.primaryBlue);
+        'Started', Icons.play_circle_outline, AppTheme.primaryBlue);
   }
   if (status == DashboardCourseStatus.overdue) {
     return const _StatusInfo(
@@ -1263,7 +1368,7 @@ _StatusInfo _statusInfo(DashboardCourseStatus status, bool dueSoon) {
         'Due soon', Icons.schedule_outlined, AppTheme.accentOrange);
   }
   return const _StatusInfo(
-      'New', Icons.fiber_new_outlined, AppTheme.primaryBlue);
+      'Pending', Icons.pending_actions_outlined, AppTheme.primaryBlue);
 }
 
 class _StatusChip extends StatelessWidget {

@@ -68,7 +68,7 @@ def generate_html_slides_for_module(
 
     # Render each slide
     for slide_idx, slide in enumerate(slides):
-        slide_title = slide.get("slide_title", "Summary")
+        slide_title = slide.get("slide_title") or slide.get("title", "Untitled")
         eyebrow = slide.get("parent_lesson_topic", f"Module {module_num}")
         layout_type = slide.get("layout_type", "bullets")
         layout_type_str = str(layout_type).lower().split(".")[-1]

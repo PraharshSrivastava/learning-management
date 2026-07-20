@@ -23,6 +23,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   final Map<int, String> _selectedAnswers = {};
   final Set<int> _locallyWatchedModules = <int>{};
   final Set<int> _locallyPassedModules = <int>{};
+  final Map<int, double> _localQuizScores = {};
   final GlobalKey _quizSectionKey = GlobalKey();
   bool _isQuizSubmitted = false;
 
@@ -40,6 +41,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         _activeModuleIndex = 0;
         _locallyWatchedModules.clear();
         _locallyPassedModules.clear();
+        _localQuizScores.clear();
         _loadProgressForCurrentModule();
       });
     } else {
@@ -74,11 +76,14 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
   bool _isVideoUnlocked(int moduleIndex) {
     if (moduleIndex == 0) return true;
-    final prevModuleStr =
-        widget.course.publishedModules[moduleIndex - 1].moduleNumber.toString();
+    final prevModule = widget.course.publishedModules[moduleIndex - 1];
+    final prevModuleStr = prevModule.moduleNumber.toString();
     final prevProgress = widget.course.employeeProgress[prevModuleStr];
-    final prevModuleNumber =
-        widget.course.publishedModules[moduleIndex - 1].moduleNumber;
+    final prevModuleNumber = prevModule.moduleNumber;
+    if (prevModule.quiz.isEmpty) {
+      return prevProgress?.videoWatched == true ||
+          _locallyWatchedModules.contains(prevModuleNumber);
+    }
     return prevProgress?.quizPassed == true ||
         _locallyPassedModules.contains(prevModuleNumber);
   }
@@ -494,13 +499,38 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
     final questionsList = module.quiz;
     if (questionsList.isEmpty) {
-      return const Center(child: Text('No quiz available.'));
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFFAF3),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFB7E4C7)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.check_circle_outline, color: Color(0xFF087443)),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No quiz is required for this module. Finish the video lesson to continue.',
+                style: TextStyle(
+                  color: Color(0xFF087443),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     final moduleStr = module.moduleNumber.toString();
     final progress = widget.course.employeeProgress[moduleStr];
     final bool isAlreadyPassed = progress?.quizPassed == true ||
         _locallyPassedModules.contains(module.moduleNumber);
+    final quizScore = progress?.quizScore?.toDouble() ??
+        _localQuizScores[module.moduleNumber] ??
+        0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -549,7 +579,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'You have already passed this quiz with a score of ${((progress!.quizScore ?? 0) * 100).toStringAsFixed(1)}%. You can review the questions below.',
+                      'You have already passed this quiz with a score of ${(quizScore * 100).toStringAsFixed(1)}%. You can review the questions below.',
                       style: GoogleFonts.inter(
                           color: AppTheme.accentGreen,
                           fontWeight: FontWeight.bold),
@@ -791,6 +821,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       setState(() {
         _locallyPassedModules.add(module.moduleNumber);
         _locallyWatchedModules.add(module.moduleNumber);
+        _localQuizScores[module.moduleNumber] = score;
       });
 
       if (!isFinalModule) {
@@ -870,6 +901,10 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   bool _isModuleQuizPassed(PublishedCourseModule module) {
     final progress =
         widget.course.employeeProgress[module.moduleNumber.toString()];
+    if (module.quiz.isEmpty) {
+      return progress?.videoWatched == true ||
+          _locallyWatchedModules.contains(module.moduleNumber);
+    }
     return progress?.quizPassed == true ||
         _locallyPassedModules.contains(module.moduleNumber);
   }

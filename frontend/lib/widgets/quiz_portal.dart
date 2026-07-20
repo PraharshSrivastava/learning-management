@@ -38,28 +38,13 @@ class _QuizViewState extends ConsumerState<QuizView> {
   }
 
   void _initSelection() {
-    _selectedModuleIndex = null;
-    for (int i = 0; i < widget.course.modules.length; i++) {
-      final m = widget.course.modules[i];
-      if (m.quiz != null && m.quiz!['questions'] != null && (m.quiz!['questions'] as List).isNotEmpty) {
-        _selectedModuleIndex = i;
-        break;
-      }
-    }
+    _selectedModuleIndex = widget.course.modules.isEmpty ? null : 0;
   }
 
-  bool get _hasAnyQuiz => widget.course.modules.any((m) =>
-      m.quiz != null && m.quiz!['questions'] != null && (m.quiz!['questions'] as List).isNotEmpty);
+  bool get _hasAnyQuiz => widget.course.modules.isNotEmpty;
 
   List<int> get _quizModuleIndices {
-    final indices = <int>[];
-    for (int i = 0; i < widget.course.modules.length; i++) {
-      final m = widget.course.modules[i];
-      if (m.quiz != null && m.quiz!['questions'] != null && (m.quiz!['questions'] as List).isNotEmpty) {
-        indices.add(i);
-      }
-    }
-    return indices;
+    return List<int>.generate(widget.course.modules.length, (index) => index);
   }
 
   @override
@@ -271,7 +256,7 @@ class _QuizViewState extends ConsumerState<QuizView> {
         final modIndex = indices[index];
         final m = widget.course.modules[modIndex];
         final isSelected = _selectedModuleIndex == modIndex;
-        final qList = m.quiz!['questions'] as List;
+        final qList = _questionsFor(m);
 
         int completedCount = 0;
         int correctCount = 0;
@@ -381,14 +366,11 @@ class _QuizViewState extends ConsumerState<QuizView> {
     final moduleIndex = _selectedModuleIndex!;
     final module = widget.course.modules[moduleIndex];
 
-    if (module.quiz == null || module.quiz!['questions'] == null) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.all(24.0),
-        child: Text('No quiz questions for this module.'),
-      ));
-    }
+    final questionsList = _questionsFor(module);
 
-    final questionsList = module.quiz!['questions'] as List;
+    if (questionsList.isEmpty) {
+      return _buildMissingQuizPane(context, module);
+    }
 
     int submittedCount = 0;
     int correctCount = 0;
@@ -474,6 +456,119 @@ class _QuizViewState extends ConsumerState<QuizView> {
           ),
         ),
       ],
+    );
+  }
+
+  List _questionsFor(CourseModule module) {
+    final quiz = module.quiz;
+    if (quiz == null || quiz['questions'] is! List) return const [];
+    return quiz['questions'] as List;
+  }
+
+  Widget _buildMissingQuizPane(BuildContext context, CourseModule module) {
+    final canSkip = module.numQuestions <= 0;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                canSkip ? Icons.check_circle_outline : Icons.quiz_outlined,
+                size: 56,
+                color: canSkip ? AppTheme.accentGreen : AppTheme.primaryBlue,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                canSkip ? 'Quiz disabled for this module' : 'No quiz questions yet',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                canSkip
+                    ? 'This module is set to 0 questions, so it can be published without a quiz once the video is ready.'
+                    : 'If generation still fails after retries, create the MCQ quiz manually or set this module to 0 questions in the Course Outline before publishing.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.barlow(
+                  fontSize: 14,
+                  color: AppTheme.gray,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _openManualQuizDialog(module),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Create Quiz Manually'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await ref.read(quizGenerationProvider.notifier).generateQuiz(
+                            widget.course.id,
+                            ref,
+                          );
+                    },
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text('Retry Generation'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryBlue,
+                      side: const BorderSide(color: AppTheme.primaryBlue),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => ref.read(currentTabProvider.notifier).state = 1,
+                    icon: const Icon(Icons.format_list_numbered, size: 16),
+                    label: const Text('Set Questions to 0'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openManualQuizDialog(CourseModule module) async {
+    final questions = await showDialog<List<Map<String, dynamic>>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _ManualQuizDialog(module: module),
+    );
+    if (questions == null || questions.isEmpty) return;
+
+    final success = await ref.read(courseUpdateProvider.notifier).saveModuleQuiz(
+          widget.course.id,
+          module.moduleNumber,
+          questions,
+          ref,
+        );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? 'Manual quiz saved.' : 'Could not save manual quiz.'),
+        backgroundColor: success ? AppTheme.accentGreen : AppTheme.accentRed,
+      ),
     );
   }
 
@@ -817,5 +912,176 @@ class _QuizViewState extends ConsumerState<QuizView> {
       default:
         return AppTheme.gray;
     }
+  }
+}
+
+class _ManualQuizDialog extends StatefulWidget {
+  final CourseModule module;
+
+  const _ManualQuizDialog({required this.module});
+
+  @override
+  State<_ManualQuizDialog> createState() => _ManualQuizDialogState();
+}
+
+class _ManualQuizDialogState extends State<_ManualQuizDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final List<_ManualQuestionControllers> _questions;
+
+  @override
+  void initState() {
+    super.initState();
+    final count = widget.module.numQuestions > 0 ? widget.module.numQuestions : 3;
+    _questions = List.generate(
+      count,
+      (_) => _ManualQuestionControllers(),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final question in _questions) {
+      question.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Create quiz for Module ${widget.module.moduleNumber}'),
+      content: SizedBox(
+        width: 720,
+        height: 620,
+        child: Form(
+          key: _formKey,
+          child: ListView.separated(
+            itemCount: _questions.length,
+            separatorBuilder: (_, __) => const Divider(height: 32),
+            itemBuilder: (context, index) {
+              final question = _questions[index];
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Question ${index + 1}',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: question.question,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Question text',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: _required,
+                  ),
+                  const SizedBox(height: 12),
+                  for (final optionKey in ['A', 'B', 'C', 'D']) ...[
+                    TextFormField(
+                      controller: question.options[optionKey],
+                      decoration: InputDecoration(
+                        labelText: 'Option $optionKey',
+                        border: const OutlineInputBorder(),
+                      ),
+                      validator: _required,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  DropdownButtonFormField<String>(
+                    value: question.correctOption,
+                    decoration: const InputDecoration(
+                      labelText: 'Correct option',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'A', child: Text('A')),
+                      DropdownMenuItem(value: 'B', child: Text('B')),
+                      DropdownMenuItem(value: 'C', child: Text('C')),
+                      DropdownMenuItem(value: 'D', child: Text('D')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => question.correctOption = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: question.explanation,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Explanation',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: _required,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _save,
+          icon: const Icon(Icons.save_outlined, size: 18),
+          label: const Text('Save Quiz'),
+        ),
+      ],
+    );
+  }
+
+  String? _required(String? value) {
+    return value == null || value.trim().isEmpty ? 'Required' : null;
+  }
+
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    Navigator.of(context).pop(
+      _questions.map((question) {
+        return {
+          'question_text': question.question.text.trim(),
+          'options': [
+            for (final optionKey in ['A', 'B', 'C', 'D'])
+              {
+                'key': optionKey,
+                'text': question.options[optionKey]!.text.trim(),
+              }
+          ],
+          'correct_option': question.correctOption,
+          'explanation': question.explanation.text.trim(),
+        };
+      }).toList(),
+    );
+  }
+}
+
+class _ManualQuestionControllers {
+  final TextEditingController question = TextEditingController();
+  final Map<String, TextEditingController> options = {
+    'A': TextEditingController(),
+    'B': TextEditingController(),
+    'C': TextEditingController(),
+    'D': TextEditingController(),
+  };
+  final TextEditingController explanation = TextEditingController();
+  String correctOption = 'A';
+
+  void dispose() {
+    question.dispose();
+    for (final controller in options.values) {
+      controller.dispose();
+    }
+    explanation.dispose();
   }
 }

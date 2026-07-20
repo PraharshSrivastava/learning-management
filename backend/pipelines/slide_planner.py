@@ -339,6 +339,11 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
                 content = slide.get("content", [])
                 layout = slide.get("layout_type", "")
                 
+                if not slide.get("slide_title"):
+                    is_valid = False
+                    print(f"Validation failed: Missing slide_title in module {mod_copy.get('module_number')}")
+                    break
+
                 if len(content) == 0:
                     is_valid = False
                     print(f"Validation failed: Empty slide (0 bullets) detected in module {mod_copy.get('module_number')}")
@@ -382,6 +387,10 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
                 content = slide.get("content", [])
                 layout = slide.get("layout_type", "")
                 
+                if not slide.get("slide_title"):
+                    slide["slide_title"] = slide.get("title", "Fallback Title")
+                    print(f"  -> Forcing 'slide_title' to '{slide['slide_title']}' for slide.")
+                
                 if len(content) == 0:
                     print(f"  -> Dropping empty slide: '{slide.get('title')}'")
                     continue
@@ -396,6 +405,18 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
                         }
                     fixed_slides.append(slide)
                 else:
+                    if layout == "concept" and not slide.get("concept_data"):
+                        slide["layout_type"] = "bullets"
+                        print(f"  -> Forcing 'bullets' layout due to missing concept_data for slide: '{slide.get('title')}'")
+                    elif layout == "steps" and not slide.get("steps_data"):
+                        slide["layout_type"] = "bullets"
+                        print(f"  -> Forcing 'bullets' layout due to missing steps_data for slide: '{slide.get('title')}'")
+                    elif layout == "comparison" and not slide.get("comparison_data"):
+                        slide["layout_type"] = "bullets"
+                        print(f"  -> Forcing 'bullets' layout due to missing comparison_data for slide: '{slide.get('title')}'")
+                    elif layout == "grid" and not slide.get("grid_data"):
+                        slide["layout_type"] = "bullets"
+                        print(f"  -> Forcing 'bullets' layout due to missing grid_data for slide: '{slide.get('title')}'")
                     fixed_slides.append(slide)
                     
             best_module_state["planned_slides"] = fixed_slides

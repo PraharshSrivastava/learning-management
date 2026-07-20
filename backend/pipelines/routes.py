@@ -27,6 +27,9 @@ def _sanitize_filename(filename: str) -> str:
 class GenerateCourseRequest(BaseModel):
     filename: str
 
+class ManualQuizRequest(BaseModel):
+    questions: list[dict]
+
 @router.post("/api/upload")
 def upload_file(file: UploadFile = File(...)):
     if not file.filename.lower().endswith('.pdf'):
@@ -196,6 +199,45 @@ def generate_quiz(course_id: str):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
+
+@router.put("/api/courses/{course_id}/modules/{module_number}/quiz")
+def update_module_quiz(course_id: str, module_number: int, payload: ManualQuizRequest):
+    try:
+        from pipelines.quiz_generator import ModuleQuiz
+
+        parsed = ModuleQuiz.model_validate({"questions": payload.questions})
+        for index, question in enumerate(parsed.questions, start=1):
+            option_keys = {option.key.strip().upper() for option in question.options}
+            if option_keys != {"A", "B", "C", "D"}:
+                raise ValueError(f"Question {index} must include options A, B, C, and D.")
+            correct = question.correct_option.strip().upper()
+            if correct not in option_keys:
+                raise ValueError(f"Question {index} has an invalid correct option.")
+        courses = get_all_courses('draft')
+        course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
+        if course_idx is None:
+            raise HTTPException(status_code=404, detail="Course not found")
+
+        course = courses[course_idx]
+        modules = course.get("modules", [])
+        module = next(
+            (m for m in modules if int(m.get("module_number", 0)) == module_number),
+            None,
+        )
+        if module is None:
+            raise HTTPException(status_code=404, detail="Module not found")
+
+        module["quiz"] = parsed.model_dump()
+        module["num_questions"] = len(parsed.questions)
+        module.pop("quiz_generation_error", None)
+        courses[course_idx] = course
+        save_all_courses(courses, "draft")
+        sync_clean_database()
+        return course
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save module quiz: {str(e)}")
 
 @router.post("/api/courses/{course_id}/generate-slides")
 def generate_slides(course_id: str):

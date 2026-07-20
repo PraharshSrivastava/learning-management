@@ -8,6 +8,8 @@ from pipelines.config import get_llm_endpoint, DRAFT_COURSES_FILE, safe_chat_com
 from pipelines.prompts import QUIZ_GENERATION_PROMPT
 from core.io_utils import atomic_write_json
 
+QUIZ_GENERATION_RETRIES = 3
+
 
 # -------------------------------------------------------
 # Pydantic Schemas for Quiz Structure
@@ -84,37 +86,55 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
             f"{module_text}\n"
         )
 
-        try:
-            response = safe_chat_completion(
-                base_url=base_url,
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": QUIZ_GENERATION_PROMPT},
-                    {"role": "user", "content": user_message},
-                ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "ModuleQuiz",
-                        "schema": json_schema,
+        last_error = None
+        for attempt in range(QUIZ_GENERATION_RETRIES + 1):
+            try:
+                if attempt > 0:
+                    print(
+                        f"    [RETRY] Retrying quiz generation for module "
+                        f"'{module_title}' ({attempt}/{QUIZ_GENERATION_RETRIES})..."
+                    )
+
+                response = safe_chat_completion(
+                    base_url=base_url,
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": QUIZ_GENERATION_PROMPT},
+                        {"role": "user", "content": user_message},
+                    ],
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "ModuleQuiz",
+                            "schema": json_schema,
+                        },
                     },
-                },
-                temperature=0.2,
-                default_max_tokens=4096,
+                    temperature=0.2,
+                    default_max_tokens=4096,
+                )
+
+                raw_content = response.choices[0].message.content
+                parsed = ModuleQuiz.model_validate_json(raw_content)
+
+                module["quiz"] = parsed.model_dump()
+                module.pop("quiz_generation_error", None)
+                print(f"    Successfully generated {len(parsed.questions)} questions.")
+                break
+
+            except Exception as e:
+                last_error = e
+                print(
+                    f"    [ERROR] Quiz generation attempt "
+                    f"{attempt + 1}/{QUIZ_GENERATION_RETRIES + 1} failed for "
+                    f"module '{module_title}': {e}"
+                )
+        else:
+            print(
+                f"    [ERROR] Failed to generate quiz for module '{module_title}' "
+                f"after {QUIZ_GENERATION_RETRIES + 1} attempts."
             )
-
-            raw_content = response.choices[0].message.content
-            parsed = ModuleQuiz.model_validate_json(raw_content)
-            
-            # Save the quiz structure directly under module['quiz']
-            module["quiz"] = parsed.model_dump()
-            print(f"    Successfully generated {len(parsed.questions)} questions.")
-
-        except Exception as e:
-            print(f"    [ERROR] Failed to generate quiz for module '{module_title}': {e}")
-            # Do not crash the entire course quiz generation on a single module failure
-            if "quiz" not in module:
-                module["quiz"] = {"questions": []}
+            module["quiz"] = {"questions": []}
+            module["quiz_generation_error"] = str(last_error) if last_error else "Unknown quiz generation error"
 
     course["modules"] = modules
     courses[course_idx] = course

@@ -242,6 +242,36 @@ body, html {
   color: var(--bone);
 }
 
+/* Image-aware concept slides.
+   Text-only concept slides stay full-cover. When an image column exists, contain
+   the concept panel so the sibling visual area can render beside it. */
+.slide-body:not(.no-image) .concept-v1,
+.slide-body:not(.no-image) .concept-v2 {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  height: 100%;
+  z-index: auto;
+  border-radius: var(--radius-tablet);
+  padding: min(4cqw, 5cqh);
+}
+
+.slide-body:not(.no-image) .concept-v1 .term,
+.slide-body:not(.no-image) .concept-v2 .term {
+  font-size: min(3cqw, 4.5cqh);
+}
+
+.slide-body:not(.no-image) .concept-v1 .def,
+.slide-body:not(.no-image) .concept-v2 .def {
+  font-size: min(2cqw, 3cqh);
+}
+
+.slide-body:not(.no-image) .concept-v1 .takeaways,
+.slide-body:not(.no-image) .concept-v2 .takeaways {
+  gap: 0.75rem;
+}
+
 .concept-v1 .term, .concept-v2 .term {
   font-family: var(--font-display);
   font-size: min(4cqw, 6cqh);
@@ -436,6 +466,29 @@ body, html {
   left: 0;
   padding: min(4cqw, 5cqh);
   z-index: 50;
+}
+
+/* Image-aware comparison table.
+   The full-slide table variant should only cover the slide when there is no
+   visual column. With images, keep it inside the content column. */
+.slide-body:not(.no-image) .comp-v2 {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  height: 100%;
+  z-index: auto;
+  border-radius: var(--radius-tablet);
+  padding: min(2cqw, 3cqh);
+}
+
+.slide-body:not(.no-image) .comp-v2-col {
+  font-size: min(1.4cqw, 2.1cqh);
+  padding: min(1.2cqw, 1.8cqh);
+}
+
+.slide-body:not(.no-image) .comp-v2-row.header .comp-v2-col {
+  font-size: min(1.7cqw, 2.5cqh);
 }
 .comp-v2-row {
   display: flex;

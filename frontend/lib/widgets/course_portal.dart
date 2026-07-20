@@ -764,6 +764,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                         itemCount: widget.course.images.length,
                         itemBuilder: (context, idx) {
                           final img = widget.course.images[idx];
+                          final mappedModuleNumber = _moduleNumberForImage(img.imageId);
                           return Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -801,15 +802,47 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(
-                                        img.caption.isNotEmpty ? img.caption : 'No Caption Found',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.barlow(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTheme.textBlack,
-                                        ),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              img.caption.isNotEmpty ? img.caption : 'No Caption Found',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.barlow(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.textBlack,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: mappedModuleNumber == null
+                                                  ? AppTheme.lightGray
+                                                  : AppTheme.primaryBlue.withOpacity(0.08),
+                                              borderRadius: BorderRadius.circular(999),
+                                              border: Border.all(
+                                                color: mappedModuleNumber == null
+                                                    ? AppTheme.lightGray
+                                                    : AppTheme.primaryBlue.withOpacity(0.25),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              mappedModuleNumber == null ? 'Unmapped' : 'Module $mappedModuleNumber',
+                                              style: GoogleFonts.barlow(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: mappedModuleNumber == null
+                                                    ? AppTheme.gray
+                                                    : AppTheme.primaryBlue,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -847,6 +880,14 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     });
   }
 
+  int? _moduleNumberForImage(String imageId) {
+    for (final module in _moduleData) {
+      final hasImage = module.images.any((img) => img.imageId == imageId);
+      if (hasImage) return module.moduleNumber;
+    }
+    return null;
+  }
+
   void _saveCourseModifications() async {
     if (_formKey.currentState?.validate() ?? false) {
       final updatedModules = _moduleTitleControllers.asMap().entries
@@ -864,6 +905,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                   : 0,
               'start_line': original?.startLine ?? '',
               'end_line': original?.endLine ?? '',
+              'images': original?.images.map((img) => img.toJson()).toList() ?? [],
             };
           })
           .toList();

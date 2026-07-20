@@ -2,6 +2,8 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.30.0
 python-multipart>=0.0.9
 pydantic>=2.7.0
+pytest>=8.2.0
+httpx2>=0.28.0
 
 # PDF & Data Extraction
 pdfplumber>=0.11.0

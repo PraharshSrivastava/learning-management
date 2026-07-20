@@ -13,9 +13,11 @@ class CourseDashboardData {
     );
     final isPassed = modules.isNotEmpty &&
         modules.every(
-          (module) =>
-              course.employeeProgress['${module.moduleNumber}']?.quizPassed ==
-              true,
+          (module) {
+            final progress = course.employeeProgress['${module.moduleNumber}'];
+            return progress?.quizPassed == true ||
+                (module.quiz.isEmpty && progress?.videoWatched == true);
+          },
         );
 
     if (isPassed) return DashboardCourseStatus.passed;
@@ -34,9 +36,11 @@ class CourseDashboardData {
     if (course.publishedModules.isEmpty) return 0;
     final completed = course.publishedModules
         .where(
-          (module) =>
-              course.employeeProgress['${module.moduleNumber}']?.quizPassed ==
-              true,
+          (module) {
+            final progress = course.employeeProgress['${module.moduleNumber}'];
+            return progress?.quizPassed == true ||
+                (module.quiz.isEmpty && progress?.videoWatched == true);
+          },
         )
         .length;
     return completed / course.publishedModules.length;

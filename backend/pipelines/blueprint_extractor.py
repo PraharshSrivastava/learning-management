@@ -18,6 +18,7 @@ class ModuleSchema(BaseModel):
     num_questions: int = 3
 
 class ModuleListSchema(BaseModel):
+    chain_of_thought: str
     modules: List[ModuleSchema]
 
 
@@ -328,7 +329,7 @@ def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
     json_schema = ModuleListSchema.model_json_schema()
 
     try:
-        base_url, model_name = get_llm_endpoint()
+        base_url, model_name = get_llm_endpoint(purpose="modules")
         response = safe_chat_completion(
             base_url=base_url,
             model=model_name,
@@ -404,6 +405,14 @@ def _validate_start_lines(modules: List[dict], total_lines: int):
         modules[0]["start_line"] = 1
 
 
+def _looks_like_caption_line(line: str) -> bool:
+    return bool(re.match(
+        r'^\s*(?:figure|fig|img|image|caption|chart)\s*\d*[\s:.\-]',
+        line,
+        re.IGNORECASE
+    ))
+
+
 # -------------------------------------------------------
 # Adjust start lines programmatically to capture headers
 # -------------------------------------------------------
@@ -431,6 +440,10 @@ def adjust_start_lines_for_headers(modules: List[dict], original_lines: List[str
             if not line:
                 # Skip blank lines and continue looking backward
                 continue
+            if _looks_like_caption_line(line):
+                # Captions are often extracted immediately before the next module heading.
+                # Do not move a module start into a caption block.
+                break
                 
             is_bullet = line.startswith((
                 '●', '○', '■', '▪', '▫', '-', '*', '+', '•', 

@@ -96,10 +96,354 @@ final courseListProvider = StateNotifierProvider<CourseListNotifier, CourseListS
   return CourseListNotifier();
 });
 
+class AssignableCourseListNotifier extends StateNotifier<CourseListState> {
+  AssignableCourseListNotifier() : super(CourseListState()) {
+    fetchCourses();
+  }
+
+  Future<void> fetchCourses() async {
+    state = CourseListState(courses: state.courses, isLoading: true);
+    try {
+      final response = await http.get(Uri.parse(AppConstants.assignableCoursesEndpoint));
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded = jsonDecode(response.body);
+        final courseList = decoded.map((item) => Course.fromJson(item)).toList();
+        state = CourseListState(courses: courseList, isLoading: false);
+      } else {
+        state = CourseListState(
+          courses: state.courses,
+          isLoading: false,
+          error: 'Server returned ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      state = CourseListState(courses: state.courses, isLoading: false, error: e.toString());
+    }
+  }
+}
+
+final assignableCourseListProvider =
+    StateNotifierProvider<AssignableCourseListNotifier, CourseListState>((ref) {
+  return AssignableCourseListNotifier();
+});
+
 // Active selections & current tab
 final selectedFileProvider = StateProvider<PDFFile?>((ref) => null);
 final selectedCourseProvider = StateProvider<Course?>((ref) => null);
 final currentTabProvider = StateProvider<int>((ref) => 0); // 0 = Documents, 1 = Courses
+
+class AssignmentState {
+  final AssignmentOptions options;
+  final AssignmentRule rule;
+  final List<Employee> previewEmployees;
+  final int matchCount;
+  final int? assignedCount;
+  final bool isLoading;
+  final bool isSaving;
+  final bool isPublishing;
+  final String? error;
+  final String? message;
+  final String? loadedCourseId;
+
+  AssignmentState({
+    this.options = const AssignmentOptions(),
+    this.rule = const AssignmentRule(),
+    this.previewEmployees = const [],
+    this.matchCount = 0,
+    this.assignedCount,
+    this.isLoading = false,
+    this.isSaving = false,
+    this.isPublishing = false,
+    this.error,
+    this.message,
+    this.loadedCourseId,
+  });
+
+  AssignmentState copyWith({
+    AssignmentOptions? options,
+    AssignmentRule? rule,
+    List<Employee>? previewEmployees,
+    int? matchCount,
+    int? assignedCount,
+    bool? isLoading,
+    bool? isSaving,
+    bool? isPublishing,
+    String? error,
+    String? message,
+    String? loadedCourseId,
+  }) {
+    return AssignmentState(
+      options: options ?? this.options,
+      rule: rule ?? this.rule,
+      previewEmployees: previewEmployees ?? this.previewEmployees,
+      matchCount: matchCount ?? this.matchCount,
+      assignedCount: assignedCount ?? this.assignedCount,
+      isLoading: isLoading ?? this.isLoading,
+      isSaving: isSaving ?? this.isSaving,
+      isPublishing: isPublishing ?? this.isPublishing,
+      error: error,
+      message: message,
+      loadedCourseId: loadedCourseId ?? this.loadedCourseId,
+    );
+  }
+}
+
+class AssignmentNotifier extends StateNotifier<AssignmentState> {
+  AssignmentNotifier() : super(AssignmentState()) {
+    fetchOptions();
+  }
+
+  Future<void> fetchOptions() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final response = await http.get(Uri.parse(AppConstants.assignmentOptionsEndpoint));
+      if (response.statusCode == 200) {
+        state = state.copyWith(
+          options: AssignmentOptions.fromJson(jsonDecode(response.body)),
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(isLoading: false, error: 'Server returned ${response.statusCode}');
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> loadForCourse(String courseId) async {
+    if (state.loadedCourseId == courseId) return;
+    state = state.copyWith(isLoading: true, loadedCourseId: courseId);
+    try {
+      final response = await http.get(Uri.parse(AppConstants.courseAssignmentEndpoint(courseId)));
+      if (response.statusCode == 200) {
+        _applyAssignmentResponse(jsonDecode(response.body) as Map<String, dynamic>,
+            isLoading: false, loadedCourseId: courseId);
+      } else {
+        state = state.copyWith(isLoading: false, error: 'Server returned ${response.statusCode}');
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  void updateRule(AssignmentRule rule) {
+    state = state.copyWith(rule: rule, message: null, assignedCount: null);
+  }
+
+  Future<void> save(String courseId) async {
+    state = state.copyWith(isSaving: true);
+    try {
+      final response = await http.put(
+        Uri.parse(AppConstants.courseAssignmentEndpoint(courseId)),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(state.rule.toJson()),
+      );
+      if (response.statusCode == 200) {
+        _applyAssignmentResponse(jsonDecode(response.body) as Map<String, dynamic>,
+            isSaving: false, message: 'Assignment rule saved.');
+      } else {
+        final decoded = jsonDecode(response.body);
+        state = state.copyWith(
+          isSaving: false,
+          error: decoded['detail']?.toString() ?? 'Failed to save assignment rule',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(isSaving: false, error: e.toString());
+    }
+  }
+
+  Future<void> publish(String courseId) async {
+    state = state.copyWith(isPublishing: true);
+    try {
+      final response = await http.post(
+        Uri.parse(AppConstants.publishCourseAssignmentEndpoint(courseId)),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(state.rule.toJson()),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final matchCount = decoded['match_count'] ?? 0;
+        final assignedCount = decoded['assigned_count'] ?? 0;
+        final removedCount = decoded['removed_count'] ?? 0;
+        final deadlineUpdateCount = decoded['deadline_update_count'] ?? 0;
+        _applyAssignmentResponse(
+          decoded,
+          isPublishing: false,
+          message:
+              'Published assignment for $matchCount matching employees. '
+              '$assignedCount added, $removedCount removed, '
+              '$deadlineUpdateCount deadlines updated.',
+          assignedCount: (decoded['assigned_count'] as num?)?.toInt(),
+        );
+      } else {
+        final decoded = jsonDecode(response.body);
+        state = state.copyWith(
+          isPublishing: false,
+          error: decoded['detail']?.toString() ?? 'Failed to publish assignment',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(isPublishing: false, error: e.toString());
+    }
+  }
+
+  void _applyAssignmentResponse(
+    Map<String, dynamic> decoded, {
+    bool? isLoading,
+    bool? isSaving,
+    bool? isPublishing,
+    String? message,
+    String? loadedCourseId,
+    int? assignedCount,
+  }) {
+    state = state.copyWith(
+      rule: AssignmentRule.fromJson(decoded['rule'] as Map<String, dynamic>),
+      matchCount: (decoded['match_count'] as num?)?.toInt() ?? 0,
+      assignedCount: assignedCount,
+      previewEmployees: (decoded['preview_employees'] as List? ?? [])
+          .map((item) => Employee.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      isLoading: isLoading ?? state.isLoading,
+      isSaving: isSaving ?? state.isSaving,
+      isPublishing: isPublishing ?? state.isPublishing,
+      message: message,
+      loadedCourseId: loadedCourseId,
+    );
+  }
+}
+
+final assignmentProvider =
+    StateNotifierProvider<AssignmentNotifier, AssignmentState>((ref) {
+  return AssignmentNotifier();
+});
+
+class PerformanceFilter {
+  final String? courseId;
+  final String? employeeId;
+  final String? department;
+  final String? role;
+  final String? status;
+  final int? joinedLessThanDaysAgo;
+
+  const PerformanceFilter({
+    this.courseId,
+    this.employeeId,
+    this.department,
+    this.role,
+    this.status,
+    this.joinedLessThanDaysAgo,
+  });
+
+  PerformanceFilter copyWith({
+    String? courseId,
+    String? employeeId,
+    String? department,
+    String? role,
+    String? status,
+    int? joinedLessThanDaysAgo,
+    bool clearCourse = false,
+    bool clearEmployee = false,
+    bool clearDepartment = false,
+    bool clearRole = false,
+    bool clearStatus = false,
+    bool clearJoined = false,
+  }) {
+    return PerformanceFilter(
+      courseId: clearCourse ? null : (courseId ?? this.courseId),
+      employeeId: clearEmployee ? null : (employeeId ?? this.employeeId),
+      department: clearDepartment ? null : (department ?? this.department),
+      role: clearRole ? null : (role ?? this.role),
+      status: clearStatus ? null : (status ?? this.status),
+      joinedLessThanDaysAgo:
+          clearJoined ? null : (joinedLessThanDaysAgo ?? this.joinedLessThanDaysAgo),
+    );
+  }
+}
+
+class PerformanceState {
+  final PerformanceDashboard dashboard;
+  final PerformanceFilter filter;
+  final bool isLoading;
+  final String? error;
+
+  const PerformanceState({
+    this.dashboard = const PerformanceDashboard(),
+    this.filter = const PerformanceFilter(),
+    this.isLoading = false,
+    this.error,
+  });
+
+  PerformanceState copyWith({
+    PerformanceDashboard? dashboard,
+    PerformanceFilter? filter,
+    bool? isLoading,
+    String? error,
+  }) {
+    return PerformanceState(
+      dashboard: dashboard ?? this.dashboard,
+      filter: filter ?? this.filter,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
+  }
+}
+
+class PerformanceNotifier extends StateNotifier<PerformanceState> {
+  PerformanceNotifier() : super(const PerformanceState()) {
+    fetch();
+  }
+
+  Future<void> fetch() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final params = <String, String>{};
+      final filter = state.filter;
+      if (filter.courseId != null) params['course_id'] = filter.courseId!;
+      if (filter.employeeId != null) params['employee_id'] = filter.employeeId!;
+      if (filter.department != null) params['department'] = filter.department!;
+      if (filter.role != null) params['role'] = filter.role!;
+      if (filter.status != null) params['status'] = filter.status!;
+      if (filter.joinedLessThanDaysAgo != null) {
+        params['joined_less_than_days_ago'] =
+            filter.joinedLessThanDaysAgo!.toString();
+      }
+      final uri = Uri.parse(AppConstants.trainerPerformanceEndpoint)
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        state = state.copyWith(
+          dashboard: PerformanceDashboard.fromJson(
+            jsonDecode(response.body) as Map<String, dynamic>,
+          ),
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Server returned ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  void updateFilter(PerformanceFilter filter) {
+    state = state.copyWith(filter: filter, error: null);
+    fetch();
+  }
+
+  void clearFilters() {
+    state = state.copyWith(filter: const PerformanceFilter(), error: null);
+    fetch();
+  }
+}
+
+final performanceProvider =
+    StateNotifierProvider<PerformanceNotifier, PerformanceState>((ref) {
+  return PerformanceNotifier();
+});
 
 // Upload progress state
 enum UploadStatus { idle, uploading, success, error }
@@ -221,6 +565,38 @@ class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
         return true;
       } else {
         final errorMsg = jsonDecode(response.body)['detail'] ?? 'Failed to update course blueprint.';
+        state = CourseUpdateState(isUpdating: false, error: errorMsg.toString());
+        return false;
+      }
+    } catch (e) {
+      state = CourseUpdateState(isUpdating: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> saveModuleQuiz(
+    String courseId,
+    int moduleNumber,
+    List<Map<String, dynamic>> questions,
+    WidgetRef ref,
+  ) async {
+    state = CourseUpdateState(isUpdating: true);
+    try {
+      final response = await http.put(
+        Uri.parse(AppConstants.moduleQuizEndpoint(courseId, moduleNumber)),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'questions': questions}),
+      );
+      if (response.statusCode == 200) {
+        state = CourseUpdateState(isUpdating: false);
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        final decoded = jsonDecode(response.body);
+        final updatedCourse = Course.fromJson(decoded);
+        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        return true;
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg = decoded['detail'] ?? 'Failed to save module quiz.';
         state = CourseUpdateState(isUpdating: false, error: errorMsg.toString());
         return false;
       }

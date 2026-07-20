@@ -13,6 +13,8 @@ import 'slides_portal.dart';
 import 'scripts_portal.dart';
 import 'video_portal.dart';
 import 'training_portal.dart';
+import 'assignment_portal.dart';
+import 'performance_portal.dart';
 
 
 class DashboardPage extends ConsumerWidget {
@@ -29,6 +31,8 @@ class DashboardPage extends ConsumerWidget {
     final updateState = ref.watch(courseUpdateProvider);
     final lessonGenState = ref.watch(lessonGenerationProvider);
     final fullCourseGenState = ref.watch(fullCourseGenerationProvider);
+    final isPublishingAssignment = activeTab == 3 &&
+        ref.watch(assignmentProvider.select((state) => state.isPublishing));
 
     return Stack(
       children: [
@@ -53,22 +57,43 @@ class DashboardPage extends ConsumerWidget {
                   color: AppTheme.gray.withOpacity(0.5),
                 ),
                 const SizedBox(width: 12),
-                _TabHeaderButton(
-                  title: 'Documents',
-                  isActive: activeTab == 0,
-                  onTap: () => ref.read(currentTabProvider.notifier).state = 0,
-                ),
-                const SizedBox(width: 8),
-                _TabHeaderButton(
-                  title: 'Blueprint',
-                  isActive: activeTab == 1,
-                  onTap: () => ref.read(currentTabProvider.notifier).state = 1,
-                ),
-                const SizedBox(width: 8),
-                _TabHeaderButton(
-                  title: 'Courses',
-                  isActive: activeTab == 2,
-                  onTap: () => ref.read(currentTabProvider.notifier).state = 2,
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _TabHeaderButton(
+                          title: 'Documents',
+                          isActive: activeTab == 0,
+                          onTap: () => ref.read(currentTabProvider.notifier).state = 0,
+                        ),
+                        const SizedBox(width: 8),
+                        _TabHeaderButton(
+                          title: 'Blueprint',
+                          isActive: activeTab == 1,
+                          onTap: () => ref.read(currentTabProvider.notifier).state = 1,
+                        ),
+                        const SizedBox(width: 8),
+                        _TabHeaderButton(
+                          title: 'Courses',
+                          isActive: activeTab == 2,
+                          onTap: () => ref.read(currentTabProvider.notifier).state = 2,
+                        ),
+                        const SizedBox(width: 8),
+                        _TabHeaderButton(
+                          title: 'Assign',
+                          isActive: activeTab == 3,
+                          onTap: () => ref.read(currentTabProvider.notifier).state = 3,
+                        ),
+                        const SizedBox(width: 8),
+                        _TabHeaderButton(
+                          title: 'Performance',
+                          isActive: activeTab == 4,
+                          onTap: () => ref.read(currentTabProvider.notifier).state = 4,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -78,6 +103,8 @@ class DashboardPage extends ConsumerWidget {
                 onPressed: () {
                   ref.read(fileListProvider.notifier).fetchFiles();
                   ref.read(courseListProvider.notifier).fetchCourses();
+                  ref.read(assignableCourseListProvider.notifier).fetchCourses();
+                  ref.read(performanceProvider.notifier).fetch();
                 },
                 tooltip: 'Refresh All Data',
               ),
@@ -95,20 +122,22 @@ class DashboardPage extends ConsumerWidget {
               ? _buildDocumentsPortal(context, ref, selectedFile, isMobile)
               : activeTab == 1
                   ? _buildCoursesPortal(context, ref, selectedCourse, isMobile)
-                  : _buildTrainingPortal(context, ref, selectedCourse, isMobile),
+                  : activeTab == 2
+                      ? _buildTrainingPortal(context, ref, selectedCourse, isMobile)
+                      : activeTab == 3
+                          ? AssignmentPortal(
+                              selectedCourse: selectedCourse,
+                              isMobile: isMobile,
+                            )
+                          : const PerformancePortal(),
         ),
         
         if (generationState.status == GenerationStatus.generating)
-          const _LoadingOverlay(message: 'Running modular extraction pipeline...\nAnalyzing document metadata & curriculum outline using Qwen3-8B...'),
+          const _LoadingOverlay(message: 'Creating your course outline'),
 
         if (fullCourseGenState.status == FullCourseGenStatus.generating)
           const _LoadingOverlay(
-            message: 'Generating entire course content...\n'
-                'Step 1: Extracting lessons & refining bullets.\n'
-                'Step 2: Designing visual slides & deck formatting.\n'
-                'Step 3: Generating MCQ assessment quizzes.\n'
-                'Step 4: Synthesizing voiceovers & slide-by-slide videos.\n'
-                'This end-to-end pipeline may take 5–8 minutes — please wait.',
+            message: 'Generating course content',
           ),
 
         if (updateState.isUpdating)
@@ -116,40 +145,35 @@ class DashboardPage extends ConsumerWidget {
 
         if (lessonGenState.status == LessonGenStatus.generating)
           const _LoadingOverlay(
-            message: 'Generating lessons for all modules...\n'
-                'Step 1: LLM extracts lessons per module.\n'
-                'Step 2: Holistic bullet refinement across full course.\n'
-                'This may take 4–6 minutes — please wait.',
+            message: 'Generating lessons',
           ),
 
 
 
         if (ref.watch(quizGenerationProvider).status == QuizGenStatus.generating)
           const _LoadingOverlay(
-            message: 'Generating module quizzes...\n'
-                'Applying difficulty scaling and creating multiple choice questions...\n'
-                'This may take 1–2 minutes — please wait.',
+            message: 'Generating quizzes',
           ),
 
         if (ref.watch(slideGenerationProvider).status == SlideGenStatus.generating)
           const _LoadingOverlay(
-            message: 'Planning visual slide layouts...\n'
-                'Slicing bullets and selecting best templates (grid, concept, steps, comparison)...\n'
-                'This may take 1–3 minutes — please wait.',
+            message: 'Generating slides',
           ),
 
         if (ref.watch(scriptGenerationProvider).status == ScriptGenStatus.generating)
           const _LoadingOverlay(
-            message: 'Generating module narration scripts...\n'
-                'Writing voice speaker notes and synthesizing Text-to-Speech (TTS) audio files...\n'
-                'This may take 1–3 minutes — please wait.',
+            message: 'Generating narration',
           ),
 
         if (ref.watch(videoGenerationProvider).status == VideoGenStatus.generating)
           const _LoadingOverlay(
-            message: 'Generating course module video...\n'
-                'Rendering layout frames with Pillow & stitching sound via FFmpeg...\n'
-                'This may take 1–3 minutes — please wait.',
+            message: 'Generating video',
+          ),
+
+        if (isPublishingAssignment)
+          const _LoadingOverlay(
+            message: 'Publishing assignment...\n'
+                'Publishing may take up to 2 minutes.',
           ),
       ],
     );
@@ -626,49 +650,214 @@ class _LoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = _LoadingOverlayContent.fromMessage(message);
+
     return Container(
-      color: Colors.black.withOpacity(0.65),
+      color: const Color(0xFF101828).withOpacity(0.52),
       child: Center(
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Material(
             color: Colors.white,
-            borderRadius: AppTheme.pShapeRadius,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+            elevation: 18,
+            shadowColor: Colors.black.withOpacity(0.22),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE7EFFF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.primaryBlue,
+                            ),
+                            strokeWidth: 3.8,
+                          ),
+                        ),
+                        Icon(
+                          content.icon,
+                          color: AppTheme.primaryBlue,
+                          size: 22,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    content.title,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.manrope(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF101828),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    content.message,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF475467),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F7FA),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE6E9EF)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule_outlined,
+                          color: AppTheme.primaryBlue,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            content.expectation,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF344054),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
-                  strokeWidth: 4.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.barlow(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textBlack,
-                  height: 1.4,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LoadingOverlayContent {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String expectation;
+
+  const _LoadingOverlayContent({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.expectation,
+  });
+
+  factory _LoadingOverlayContent.fromMessage(String rawMessage) {
+    final lower = rawMessage.toLowerCase();
+
+    if (lower.contains('publishing assignment')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.publish_outlined,
+        title: 'Publishing assignment',
+        message: 'We are assigning this course to the selected employee groups.',
+        expectation: 'Publishing may take up to 2 minutes.',
+      );
+    }
+    if (lower.contains('course content') || lower.contains('entire course')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.school_outlined,
+        title: 'Generating course content',
+        message:
+            'We are preparing lessons, quizzes, slides, narration, and videos for this course.',
+        expectation: 'This may take a while, up to 60 minutes.',
+      );
+    }
+    if (lower.contains('course outline') ||
+        lower.contains('modular extraction') ||
+        lower.contains('qwen')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.auto_stories_outlined,
+        title: 'Creating your course outline',
+        message:
+            'We are reading the document and shaping it into a course blueprint.',
+        expectation: 'This may take up to 5 minutes.',
+      );
+    }
+    if (lower.contains('lesson')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.menu_book_outlined,
+        title: 'Generating lessons',
+        message: 'We are building lesson content for each module.',
+        expectation: 'This may take up to 5 minutes.',
+      );
+    }
+    if (lower.contains('quiz')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.quiz_outlined,
+        title: 'Generating quizzes',
+        message: 'We are creating assessment questions for the selected module.',
+        expectation: 'This may take up to 5 minutes.',
+      );
+    }
+    if (lower.contains('slide')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.slideshow_outlined,
+        title: 'Generating slides',
+        message: 'We are turning module content into a presentation deck.',
+        expectation: 'This may take up to 5 minutes.',
+      );
+    }
+    if (lower.contains('narration') || lower.contains('script')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.record_voice_over_outlined,
+        title: 'Generating narration',
+        message: 'We are preparing the speaking notes and audio for this module.',
+        expectation: 'This may take up to 5 minutes.',
+      );
+    }
+    if (lower.contains('video')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.ondemand_video_outlined,
+        title: 'Generating video',
+        message:
+            'We are creating the module video from the prepared course material.',
+        expectation: 'This may take up to 5 minutes.',
+      );
+    }
+    if (lower.contains('saving')) {
+      return const _LoadingOverlayContent(
+        icon: Icons.save_outlined,
+        title: 'Saving changes',
+        message: 'We are updating the course blueprint.',
+        expectation: 'This should only take a moment.',
+      );
+    }
+
+    return _LoadingOverlayContent(
+      icon: Icons.hourglass_top_outlined,
+      title: 'Working on it',
+      message: rawMessage.split('\n').first,
+      expectation: 'This may take a few minutes.',
     );
   }
 }
