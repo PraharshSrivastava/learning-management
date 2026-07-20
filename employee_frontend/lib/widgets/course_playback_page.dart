@@ -341,7 +341,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+                color: AppTheme.primaryBlue.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -396,7 +396,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         borderRadius: AppTheme.pShapeRadius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: Colors.black.withOpacity(0.12),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -436,7 +436,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppTheme.accentCyan.withValues(alpha: 0.12),
+              color: AppTheme.accentCyan.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.notes_outlined, color: AppTheme.accentCyan),
@@ -549,7 +549,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppTheme.accentGreen.withValues(alpha: 0.12),
+                color: AppTheme.accentGreen.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -569,7 +569,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.accentGreen.withValues(alpha: 0.1),
+                color: AppTheme.accentGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.accentGreen),
               ),
@@ -665,15 +665,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             ),
           ),
           const SizedBox(height: 16),
-          RadioGroup<String>(
-            groupValue: isAlreadyPassed ? question.correct : selectedAnswer,
-            onChanged: (val) {
-              if (!isSubmitted && val != null) {
-                setState(() => _selectedAnswers[questionIndex] = val);
-              }
-            },
-            child: Column(
-              children: question.options.map((optionText) {
+          Column(
+            children: question.options.map((optionText) {
                 final optIndex = question.options.indexOf(optionText);
                 final optKey = String.fromCharCode(65 + optIndex); // A, B, C, D
                 final isOptSelected = selectedAnswer == optKey;
@@ -687,12 +680,12 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                 if (isSubmitted) {
                   if (isCorrectOpt) {
                     cardBorderColor = AppTheme.accentGreen;
-                    cardBgColor = AppTheme.accentGreen.withValues(alpha: 0.08);
+                    cardBgColor = AppTheme.accentGreen.withOpacity(0.08);
                     suffixIcon = const Icon(Icons.check_circle_rounded,
                         color: AppTheme.accentGreen, size: 18);
                   } else if (isOptSelected && !isAlreadyPassed) {
                     cardBorderColor = AppTheme.accentRed;
-                    cardBgColor = AppTheme.accentRed.withValues(alpha: 0.08);
+                    cardBgColor = AppTheme.accentRed.withOpacity(0.08);
                     suffixIcon = const Icon(Icons.cancel_rounded,
                         color: AppTheme.accentRed, size: 18);
                   } else {
@@ -700,7 +693,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   }
                 } else if (isOptSelected) {
                   cardBorderColor = AppTheme.primaryBlue;
-                  cardBgColor = AppTheme.primaryBlue.withValues(alpha: 0.05);
+                  cardBgColor = AppTheme.primaryBlue.withOpacity(0.05);
                 }
 
                 return Container(
@@ -715,6 +708,17 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                             : 1),
                   ),
                   child: RadioListTile<String>(
+                    groupValue:
+                        isAlreadyPassed ? question.correct : selectedAnswer,
+                    onChanged: isSubmitted
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setState(
+                                () => _selectedAnswers[questionIndex] = val,
+                              );
+                            }
+                          },
                     title: Text(
                       optionText,
                       style: GoogleFonts.inter(
@@ -729,7 +733,6 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                       ),
                     ),
                     value: optKey,
-                    enabled: !isSubmitted,
                     activeColor: isSubmitted && isCorrectOpt
                         ? AppTheme.accentGreen
                         : AppTheme.primaryBlue,
@@ -737,7 +740,6 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   ),
                 );
               }).toList(),
-            ),
           ),
           if (isSubmitted && question.explanation.isNotEmpty)
             Padding(
@@ -745,7 +747,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.lightGray.withValues(alpha: 0.5),
+                  color: AppTheme.lightGray.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -760,7 +762,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontStyle: FontStyle.italic,
-                          color: AppTheme.textBlack.withValues(alpha: 0.8),
+                          color: AppTheme.textBlack.withOpacity(0.8),
                         ),
                       ),
                     ),
@@ -963,7 +965,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? AppTheme.primaryBlue.withValues(alpha: 0.06)
+                  ? AppTheme.primaryBlue.withOpacity(0.06)
                   : Colors.white,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
@@ -1233,7 +1235,7 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
             opacity: _isHovering || !_controller.value.isPlaying ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 250),
             child: Container(
-              color: Colors.black.withValues(alpha: 0.55),
+              color: Colors.black.withOpacity(0.55),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1382,7 +1384,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                     : 0.0,
                 duration: const Duration(milliseconds: 200),
                 child: FloatingActionButton(
-                  backgroundColor: Colors.black.withValues(alpha: 0.5),
+                  backgroundColor: Colors.black.withOpacity(0.5),
                   mini: true,
                   child: const Icon(Icons.fullscreen_exit_rounded,
                       color: Colors.white),
@@ -1402,7 +1404,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                     : 0.0,
                 duration: const Duration(milliseconds: 200),
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.6),
+                  color: Colors.black.withOpacity(0.6),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: Column(

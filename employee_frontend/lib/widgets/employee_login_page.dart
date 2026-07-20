@@ -123,7 +123,7 @@ class _EmployeeLoginPageState extends ConsumerState<EmployeeLoginPage> {
                             width: 220,
                             child: DropdownButtonFormField<String>(
                               isExpanded: true,
-                              initialValue: _department,
+                              value: _department,
                               decoration: const InputDecoration(
                                 labelText: 'Department',
                                 border: OutlineInputBorder(),

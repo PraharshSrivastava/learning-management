@@ -912,7 +912,7 @@ class _MetricTile extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: color.withValues(alpha: 0.24),
+                    color: color.withOpacity(0.24),
                     blurRadius: 16,
                     offset: const Offset(0, 7),
                   )
@@ -945,8 +945,8 @@ class _MetricTile extends StatelessWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withValues(alpha: 0.18)
-                          : color.withValues(alpha: 0.12),
+                          ? Colors.white.withOpacity(0.18)
+                          : color.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(icon,
@@ -972,7 +972,7 @@ class _MetricTile extends StatelessWidget {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: isSelected
-                                    ? Colors.white.withValues(alpha: 0.82)
+                                    ? Colors.white.withOpacity(0.82)
                                     : const Color(0xFF667085))),
                       ],
                     ),
@@ -1383,7 +1383,7 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.11),
+          color: color.withOpacity(0.11),
           borderRadius: BorderRadius.circular(16)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 14, color: color),
