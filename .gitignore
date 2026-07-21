@@ -4,32 +4,80 @@ frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
 frontend/.metadata
 frontend/build/
+frontend/.env
+frontend/.pub-cache/
+frontend/.pub/
+frontend/**/doc/api/
+frontend/**/ios/Flutter/.last_build_id
+frontend/android/app/debug/
+frontend/android/app/profile/
+frontend/android/app/release/
+
+employee_frontend/.dart_tool/
+employee_frontend/.flutter-plugins
+employee_frontend/.flutter-plugins-dependencies
+employee_frontend/.metadata
+employee_frontend/build/
+employee_frontend/.env
+employee_frontend/.pub-cache/
+employee_frontend/.pub/
+employee_frontend/**/doc/api/
+employee_frontend/**/ios/Flutter/.last_build_id
+employee_frontend/android/app/debug/
+employee_frontend/android/app/profile/
+employee_frontend/android/app/release/
 
 # Python / Backend files
 backend/__pycache__/
 **/__pycache__/
+backend/*.db
+backend/*.db-journal
+backend/*.sqlite3
 backend/uploads/*
 !backend/uploads/.gitkeep
 backend/slides/*
 !backend/slides/.gitkeep
 backend/assets/images/course_*
+backend/assets/images/generated/
+backend/assets/images/test_*/
+backend/assets/images/course_thumbnails/
 backend/assets/audio/*
+!backend/assets/audio/.keep
 backend/assets/slides/*
+!backend/assets/slides/.keep
 backend/assets/videos/*
+!backend/assets/videos/.keep
 backend/.venv/
 backend/venv/
 backend/env/
 *.pyc
 
-# Temp / Local audio files
+# Temp / local generated files
 audio-esv2-90p-bg-10p (7).mp3
 improvements.txt
+refinements.txt
+employee_frontend/analyze_output.txt
+employee_frontend/out.txt
+employee_frontend/output.txt
+
+# Consolidated ignores; keep package-level ignore files out of git.
+backend/.gitignore
+frontend/.gitignore
+employee_frontend/.gitignore
 
 # Editor & System
 .vscode/
 .idea/
 .DS_Store
 *.bak
+*.class
+*.log
+*.swp
+.atom/
+.buildlog/
+.history/
+.svn/
+migrate_working_dir/
 
 # Ignored experiment and scratch directories
 .agents/
