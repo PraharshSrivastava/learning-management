@@ -37,8 +37,14 @@ def _course_public_id(course: dict) -> Optional[str]:
 
 
 def _course_is_publishable(course: dict) -> bool:
+    from pipelines.thumbnail_generator import course_thumbnail_signature
+
     modules = course.get("modules") or []
     if not modules:
+        return False
+    if not (course.get("thumbnail") or course.get("thumbnail_url")):
+        return False
+    if course.get("thumbnail_prompt_hash") != course_thumbnail_signature(course):
         return False
 
     for module in modules:
@@ -63,6 +69,22 @@ def _published_course_ids() -> set[str]:
         for course_id in (_course_public_id(course) for course in get_all_courses("published"))
         if course_id
     }
+
+
+def _published_course_by_id(course_id: str) -> Optional[dict]:
+    return next(
+        (course for course in get_all_courses("published") if _course_public_id(course) == course_id),
+        None,
+    )
+
+
+def _published_course_is_assignable(course: dict) -> bool:
+    modules = course.get("modules") or []
+    if not modules:
+        return False
+    if not (course.get("thumbnail") or course.get("thumbnail_url")):
+        return False
+    return all(module.get("video_url") for module in modules)
 
 
 def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -562,17 +584,13 @@ def api_publish_course_assignment(course_id: str, payload: dict):
     if not draft_course or not _course_is_publishable(draft_course):
         raise HTTPException(
             status_code=400,
-            detail="Course is not ready for assignment. Generate all videos and quizzes first.",
+            detail="Course is not ready for assignment. Generate the full course first.",
         )
-    try:
-        from pipelines.exporter import sync_clean_database
-        sync_clean_database()
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to publish courses: {exc}")
-    if course_id not in _published_course_ids():
+    published_course = _published_course_by_id(course_id)
+    if not published_course or not _published_course_is_assignable(published_course):
         raise HTTPException(
             status_code=400,
-            detail="Course could not be published yet. Generate all videos and quizzes first.",
+            detail="Course is not published yet. Generate the full course first.",
         )
     rule = save_assignment_rule(course_id, rule, publish=True)
     changes = assign_published_course_to_matching_employees(

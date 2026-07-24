@@ -21,6 +21,7 @@ class AppConstants {
   static String generateSlidesEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-slides';
   static String generateScriptsEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-scripts';
   static String generateFullCourseEndpoint(String id) => '$apiBaseUrl/api/courses/$id/generate-full-course';
+  static String continueGenerationEndpoint(String id) => '$apiBaseUrl/api/courses/$id/continue-generation';
   static String moduleQuizEndpoint(String id, int moduleNumber) =>
       '$apiBaseUrl/api/courses/$id/modules/$moduleNumber/quiz';
   static String slideshowHtmlUrl(String courseId, int moduleNum) => '$apiBaseUrl/assets/slides/$courseId/module_$moduleNum.html';

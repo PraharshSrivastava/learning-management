@@ -1,0 +1,20 @@
+[
+  {
+    "voice": "aryan",
+    "ok": false,
+    "status": 504,
+    "error_file": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\tejas_aryan\\aryan_regen_error.txt"
+  },
+  {
+    "voice": "ref_aryan",
+    "ok": false,
+    "status": 504,
+    "error_file": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\tejas_aryan\\ref_aryan_regen_error.txt"
+  },
+  {
+    "voice": "ref_tejas",
+    "ok": false,
+    "status": 504,
+    "error_file": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\tejas_aryan\\ref_tejas_regen_error.txt"
+  }
+]

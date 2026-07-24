@@ -1,3 +1,5 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -96,6 +98,10 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
                 _buildHeaderSection(module),
                 const SizedBox(height: 20),
                 _buildVideoPlayerSection(module),
+                const SizedBox(height: 16),
+                _buildNotesSection(module),
+                const SizedBox(height: 16),
+                _buildTranscriptSection(module),
                 const SizedBox(height: 32),
                 const Divider(color: AppTheme.lightGray, height: 1),
                 const SizedBox(height: 28),
@@ -188,6 +194,10 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
           _buildHeaderSection(module),
           const SizedBox(height: 16),
           _buildVideoPlayerSection(module),
+          const SizedBox(height: 16),
+          _buildNotesSection(module),
+          const SizedBox(height: 16),
+          _buildTranscriptSection(module),
           const SizedBox(height: 24),
           const Divider(color: AppTheme.lightGray),
           const SizedBox(height: 20),
@@ -198,10 +208,13 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
   }
 
   Widget _buildHeaderSection(CourseModule module) {
+    final hasVideo = module.videoPath != null && module.videoPath!.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -219,6 +232,23 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
                 ),
               ),
             ),
+            if (hasVideo)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Download Video'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                onPressed: () {
+                  final videoUrl = '${AppConstants.apiBaseUrl}/${module.videoPath!}';
+                  _downloadVideo(videoUrl, _videoDownloadFilename(module));
+                },
+              ),
           ],
         ),
         const SizedBox(height: 10),
@@ -232,6 +262,48 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
         ),
       ],
     );
+  }
+
+  Future<void> _downloadVideo(String videoUrl, String filename) async {
+    try {
+      final request = await html.HttpRequest.request(
+        videoUrl,
+        responseType: 'blob',
+      );
+      final blob = request.response as html.Blob;
+      final objectUrl = html.Url.createObjectUrlFromBlob(blob);
+      _clickDownloadLink(objectUrl, filename);
+      html.Url.revokeObjectUrl(objectUrl);
+    } catch (_) {
+      _clickDownloadLink(videoUrl, filename, openInNewTab: true);
+    }
+  }
+
+  void _clickDownloadLink(
+    String href,
+    String filename, {
+    bool openInNewTab = false,
+  }) {
+    final anchor = html.AnchorElement(href: href)
+      ..download = filename
+      ..style.display = 'none';
+
+    if (openInNewTab) {
+      anchor.target = '_blank';
+    }
+
+    html.document.body?.append(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  String _videoDownloadFilename(CourseModule module) {
+    final rawTitle = module.title.trim().isEmpty ? 'module' : module.title.trim();
+    final safeTitle = rawTitle
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return '${widget.course.id}-module-${module.moduleNumber}-${safeTitle.isEmpty ? 'video' : safeTitle}.mp4';
   }
 
   Widget _buildVideoPlayerSection(CourseModule module) {
@@ -301,7 +373,160 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: TrainingVideoPlayer(url: videoUrl, key: ValueKey(videoUrl)),
+      child: TrainingVideoPlayer(
+        url: videoUrl,
+        key: ValueKey(videoUrl),
+      ),
+    );
+  }
+
+  Widget _buildNotesSection(CourseModule module) {
+    final notes = module.notes.trim().isNotEmpty
+        ? module.notes.trim()
+        : 'Generate narration scripts to create learner notes for this module.';
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFF),
+        borderRadius: AppTheme.pShapeRadius,
+        border: Border.all(color: AppTheme.lightGray),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.notes_outlined, color: AppTheme.accentCyan),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Module notes', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+          const SizedBox(height: 6),
+          Text(notes, style: GoogleFonts.barlow(fontSize: 14, height: 1.45, color: AppTheme.gray)),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _buildTranscriptSection(CourseModule module) {
+    final slides = module.slides
+        .whereType<Map>()
+        .where((slide) => (slide['script']?.toString().trim() ?? '').isNotEmpty)
+        .toList();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 360),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: AppTheme.pShapeRadius,
+        border: Border.all(color: AppTheme.lightGray),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+            child: Row(
+              children: [
+                const Icon(Icons.notes_rounded, size: 18, color: AppTheme.primaryBlue),
+                const SizedBox(width: 8),
+                Text(
+                  'Slide Script / Transcript',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.lightGray),
+          if (slides.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                'No slide narration script is available for this module yet.',
+                style: GoogleFonts.barlow(color: AppTheme.gray),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                shrinkWrap: true,
+                itemCount: slides.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final slide = slides[index];
+                  final title = slide['slide_title']?.toString().trim();
+                  final script = slide['script']?.toString().trim() ?? '';
+                  final isCover = slide['is_cover_slide'] == true ||
+                      slide['layout_type']?.toString().toLowerCase() == 'cover';
+
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightGray.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.lightGray),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: isCover
+                                    ? AppTheme.accentOrange.withOpacity(0.15)
+                                    : AppTheme.primaryBlue.withOpacity(0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: GoogleFonts.barlow(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isCover ? AppTheme.accentOrange : AppTheme.primaryBlue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                title?.isNotEmpty == true
+                                    ? title!
+                                    : isCover
+                                        ? 'Module Cover'
+                                        : 'Slide ${index + 1}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textBlack,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          script,
+                          style: GoogleFonts.barlow(
+                            fontSize: 13.5,
+                            height: 1.45,
+                            color: AppTheme.textBlack,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -822,6 +1047,8 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
   late VideoPlayerController _controller;
   bool _isHovering = false;
   String? _errorMsg;
+  double _playbackMultiplier = 1.0;
+  bool _showingFullscreen = false;
 
   @override
   void initState() {
@@ -848,12 +1075,21 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
     return '$minutes:$seconds';
   }
 
-  void _enterFullscreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => FullscreenVideoPlayer(controller: _controller),
-      ),
-    );
+  Future<void> _enterFullscreen() async {
+    if (_showingFullscreen) return;
+    setState(() => _showingFullscreen = true);
+    // Let the inline VideoPlayer unmount before the fullscreen route mounts it.
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => FullscreenVideoPlayer(controller: _controller),
+    ));
+    if (mounted) setState(() => _showingFullscreen = false);
+  }
+
+  Future<void> _setPlaybackMultiplier(double value) async {
+    await _controller.setPlaybackSpeed(value);
+    if (mounted) setState(() => _playbackMultiplier = value);
   }
 
   @override
@@ -900,7 +1136,7 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
           Center(
             child: AspectRatio(
               aspectRatio: _controller.value.aspectRatio,
-              child: VideoPlayer(_controller),
+              child: _showingFullscreen ? const SizedBox.expand() : VideoPlayer(_controller),
             ),
           ),
           
@@ -959,16 +1195,9 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                       
                       Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
-                            onPressed: _enterFullscreen,
-                            tooltip: 'Fullscreen View',
-                          ),
-                          const SizedBox(width: 8),
                           Icon(
                             _controller.value.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                            color: Colors.white,
-                            size: 20,
+                            color: Colors.white, size: 20,
                           ),
                           const SizedBox(width: 4),
                           SizedBox(
@@ -976,7 +1205,9 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                             child: SliderTheme(
                               data: SliderTheme.of(context).copyWith(
                                 trackHeight: 2.5,
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 5,
+                                ),
                                 activeTrackColor: Colors.white,
                                 inactiveTrackColor: Colors.white24,
                                 thumbColor: Colors.white,
@@ -985,13 +1216,25 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                                 value: _controller.value.volume,
                                 min: 0,
                                 max: 1,
-                                onChanged: (val) {
-                                  setState(() {
-                                    _controller.setVolume(val);
-                                  });
+                                onChanged: (value) {
+                                  _controller.setVolume(value);
+                                  setState(() {});
                                 },
                               ),
                             ),
+                          ),
+                          PopupMenuButton<double>(
+                            tooltip: 'Playback speed', initialValue: _playbackMultiplier, onSelected: _setPlaybackMultiplier,
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 0.5, child: Text('0.5x')), PopupMenuItem(value: 0.75, child: Text('0.75x')),
+                              PopupMenuItem(value: 1.0, child: Text('1x')), PopupMenuItem(value: 1.25, child: Text('1.25x')),
+                              PopupMenuItem(value: 1.5, child: Text('1.5x')), PopupMenuItem(value: 2.0, child: Text('2x')),
+                            ], child: Text('${_playbackMultiplier}x', style: const TextStyle(color: Colors.white)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
+                            onPressed: _enterFullscreen,
+                            tooltip: 'Fullscreen View',
                           ),
                         ],
                       ),

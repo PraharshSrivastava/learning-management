@@ -5,6 +5,7 @@ from typing import List
 from pydantic import BaseModel
 
 from pipelines.config import get_llm_endpoint, safe_chat_completion
+from pipelines.pipeline_runtime import retry
 from pipelines.prompts import MODULE_EXTRACTION_PROMPT
 
 
@@ -310,7 +311,7 @@ def number_lines(text: str) -> tuple[str, list]:
 # -------------------------------------------------------
 # LLM Module Extraction — now uses numbered lines
 # -------------------------------------------------------
-def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
+def extract_modules_with_llm(body_lines: List[str], course_id: str = "blueprint") -> List[dict]:
     """
     Number every line of the document body, send to LLM, and get back
     a structured list of modules with integer start_line numbers.
@@ -328,7 +329,7 @@ def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
 
     json_schema = ModuleListSchema.model_json_schema()
 
-    try:
+    def generate_once():
         base_url, model_name = get_llm_endpoint(purpose="modules")
         response = safe_chat_completion(
             base_url=base_url,
@@ -363,7 +364,10 @@ def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
                 }
             },
             temperature=0.1,
-            default_max_tokens=1024
+            default_max_tokens=1024,
+            course_id=course_id,
+            stage="blueprint",
+            attempts=1,
         )
 
         raw_content = response.choices[0].message.content
@@ -375,14 +379,11 @@ def extract_modules_with_llm(body_lines: List[str]) -> List[dict]:
             m["num_questions"] = 3
         _validate_start_lines(modules, total_lines)
 
+        if not modules:
+            raise ValueError("LLM returned no modules")
         return modules
 
-    except requests.exceptions.Timeout:
-        raise RuntimeError("LLM request timed out after 600 seconds.")
-    except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"LLM request failed: {str(e)}")
-    except Exception as e:
-        raise RuntimeError(f"Failed to parse LLM module response: {str(e)}")
+    return retry(generate_once, course_id=course_id, stage="blueprint", attempts=3)
 
 
 def _validate_start_lines(modules: List[dict], total_lines: int):
@@ -557,7 +558,7 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
     images = []
     if original_lines:
         try:
-            raw_modules = extract_modules_with_llm(original_lines)
+            raw_modules = extract_modules_with_llm(original_lines, course_id=course_id)
             adjust_start_lines_for_headers(raw_modules, original_lines)
             modules = slice_modules_by_line(original_lines, raw_modules)
             good = sum(1 for m in modules if len(m.get('text', '')) >= 100)
@@ -619,7 +620,7 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
                     module["text"] = '\n'.join(filtered_lines)
         except Exception as e:
             print(f"  [ERROR] Module extraction/image assignment failed: {e}")
-            modules = []
+            raise
 
 
     return {

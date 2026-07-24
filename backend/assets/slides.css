@@ -160,6 +160,58 @@ body, html {
 }
 
 /* ====================================================
+   0. MODULE COVER
+   ==================================================== */
+.module-cover {
+  position: absolute;
+  inset: 0;
+  background: var(--pc-blue);
+  color: var(--bone);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: min(7cqw, 8cqh) min(8cqw, 9cqh);
+}
+
+.module-cover::after {
+  content: '';
+  position: absolute;
+  left: min(8cqw, 9cqh);
+  right: min(8cqw, 9cqh);
+  bottom: min(6cqw, 7cqh);
+  height: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.module-cover-course {
+  font-family: var(--font-body);
+  font-size: min(1.7cqw, 2.6cqh);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.78);
+  margin-bottom: min(2cqh, 1.5cqw);
+}
+
+.module-cover-kicker {
+  font-family: var(--font-body);
+  font-size: min(1.4cqw, 2.2cqh);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--pc-gray);
+  margin-bottom: min(2cqh, 1.5cqw);
+}
+
+.module-cover h1 {
+  font-family: var(--font-display);
+  font-size: min(5.8cqw, 8cqh);
+  line-height: 1.05;
+  font-weight: 800;
+  max-width: 900px;
+  color: var(--bone);
+}
+
+/* ====================================================
    1. BULLETS
    ==================================================== */
 .bullets-v1, .bullets-v2 {

@@ -1110,6 +1110,8 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
   late bool _markedWatched;
   bool _isHovering = false;
   String? _errorMsg;
+  double _playbackMultiplier = 1.0;
+  bool _showingFullscreen = false;
 
   @override
   void initState() {
@@ -1169,12 +1171,20 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
     return '$minutes:$seconds';
   }
 
-  void _enterFullscreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => FullscreenVideoPlayer(controller: _controller),
-      ),
-    );
+  Future<void> _enterFullscreen() async {
+    if (_showingFullscreen) return;
+    setState(() => _showingFullscreen = true);
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => FullscreenVideoPlayer(controller: _controller),
+    ));
+    if (mounted) setState(() => _showingFullscreen = false);
+  }
+
+  Future<void> _setPlaybackMultiplier(double value) async {
+    await _controller.setPlaybackSpeed(value);
+    if (mounted) setState(() => _playbackMultiplier = value);
   }
 
   @override
@@ -1228,7 +1238,7 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
           Center(
             child: AspectRatio(
               aspectRatio: _controller.value.aspectRatio,
-              child: VideoPlayer(_controller),
+              child: _showingFullscreen ? const SizedBox.expand() : VideoPlayer(_controller),
             ),
           ),
           AnimatedOpacity(
@@ -1287,13 +1297,6 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                       ),
                       Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.fullscreen_rounded,
-                                color: Colors.white),
-                            onPressed: _enterFullscreen,
-                            tooltip: 'Fullscreen View',
-                          ),
-                          const SizedBox(width: 8),
                           Icon(
                             _controller.value.volume == 0
                                 ? Icons.volume_off_rounded
@@ -1324,6 +1327,19 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                                 },
                               ),
                             ),
+                          ),
+                          PopupMenuButton<double>(
+                            tooltip: 'Playback speed', initialValue: _playbackMultiplier, onSelected: _setPlaybackMultiplier,
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 0.5, child: Text('0.5x')), PopupMenuItem(value: 0.75, child: Text('0.75x')),
+                              PopupMenuItem(value: 1.0, child: Text('1x')), PopupMenuItem(value: 1.25, child: Text('1.25x')),
+                              PopupMenuItem(value: 1.5, child: Text('1.5x')), PopupMenuItem(value: 2.0, child: Text('2x')),
+                            ], child: Text('${_playbackMultiplier}x', style: const TextStyle(color: Colors.white)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
+                            onPressed: _enterFullscreen,
+                            tooltip: 'Fullscreen View',
                           ),
                         ],
                       ),

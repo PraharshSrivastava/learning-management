@@ -522,6 +522,17 @@ class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
       } else {
         final errorMsg = jsonDecode(response.body)['detail'] ?? 'Course outline extraction failed.';
         state = CourseGenerationState(status: GenerationStatus.error, error: errorMsg.toString());
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        final failedBlueprint = ref
+            .read(courseListProvider)
+            .courses
+            .where((course) =>
+                course.sourceFile == filename && course.generationStatus == 'failed')
+            .toList();
+        if (failedBlueprint.isNotEmpty) {
+          ref.read(selectedCourseProvider.notifier).state = failedBlueprint.last;
+          ref.read(currentTabProvider.notifier).state = 1;
+        }
       }
     } catch (e) {
       state = CourseGenerationState(status: GenerationStatus.error, error: e.toString());
@@ -928,9 +939,72 @@ class FullCourseGenerationNotifier extends StateNotifier<FullCourseGenerationSta
       } else {
         final errorMsg = jsonDecode(response.body)['detail'] ?? 'Full course generation failed.';
         state = FullCourseGenerationState(status: FullCourseGenStatus.error, error: errorMsg.toString());
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        final failedCourse = ref
+            .read(courseListProvider)
+            .courses
+            .where((course) => course.id == courseId)
+            .toList();
+        if (failedCourse.isNotEmpty) {
+          ref.read(selectedCourseProvider.notifier).state = failedCourse.first;
+          ref.read(currentTabProvider.notifier).state = 1;
+        }
       }
     } catch (e) {
       state = FullCourseGenerationState(status: FullCourseGenStatus.error, error: e.toString());
+    }
+  }
+
+  Future<void> continueFromCheckpoint(String courseId, WidgetRef ref) async {
+    state = FullCourseGenerationState(status: FullCourseGenStatus.generating);
+    try {
+      final response = await http.post(
+        Uri.parse(AppConstants.continueGenerationEndpoint(courseId)),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final updatedCourse = Course.fromJson(jsonDecode(response.body));
+        final isFullyGenerated = updatedCourse.modules.isNotEmpty &&
+            updatedCourse.thumbnailUrl.isNotEmpty &&
+            updatedCourse.modules.every((module) =>
+                module.videoPath != null &&
+                module.videoPath!.isNotEmpty &&
+                module.quiz != null &&
+                (((module.quiz!['questions'] as List?)?.isNotEmpty == true) ||
+                    module.numQuestions <= 0));
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        ref.read(currentTabProvider.notifier).state = isFullyGenerated ? 2 : 1;
+        state = FullCourseGenerationState(status: FullCourseGenStatus.success);
+      } else {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        state = FullCourseGenerationState(
+          status: FullCourseGenStatus.error,
+          error: body['detail']?.toString() ?? 'Could not continue generation.',
+        );
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        final failedCourse = ref
+            .read(courseListProvider)
+            .courses
+            .where((course) => course.id == courseId)
+            .toList();
+        if (failedCourse.isNotEmpty) {
+          ref.read(selectedCourseProvider.notifier).state = failedCourse.first;
+          ref.read(currentTabProvider.notifier).state = 1;
+        }
+      }
+    } catch (e) {
+      state = FullCourseGenerationState(status: FullCourseGenStatus.error, error: e.toString());
+      await ref.read(courseListProvider.notifier).fetchCourses();
+      final failedCourse = ref
+          .read(courseListProvider)
+          .courses
+          .where((course) => course.id == courseId)
+          .toList();
+      if (failedCourse.isNotEmpty) {
+        ref.read(selectedCourseProvider.notifier).state = failedCourse.first;
+        ref.read(currentTabProvider.notifier).state = 1;
+      }
     }
   }
 

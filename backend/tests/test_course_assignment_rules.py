@@ -9,13 +9,24 @@ def _course(course_id="assignment-course-1"):
         "course_id": course_id,
         "title": "Assignment Rule Course",
         "course_description": "Course for assignment tests",
-        "modules": [{"module_number": 1, "title": "Module 1", "quiz": []}],
+        "modules": [
+            {
+                "module_number": 1,
+                "title": "Module 1",
+                "video_url": "assets/videos/test/module_1.mp4",
+                "quiz": [],
+            }
+        ],
         "images": [],
+        "thumbnail": f"assets/images/course_thumbnails/{course_id}.png",
+        "thumbnail_url": f"assets/images/course_thumbnails/{course_id}.png",
     }
 
 
 def _ready_draft_course(course_id="assignment-course-1"):
-    return {
+    from pipelines.thumbnail_generator import course_thumbnail_signature
+
+    course = {
         "id": course_id,
         "course_name": "Assignment Rule Course",
         "course_description": "Course for assignment tests",
@@ -46,6 +57,11 @@ def _ready_draft_course(course_id="assignment-course-1"):
             }
         ],
     }
+    thumbnail = f"assets/images/course_thumbnails/{course_id}.png"
+    course["thumbnail"] = thumbnail
+    course["thumbnail_url"] = thumbnail
+    course["thumbnail_prompt_hash"] = course_thumbnail_signature(course)
+    return course
 
 
 def _unfinished_draft_course(course_id="unfinished-course-1"):

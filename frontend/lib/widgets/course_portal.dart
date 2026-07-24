@@ -1,3 +1,5 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -353,24 +355,67 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                           const SizedBox(width: 8),
                           Consumer(
                             builder: (context, ref, _) {
+                              final fullGeneration = ref.watch(fullCourseGenerationProvider);
                               final hasModules = widget.course.modules.isNotEmpty;
-                              final isFullyGenerated = hasModules && widget.course.modules.every((m) => m.videoPath != null && m.quiz != null && (m.quiz!['questions'] as List?)?.isNotEmpty == true);
-                              return ElevatedButton.icon(
-                                icon: const Icon(Icons.auto_awesome, size: 14),
-                                label: Text(isFullyGenerated ? 'Already Generated' : 'Generate Course'),
+                              final hasThumbnail = widget.course.thumbnailUrl.isNotEmpty;
+                              final checkpoint = widget.course.failedCheckpoint.isNotEmpty
+                                  ? widget.course.failedCheckpoint
+                                  : widget.course.currentCheckpoint;
+                              final hasFailedCheckpoint =
+                                  widget.course.generationStatus == 'failed' && checkpoint.isNotEmpty;
+                              final isGenerating =
+                                  fullGeneration.status == FullCourseGenStatus.generating ||
+                                      widget.course.generationStatus == 'running';
+                              final isFullyGenerated = hasModules &&
+                                  hasThumbnail &&
+                                  widget.course.modules.every((m) =>
+                                      m.videoPath != null &&
+                                      m.videoPath!.isNotEmpty &&
+                                      m.quiz != null &&
+                                      ((m.quiz!['questions'] as List?)?.isNotEmpty == true ||
+                                          m.numQuestions <= 0));
+                              final label = isGenerating
+                                  ? 'Generating...'
+                                  : hasFailedCheckpoint
+                                      ? 'Continue from $checkpoint'
+                                      : isFullyGenerated
+                                          ? 'Already Generated'
+                                          : 'Generate Course';
+                              final button = ElevatedButton.icon(
+                                icon: Icon(
+                                  hasFailedCheckpoint ? Icons.play_arrow : Icons.auto_awesome,
+                                  size: 14,
+                                ),
+                                label: Text(label),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: isFullyGenerated ? Colors.grey[700] : AppTheme.accentOrange,
+                                  backgroundColor: isFullyGenerated && !hasFailedCheckpoint
+                                      ? Colors.grey[700]
+                                      : AppTheme.accentOrange,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                 ),
-                                onPressed: (hasModules && !isFullyGenerated)
-                                    ? () => ref
-                                        .read(fullCourseGenerationProvider.notifier)
-                                        .generateFullCourse(widget.course.id, ref)
+                                onPressed: (!isGenerating &&
+                                        (hasFailedCheckpoint || (hasModules && !isFullyGenerated)))
+                                    ? () {
+                                        final notifier =
+                                            ref.read(fullCourseGenerationProvider.notifier);
+                                        if (hasFailedCheckpoint) {
+                                          notifier.continueFromCheckpoint(widget.course.id, ref);
+                                        } else {
+                                          notifier.generateFullCourse(widget.course.id, ref);
+                                        }
+                                      }
                                     : null,
+                              );
+                              if (!hasFailedCheckpoint || widget.course.generationError.isEmpty) {
+                                return button;
+                              }
+                              return Tooltip(
+                                message: widget.course.generationError,
+                                child: button,
                               );
                             },
                           ),
@@ -658,6 +703,30 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                   ),
                                 ],
                               ),
+                              if (_moduleData[index].videoPath != null &&
+                                  _moduleData[index].videoPath!.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.download_rounded, size: 16),
+                                    label: const Text('Download Video'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryBlue,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      final module = _moduleData[index];
+                                      final videoUrl = '${AppConstants.apiBaseUrl}/${module.videoPath!}';
+                                      _downloadVideo(videoUrl, _videoDownloadFilename(module));
+                                    },
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 10),
                               Row(
                                 children: [
@@ -860,6 +929,48 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
         ),
       ),
     );
+  }
+
+  Future<void> _downloadVideo(String videoUrl, String filename) async {
+    try {
+      final request = await html.HttpRequest.request(
+        videoUrl,
+        responseType: 'blob',
+      );
+      final blob = request.response as html.Blob;
+      final objectUrl = html.Url.createObjectUrlFromBlob(blob);
+      _clickDownloadLink(objectUrl, filename);
+      html.Url.revokeObjectUrl(objectUrl);
+    } catch (_) {
+      _clickDownloadLink(videoUrl, filename, openInNewTab: true);
+    }
+  }
+
+  void _clickDownloadLink(
+    String href,
+    String filename, {
+    bool openInNewTab = false,
+  }) {
+    final anchor = html.AnchorElement(href: href)
+      ..download = filename
+      ..style.display = 'none';
+
+    if (openInNewTab) {
+      anchor.target = '_blank';
+    }
+
+    html.document.body?.append(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  String _videoDownloadFilename(CourseModule module) {
+    final rawTitle = module.title.trim().isEmpty ? 'module' : module.title.trim();
+    final safeTitle = rawTitle
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return '${widget.course.id}-module-${module.moduleNumber}-${safeTitle.isEmpty ? 'video' : safeTitle}.mp4';
   }
 
   void _onReorder(int oldIndex, int newIndex) {

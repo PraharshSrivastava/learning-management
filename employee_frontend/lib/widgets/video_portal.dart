@@ -1,3 +1,5 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -381,6 +383,7 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
   late VideoPlayerController _controller;
   bool _isHovering = false;
   String? _errorMsg;
+  double _playbackMultiplier = 1.0;
 
   @override
   void initState() {
@@ -405,6 +408,19 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
     String minutes = d.inMinutes.toString().padLeft(2, '0');
     String seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  Future<void> _setPlaybackMultiplier(double value) async {
+    await _controller.setPlaybackSpeed(value);
+    if (mounted) setState(() => _playbackMultiplier = value);
+  }
+
+  void _toggleFullscreen() {
+    if (html.document.fullscreenElement == null) {
+      html.document.documentElement?.requestFullscreen();
+    } else {
+      html.document.exitFullscreen();
+    }
   }
 
   @override
@@ -514,6 +530,16 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
                       // Volume controls
                       Row(
                         children: [
+                          PopupMenuButton<double>(
+                            tooltip: 'Playback speed', initialValue: _playbackMultiplier, onSelected: _setPlaybackMultiplier,
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 0.5, child: Text('0.5x')), PopupMenuItem(value: 0.75, child: Text('0.75x')),
+                              PopupMenuItem(value: 1.0, child: Text('1x')), PopupMenuItem(value: 1.25, child: Text('1.25x')),
+                              PopupMenuItem(value: 1.5, child: Text('1.5x')), PopupMenuItem(value: 2.0, child: Text('2x')),
+                            ],
+                            child: Text('${_playbackMultiplier}x', style: const TextStyle(color: Colors.white)),
+                          ),
+                          IconButton(icon: const Icon(Icons.fullscreen_rounded, color: Colors.white), onPressed: _toggleFullscreen, tooltip: 'Fullscreen'),
                           Icon(
                             _controller.value.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
                             color: Colors.white,

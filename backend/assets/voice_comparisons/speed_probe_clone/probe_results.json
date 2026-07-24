@@ -1,0 +1,55 @@
+[
+  {
+    "name": "clone_baseline",
+    "extra": {},
+    "status": 200,
+    "content_type": "audio/wav",
+    "path": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\speed_probe_clone\\clone_baseline.wav",
+    "bytes": 119084,
+    "duration": 2.48
+  },
+  {
+    "name": "clone_speed_0_5",
+    "extra": {
+      "speed": 0.5
+    },
+    "status": 200,
+    "content_type": "audio/wav",
+    "path": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\speed_probe_clone\\clone_speed_0_5.wav",
+    "bytes": 111404,
+    "duration": 2.32
+  },
+  {
+    "name": "clone_speed_1_5",
+    "extra": {
+      "speed": 1.5
+    },
+    "status": 200,
+    "content_type": "audio/wav",
+    "path": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\speed_probe_clone\\clone_speed_1_5.wav",
+    "bytes": 119084,
+    "duration": 2.48
+  },
+  {
+    "name": "clone_rate_0_5",
+    "extra": {
+      "rate": 0.5
+    },
+    "status": 200,
+    "content_type": "audio/wav",
+    "path": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\speed_probe_clone\\clone_rate_0_5.wav",
+    "bytes": 115244,
+    "duration": 2.4
+  },
+  {
+    "name": "clone_speed_rate_0_5",
+    "extra": {
+      "speed_rate": 0.5
+    },
+    "status": 200,
+    "content_type": "audio/wav",
+    "path": "C:\\Users\\LPUSER\\Desktop\\Learning_Management_System\\backend\\assets\\voice_comparisons\\speed_probe_clone\\clone_speed_rate_0_5.wav",
+    "bytes": 115244,
+    "duration": 2.4
+  }
+]

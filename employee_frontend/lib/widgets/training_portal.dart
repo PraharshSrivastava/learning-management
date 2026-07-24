@@ -96,6 +96,8 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
                 _buildHeaderSection(module),
                 const SizedBox(height: 20),
                 _buildVideoPlayerSection(module),
+                const SizedBox(height: 16),
+                _buildNotesSection(module),
                 const SizedBox(height: 32),
                 const Divider(color: AppTheme.lightGray, height: 1),
                 const SizedBox(height: 28),
@@ -188,6 +190,8 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
           _buildHeaderSection(module),
           const SizedBox(height: 16),
           _buildVideoPlayerSection(module),
+          const SizedBox(height: 16),
+          _buildNotesSection(module),
           const SizedBox(height: 24),
           const Divider(color: AppTheme.lightGray),
           const SizedBox(height: 20),
@@ -301,7 +305,10 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: TrainingVideoPlayer(url: videoUrl, key: ValueKey(videoUrl)),
+      child: TrainingVideoPlayer(
+        url: videoUrl,
+        key: ValueKey(videoUrl),
+      ),
     );
   }
 
@@ -822,6 +829,8 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
   late VideoPlayerController _controller;
   bool _isHovering = false;
   String? _errorMsg;
+  double _playbackMultiplier = 1.0;
+  bool _showingFullscreen = false;
 
   @override
   void initState() {
@@ -848,12 +857,43 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
     return '$minutes:$seconds';
   }
 
-  void _enterFullscreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => FullscreenVideoPlayer(controller: _controller),
+  Future<void> _enterFullscreen() async {
+    if (_showingFullscreen) return;
+    setState(() => _showingFullscreen = true);
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => FullscreenVideoPlayer(controller: _controller),
+    ));
+    if (mounted) setState(() => _showingFullscreen = false);
+  }
+
+  Widget _buildNotesSection(CourseModule module) {
+    final notes = module.notes.trim().isNotEmpty
+        ? module.notes.trim()
+        : 'Generate narration scripts to create learner notes for this module.';
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFF),
+        borderRadius: AppTheme.pShapeRadius,
+        border: Border.all(color: AppTheme.lightGray),
       ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.notes_outlined, color: AppTheme.accentCyan),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Module notes', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+          const SizedBox(height: 6),
+          Text(notes, style: GoogleFonts.barlow(fontSize: 14, height: 1.45, color: AppTheme.gray)),
+        ])),
+      ]),
     );
+  }
+
+  Future<void> _setPlaybackMultiplier(double value) async {
+    await _controller.setPlaybackSpeed(value);
+    if (mounted) setState(() => _playbackMultiplier = value);
   }
 
   @override
@@ -900,7 +940,7 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
           Center(
             child: AspectRatio(
               aspectRatio: _controller.value.aspectRatio,
-              child: VideoPlayer(_controller),
+              child: _showingFullscreen ? const SizedBox.expand() : VideoPlayer(_controller),
             ),
           ),
           
@@ -959,12 +999,6 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                       
                       Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
-                            onPressed: _enterFullscreen,
-                            tooltip: 'Fullscreen View',
-                          ),
-                          const SizedBox(width: 8),
                           Icon(
                             _controller.value.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
                             color: Colors.white,
@@ -992,6 +1026,19 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                                 },
                               ),
                             ),
+                          ),
+                          PopupMenuButton<double>(
+                            tooltip: 'Playback speed', initialValue: _playbackMultiplier, onSelected: _setPlaybackMultiplier,
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 0.5, child: Text('0.5x')), PopupMenuItem(value: 0.75, child: Text('0.75x')),
+                              PopupMenuItem(value: 1.0, child: Text('1x')), PopupMenuItem(value: 1.25, child: Text('1.25x')),
+                              PopupMenuItem(value: 1.5, child: Text('1.5x')), PopupMenuItem(value: 2.0, child: Text('2x')),
+                            ], child: Text('${_playbackMultiplier}x', style: const TextStyle(color: Colors.white)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white),
+                            onPressed: _enterFullscreen,
+                            tooltip: 'Fullscreen View',
                           ),
                         ],
                       ),

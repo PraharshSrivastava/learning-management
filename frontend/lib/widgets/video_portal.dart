@@ -1,3 +1,5 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -277,6 +279,7 @@ class _VideoViewState extends ConsumerState<VideoView> {
     }
 
     final videoUrl = '${AppConstants.apiBaseUrl}/${module.videoPath!}';
+    final videoFilename = _videoDownloadFilename(module);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -286,49 +289,31 @@ class _VideoViewState extends ConsumerState<VideoView> {
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: AppTheme.lightGray, width: 1)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final titleBlock = _buildVideoTitleBlock(module);
+              final actions = _buildVideoActions(module, videoUrl, videoFilename);
+
+              if (constraints.maxWidth < 620) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Module ${module.moduleNumber} Course Video',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      module.title,
-                      style: GoogleFonts.barlow(
-                        fontSize: 14,
-                        color: AppTheme.gray,
-                      ),
-                    ),
+                    titleBlock,
+                    const SizedBox(height: 12),
+                    actions,
                   ],
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  ref.read(videoGenerationProvider.notifier).generateVideo(
-                        widget.course.id,
-                        module.moduleNumber,
-                        ref,
-                      );
-                },
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Regenerate Video'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  backgroundColor: AppTheme.lightGray,
-                  foregroundColor: AppTheme.primaryBlue,
-                ),
-              ),
-            ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: titleBlock),
+                  const SizedBox(width: 16),
+                  actions,
+                ],
+              );
+            },
           ),
         ),
         Expanded(
@@ -354,7 +339,10 @@ class _VideoViewState extends ConsumerState<VideoView> {
                           ],
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: ModuleVideoPlayer(url: videoUrl, key: ValueKey(videoUrl)),
+                        child: ModuleVideoPlayer(
+                          url: videoUrl,
+                          key: ValueKey(videoUrl),
+                        ),
                       ),
                     ),
                   ],
@@ -363,8 +351,135 @@ class _VideoViewState extends ConsumerState<VideoView> {
             ),
           ),
         ),
+        if (module.notes.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: _buildNotesCard(module.notes),
+          ),
       ],
     );
+  }
+
+  Widget _buildNotesCard(String notes) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7FBFF),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.lightGray),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.notes_outlined, color: AppTheme.accentCyan),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Module notes', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+            const SizedBox(height: 6),
+            Text(notes, style: GoogleFonts.barlow(color: AppTheme.gray, height: 1.45)),
+          ])),
+        ]),
+      );
+
+  Widget _buildVideoTitleBlock(CourseModule module) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Module ${module.moduleNumber} Course Video',
+          style: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryBlue,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          module.title,
+          style: GoogleFonts.barlow(
+            fontSize: 14,
+            color: AppTheme.gray,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVideoActions(CourseModule module, String videoUrl, String videoFilename) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: [
+        ElevatedButton.icon(
+          onPressed: () {
+            _downloadVideo(videoUrl, videoFilename);
+          },
+          icon: const Icon(Icons.download_rounded, size: 16),
+          label: const Text('Download Video'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            backgroundColor: AppTheme.primaryBlue,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            ref.read(videoGenerationProvider.notifier).generateVideo(
+                  widget.course.id,
+                  module.moduleNumber,
+                  ref,
+                );
+          },
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Regenerate Video'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            backgroundColor: AppTheme.lightGray,
+            foregroundColor: AppTheme.primaryBlue,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _downloadVideo(String videoUrl, String filename) async {
+    try {
+      final request = await html.HttpRequest.request(
+        videoUrl,
+        responseType: 'blob',
+      );
+      final blob = request.response as html.Blob;
+      final objectUrl = html.Url.createObjectUrlFromBlob(blob);
+      _clickDownloadLink(objectUrl, filename);
+      html.Url.revokeObjectUrl(objectUrl);
+    } catch (_) {
+      _clickDownloadLink(videoUrl, filename, openInNewTab: true);
+    }
+  }
+
+  void _clickDownloadLink(
+    String href,
+    String filename, {
+    bool openInNewTab = false,
+  }) {
+    final anchor = html.AnchorElement(href: href)
+      ..download = filename
+      ..style.display = 'none';
+
+    if (openInNewTab) {
+      anchor.target = '_blank';
+    }
+
+    html.document.body?.append(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  String _videoDownloadFilename(CourseModule module) {
+    final rawTitle = module.title.trim().isEmpty ? 'module' : module.title.trim();
+    final safeTitle = rawTitle
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return '${widget.course.id}-module-${module.moduleNumber}-${safeTitle.isEmpty ? 'video' : safeTitle}.mp4';
   }
 }
 
@@ -381,6 +496,7 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
   late VideoPlayerController _controller;
   bool _isHovering = false;
   String? _errorMsg;
+  double _playbackMultiplier = 1.0;
 
   @override
   void initState() {
@@ -405,6 +521,20 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
     String minutes = d.inMinutes.toString().padLeft(2, '0');
     String seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  Future<void> _setPlaybackMultiplier(double multiplier) async {
+    // The rendered narration is already mastered at 0.9x; label that pace 1x.
+    await _controller.setPlaybackSpeed(multiplier);
+    if (mounted) setState(() => _playbackMultiplier = multiplier);
+  }
+
+  void _toggleFullscreen() {
+    if (html.document.fullscreenElement == null) {
+      html.document.documentElement?.requestFullscreen();
+    } else {
+      html.document.exitFullscreen();
+    }
   }
 
   @override
@@ -514,6 +644,21 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
                       // Volume controls
                       Row(
                         children: [
+                          PopupMenuButton<double>(
+                            tooltip: 'Playback speed',
+                            initialValue: _playbackMultiplier,
+                            onSelected: _setPlaybackMultiplier,
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 0.5, child: Text('0.5x')),
+                              PopupMenuItem(value: 0.75, child: Text('0.75x')),
+                              PopupMenuItem(value: 1.0, child: Text('1x')),
+                              PopupMenuItem(value: 1.25, child: Text('1.25x')),
+                              PopupMenuItem(value: 1.5, child: Text('1.5x')),
+                              PopupMenuItem(value: 2.0, child: Text('2x')),
+                            ],
+                            child: Text('${_playbackMultiplier}x', style: const TextStyle(color: Colors.white)),
+                          ),
+                          IconButton(icon: const Icon(Icons.fullscreen_rounded, color: Colors.white), onPressed: _toggleFullscreen, tooltip: 'Fullscreen'),
                           Icon(
                             _controller.value.volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
                             color: Colors.white,

@@ -159,6 +159,8 @@ class CourseModule {
   final Map<String, dynamic>? quiz;
   final List<dynamic> slides;
   final String? videoPath;
+  final String notes;
+  final List<dynamic> captions;
 
   CourseModule({
     required this.moduleNumber,
@@ -171,6 +173,8 @@ class CourseModule {
     this.quiz,
     this.slides = const [],
     this.videoPath,
+    this.notes = '',
+    this.captions = const [],
   });
 
   factory CourseModule.fromJson(Map<String, dynamic> json) {
@@ -189,6 +193,8 @@ class CourseModule {
       quiz: json['quiz'] as Map<String, dynamic>?,
       slides: slideList,
       videoPath: json['video_path']?.toString(),
+      notes: json['notes']?.toString() ?? '',
+      captions: json['captions'] as List? ?? [],
     );
   }
 
@@ -200,9 +206,11 @@ class CourseModule {
         'end_line': endLine,
         'lessons': lessons.map((s) => s.toJson()).toList(),
         'num_questions': numQuestions,
-        'quiz': quiz,
-        'slides': slides,
-        'video_path': videoPath,
+    'quiz': quiz,
+    'slides': slides,
+    'video_path': videoPath,
+    'notes': notes,
+    'captions': captions,
       };
 }
 
@@ -283,6 +291,7 @@ class PublishedCourseModule {
   final String videoUrl;
   final List<PublishedQuizQuestion> quiz;
   final double passMark;
+  final List<dynamic> captions;
 
   PublishedCourseModule({
     required this.moduleNumber,
@@ -291,6 +300,7 @@ class PublishedCourseModule {
     required this.videoUrl,
     required this.quiz,
     required this.passMark,
+    this.captions = const [],
   });
 
   factory PublishedCourseModule.fromJson(Map<String, dynamic> json) {
@@ -303,6 +313,7 @@ class PublishedCourseModule {
           .map((q) => PublishedQuizQuestion.fromJson(q as Map<String, dynamic>))
           .toList(),
       passMark: (json['pass_mark'] as num?)?.toDouble() ?? 0.67,
+      captions: json['captions'] as List? ?? [],
     );
   }
 }

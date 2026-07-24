@@ -10,7 +10,9 @@ from pathlib import Path
 from core.io_utils import atomic_write_json
 
 from pipelines.config import BASE_DIR, DRAFT_COURSES_FILE
+from pipelines.config import SLIDE_TRANSITION_PAUSE_SECONDS
 VIDEO_DIR = os.path.join(BASE_DIR, "assets", "videos")
+
 
 # Colors from PhillipCapital Design System
 PRIMARY_BLUE = (0, 49, 122)      # #00317A
@@ -484,6 +486,7 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
             audio_abs_path = os.path.join(BASE_DIR, audio_rel_path) if audio_rel_path else ""
             
             duration = get_audio_duration(audio_abs_path)
+            clip_duration = duration + SLIDE_TRANSITION_PAUSE_SECONDS
             
             # 3. Create video chunk
             clip_path = os.path.join(temp_dir, f"clip_{idx}.mp4")
@@ -498,25 +501,18 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
                     "-tune", "stillimage",
                     "-c:a", "aac",
                     "-b:a", "192k",
+                    "-af", f"apad=pad_dur={SLIDE_TRANSITION_PAUSE_SECONDS}",
                     "-pix_fmt", "yuv420p",
-                    "-t", str(duration),
+                    "-t", str(clip_duration),
                     clip_path
                 ]
             else:
-                # Fallback to silent video chunk if narration audio is missing
-                cmd = [
-                    ffmpeg_exe, "-y",
-                    "-loop", "1", "-i", slide_img_path,
-                    "-f", "lavfi", "-i", "anullsrc=channel_layout=mono:sample_rate=44100",
-                    "-c:v", "libx264",
-                    "-tune", "stillimage",
-                    "-c:a", "aac",
-                    "-t", str(duration),
-                    "-pix_fmt", "yuv420p",
-                    clip_path
-                ]
+                raise RuntimeError(
+                    f"Narration audio is missing for module {module_number}, slide {idx + 1}. "
+                    "Video generation stopped before creating an incomplete silent video."
+                )
                 
-            print(f"Encoding clip {idx} with duration={duration}...")
+            print(f"Encoding clip {idx} with duration={duration} + {SLIDE_TRANSITION_PAUSE_SECONDS}s transition pause...")
             result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
             if result.returncode != 0:
                 raise RuntimeError(f"FFmpeg failed encoding slide {idx}: {result.stderr}")

@@ -87,7 +87,7 @@ def generate_html_slides_for_module(
                 <div class="eyebrow">{_esc(eyebrow)}</div>
                 <h1 class="slide-title">{_esc(slide_title)}</h1>
             </div>
-""" if layout_type_str != "concept" else ""
+""" if layout_type_str not in {"concept", "cover"} and not slide.get("is_cover_slide") else ""
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
@@ -100,7 +100,19 @@ def generate_html_slides_for_module(
         # ----------------------------------------------------
         # Render Content Layouts
         # ----------------------------------------------------
-        if layout_type_str == "concept" and slide.get("concept_data"):
+        if layout_type_str == "cover" or slide.get("is_cover_slide"):
+            course_name = slide.get("course_name", "")
+            total_modules = slide.get("total_modules", "")
+            cover_module_num = slide.get("module_number", module_num)
+            html_content.append(f"""
+                    <div class="module-cover">
+                        <div class="module-cover-course">{_esc(course_name)}</div>
+                        <div class="module-cover-kicker">Module {_esc(cover_module_num)}{f" of {_esc(total_modules)}" if total_modules else ""}</div>
+                        <h1>{_esc(slide_title)}</h1>
+                    </div>
+""")
+
+        elif layout_type_str == "concept" and slide.get("concept_data"):
             data = slide["concept_data"]
             takeaways = data.get("key_takeaways", [])
             if not takeaways and data.get("key_takeaway"):

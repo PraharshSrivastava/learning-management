@@ -1,5 +1,5 @@
-def _ready_draft_course():
-    return {
+def _ready_draft_course(**overrides):
+    course = {
         "id": "thumbnail-course-1",
         "course_name": "Data Privacy Basics",
         "course_description": "How employees should handle customer data.",
@@ -24,30 +24,46 @@ def _ready_draft_course():
             }
         ],
     }
+    course.update(overrides)
+    return course
 
 
-def test_sync_clean_database_generates_course_thumbnail(database, monkeypatch):
+def test_sync_clean_database_skips_complete_course_without_thumbnail(database):
     from pipelines import exporter
 
     database.save_all_courses([_ready_draft_course()], "draft")
 
-    calls = []
+    exporter.sync_clean_database()
 
-    def fake_generate(course, course_id):
-        calls.append((course["course_name"], course_id))
-        return "assets/images/course_thumbnails/thumbnail-course-1.png"
+    assert database.get_all_courses("published") == []
 
-    monkeypatch.setattr(exporter, "generate_course_thumbnail", fake_generate)
+
+def test_sync_clean_database_exports_course_with_existing_thumbnail(database):
+    from pipelines import exporter
+    from pipelines.thumbnail_generator import course_thumbnail_signature
+
+    course = _ready_draft_course()
+    signature = course_thumbnail_signature(course)
+    database.save_all_courses(
+        [
+            _ready_draft_course(
+                thumbnail="assets/images/course_thumbnails/thumbnail-course-1.png",
+                thumbnail_url="assets/images/course_thumbnails/thumbnail-course-1.png",
+                thumbnail_prompt_hash=signature,
+            )
+        ],
+        "draft",
+    )
 
     exporter.sync_clean_database()
 
     published = database.get_all_courses("published")
     drafts = database.get_all_courses("draft")
 
-    assert calls == [("Data Privacy Basics", "thumbnail-course-1")]
+    assert len(published) == 1
     assert published[0]["thumbnail"] == "assets/images/course_thumbnails/thumbnail-course-1.png"
     assert published[0]["thumbnail_url"] == "assets/images/course_thumbnails/thumbnail-course-1.png"
-    assert published[0]["thumbnail_prompt_hash"]
+    assert published[0]["thumbnail_prompt_hash"] == signature
     assert drafts[0]["thumbnail"] == "assets/images/course_thumbnails/thumbnail-course-1.png"
     assert drafts[0]["thumbnail_prompt_hash"] == published[0]["thumbnail_prompt_hash"]
 
@@ -90,6 +106,35 @@ def test_thumbnail_generator_decodes_prediction_image_b64():
     assert image_bytes == b"fake-image-bytes"
 
 
+def test_thumbnail_request_payload_uses_openai_image_contract(monkeypatch):
+    from pipelines import thumbnail_generator
+
+    monkeypatch.setattr(
+        thumbnail_generator,
+        "THUMBNAIL_ENDPOINT",
+        "http://35.238.33.238:4000/v1/images/generations",
+    )
+
+    assert thumbnail_generator._thumbnail_request_payload("A course thumbnail") == {
+        "model": "ernie-image",
+        "prompt": "A course thumbnail",
+        "n": 1,
+        "size": "1024x1024",
+        "response_format": "b64_json",
+    }
+
+
+def test_thumbnail_request_headers_include_bearer_token(monkeypatch):
+    from pipelines import thumbnail_generator
+
+    monkeypatch.setattr(thumbnail_generator, "THUMBNAIL_API_KEY", "test-key")
+
+    assert thumbnail_generator._thumbnail_request_headers() == {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer test-key",
+    }
+
+
 def test_thumbnail_prompt_is_used_directly_from_llm(monkeypatch):
     from pipelines import thumbnail_generator
     from pipelines.prompts import COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT
@@ -111,7 +156,7 @@ def test_thumbnail_prompt_is_used_directly_from_llm(monkeypatch):
     monkeypatch.setattr(
         thumbnail_generator,
         "get_llm_endpoint",
-        lambda: ("http://fake-llm/v1", "fake-model"),
+        lambda purpose=None: ("http://fake-llm/v1", "fake-model"),
     )
     monkeypatch.setattr(
         thumbnail_generator,

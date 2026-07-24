@@ -115,6 +115,8 @@ class CourseModule {
   final List<dynamic> slides;
   final List<LessonImage> images;
   final String? videoPath;
+  final String notes;
+  final List<dynamic> captions;
 
   CourseModule({
     required this.moduleNumber,
@@ -128,6 +130,8 @@ class CourseModule {
     this.slides = const [],
     this.images = const [],
     this.videoPath,
+    this.notes = '',
+    this.captions = const [],
   });
 
   factory CourseModule.fromJson(Map<String, dynamic> json) {
@@ -149,6 +153,8 @@ class CourseModule {
           .map((img) => LessonImage.fromJson(img as Map<String, dynamic>))
           .toList(),
       videoPath: json['video_path']?.toString(),
+      notes: json['notes']?.toString() ?? '',
+      captions: json['captions'] as List? ?? [],
     );
   }
 
@@ -164,6 +170,8 @@ class CourseModule {
     'slides': slides,
     'images': images.map((img) => img.toJson()).toList(),
     'video_path': videoPath,
+    'notes': notes,
+    'captions': captions,
   };
 }
 
@@ -632,8 +640,13 @@ class Course {
   final String targetAudience;
   final List<CourseModule> modules;
   final List<LessonImage> images;
+  final String thumbnailUrl;
   final String sourceFile;
   final double createdAt;
+  final String generationStatus;
+  final String failedCheckpoint;
+  final String currentCheckpoint;
+  final String generationError;
 
   Course({
     required this.id,
@@ -645,20 +658,25 @@ class Course {
     required this.targetAudience,
     required this.modules,
     required this.images,
+    this.thumbnailUrl = '',
     required this.sourceFile,
     required this.createdAt,
+    this.generationStatus = '',
+    this.failedCheckpoint = '',
+    this.currentCheckpoint = '',
+    this.generationError = '',
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
     return Course(
-      id: json['id'] as String,
-      courseName: json['course_name'] as String,
-      courseDescription: json['course_description'] as String,
-      courseObjective: json['course_objective'] as String,
-      courseDifficulty: json['course_difficulty'] as String,
-      language: json['language'] as String,
-      targetAudience: json['target_audience'] as String,
-      modules: (json['modules'] as List).map((item) {
+      id: json['id']?.toString() ?? '',
+      courseName: json['course_name']?.toString() ?? '',
+      courseDescription: json['course_description']?.toString() ?? '',
+      courseObjective: json['course_objective']?.toString() ?? '',
+      courseDifficulty: json['course_difficulty']?.toString() ?? '',
+      language: json['language']?.toString() ?? '',
+      targetAudience: json['target_audience']?.toString() ?? '',
+      modules: (json['modules'] as List? ?? []).map((item) {
         if (item is Map<String, dynamic>) {
           return CourseModule.fromJson(item);
         }
@@ -674,8 +692,14 @@ class Course {
       images: (json['images'] as List? ?? [])
           .map((img) => LessonImage.fromJson(img as Map<String, dynamic>))
           .toList(),
-      sourceFile: json['source_file'] as String,
-      createdAt: (json['created_at'] as num).toDouble(),
+      thumbnailUrl:
+          (json['thumbnail_url'] ?? json['thumbnail'] ?? '').toString(),
+      sourceFile: json['source_file']?.toString() ?? '',
+      createdAt: (json['created_at'] as num?)?.toDouble() ?? 0,
+      generationStatus: (json['generation'] as Map?)?['status']?.toString() ?? '',
+      failedCheckpoint: (json['generation'] as Map?)?['failed_checkpoint']?.toString() ?? '',
+      currentCheckpoint: (json['generation'] as Map?)?['current_checkpoint']?.toString() ?? '',
+      generationError: (json['generation'] as Map?)?['error']?.toString() ?? '',
     );
   }
 }

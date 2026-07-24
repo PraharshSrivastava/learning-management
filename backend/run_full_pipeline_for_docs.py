@@ -18,7 +18,8 @@ from pipelines.slide_planner import generate_slides_for_course
 from pipelines.slides_generator import compile_slides_for_course
 from pipelines.video_generator import generate_video_for_module
 from pipelines.config import DRAFT_COURSES_FILE, get_llm_endpoint
-from pipelines.exporter import sync_clean_database
+from pipelines.exporter import is_course_generation_complete, sync_clean_database
+from pipelines.thumbnail_generator import course_thumbnail_signature, generate_course_thumbnail
 
 def run_pipeline_for_file(filename):
     print("\n" + "="*80)
@@ -27,7 +28,7 @@ def run_pipeline_for_file(filename):
     
     # Step 1: Outline / Blueprint Extraction
     try:
-        url, model = get_llm_endpoint()
+        url, model = get_llm_endpoint("modules")
         print(f"[STEP 1][MODEL CHECK] Blueprint extraction will run using: {model} at {url}")
         outline = generate_course_outline(filename)
         course_id = outline.get("id")
@@ -60,7 +61,7 @@ def run_pipeline_for_file(filename):
 
     # Step 3: MCQ Quiz Generation
     try:
-        url, model = get_llm_endpoint()
+        url, model = get_llm_endpoint("quiz")
         print(f"[STEP 3][MODEL CHECK] Quiz generation will run using: {model} at {url}")
         generate_quiz_for_course(course_id)
         print("[SUCCESS] Step 3: Quizzes generated.")
@@ -112,10 +113,32 @@ def run_pipeline_for_file(filename):
         traceback.print_exc()
         return False
 
+    # Step 7: Course thumbnail generation
+    try:
+        courses = get_all_courses('draft')
+        course_idx = next((i for i, c in enumerate(courses) if c.get("id") == course_id), None)
+        if course_idx is None:
+            raise ValueError(f"Course ID '{course_id}' not found in courses database.")
+        course = courses[course_idx]
+        thumbnail_path = generate_course_thumbnail(course, course_id)
+        if thumbnail_path:
+            course["thumbnail"] = thumbnail_path
+            course["thumbnail_url"] = thumbnail_path
+            course["thumbnail_prompt_hash"] = course_thumbnail_signature(course)
+            courses[course_idx] = course
+            save_all_courses(courses, 'draft')
+        if not is_course_generation_complete(course):
+            raise ValueError("Required quiz, video, or thumbnail output is missing.")
+        print("[SUCCESS] Step 7: Course thumbnail generated.")
+    except Exception as e:
+        print(f"[ERROR] Step 7 failed: {e}")
+        traceback.print_exc()
+        return False
+
     # Sync clean database
     try:
         sync_clean_database()
-        print("[SUCCESS] Step 7: Clean database synchronized to courses.json.")
+        print("[SUCCESS] Step 8: Clean database synchronized to courses.json.")
     except Exception as e:
         print(f"[ERROR] Clean database synchronization failed: {e}")
         traceback.print_exc()

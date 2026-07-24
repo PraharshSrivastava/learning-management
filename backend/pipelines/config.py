@@ -2,6 +2,12 @@ import os
 from core.config import BASE_DIR, UPLOAD_DIR, DRAFT_COURSES_FILE, PUBLISHED_COURSES_FILE, IMAGE_DIR
 
 import requests
+import time
+from pipelines.pipeline_runtime import retry
+
+LITELLM_BASE_URL = "http://35.238.33.238:4000/v1"
+LITELLM_API_KEY = "sk-test-litellm-gateway"
+CHAT_MODEL_NAME = "gemma-4-e4b"
 
 # LLM Endpoint Resolver — returns (base_url, model_name) for the given
 # purpose. NOTE: this does NOT return a client object (e.g. not an OpenAI
@@ -10,13 +16,7 @@ import requests
 # HTTP request. Renamed from the old get_llm_client() to avoid implying
 # this returns an actual client instance.
 def get_llm_endpoint(purpose: str = None):
-    if purpose in ("slides", "scripts", "quiz", "modules"):
-        BASE_URL = "http://34.180.105.203:8002/v1"
-        MODEL_NAME = "google/gemma-4-E4B-it"
-    else:
-        BASE_URL = "http://35.238.33.238:8001/v1"
-        MODEL_NAME = "Qwen/Qwen3-8B"
-    return BASE_URL, MODEL_NAME
+    return LITELLM_BASE_URL, CHAT_MODEL_NAME
 
 
 class ChatCompletionMessage:
@@ -40,6 +40,9 @@ def _post_chat_completion(base_url, model, messages, response_format, temperatur
     headers = {
         "Content-Type": "application/json"
     }
+    llm_api_key = os.environ.get("LLM_API_KEY") or os.environ.get("LITELLM_API_KEY") or LITELLM_API_KEY
+    if llm_api_key:
+        headers["Authorization"] = f"Bearer {llm_api_key}"
     payload = {
         "model": model,
         "messages": messages,
@@ -67,7 +70,8 @@ def _post_chat_completion(base_url, model, messages, response_format, temperatur
     return ChatCompletionResponse(choices)
 
 
-def safe_chat_completion(base_url, model, messages, response_format=None, temperature=0.2, default_max_tokens=4096):
+def safe_chat_completion(base_url, model, messages, response_format=None, temperature=0.2, default_max_tokens=4096,
+                         course_id="unknown", stage="llm", module_number=None, attempts=3):
     """
     Wrapper around vLLM direct chat endpoint completions that:
     1. Dynamically estimates input tokens based on message characters.
@@ -82,45 +86,33 @@ def safe_chat_completion(base_url, model, messages, response_format=None, temper
     available_tokens = max_context - estimated_input - 150
     max_tokens = min(default_max_tokens, max(256, available_tokens))
     
-    print(f"    [LLM] Requesting completion with estimated input={estimated_input} tokens, max_tokens={max_tokens} (default={default_max_tokens})")
-    
-    try:
-        return _post_chat_completion(
-            base_url=base_url,
-            model=model,
-            messages=messages,
-            response_format=response_format,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
-    except Exception as e:
-        err_str = str(e)
-        if "max_tokens" in err_str or "context length" in err_str or "400" in err_str or "token" in err_str:
-            print(f"    [WARNING] LLM call failed with context/token limit error: {e}. Retrying with clamped max_tokens...")
-            
-            match = re.search(r"request has (\d+) input tokens", err_str)
-            if match:
-                actual_input = int(match.group(1))
-                max_tokens = max(256, max_context - actual_input - 100)
-            else:
-                max_tokens = 512
-                
-            print(f"    [INFO] Retrying with max_tokens={max_tokens}")
-            return _post_chat_completion(
-                base_url=base_url,
-                model=model,
-                messages=messages,
-                response_format=response_format,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-        else:
-            raise e
+    print(f"    [LLM] Requesting completion stage={stage} input={estimated_input} max_tokens={max_tokens} attempts={attempts}")
 
-TTS_ENDPOINT = os.environ.get("VERTEX_TTS_ENDPOINT_ID", "http://35.238.33.238:8081")
-TTS_VOICE = os.environ.get("TTS_VOICE", "ref_srk")
+    def request_once():
+        nonlocal max_tokens
+        try:
+            return _post_chat_completion(base_url, model, messages, response_format, temperature, max_tokens)
+        except Exception as exc:
+            err_str = str(exc)
+            if "max_tokens" in err_str or "context length" in err_str or "token" in err_str:
+                match = re.search(r"request has (\d+) input tokens", err_str)
+                max_tokens = max(256, max_context - int(match.group(1)) - 100) if match else 512
+                print(f"    [LLM] Clamped max_tokens to {max_tokens} for next attempt")
+            raise
+
+    return retry(
+        request_once, course_id=course_id, stage=stage, attempts=attempts, module_number=module_number,
+    )
+
+TTS_ENDPOINT = os.environ.get("VERTEX_TTS_ENDPOINT_ID", "https://1im21wznqx5zn4-8081.proxy.runpod.net")
+TTS_VOICE = os.environ.get("TTS_VOICE", "Ryan")
+TTS_SPEED = float(os.environ.get("TTS_SPEED", "0.9"))
+# The generated narration is intentionally 0.9x.  Player controls expose this
+# mastered pace as the learner-facing 1x baseline.
+SLIDE_TRANSITION_PAUSE_SECONDS = float(os.environ.get("SLIDE_TRANSITION_PAUSE_SECONDS", "1.0"))
 
 VOICE_TRANSCRIPTS = {
+    "ref_tejas": "hello my name is Tejas and I am interning at Phillip Capital in the AI labs department.",
     "ref_srk": "I was born in a refugee colony in the capital city of India, New Delhi, and my father was a freedom fighter.",
     "ref_nitin": "mutual funds in an actual are professionally managed investments, wearing a money is pooled and invested across different markets by experts. No daily tracking, no stocks speaking, no asset allocation stress.",
     "ref_shreya": "We all work hard to earn and save while trying to do the right thing with money. Yet it never seems to grow the way we expect."

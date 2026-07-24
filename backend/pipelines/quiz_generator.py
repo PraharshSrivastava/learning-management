@@ -8,7 +8,7 @@ from pipelines.config import get_llm_endpoint, DRAFT_COURSES_FILE, safe_chat_com
 from pipelines.prompts import QUIZ_GENERATION_PROMPT
 from core.io_utils import atomic_write_json
 
-QUIZ_GENERATION_RETRIES = 3
+QUIZ_GENERATION_ATTEMPTS = 3
 
 
 # -------------------------------------------------------
@@ -72,9 +72,24 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
             continue
 
         if not module_text.strip():
-            print(f"  [WARNING] Module '{module_title}' has no text content. Skipping.")
-            module.pop("quiz", None)
-            continue
+            message = f"Module '{module_title}' has no source text; quiz generation cannot continue."
+            print(f"  [QUIZ][ERROR] {message}")
+            module["quiz_generation_error"] = message
+            courses[course_idx] = course
+            save_all_courses(courses, "draft")
+            raise RuntimeError(message)
+
+        existing_questions = module.get("quiz", {}).get("questions", []) if isinstance(module.get("quiz"), dict) else []
+        if len(existing_questions) == num_q:
+            valid_existing = all(
+                isinstance(question, dict)
+                and {str(option.get("key", "")).strip().upper() for option in question.get("options", [])} == {"A", "B", "C", "D"}
+                and str(question.get("correct_option", "")).strip().upper() in {"A", "B", "C", "D"}
+                for question in existing_questions
+            )
+            if valid_existing:
+                print(f"  [QUIZ] Module '{module_title}' already has a valid quiz; skipping checkpoint resume work.")
+                continue
 
         print(f"  Generating quiz for Module '{module_title}' ({num_q} questions, difficulty={difficulty})...")
 
@@ -87,12 +102,12 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
         )
 
         last_error = None
-        for attempt in range(QUIZ_GENERATION_RETRIES + 1):
+        for attempt in range(1, QUIZ_GENERATION_ATTEMPTS + 1):
             try:
-                if attempt > 0:
+                if attempt > 1:
                     print(
                         f"    [RETRY] Retrying quiz generation for module "
-                        f"'{module_title}' ({attempt}/{QUIZ_GENERATION_RETRIES})..."
+                        f"'{module_title}' ({attempt}/{QUIZ_GENERATION_ATTEMPTS})..."
                     )
 
                 response = safe_chat_completion(
@@ -111,10 +126,20 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
                     },
                     temperature=0.2,
                     default_max_tokens=4096,
+                    course_id=course_id,
+                    stage="quiz",
+                    module_number=module.get("module_number", i + 1),
+                    attempts=1,
                 )
 
                 raw_content = response.choices[0].message.content
                 parsed = ModuleQuiz.model_validate_json(raw_content)
+                if len(parsed.questions) != num_q:
+                    raise ValueError(f"Expected {num_q} questions, received {len(parsed.questions)}")
+                for question in parsed.questions:
+                    keys = {option.key.strip().upper() for option in question.options}
+                    if keys != {"A", "B", "C", "D"} or question.correct_option.strip().upper() not in keys:
+                        raise ValueError("Quiz question has invalid A-D options or correct answer")
 
                 module["quiz"] = parsed.model_dump()
                 module.pop("quiz_generation_error", None)
@@ -125,16 +150,18 @@ def generate_quiz_for_course(course_id: str) -> Dict[str, Any]:
                 last_error = e
                 print(
                     f"    [ERROR] Quiz generation attempt "
-                    f"{attempt + 1}/{QUIZ_GENERATION_RETRIES + 1} failed for "
+                    f"{attempt}/{QUIZ_GENERATION_ATTEMPTS} failed for "
                     f"module '{module_title}': {e}"
                 )
         else:
             print(
                 f"    [ERROR] Failed to generate quiz for module '{module_title}' "
-                f"after {QUIZ_GENERATION_RETRIES + 1} attempts."
+                f"after {QUIZ_GENERATION_ATTEMPTS} attempts."
             )
-            module["quiz"] = {"questions": []}
             module["quiz_generation_error"] = str(last_error) if last_error else "Unknown quiz generation error"
+            courses[course_idx] = course
+            save_all_courses(courses, "draft")
+            raise RuntimeError(f"Quiz generation failed for module '{module_title}': {module['quiz_generation_error']}")
 
     course["modules"] = modules
     courses[course_idx] = course

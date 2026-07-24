@@ -39,8 +39,8 @@ graph TD
     end
 
     subgraph ModelEndpoints [Model & Service Endpoints]
-        LLM_QWEN[Qwen/Qwen3-8B Model]
-        LLM_GEMMA[google/gemma-4-E4B-it Model]
+        LLM_GEMMA[gemma-4-e4b Chat Model]
+        IMG_ERNIE[ernie-image Image Model]
         TTS_F5[F5-TTS Endpoint]
         TTS_G[Google Translate TTS Fallback]
     end
@@ -51,8 +51,8 @@ graph TD
     GEN -->|Writes media files| DIR_ASSETS
     EXT -->|Saves extracted images| DIR_ASSETS
 
-    PL -->|LLM Prompts: Blueprint, Lessons, Refiner, Quiz, Image Map| LLM_QWEN
-    PL -->|LLM Prompts: Slide Planner, Script Gen| LLM_GEMMA
+    PL -->|Chat prompts: Blueprint, Lessons, Refiner, Quiz, Image Map, Slide Planner, Script Gen| LLM_GEMMA
+    PL -->|Thumbnail generation| IMG_ERNIE
     PL -->|TTS Request: ref_srk voice| TTS_F5
     PL -->|TTS Request: Fallback| TTS_G
 ```
@@ -71,7 +71,7 @@ flowchart TD
     subgraph Step1 [Step 1: Course Blueprint Generation]
         save_pdf --> extract_text[Extract text & metadata with pdfplumber]
         extract_text --> normalise_text[Normalise sentences & Number lines]
-        normalise_text --> llm_blueprint[Call Qwen LLM for segmentation: 3-6 modules]
+        normalise_text --> llm_blueprint[Call Gemma chat model for segmentation: 3-6 modules]
         llm_blueprint --> align_headers[Adjust start_lines backward to catch headers]
         align_headers --> extract_imgs[Extract images & captions with PyMuPDF]
         extract_imgs --> assign_imgs[Map images to modules by line number/page]
@@ -80,20 +80,20 @@ flowchart TD
 
     subgraph Step2 [Step 2: Lessons, Refinement & Image Mapping]
         save_outline --> lesson_loop_start{Loop through Modules}
-        lesson_loop_start -->|Module i| llm_lessons[Call Qwen LLM for Lessons + Bullets]
+        lesson_loop_start -->|Module i| llm_lessons[Call Gemma chat model for Lessons + Bullets]
         llm_lessons --> clamp_bullets[Clamp long bullets & Number lessons]
         clamp_bullets --> feed_prior[Feed generated lesson titles as anchor for Module i+1]
         feed_prior --> lesson_loop_next{All Modules processed?}
         lesson_loop_next -->|No| lesson_loop_start
-        lesson_loop_next -->|Yes| refine_bullets[Call Qwen LLM for Holistic Bullet Refinement]
+        lesson_loop_next -->|Yes| refine_bullets[Call Gemma chat model for Holistic Bullet Refinement]
         refine_bullets --> merge_bullets[Merge refined bullets back positionally]
-        merge_bullets --> llm_img_map[Call Qwen LLM for Semantic Image-to-Bullet Mapping]
+        merge_bullets --> llm_img_map[Call Gemma chat model for Semantic Image-to-Bullet Mapping]
         llm_img_map --> save_lessons[Update courses.json]
     end
 
     subgraph Step3 [Step 3: MCQ Quiz Generation]
         save_lessons --> quiz_loop_start{Loop through Modules}
-        quiz_loop_start -->|If num_questions positive| llm_quiz[Call Qwen LLM for MCQ Questions]
+        quiz_loop_start -->|If num_questions positive| llm_quiz[Call Gemma chat model for MCQ Questions]
         llm_quiz --> save_quiz[Save quiz structure to courses.json]
         save_quiz --> quiz_loop_next{All Modules processed?}
         quiz_loop_next -->|No| quiz_loop_start
@@ -102,7 +102,7 @@ flowchart TD
 
     subgraph Step4 [Step 4: Slide Planning & HTML Compilation]
         end_step3 --> slide_loop_start{Loop through Modules}
-        slide_loop_start -->|Module i| llm_slides[Call Gemma LLM for Slide Layout Types]
+        slide_loop_start -->|Module i| llm_slides[Call Gemma chat model for Slide Layout Types]
         llm_slides --> map_topics[Map slide parent topics by bullet text overlap]
         map_topics --> map_slide_imgs[Map slide images by bullet text/caption overlap]
         map_slide_imgs --> compile_html_slides[Compile static HTML slideshow file]
@@ -171,7 +171,7 @@ This section describes every stage of the document processing pipeline, listing 
         2.  **Metadata Extraction**: It checks the first page of the PDF for a metadata table using `page.find_tables()`. If it exists, it parses key-value rows matching `Course Name`, `Course Description`, `Course Objective`, `Course Difficulty`, `Language`, `Target Audience`, and `Course Type`. If no tables are found, it falls back to a regular expression parser (`extract_metadata_programmatically`).
         3.  **Sentence Normalisation**: Double-newlines are temporarily preserved, soft-hyphens are re-joined (e.g. `word-\nword` to `wordword`), whitespace is collapsed, and the body text is divided into sentence-level lines using regex punctuation splits (`.`, `!`, `?`).
         4.  **Line Numbering**: The system prefixes every content line with a distinct tag (e.g. `[LINE 24] This is sentence text.`).
-        5.  **Module Segmentation (LLM Call)**: The first 50,000 characters of numbered lines are sent to the Qwen LLM (`Qwen/Qwen3-8B`) at the Qwen endpoint. The model returns a structured JSON list conforming to `ModuleListSchema`, specifying the `title` and starting line number (`start_line` as an integer) for each of the 3-6 modules.
+        5.  **Module Segmentation (LLM Call)**: The first 50,000 characters of numbered lines are sent to the Gemma chat model (`gemma-4-e4b`) through the LiteLLM gateway. The model returns a structured JSON list conforming to `ModuleListSchema`, specifying the `title` and starting line number (`start_line` as an integer) for each of the 3-6 modules.
         6.  **Header Alignment**: To prevent section titles from being split from their body content, the code scans backward up to 5 lines from the LLM-returned start line. If it detects a matching title tag, step number, or ROMAN numeral indicator, it adjusts the `start_line` backward to capture the header.
         7.  **Text Slicing**: Slices the original text lines array using the adjusted start lines. Module $N$ represents lines $start\_line_N$ through $start\_line_{N+1} - 1$.
         8.  **Image Extraction**: PyMuPDF (`fitz`) opens the document, extracting embedded images along with coordinates (`bbox`). Captions are resolved by checking the closest text block below the image. If the image sits at the bottom of the page, the top text block of the next page is used as a fallback.
@@ -192,13 +192,13 @@ This section describes every stage of the document processing pipeline, listing 
         1.  **Lesson Extraction (Module Loop)**:
             *   Loops through modules sequentially.
             *   Forms a prompt containing the module title, module text, and all lesson titles generated in previous modules.
-            *   Calls Qwen LLM using the `LESSON_EXTRACTION_PROMPT`. The previous lesson titles act as a style anchor, forcing the model to write consistent, outcome-focused titles and fact-based bullets.
+            *   Calls the Gemma chat model using the `LESSON_EXTRACTION_PROMPT`. The previous lesson titles act as a style anchor, forcing the model to write consistent, outcome-focused titles and fact-based bullets.
             *   Post-processes the response to clamp long bullets (>25 words) to 20 words and number lessons sequentially.
         2.  **Holistic Bullet Refinement (Single Call)**:
             *   Aggregates all module lessons and bullets across the course.
-            *   Calls Qwen LLM using `BULLET_REFINEMENT_PROMPT`. The model rephrases, consolidates, or splits bullets to achieve a standard length (~7 words) and unified author voice.
+            *   Calls the Gemma chat model using `BULLET_REFINEMENT_PROMPT`. The model rephrases, consolidates, or splits bullets to achieve a standard length (~7 words) and unified author voice.
         3.  **Image-to-Lesson Mapping (Semantic Loop)**:
-            *   Loops through modules. If a module has images, it passes their details and refined bullets to Qwen LLM using `IMAGE_LESSON_MAPPING_PROMPT`.
+            *   Loops through modules. If a module has images, it passes their details and refined bullets to the Gemma chat model using `IMAGE_LESSON_MAPPING_PROMPT`.
             *   Maps image IDs to specific bullet indices. If any image remains unmapped, it maps it to Lesson 1 as a fallback.
 
 ---
@@ -211,9 +211,9 @@ This section describes every stage of the document processing pipeline, listing 
     *   **File**: [quiz_generator.py](file:///c:/Users/LPUSER/Desktop/LMS/backend/pipelines/quiz_generator.py#L32-L128)
     *   **Function**: [generate_quiz_for_course](file:///c:/Users/LPUSER/Desktop/LMS/backend/pipelines/quiz_generator.py#L32)
     *   **Process Flow**:
-        *   Loops through modules. If `num_questions` is greater than 0, it calls Qwen LLM with `QUIZ_GENERATION_PROMPT`.
+        *   Loops through modules. If `num_questions` is greater than 0, it calls the Gemma chat model with `QUIZ_GENERATION_PROMPT`.
         *   Supplies the course difficulty (Easy, Medium, Hard) and the module text content.
-        *   Qwen generates exactly `num_questions` MCQs, each with options A, B, C, D, the correct key, and a detailed explanation of why the correct option is right and the others are wrong.
+        *   Gemma generates exactly `num_questions` MCQs, each with options A, B, C, D, the correct key, and a detailed explanation of why the correct option is right and the others are wrong.
 
 ---
 
@@ -229,7 +229,7 @@ This section describes every stage of the document processing pipeline, listing 
         *   [slides_generator.py](file:///c:/Users/LPUSER/Desktop/LMS/backend/pipelines/slides_generator.py#L7-L316) (`generate_html_slides_for_module()`)
     *   **Process Flow**:
         1.  **Slide Planning (LLM Call)**:
-            *   Loops through modules. Calls the Gemma LLM (`google/gemma-4-E4B-it`) using `SLIDE_PLANNER_PROMPT`.
+            *   Loops through modules. Calls the Gemma chat model (`gemma-4-e4b`) using `SLIDE_PLANNER_PROMPT`.
             *   Structures lesson bullets into visual templates:
                 *   `concept`: Renders a term, formal definition, and key takeaways banner. The slide title is hidden in this layout.
                 *   `steps`: Renders a horizontal, sequential timeline card row.
@@ -348,18 +348,18 @@ To help estimate compute requirements, here is the breakdown of API calls made f
 
 | Step | Operation | Target Model | API Calls |
 | :--- | :--- | :--- | :--- |
-| **Step 1** | Blueprint (Segmentation) | **Qwen3-8B** | $1$ call |
-| **Step 2** | Lesson Extraction | **Qwen3-8B** | $M$ calls (1 per module) |
-| **Step 2** | Bullet Refinement | **Qwen3-8B** | $1$ call (holistic course pass) |
-| **Step 2** | Image Mapping | **Qwen3-8B** | $M_{img}$ calls (1 per module containing images) |
-| **Step 3** | Quiz Generation | **Qwen3-8B** | $M_{quiz}$ calls (1 per module where `num_questions > 0`) |
-| **Step 4** | Slide Planning | **Gemma-4** | $M$ calls (1 per module) |
-| **Step 5** | Script Generation | **Gemma-4** | $M$ calls (1 per module) |
+| **Step 1** | Blueprint (Segmentation) | **gemma-4-e4b** | $1$ call |
+| **Step 2** | Lesson Extraction | **gemma-4-e4b** | $M$ calls (1 per module) |
+| **Step 2** | Bullet Refinement | **gemma-4-e4b** | $1$ call (holistic course pass) |
+| **Step 2** | Image Mapping | **gemma-4-e4b** | $M_{img}$ calls (1 per module containing images) |
+| **Step 3** | Quiz Generation | **gemma-4-e4b** | $M_{quiz}$ calls (1 per module where `num_questions > 0`) |
+| **Step 4** | Slide Planning | **gemma-4-e4b** | $M$ calls (1 per module) |
+| **Step 5** | Script Generation | **gemma-4-e4b** | $M$ calls (1 per module) |
 
 #### Call Counts Formula Summary:
 *   **Total LLM Calls**: $2 + 3M + M_{img} + M_{quiz}$ (maximum of $2 + 5M$ calls if all modules contain images and quiz questions)
-*   **Qwen Calls**: $2 + M + M_{img} + M_{quiz}$
-*   **Gemma Calls**: $2M$
+*   **Gemma chat calls**: $2 + 3M + M_{img} + M_{quiz}$
+*   **Image generation calls**: Course thumbnails use `ernie-image`.
 
 ### Text-To-Speech (TTS) Calls
 

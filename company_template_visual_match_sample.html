@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhillipCapital LMS Slide Template Visual Match</title>
+  <style>
+    :root {
+      --pc-blue: #003383;
+      --pc-blue-dark: #002563;
+      --pc-cyan: #00b8de;
+      --pc-gray: #6f7782;
+      --pc-line: #d9e0ea;
+      --pc-paper: #f6f8fb;
+      --pc-ink: #101820;
+      --pc-white: #ffffff;
+      --font-display: Arial, Helvetica, sans-serif;
+      --font-body: Arial, Helvetica, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #20242b;
+      font-family: var(--font-body);
+      color: var(--pc-ink);
+    }
+
+    .deck {
+      display: grid;
+      gap: 48px;
+      padding: 48px;
+      justify-items: center;
+    }
+
+    .slide {
+      width: 1280px;
+      height: 720px;
+      background: var(--pc-white);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    .brand {
+      position: absolute;
+      left: 48px;
+      top: 34px;
+      color: var(--pc-blue);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .module-tag {
+      position: absolute;
+      right: 48px;
+      top: 40px;
+      color: var(--pc-gray);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .footer-left,
+    .footer-right {
+      position: absolute;
+      bottom: 30px;
+      color: var(--pc-gray);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .footer-left { left: 48px; }
+    .footer-right { right: 48px; }
+
+    .slide-title {
+      margin: 0;
+      color: var(--pc-blue);
+      font-family: var(--font-display);
+      font-size: 48px;
+      line-height: 1.08;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .kicker {
+      color: var(--pc-cyan);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .body-copy {
+      color: var(--pc-ink);
+      font-size: 25px;
+      line-height: 1.36;
+      margin: 0;
+    }
+
+    .small-copy {
+      color: var(--pc-gray);
+      font-size: 19px;
+      line-height: 1.35;
+      margin: 0;
+    }
+
+    .content {
+      position: absolute;
+      left: 72px;
+      right: 72px;
+      top: 108px;
+      bottom: 72px;
+    }
+
+    .content.with-image {
+      display: grid;
+      grid-template-columns: 1fr 430px;
+      gap: 44px;
+      align-items: center;
+    }
+
+    .image-frame {
+      height: 430px;
+      border-radius: 0 42px 0 42px;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(0, 51, 131, 0.92), rgba(0, 184, 222, 0.38)),
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 12px, transparent 12px 24px);
+      box-shadow: 0 16px 48px rgba(0, 51, 131, 0.18);
+      position: relative;
+    }
+
+    .image-frame::before,
+    .image-frame::after {
+      content: "";
+      position: absolute;
+      left: 54px;
+      height: 16px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .image-frame::before {
+      top: 88px;
+      width: 250px;
+    }
+
+    .image-frame::after {
+      top: 136px;
+      width: 318px;
+      opacity: 0.75;
+    }
+
+    .title-cover {
+      background:
+        linear-gradient(90deg, var(--pc-blue) 0 47%, transparent 47%),
+        var(--pc-white);
+    }
+
+    .title-cover .brand,
+    .title-cover .module-tag {
+      color: var(--pc-white);
+    }
+
+    .title-cover .title-block {
+      position: absolute;
+      left: 72px;
+      top: 150px;
+      width: 500px;
+      color: var(--pc-white);
+    }
+
+    .title-cover h1 {
+      margin: 0 0 26px;
+      color: var(--pc-white);
+      font-size: 64px;
+      line-height: 0.98;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .title-cover p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.86);
+      font-size: 26px;
+      line-height: 1.3;
+    }
+
+    .title-cover .image-frame {
+      position: absolute;
+      right: 72px;
+      top: 112px;
+      width: 548px;
+      height: 488px;
+    }
+
+    .bullets-list {
+      margin: 34px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 20px;
+      max-width: 980px;
+    }
+
+    .bullets-list li {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 16px;
+      font-size: 28px;
+      line-height: 1.28;
+      color: var(--pc-ink);
+    }
+
+    .bullets-list li::before {
+      content: "";
+      width: 12px;
+      height: 12px;
+      margin-top: 12px;
+      border-radius: 50%;
+      background: var(--pc-cyan);
+      box-shadow: 0 0 0 7px rgba(0, 184, 222, 0.14);
+    }
+
+    .concept-slide {
+      background: var(--pc-paper);
+    }
+
+    .concept-band {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 290px;
+      background: var(--pc-blue);
+    }
+
+    .concept-mark {
+      position: absolute;
+      left: 72px;
+      top: 180px;
+      color: rgba(255, 255, 255, 0.17);
+      font-size: 156px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .concept-content {
+      position: absolute;
+      left: 360px;
+      right: 96px;
+      top: 122px;
+    }
+
+    .concept-content.with-image {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 42px;
+      align-items: center;
+      right: 72px;
+    }
+
+    .takeaway-row {
+      display: flex;
+      gap: 18px;
+      margin-top: 38px;
+    }
+
+    .takeaway {
+      flex: 1;
+      background: var(--pc-white);
+      border-top: 6px solid var(--pc-cyan);
+      padding: 20px 22px;
+      min-height: 112px;
+      box-shadow: 0 10px 28px rgba(0, 51, 131, 0.08);
+    }
+
+    .takeaway strong {
+      display: block;
+      color: var(--pc-blue);
+      font-size: 18px;
+      margin-bottom: 7px;
+    }
+
+    .takeaway span {
+      color: var(--pc-gray);
+      font-size: 18px;
+      line-height: 1.3;
+    }
+
+    .process-head {
+      max-width: 880px;
+    }
+
+    .process-track {
+      position: absolute;
+      left: 86px;
+      right: 86px;
+      top: 426px;
+      height: 4px;
+      background: var(--pc-line);
+    }
+
+    .process-items {
+      position: absolute;
+      left: 72px;
+      right: 72px;
+      top: 350px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 28px;
+    }
+
+    .process-item {
+      position: relative;
+      padding-top: 96px;
+    }
+
+    .process-dot {
+      position: absolute;
+      top: 58px;
+      left: 0;
+      width: 30px;
+      height: 30px;
+      background: var(--pc-blue);
+      border: 7px solid var(--pc-white);
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px var(--pc-cyan);
+      z-index: 1;
+    }
+
+    .process-item h3 {
+      color: var(--pc-blue);
+      font-size: 25px;
+      margin: 0 0 9px;
+    }
+
+    .process-item p {
+      color: var(--pc-gray);
+      font-size: 20px;
+      line-height: 1.34;
+      margin: 0;
+    }
+
+    .process-with-image {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 42px;
+      align-items: center;
+    }
+
+    .process-mini {
+      display: grid;
+      gap: 16px;
+      margin-top: 30px;
+    }
+
+    .process-mini-item {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .process-mini-num {
+      width: 42px;
+      height: 42px;
+      background: var(--pc-blue);
+      color: var(--pc-white);
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      font-weight: 800;
+    }
+
+    .pillar-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+      margin-top: 34px;
+    }
+
+    .pillar-grid.two {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .pillar {
+      background: var(--pc-white);
+      border: 1px solid var(--pc-line);
+      border-bottom: 7px solid var(--pc-cyan);
+      padding: 28px;
+      min-height: 210px;
+      box-shadow: 0 12px 30px rgba(0, 51, 131, 0.08);
+    }
+
+    .pillar h3 {
+      color: var(--pc-blue);
+      font-size: 26px;
+      line-height: 1.1;
+      margin: 0 0 14px;
+    }
+
+    .pillar p {
+      color: var(--pc-gray);
+      font-size: 20px;
+      line-height: 1.34;
+      margin: 0;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-top: 34px;
+    }
+
+    .compare-card {
+      background: var(--pc-white);
+      border: 1px solid var(--pc-line);
+      box-shadow: 0 12px 30px rgba(0, 51, 131, 0.08);
+    }
+
+    .compare-card h3 {
+      margin: 0;
+      padding: 20px 24px;
+      color: var(--pc-white);
+      background: var(--pc-blue);
+      font-size: 27px;
+    }
+
+    .compare-card:nth-child(2) h3 {
+      background: var(--pc-blue-dark);
+    }
+
+    .compare-card ul {
+      margin: 0;
+      padding: 24px 28px;
+      list-style: none;
+      display: grid;
+      gap: 16px;
+    }
+
+    .compare-card li {
+      display: grid;
+      grid-template-columns: 16px 1fr;
+      gap: 12px;
+      color: var(--pc-ink);
+      font-size: 21px;
+      line-height: 1.3;
+    }
+
+    .compare-card li::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-top: 10px;
+      border-radius: 50%;
+      background: var(--pc-cyan);
+    }
+
+    .comparison-with-image {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 36px;
+      align-items: center;
+    }
+
+    .sample-note {
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #111;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+  </style>
+</head>
+<body>
+  <div class="sample-note">Open this file in browser. Scroll to view all template samples.</div>
+  <main class="deck">
+    <section class="slide title-cover">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Title Cover</div>
+      <div class="title-block">
+        <h1>Introduction to Artificial Intelligence</h1>
+        <p>A clean company-style opening slide for every generated course module.</p>
+      </div>
+      <div class="image-frame"></div>
+      <div class="footer-left">LMS Template</div>
+      <div class="footer-right">01 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Bullets</div>
+      <div class="content">
+        <div class="kicker">Core Ideas</div>
+        <h2 class="slide-title">Use this layout when a slide needs direct explanation.</h2>
+        <ul class="bullets-list">
+          <li>Keep every point short enough to read while narration plays.</li>
+          <li>Use strong spacing and company-blue hierarchy instead of decorative cards.</li>
+          <li>Best for definitions, principles, rules, and checklist-like learning content.</li>
+        </ul>
+      </div>
+      <div class="footer-left">Bullets without image</div>
+      <div class="footer-right">02 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Bullets + Image</div>
+      <div class="content with-image">
+        <div>
+          <div class="kicker">Image-Aware</div>
+          <h2 class="slide-title">Pair concise points with one supporting visual.</h2>
+          <ul class="bullets-list">
+            <li>The visual receives a large branded frame.</li>
+            <li>The text column stays readable and uncluttered.</li>
+            <li>Works well for screenshots and source-document images.</li>
+          </ul>
+        </div>
+        <div class="image-frame"></div>
+      </div>
+      <div class="footer-left">Bullets with image</div>
+      <div class="footer-right">03 / 11</div>
+    </section>
+
+    <section class="slide concept-slide">
+      <div class="concept-band"></div>
+      <div class="concept-mark">01</div>
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Concept</div>
+      <div class="concept-content">
+        <div class="kicker">Key Concept</div>
+        <h2 class="slide-title">Artificial intelligence is a system capability, not a single tool.</h2>
+        <p class="body-copy">This layout gives one important idea room to breathe. It replaces the old concept card treatment with a stronger company-deck style.</p>
+        <div class="takeaway-row">
+          <div class="takeaway"><strong>Use For</strong><span>Definitions, principles, and major course terms.</span></div>
+          <div class="takeaway"><strong>Visual Rule</strong><span>One idea, one strong statement, limited supporting text.</span></div>
+        </div>
+      </div>
+      <div class="footer-left">Concept without image</div>
+      <div class="footer-right">04 / 11</div>
+    </section>
+
+    <section class="slide concept-slide">
+      <div class="concept-band"></div>
+      <div class="concept-mark">02</div>
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Concept + Image</div>
+      <div class="concept-content with-image">
+        <div>
+          <div class="kicker">Key Concept</div>
+          <h2 class="slide-title">A visual can anchor the definition.</h2>
+          <p class="body-copy">Use this when a source image, diagram, or screenshot directly explains the central idea.</p>
+        </div>
+        <div class="image-frame"></div>
+      </div>
+      <div class="footer-left">Concept with image</div>
+      <div class="footer-right">05 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Steps</div>
+      <div class="content">
+        <div class="process-head">
+          <div class="kicker">Process</div>
+          <h2 class="slide-title">A process should read left to right without visual noise.</h2>
+        </div>
+        <div class="process-track"></div>
+        <div class="process-items">
+          <div class="process-item"><div class="process-dot"></div><h3>Identify</h3><p>Find the relevant signal or task from the source material.</p></div>
+          <div class="process-item"><div class="process-dot"></div><h3>Evaluate</h3><p>Check the risk, context, and decision criteria.</p></div>
+          <div class="process-item"><div class="process-dot"></div><h3>Act</h3><p>Apply the recommended workflow or policy step.</p></div>
+          <div class="process-item"><div class="process-dot"></div><h3>Review</h3><p>Confirm the outcome and capture exceptions.</p></div>
+        </div>
+      </div>
+      <div class="footer-left">Steps without image</div>
+      <div class="footer-right">06 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Steps + Image</div>
+      <div class="content process-with-image">
+        <div>
+          <div class="kicker">Process</div>
+          <h2 class="slide-title">Use a compact process beside a screenshot.</h2>
+          <div class="process-mini">
+            <div class="process-mini-item"><div class="process-mini-num">1</div><p class="small-copy"><strong>Scan:</strong> find the field or metric that changed.</p></div>
+            <div class="process-mini-item"><div class="process-mini-num">2</div><p class="small-copy"><strong>Decide:</strong> compare it with the required threshold.</p></div>
+            <div class="process-mini-item"><div class="process-mini-num">3</div><p class="small-copy"><strong>Record:</strong> log the action for traceability.</p></div>
+          </div>
+        </div>
+        <div class="image-frame"></div>
+      </div>
+      <div class="footer-left">Steps with image</div>
+      <div class="footer-right">07 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Grid</div>
+      <div class="content">
+        <div class="kicker">Pillars</div>
+        <h2 class="slide-title">Use this for independent categories or pillars.</h2>
+        <div class="pillar-grid">
+          <div class="pillar"><h3>Governance</h3><p>Clear ownership, transparent monitoring, and better process control.</p></div>
+          <div class="pillar"><h3>Access</h3><p>Better visibility across users, modules, and learner activity.</p></div>
+          <div class="pillar"><h3>Discipline</h3><p>Repeatable learning flows that reduce missed steps.</p></div>
+        </div>
+      </div>
+      <div class="footer-left">Grid without image</div>
+      <div class="footer-right">08 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Grid + Image</div>
+      <div class="content with-image">
+        <div>
+          <div class="kicker">Pillars</div>
+          <h2 class="slide-title">Two-column grid when image space is needed.</h2>
+          <div class="pillar-grid two">
+            <div class="pillar"><h3>Signal</h3><p>What the learner needs to notice first.</p></div>
+            <div class="pillar"><h3>Action</h3><p>What the learner should do next.</p></div>
+          </div>
+        </div>
+        <div class="image-frame"></div>
+      </div>
+      <div class="footer-left">Grid with image</div>
+      <div class="footer-right">09 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Comparison</div>
+      <div class="content">
+        <div class="kicker">Compare</div>
+        <h2 class="slide-title">Compare behaviors, not just columns.</h2>
+        <div class="compare-grid">
+          <div class="compare-card">
+            <h3>Before</h3>
+            <ul>
+              <li>Manual tracking creates unclear ownership.</li>
+              <li>Progress is difficult to audit.</li>
+              <li>Important exceptions can be missed.</li>
+            </ul>
+          </div>
+          <div class="compare-card">
+            <h3>After</h3>
+            <ul>
+              <li>Each module has visible completion status.</li>
+              <li>Managers can review learning evidence.</li>
+              <li>Exceptions become easier to identify.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-left">Comparison without image</div>
+      <div class="footer-right">10 / 11</div>
+    </section>
+
+    <section class="slide">
+      <div class="brand">PhillipCapital</div>
+      <div class="module-tag">Comparison + Image</div>
+      <div class="content comparison-with-image">
+        <div>
+          <div class="kicker">Compare</div>
+          <h2 class="slide-title">Use a tighter comparison beside visual proof.</h2>
+          <div class="compare-grid">
+            <div class="compare-card">
+              <h3>Risk</h3>
+              <ul><li>Incomplete records</li><li>Low visibility</li></ul>
+            </div>
+            <div class="compare-card">
+              <h3>Control</h3>
+              <ul><li>Tracked learning</li><li>Clear status</li></ul>
+            </div>
+          </div>
+        </div>
+        <div class="image-frame"></div>
+      </div>
+      <div class="footer-left">Comparison with image</div>
+      <div class="footer-right">11 / 11</div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,20 +1,16 @@
 import os
 import json
-import urllib.parse
 import re
-import time
+import subprocess
 import requests
-from typing import List, Dict, Any
+import imageio_ffmpeg
+from typing import List
 from pydantic import BaseModel
 
-from pipelines.config import get_llm_endpoint, safe_chat_completion, BASE_DIR, TTS_ENDPOINT, TTS_VOICE, VOICE_TRANSCRIPTS
+from pipelines.config import get_llm_endpoint, safe_chat_completion, BASE_DIR, TTS_ENDPOINT, TTS_VOICE, TTS_SPEED
 from pipelines.prompts import SCRIPT_GENERATION_PROMPT
+from pipelines.pipeline_runtime import retry
 
-
-# -------------------------------------------------------
-# Pydantic Response Schema
-# Positional lists — order matches input exactly
-# -------------------------------------------------------
 
 class SlideScriptSchema(BaseModel):
     script: str
@@ -24,192 +20,186 @@ class ModuleScriptSchema(BaseModel):
     slides: List[SlideScriptSchema]
 
 
-# -------------------------------------------------------
-# Prompt Builder
-# -------------------------------------------------------
-
-def _build_script_prompt(module_text: str, module: dict, previous_script: str = None) -> str:
-    """
-    Builds the user prompt showing the raw text, the slide structure with layout details,
-    and the optional previous module script for transition continuity.
-    """
+def _build_script_prompt(
+    module_text: str,
+    module: dict,
+    previous_script: str = None,
+    course_context: dict = None,
+) -> str:
+    """Build the original one-call-per-module narration prompt."""
     lines = []
 
     if previous_script:
-        lines.append("=== NARRATION SCRIPT FROM PREVIOUS MODULE (FOR CONTINUITY) ===")
-        lines.append(previous_script)
-        lines.append("==============================================================")
-        lines.append("")
+        lines.extend([
+            "=== NARRATION SCRIPT FROM PREVIOUS MODULE (FOR CONTINUITY) ===",
+            previous_script,
+            "==============================================================",
+            "",
+        ])
 
-    lines.append(f"=== MODULE TITLE: {module.get('title', '')} ===")
-    lines.append("")
-    lines.append("=== RAW MODULE TEXT CONTENT (FOR REFERENCE DETAILS) ===")
-    lines.append(module_text)
-    lines.append("=======================================================")
-    lines.append("")
-    lines.append("=== CURRENT MODULE OUTLINE (SLIDES) ===")
+    if course_context:
+        lines.extend([
+            "=== COURSE AND MODULE CONTEXT ===",
+            f"Course Name: {course_context.get('course_name', '')}",
+            f"Module Number: {course_context.get('module_number', '')} of {course_context.get('total_modules', '')}",
+            f"Current Module Title: {course_context.get('module_title', module.get('title', ''))}",
+            f"Is First Module: {course_context.get('is_first_module', False)}",
+            f"Is Final Module: {course_context.get('is_last_module', False)}",
+            "Use this context to write the module cover narration and the final slide wrap-up.",
+            "=================================",
+            "",
+        ])
 
-    slides = module.get("slides", [])
-    for si, slide in enumerate(slides):
-        layout = slide.get("layout_type", "bullets")
-        layout_str = str(layout).lower().split(".")[-1]
-        lines.append(f"    [SLIDE {si + 1}] Title: {slide.get('slide_title', '')}")
-        lines.append(f"      Layout: {layout_str.upper()}")
-        
-        if layout_str == "concept" and slide.get("concept_data"):
-            data = slide["concept_data"]
-            lines.append(f"      Core Term: {data.get('core_term', '')}")
-            lines.append(f"      Definition: {data.get('definition', '')}")
-            takeaways = data.get("key_takeaways", [])
-            for t in takeaways:
-                lines.append(f"        - Takeaway: {t}")
-        elif layout_str == "steps" and slide.get("steps_data"):
-            data = slide["steps_data"]
-            for step in data.get("steps", []):
-                lines.append(f"      - Step {step.get('step_number')}: {step.get('title', '')} - {step.get('description', '')}")
-        elif layout_str == "comparison" and slide.get("comparison_data"):
-            data = slide["comparison_data"]
-            lines.append(f"      Left Column: {data.get('left_column_title', '')}")
-            for p in data.get("left_column_points", []):
-                lines.append(f"        - {p}")
-            lines.append(f"      Right Column: {data.get('right_column_title', '')}")
-            for p in data.get("right_column_points", []):
-                lines.append(f"        - {p}")
-        elif layout_str == "grid" and slide.get("grid_data"):
-            data = slide["grid_data"]
-            for col in data.get("columns", []):
-                lines.append(f"      - Column '{col.get('header', '')}': {col.get('content', '')}")
+    lines.extend([
+        f"=== MODULE TITLE: {module.get('title', '')} ===",
+        "",
+        "=== SUPPORTING SOURCE TEXT ===",
+        "Use this to enrich the slide narration. Do not narrate it directly or follow it ahead of the slide order.",
+        module_text,
+        "==============================",
+        "",
+        "=== SLIDE-BY-SLIDE PRESENTATION PLAN ===",
+        "Follow this slide order exactly. Each script must sound like the presenter is discussing the slide while it is visible.",
+    ])
+
+    for index, slide in enumerate(module.get("slides", []), start=1):
+        layout = str(slide.get("layout_type", "bullets")).lower().split(".")[-1]
+        if slide.get("is_cover_slide") or layout == "cover":
+            lines.extend([
+                f"    [SLIDE {index}] MODULE COVER",
+                f"      Course: {slide.get('course_name') or (course_context or {}).get('course_name', '')}",
+                f"      Module Title: {slide.get('slide_title') or slide.get('title') or module.get('title', '')}",
+                "      Purpose: Introduce this module before content begins. Do not teach detailed content on this cover slide.",
+            ])
         else:
-            # Fallback to standard bullets
-            bullets = slide.get("bullets_data")
-            if not bullets:
-                bullets = slide.get("bullets", [])
-            for b in bullets:
-                b_text = b if isinstance(b, str) else b.get("text", "")
-                if b_text:
-                    lines.append(f"      - {b_text}")
+            lines.extend([
+                f"    [SLIDE {index}] CONTENT SLIDE",
+                json.dumps(slide, indent=6, ensure_ascii=True),
+            ])
 
-    lines.append("")
-    lines.append("Please output the ModuleScriptSchema JSON containing the spoken script for each slide in order.")
+    lines.extend([
+        "",
+        "Please output the ModuleScriptSchema JSON containing the spoken script for each slide in order.",
+    ])
     return "\n".join(lines)
 
 
-# -------------------------------------------------------
-# Speech Synthesis (TTS) Helper
-# -------------------------------------------------------
+def _apply_tts_speed(output_path: str) -> bool:
+    if abs(TTS_SPEED - 1.0) < 0.001:
+        return True
+    if TTS_SPEED <= 0:
+        print(f"    [TTS][WARNING] Invalid TTS_SPEED={TTS_SPEED}; keeping original audio.")
+        return True
 
-def synthesize_speech_for_slide(text: str, output_path: str, language: str = 'en') -> bool:
-    """
-    Synthesize text into a high-quality speech file.
-    Calls the custom Qwen-TTS clone API endpoint.
-    """
+    temp_path = f"{output_path}.speed.wav"
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-i", output_path,
+        "-filter:a", f"atempo={TTS_SPEED}", temp_path,
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, errors="ignore")
+    if result.returncode != 0:
+        print(f"    [TTS][WARNING] Could not apply TTS_SPEED={TTS_SPEED}: {result.stderr}")
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return False
+    os.replace(temp_path, output_path)
+    print(f"    [TTS] Applied playback speed factor {TTS_SPEED}.")
+    return True
+
+
+def synthesize_speech_for_slide(text: str, output_path: str, language: str = "English") -> bool:
     text = text.strip()
     if not text:
         return False
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    # 1. Clean script text for TTS engine
-    cleaned_text = re.sub(r'<[^>]+>', '', text)
-    cleaned_text = cleaned_text.replace('\\', "'").replace('"', "'")
-    cleaned_text = re.sub(r'\b[A-Z]{2,}\b', lambda match: ' '.join(match.group(0)), cleaned_text)
+    cleaned_text = re.sub(r"<[^>]+>", "", text)
+    cleaned_text = cleaned_text.replace("\\", "'").replace('"', "'")
+    cleaned_text = re.sub(r"\b[A-Z]{2,}\b", lambda match: " ".join(match.group(0)), cleaned_text)
     cleaned_text = cleaned_text.replace("Ltd.", "Limited").replace("Rs ", "Rupees ")
 
-    # 2. Try Qwen-TTS clone engine
-    if TTS_ENDPOINT:
-        voice = TTS_VOICE
-        clone_url = f"{TTS_ENDPOINT.rstrip('/')}/clone"
-        payload = {
-            "voice_name": voice,
-            "text": cleaned_text,
-            "language": "English",
-            "temperature": 0.6,
-            "top_p": 0.95,
-            "top_k": 50
-        }
-        try:
-            print(f"    [TTS] Sending Qwen-TTS clone request using voice '{voice}'...")
-            response = requests.post(
-                clone_url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=600
-            )
-            
-            if response.status_code == 200:
-                with open(output_path, "wb") as f_out:
-                    f_out.write(response.content)
-                print(f"    [TTS][SUCCESS] Synthesized Qwen-TTS speech saved to: {output_path}")
-                return True
-            else:
-                print(f"    [TTS][ERROR] Qwen-TTS endpoint returned error {response.status_code}: {response.text}")
-        except Exception as e:
-            print(f"    [TTS][ERROR] Failed to connect to Qwen-TTS: {e}")
+    if not TTS_ENDPOINT:
+        return False
 
-    return False
+    voice = TTS_VOICE
+    is_cloned_voice = voice.lower().startswith("ref_")
+    if is_cloned_voice:
+        tts_url = f"{TTS_ENDPOINT.rstrip('/')}/clone"
+        payload = {"text": cleaned_text, "voice_name": voice}
+    else:
+        tts_url = f"{TTS_ENDPOINT.rstrip('/')}/tts"
+        payload = {"text": cleaned_text, "language": language, "speaker": voice}
 
+    try:
+        print(f"    [TTS] Sending TTS request using voice '{voice}'...")
+        response = requests.post(tts_url, json=payload, headers={"Content-Type": "application/json"}, timeout=600)
+        if response.status_code != 200:
+            print(f"    [TTS][ERROR] TTS endpoint returned error {response.status_code}: {response.text}")
+            return False
+        with open(output_path, "wb") as audio_file:
+            audio_file.write(response.content)
+        _apply_tts_speed(output_path)
+        print(f"    [TTS][SUCCESS] Synthesized Qwen-TTS speech saved to: {output_path}")
+        return True
+    except Exception as exc:
+        print(f"    [TTS][ERROR] Failed to connect to TTS endpoint: {exc}")
+        return False
 
-# -------------------------------------------------------
-# Core Function — generate script for one module
-# -------------------------------------------------------
 
 def generate_scripts_for_module(
     module_text: str,
     module: dict,
-    previous_script: str = None
+    previous_script: str = None,
+    course_context: dict = None,
 ) -> dict:
-    """
-    Call the LLM to generate slide narration scripts for a single module.
-    Returns the updated module dict with "script" added to each slide.
-    """
+    """Generate one detailed narration script per slide in a single module call."""
     slides = module.get("slides", [])
     if not slides:
-        print(f"  [SCRIPT] No slides found for module '{module.get('title')}' — skipping script generation.")
-        return module
+        raise ValueError(f"No slides found for module '{module.get('title')}'; narration script generation cannot continue.")
 
-    total_slides = len(slides)
-    print(f"  [SCRIPT] Starting script generation: '{module.get('title')}', {total_slides} slides.")
-
-    json_schema = ModuleScriptSchema.model_json_schema()
-    user_message = _build_script_prompt(module_text, module, previous_script)
-
-    try:
+    print(f"  [SCRIPT] Starting script generation: '{module.get('title')}', {len(slides)} slides.")
+    def generate_once():
         base_url, model_name = get_llm_endpoint("scripts")
         response = safe_chat_completion(
             base_url=base_url,
             model=model_name,
             messages=[
                 {"role": "system", "content": SCRIPT_GENERATION_PROMPT},
-                {"role": "user",   "content": user_message},
+                {"role": "user", "content": _build_script_prompt(module_text, module, previous_script, course_context)},
             ],
             response_format={
                 "type": "json_schema",
                 "json_schema": {
                     "name": "ModuleScriptSchema",
-                    "schema": json_schema,
+                    "schema": ModuleScriptSchema.model_json_schema(),
                 },
             },
             temperature=0.2,
             default_max_tokens=2048,
+            course_id=str((course_context or {}).get("course_id") or "unknown"),
+            stage="scripts",
+            module_number=(course_context or {}).get("module_number"),
+            attempts=1,
         )
-        raw_content = response.choices[0].message.content
+        parsed = ModuleScriptSchema.model_validate_json(response.choices[0].message.content)
+        if len(parsed.slides) != len(slides):
+            raise ValueError(f"Expected {len(slides)} slide scripts, received {len(parsed.slides)}")
+        if any(not item.script.strip() for item in parsed.slides):
+            raise ValueError("LLM returned an empty slide script")
+        return parsed
 
-        parsed = ModuleScriptSchema.model_validate_json(raw_content)
+    try:
+        parsed = retry(
+            generate_once,
+            course_id=str((course_context or {}).get("course_id") or "unknown"),
+            stage="scripts",
+            attempts=3,
+            module_number=(course_context or {}).get("module_number"),
+        )
         print(f"  [SCRIPT] LLM successfully returned {len(parsed.slides)} slide scripts.")
-
-        # Match and merge back positionally
-        for si, slide in enumerate(slides):
-            if si >= len(parsed.slides):
-                print(f"    [WARNING] No script slide at index {si}. Using fallback empty script.")
-                slide["script"] = ""
-                continue
-            slide["script"] = parsed.slides[si].script.strip()
-
-    except Exception as e:
-        print(f"  [SCRIPT][ERROR] LLM script generation failed for module '{module.get('title')}': {e}")
-        # Inject empty fallback script for all slides to prevent frontend errors
-        for slide in slides:
-            if "script" not in slide:
-                slide["script"] = ""
-
+        for index, slide in enumerate(slides):
+            slide["script"] = parsed.slides[index].script.strip()
+    except Exception as exc:
+        print(f"  [SCRIPT][ERROR] LLM script generation failed for module '{module.get('title')}': {exc}")
+        raise
     return module
