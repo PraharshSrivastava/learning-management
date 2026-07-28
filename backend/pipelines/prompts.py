@@ -161,19 +161,5 @@ You must follow this exact logical progression in your `chain_of_thought` field 
 Return a JSON object matching the `ArtDirectorResponse` schema.
 """
 
-COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT = """You create text-to-image prompts for corporate e-learning course thumbnails.
-
-You will receive course metadata. Use it to design one attractive image-generation prompt for ERNIE-Image.
-
-The ERNIE-Image prompt you return must describe a visual thumbnail only. It must NOT ask the image model to generate:
-- readable text
-- course names or product names
-- labels, captions, titles, headings, letters, or numbers
-- logos, brand marks, or watermarks
-- document pages, manuals, PDFs, forms, slides, certificates, posters, or book covers
-- UI screenshots, websites, app screens, dashboards, or form interfaces
-
-Do not copy the course name into the prompt. Use the course name and description only to infer the visual concept.
-Describe the subject, visual metaphor, composition, style, color palette, lighting, and mood.
-Return only JSON with one key: prompt.
+COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT = """Read the course name and description. Choose one simple, concrete visual scene that best represents the course. Describe one main subject and a minimal relevant background. Keep it to one short sentence. Do not describe a style, composition, mood, lighting, or camera angle. Do not include text, letters, numbers, logos, brands, watermarks, screens, diagrams, dashboards, or multiple unrelated subjects. Return JSON containing only subject.
 """

@@ -23,7 +23,7 @@ THUMBNAIL_API_KEY = os.environ.get("COURSE_THUMBNAIL_API_KEY", LITELLM_API_KEY)
 THUMBNAIL_CONNECT_TIMEOUT = float(os.environ.get("COURSE_THUMBNAIL_CONNECT_TIMEOUT", "60"))
 THUMBNAIL_READ_TIMEOUT = float(os.environ.get("COURSE_THUMBNAIL_READ_TIMEOUT", "180"))
 THUMBNAIL_DIR = os.path.join(IMAGE_DIR, "course_thumbnails")
-THUMBNAIL_PROMPT_VERSION = "llm-planned-v1"
+THUMBNAIL_PROMPT_VERSION = "single-subject-v2"
 THUMBNAILS_ENABLED = os.environ.get("COURSE_THUMBNAILS_ENABLED", "true").lower() not in {
     "0",
     "false",
@@ -50,7 +50,7 @@ def course_thumbnail_signature(course: dict) -> str:
     return hashlib.sha256(source.encode("utf-8")).hexdigest()[:12]
 
 
-def _extract_prompt_from_llm(content: str) -> Optional[str]:
+def _extract_subject_from_llm(content: str) -> Optional[str]:
     cleaned = content.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
@@ -65,11 +65,18 @@ def _extract_prompt_from_llm(content: str) -> Optional[str]:
             data = json.loads(match.group(0))
         except json.JSONDecodeError:
             return None
-    prompt = data.get("prompt") if isinstance(data, dict) else None
-    if not isinstance(prompt, str):
+    subject = data.get("subject") if isinstance(data, dict) else None
+    if not isinstance(subject, str):
         return None
-    prompt = re.sub(r"\s+", " ", prompt).strip()
-    return prompt or None
+    subject = re.sub(r"\s+", " ", subject).strip(" .")
+    # A bounded scene keeps the image instruction simple even if the planner drifts.
+    if not subject or len(subject) > 160 or not 3 <= len(subject.split()) <= 25:
+        return None
+    return subject
+
+
+def _thumbnail_prompt_from_subject(subject: str) -> str:
+    return f"{subject}. No text or logos."
 
 
 def _planned_thumbnail_prompt(title: str, description: str, course_id: str) -> str:
@@ -89,10 +96,10 @@ def _planned_thumbnail_prompt(title: str, description: str, course_id: str) -> s
         )
         if not response.choices:
             raise ValueError("LLM did not return a thumbnail prompt")
-        planned = _extract_prompt_from_llm(response.choices[0].message.content)
-        if not planned:
-            raise ValueError("LLM thumbnail prompt response was not valid JSON")
-        return planned
+        subject = _extract_subject_from_llm(response.choices[0].message.content)
+        if not subject:
+            raise ValueError("LLM thumbnail subject response was not valid JSON")
+        return _thumbnail_prompt_from_subject(subject)
 
     return retry(plan_once, course_id=course_id, stage="thumbnail_prompt", attempts=3)
 

@@ -18,6 +18,12 @@ def _esc(value) -> str:
         return ""
     return html.escape(str(value), quote=True)
 
+
+def _brand_icon_path(slide_index: int, slot: int = 0) -> str:
+    """Returns one of the line icons extracted from the approved PPT deck."""
+    icon_number = 10 + ((slide_index + slot) % 14)
+    return f"../../brand/icon-{icon_number}.svg"
+
 def generate_html_slides_for_module(
     course_id: str,
     module_index: int,
@@ -60,7 +66,7 @@ def generate_html_slides_for_module(
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="presentation-container">
@@ -74,25 +80,30 @@ def generate_html_slides_for_module(
         layout_type_str = str(layout_type).lower().split(".")[-1]
         slide_imgs = slide.get("image_ids", [])
         
-        # Decide variation: Even indices get V1, Odd indices get V2
+        # Keep the existing alternating V1/V2 behaviour for every layout.
         is_v1 = (slide_idx % 2 == 0)
+        variant_class = "variant-v1" if is_v1 else "variant-v2"
 
         # Determine visual wrapper class based on image count
         img_count = len(slide_imgs)
         has_images = img_count > 0
         body_class = f"slide-body n-{img_count}" if has_images else "slide-body no-image"
 
-        header_html = f"""
-            <div class="slide-header">
-                <div class="eyebrow">{_esc(eyebrow)}</div>
-                <h1 class="slide-title">{_esc(slide_title)}</h1>
-            </div>
-""" if layout_type_str not in {"concept", "cover"} and not slide.get("is_cover_slide") else ""
+        is_cover = layout_type_str == "cover" or slide.get("is_cover_slide")
+        # The source-deck header holds the slide title; layouts must not repeat it.
+        header_html = ""
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
-        <div class="slide" id="slide-{slide_idx}">
-{header_html}            
+        <div class="slide slide--{layout_type_str} {variant_class}{' slide--with-images' if has_images else ' slide--text-only'}" id="slide-{slide_idx}">
+            <header class="brand-header">
+                <div class="brand-slide-title">{_esc(slide_title)}</div>
+                <div class="brand-lockup" aria-label="PhillipCapital Wealth. Across Chapters.">
+                    <div class="brand-name">PhillipCapital</div>
+                    <div class="brand-tagline">Wealth. Across Chapters.</div>
+                </div>
+            </header>
+{header_html}
             <div class="{body_class}">
                 <div class="content-area">
 """)
@@ -100,7 +111,7 @@ def generate_html_slides_for_module(
         # ----------------------------------------------------
         # Render Content Layouts
         # ----------------------------------------------------
-        if layout_type_str == "cover" or slide.get("is_cover_slide"):
+        if is_cover:
             course_name = slide.get("course_name", "")
             total_modules = slide.get("total_modules", "")
             cover_module_num = slide.get("module_number", module_num)
@@ -109,6 +120,7 @@ def generate_html_slides_for_module(
                         <div class="module-cover-course">{_esc(course_name)}</div>
                         <div class="module-cover-kicker">Module {_esc(cover_module_num)}{f" of {_esc(total_modules)}" if total_modules else ""}</div>
                         <h1>{_esc(slide_title)}</h1>
+                        <div class="module-cover-rule"></div>
                     </div>
 """)
 
@@ -127,6 +139,7 @@ def generate_html_slides_for_module(
                 
                 html_content.append(f"""
                     <div class="concept-v1">
+                        <img class="layout-icon concept-icon" src="{_brand_icon_path(slide_idx)}" alt="">
                         <div class="term">{_esc(data.get("core_term", ""))}</div>
                         <div class="def">{_esc(data.get("definition", ""))}</div>
                         {takeaways_html}
@@ -140,6 +153,7 @@ def generate_html_slides_for_module(
                 
                 html_content.append(f"""
                     <div class="concept-v2">
+                        <img class="layout-icon concept-icon" src="{_brand_icon_path(slide_idx)}" alt="">
                         <div class="term">{_esc(data.get("core_term", ""))}</div>
                         <div class="def">{_esc(data.get("definition", ""))}</div>
                         {takeaways_html}
@@ -155,6 +169,7 @@ def generate_html_slides_for_module(
                 for i, step in enumerate(steps):
                     html_content.append(f"""
                         <div class="step-v1-card">
+                            <img class="step-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
                             <div class="step-v1-num">{i+1}</div>
                             <h3>{_esc(step.get("title", ""))}</h3>
                             <p>{_esc(step.get("description", ""))}</p>
@@ -163,12 +178,11 @@ def generate_html_slides_for_module(
                 html_content.append('</div>')
             else:
                 html_content.append('<div class="steps-v2">')
-                colors = ["var(--accent-blue)", "var(--accent-indigo)", "var(--accent-purple)", "var(--accent-teal)"]
                 for i, step in enumerate(steps):
-                    color = colors[i % len(colors)]
                     html_content.append(f"""
-                        <div class="step-v2-row" style="border-left-color: {color};">
+                        <div class="step-v2-row">
                             <div class="step-v2-num">{i+1:02d}</div>
+                            <img class="step-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
                             <div class="step-v2-content">
                                 <h3>{_esc(step.get("title", ""))}</h3>
                                 <p>{_esc(step.get("description", ""))}</p>
@@ -185,7 +199,8 @@ def generate_html_slides_for_module(
                 # Left
                 html_content.append(f"""
                     <div class="comp-v1-card left">
-                        <h2 style="font-size: 24px; text-align: center; margin-bottom: 16px;">{_esc(data.get("left_column_title", ""))}</h2>
+                        <img class="comparison-icon" src="{_brand_icon_path(slide_idx)}" alt="">
+                        <h2>{_esc(data.get("left_column_title", ""))}</h2>
                         <ul class="comp-list">
 """)
                 for pt in data.get("left_column_points", []):
@@ -198,7 +213,8 @@ def generate_html_slides_for_module(
                 # Right
                 html_content.append(f"""
                     <div class="comp-v1-card right">
-                        <h2 style="font-size: 24px; text-align: center; margin-bottom: 16px;">{_esc(data.get("right_column_title", ""))}</h2>
+                        <img class="comparison-icon" src="{_brand_icon_path(slide_idx, 1)}" alt="">
+                        <h2>{_esc(data.get("right_column_title", ""))}</h2>
                         <ul class="comp-list">
 """)
                 for pt in data.get("right_column_points", []):
@@ -235,11 +251,10 @@ def generate_html_slides_for_module(
                 # Standard Bento
                 css_class = "grid-v1 grid-4" if len(cols) == 4 else "grid-v1"
                 html_content.append(f'<div class="{css_class}">')
-                colors = ["var(--accent-blue)", "var(--accent-indigo)", "var(--accent-purple)", "var(--accent-teal)"]
                 for i, col in enumerate(cols):
-                    color = colors[i % len(colors)]
                     html_content.append(f"""
-                        <div class="grid-v1-card" style="border-bottom: 4px solid {color};">
+                        <div class="grid-v1-card">
+                            <img class="grid-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
                             <h3>{_esc(col.get("header", ""))}</h3>
                             <p>{_esc(col.get("content", ""))}</p>
                         </div>
@@ -252,6 +267,7 @@ def generate_html_slides_for_module(
                     if i == 0:
                         html_content.append(f"""
                             <div class="grid-v2-card grid-v2-hero">
+                                <img class="grid-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
                                 <h3>{_esc(col.get("header", ""))}</h3>
                                 <p>{_esc(col.get("content", ""))}</p>
                             </div>
@@ -259,6 +275,7 @@ def generate_html_slides_for_module(
                     else:
                         html_content.append(f"""
                             <div class="grid-v2-card">
+                                <img class="grid-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
                                 <h3>{_esc(col.get("header", ""))}</h3>
                                 <p>{_esc(col.get("content", ""))}</p>
                             </div>
@@ -274,14 +291,14 @@ def generate_html_slides_for_module(
                 bullets = slide.get("content", [])
                 
             if is_v1:
-                html_content.append('<ul class="bullets-v1">')
+                html_content.append(f'<div class="bullets-icon-panel"><img class="layout-icon" src="{_brand_icon_path(slide_idx)}" alt=""></div><ul class="bullets-v1">')
                 for b in bullets:
                     b_text = b if isinstance(b, str) else b.get("text", "")
                     if b_text:
                         html_content.append(f'<li>{_esc(b_text)}</li>')
                 html_content.append('</ul>')
             else:
-                html_content.append('<ul class="bullets-v2">')
+                html_content.append(f'<div class="bullets-icon-panel"><img class="layout-icon" src="{_brand_icon_path(slide_idx)}" alt=""></div><ul class="bullets-v2">')
                 for i, b in enumerate(bullets):
                     b_text = b if isinstance(b, str) else b.get("text", "")
                     if b_text:
@@ -312,27 +329,22 @@ def generate_html_slides_for_module(
 """)
             html_content.append('</div>')
 
-        html_content.append("""
+        html_content.append(f"""
             </div>
+            <footer class="brand-footer">
+                <div class="footer-rule"></div>
+                <span class="footer-page">{slide_idx + 1}</span>
+            </footer>
         </div>
 """)
 
     # HTML Footer & JS Script
     html_content.append("""
-        <!-- Slide Controls Overlay -->
-        <div class="controls-overlay">
-            <button class="control-btn prev-btn" onclick="prevSlide()">&larr;</button>
-            <span class="slide-number"></span>
-            <button class="control-btn next-btn" onclick="nextSlide()">&rarr;</button>
-        </div>
     </div>
 
     <script>
         let currentSlide = 0;
         const slides = document.querySelectorAll('.slide');
-        const prevBtn = document.querySelector('.prev-btn');
-        const nextBtn = document.querySelector('.next-btn');
-        const slideNumDisplay = document.querySelector('.slide-number');
 
         function updateSlides() {
             slides.forEach((slide, idx) => {
@@ -342,9 +354,6 @@ def generate_html_slides_for_module(
                     slide.classList.remove('active');
                 }
             });
-            prevBtn.disabled = currentSlide === 0;
-            nextBtn.disabled = currentSlide === slides.length - 1;
-            slideNumDisplay.textContent = `${currentSlide + 1} / ${slides.length}`;
         }
 
         function nextSlide() {

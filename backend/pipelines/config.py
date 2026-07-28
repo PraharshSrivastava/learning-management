@@ -8,6 +8,9 @@ from pipelines.pipeline_runtime import retry
 LITELLM_BASE_URL = "http://35.238.33.238:4000/v1"
 LITELLM_API_KEY = "sk-test-litellm-gateway"
 CHAT_MODEL_NAME = "gemma-4-e4b"
+# The LiteLLM route for this model advertises an 8,128-token combined
+# prompt-and-completion window.
+CHAT_MODEL_CONTEXT_WINDOW = 8128
 
 # LLM Endpoint Resolver — returns (base_url, model_name) for the given
 # purpose. NOTE: this does NOT return a client object (e.g. not an OpenAI
@@ -75,14 +78,16 @@ def safe_chat_completion(base_url, model, messages, response_format=None, temper
     """
     Wrapper around vLLM direct chat endpoint completions that:
     1. Dynamically estimates input tokens based on message characters.
-    2. Clamps max_tokens to prevent exceeding the model's 32768 context window.
+    2. Clamps max_tokens to prevent exceeding the configured model context window.
     3. Catches bad request errors due to context limit and retries with a lower max_tokens value.
     """
     import re
     total_chars = sum(len(msg.get("content", "")) for msg in messages)
-    estimated_input = int(total_chars / 3.7)
+    # The provider counts the JSON response schema too. This estimate mirrors
+    # its observed tokenisation more closely and reserves 100 tokens for it.
+    estimated_input = int(total_chars / 6.0) + 100
     
-    max_context = 32768
+    max_context = CHAT_MODEL_CONTEXT_WINDOW
     available_tokens = max_context - estimated_input - 150
     max_tokens = min(default_max_tokens, max(256, available_tokens))
     
@@ -95,8 +100,14 @@ def safe_chat_completion(base_url, model, messages, response_format=None, temper
         except Exception as exc:
             err_str = str(exc)
             if "max_tokens" in err_str or "context length" in err_str or "token" in err_str:
-                match = re.search(r"request has (\d+) input tokens", err_str)
-                max_tokens = max(256, max_context - int(match.group(1)) - 100) if match else 512
+                match = re.search(r"(?:request has|prompt contains at least) (\d+) input tokens", err_str)
+                if match:
+                    max_tokens = max(256, max_context - int(match.group(1)) - 100)
+                    print(f"    [LLM] Retrying immediately with max_tokens={max_tokens}")
+                    return _post_chat_completion(
+                        base_url, model, messages, response_format, temperature, max_tokens
+                    )
+                max_tokens = 512
                 print(f"    [LLM] Clamped max_tokens to {max_tokens} for next attempt")
             raise
 
@@ -104,7 +115,7 @@ def safe_chat_completion(base_url, model, messages, response_format=None, temper
         request_once, course_id=course_id, stage=stage, attempts=attempts, module_number=module_number,
     )
 
-TTS_ENDPOINT = os.environ.get("VERTEX_TTS_ENDPOINT_ID", "https://1im21wznqx5zn4-8081.proxy.runpod.net")
+TTS_ENDPOINT = os.environ.get("VERTEX_TTS_ENDPOINT_ID", "https://7ly2ceze0uzno9-8081.proxy.runpod.net")
 TTS_VOICE = os.environ.get("TTS_VOICE", "Ryan")
 TTS_SPEED = float(os.environ.get("TTS_SPEED", "0.9"))
 # The generated narration is intentionally 0.9x.  Player controls expose this

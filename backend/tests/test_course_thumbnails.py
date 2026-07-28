@@ -135,15 +135,12 @@ def test_thumbnail_request_headers_include_bearer_token(monkeypatch):
     }
 
 
-def test_thumbnail_prompt_is_used_directly_from_llm(monkeypatch):
+def test_thumbnail_prompt_is_built_from_one_llm_selected_subject(monkeypatch):
     from pipelines import thumbnail_generator
     from pipelines.prompts import COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT
 
     class FakeMessage:
-        content = (
-            '{"prompt":"Modern corporate learning thumbnail showing abstract CRM workflow '
-            'symbols, customer relationship nodes, subtle blue lighting, polished illustration"}'
-        )
+        content = '{"subject":"a customer service headset on a plain blue background"}'
 
     class FakeChoice:
         message = FakeMessage()
@@ -169,10 +166,8 @@ def test_thumbnail_prompt_is_used_directly_from_llm(monkeypatch):
     prompt = thumbnail_generator._planned_thumbnail_prompt(
         "PhillipX CRM",
         "A user manual for lead management, customer engagement, and sales operations.",
+        "course-1",
     )
 
-    assert prompt == (
-        "Modern corporate learning thumbnail showing abstract CRM workflow "
-        "symbols, customer relationship nodes, subtle blue lighting, polished illustration"
-    )
+    assert prompt == "a customer service headset on a plain blue background. No text or logos."
     assert captured_messages[0]["content"] == COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT
