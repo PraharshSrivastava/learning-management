@@ -24,6 +24,33 @@ def _brand_icon_path(slide_index: int, slot: int = 0) -> str:
     icon_number = 10 + ((slide_index + slot) % 14)
     return f"../../brand/icon-{icon_number}.svg"
 
+
+def _grid_icon_html(slide_index: int, slot: int = 0) -> str:
+    """Wraps a source-deck icon in the exact gradient icon frame treatment."""
+    return (
+        '<span class="grid-icon-frame">'
+        f'<img class="grid-icon" src="{_brand_icon_path(slide_index, slot)}" alt="">'
+        '</span>'
+    )
+
+
+def _step_icon_html(slide_index: int, slot: int = 0) -> str:
+    """Uses the same approved icon tile on the restored card-grid step layout."""
+    return (
+        '<span class="step-icon-frame">'
+        f'<img class="step-icon" src="{_brand_icon_path(slide_index, slot)}" alt="">'
+        '</span>'
+    )
+
+
+def _feature_icon_html(frame_class: str, icon_class: str, slide_index: int, slot: int = 0) -> str:
+    """Creates a non-overlapping, source-style icon tile for content cards."""
+    return (
+        f'<span class="{frame_class}">'
+        f'<img class="{icon_class}" src="{_brand_icon_path(slide_index, slot)}" alt="">'
+        '</span>'
+    )
+
 def generate_html_slides_for_module(
     course_id: str,
     module_index: int,
@@ -62,6 +89,12 @@ def generate_html_slides_for_module(
     <title>{_esc(module_title)} - Slideshow</title>
     <!-- Use local static CSS which will contain our new variations -->
     <link rel="stylesheet" href="../../slides.css">
+    <link rel="stylesheet" href="../../layouts/cover.css">
+    <link rel="stylesheet" href="../../layouts/concept.css">
+    <link rel="stylesheet" href="../../layouts/comparison.css">
+    <link rel="stylesheet" href="../../layouts/bullets.css">
+    <link rel="stylesheet" href="../../layouts/steps.css">
+    <link rel="stylesheet" href="../../layouts/grid.css">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,13 +108,17 @@ def generate_html_slides_for_module(
     # Render each slide
     for slide_idx, slide in enumerate(slides):
         slide_title = slide.get("slide_title") or slide.get("title", "Untitled")
+        title_length = len(slide_title)
+        title_size_class = "brand-slide-title--long" if title_length > 48 else "brand-slide-title--standard"
         eyebrow = slide.get("parent_lesson_topic", f"Module {module_num}")
         layout_type = slide.get("layout_type", "bullets")
         layout_type_str = str(layout_type).lower().split(".")[-1]
         slide_imgs = slide.get("image_ids", [])
         
-        # Keep the existing alternating V1/V2 behaviour for every layout.
-        is_v1 = (slide_idx % 2 == 0)
+        # Production decks alternate variants. Template previews may explicitly
+        # request one variant without adding filler slides.
+        requested_variant = str(slide.get("template_variant", "")).lower()
+        is_v1 = requested_variant != "v2" if requested_variant in {"v1", "v2"} else (slide_idx % 2 == 0)
         variant_class = "variant-v1" if is_v1 else "variant-v2"
 
         # Determine visual wrapper class based on image count
@@ -90,21 +127,22 @@ def generate_html_slides_for_module(
         body_class = f"slide-body n-{img_count}" if has_images else "slide-body no-image"
 
         is_cover = layout_type_str == "cover" or slide.get("is_cover_slide")
+        concept_template_class = " statement" if layout_type_str == "concept" and is_v1 else (" evidence" if layout_type_str == "concept" else "")
         # The source-deck header holds the slide title; layouts must not repeat it.
         header_html = ""
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
-        <div class="slide slide--{layout_type_str} {variant_class}{' slide--with-images' if has_images else ' slide--text-only'}" id="slide-{slide_idx}">
+        <div class="slide slide--{layout_type_str}{' slide--cover' if is_cover else ''} {variant_class}{concept_template_class}{' slide--with-images has-images' if has_images else ' slide--text-only no-images'}" id="slide-{slide_idx}">
             <header class="brand-header">
-                <div class="brand-slide-title">{_esc(slide_title)}</div>
+                <div class="brand-slide-title {title_size_class}">{_esc(slide_title)}</div>
                 <div class="brand-lockup" aria-label="PhillipCapital Wealth. Across Chapters.">
                     <div class="brand-name">PhillipCapital</div>
                     <div class="brand-tagline">Wealth. Across Chapters.</div>
                 </div>
             </header>
 {header_html}
-            <div class="{body_class}">
+            <div class="{body_class} body">
                 <div class="content-area">
 """)
 
@@ -131,156 +169,60 @@ def generate_html_slides_for_module(
                 takeaways = [data["key_takeaway"]]
             takeaways = [t.strip() for t in takeaways if t and t.strip()]
             
-            if is_v1:
-                takeaways_html = ""
-                if takeaways:
-                    pills = "".join([f'<div class="takeaway-pill">{_esc(t)}</div>' for t in takeaways])
-                    takeaways_html = f'<div class="takeaways">{pills}</div>'
-                
-                html_content.append(f"""
-                    <div class="concept-v1">
-                        <img class="layout-icon concept-icon" src="{_brand_icon_path(slide_idx)}" alt="">
-                        <div class="term">{_esc(data.get("core_term", ""))}</div>
-                        <div class="def">{_esc(data.get("definition", ""))}</div>
-                        {takeaways_html}
-                    </div>
-""")
-            else:
-                takeaways_html = ""
-                if takeaways:
-                    pills = "".join([f'<div class="takeaways-text">{_esc(t)}</div>' for t in takeaways])
-                    takeaways_html = f'<div class="takeaways">{pills}</div>'
-                
-                html_content.append(f"""
-                    <div class="concept-v2">
-                        <img class="layout-icon concept-icon" src="{_brand_icon_path(slide_idx)}" alt="">
-                        <div class="term">{_esc(data.get("core_term", ""))}</div>
-                        <div class="def">{_esc(data.get("definition", ""))}</div>
-                        {takeaways_html}
-                    </div>
-""")
+            points_html = '<div class="point-list">' + ''.join(f'<div class="point">{_esc(t)}</div>' for t in takeaways) + '</div>' if takeaways else ''
+            html_content.append(f'<section class="silver-panel {"no-points" if not takeaways else ""}" style="--point-cols:{max(len(takeaways), 1)}"><div class="panel-copy"><div class="panel-title">{_esc(data.get("core_term", ""))}</div><div class="panel-definition">{_esc(data.get("definition", ""))}</div></div><div class="icon-tile"><img src="{_brand_icon_path(slide_idx)}" alt=""></div>{points_html}</section>')
 
         elif layout_type_str == "steps" and slide.get("steps_data"):
             data = slide["steps_data"]
             steps = data.get("steps", [])
-            
+            step_count = min(max(len(steps), 1), 5)
             if is_v1:
-                html_content.append('<div class="steps-v1">')
-                for i, step in enumerate(steps):
-                    html_content.append(f"""
-                        <div class="step-v1-card">
-                            <img class="step-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
-                            <div class="step-v1-num">{i+1}</div>
-                            <h3>{_esc(step.get("title", ""))}</h3>
-                            <p>{_esc(step.get("description", ""))}</p>
-                        </div>
-""")
-                html_content.append('</div>')
+                html_content.append(f'<div class="steps-fit step-cards steps-{step_count}">')
+                for i, step in enumerate(steps[:5]):
+                    html_content.append(f'<section class="step-card"><div class="step-num">{i+1:02d}</div><h3 class="step-title">{_esc(step.get("title", ""))}</h3><p class="step-desc">{_esc(step.get("description", ""))}</p></section>')
             else:
-                html_content.append('<div class="steps-v2">')
-                for i, step in enumerate(steps):
-                    html_content.append(f"""
-                        <div class="step-v2-row">
-                            <div class="step-v2-num">{i+1:02d}</div>
-                            <img class="step-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
-                            <div class="step-v2-content">
-                                <h3>{_esc(step.get("title", ""))}</h3>
-                                <p>{_esc(step.get("description", ""))}</p>
-                            </div>
-                        </div>
-""")
-                html_content.append('</div>')
+                html_content.append(f'<div class="steps-fit step-bands steps-{step_count}" style="--steps:{step_count}">')
+                for i, step in enumerate(steps[:5]):
+                    html_content.append(f'<section class="step-band"><div class="band-num">{i+1:02d}</div><div class="band-copy"><h3 class="band-title">{_esc(step.get("title", ""))}</h3><p class="band-desc">{_esc(step.get("description", ""))}</p></div></section>')
+            html_content.append('</div>')
 
         elif layout_type_str == "comparison" and slide.get("comparison_data"):
             data = slide["comparison_data"]
             
+            left_pts, right_pts = data.get("left_column_points", []), data.get("right_column_points", [])
+            rows = min(max(len(left_pts), len(right_pts), 2), 4)
+            left_title, right_title = _esc(data.get("left_column_title", "")), _esc(data.get("right_column_title", ""))
             if is_v1:
-                html_content.append('<div class="comp-v1">')
-                # Left
-                html_content.append(f"""
-                    <div class="comp-v1-card left">
-                        <img class="comparison-icon" src="{_brand_icon_path(slide_idx)}" alt="">
-                        <h2>{_esc(data.get("left_column_title", ""))}</h2>
-                        <ul class="comp-list">
-""")
-                for pt in data.get("left_column_points", []):
-                    html_content.append(f'<li>{_esc(pt)}</li>')
-                html_content.append('</ul></div>')
-                
-                # VS
-                html_content.append('<div class="vs-circle">VS</div>')
-                
-                # Right
-                html_content.append(f"""
-                    <div class="comp-v1-card right">
-                        <img class="comparison-icon" src="{_brand_icon_path(slide_idx, 1)}" alt="">
-                        <h2>{_esc(data.get("right_column_title", ""))}</h2>
-                        <ul class="comp-list">
-""")
-                for pt in data.get("right_column_points", []):
-                    html_content.append(f'<li>{_esc(pt)}</li>')
-                html_content.append('</ul></div></div>')
-            else:
-                html_content.append(f"""
-                    <div class="comp-v2">
-                        <div class="comp-v2-row header">
-                            <div class="comp-v2-col">{_esc(data.get("left_column_title", ""))}</div>
-                            <div class="comp-v2-col">{_esc(data.get("right_column_title", ""))}</div>
-                        </div>
-""")
-                left_pts = data.get("left_column_points", [])
-                right_pts = data.get("right_column_points", [])
-                max_pts = max(len(left_pts), len(right_pts))
-                
-                for i in range(max_pts):
-                    l_pt = _esc(left_pts[i]) if i < len(left_pts) else "-"
-                    r_pt = _esc(right_pts[i]) if i < len(right_pts) else "-"
-                    html_content.append(f"""
-                        <div class="comp-v2-row">
-                            <div class="comp-v2-col">{l_pt}</div>
-                            <div class="comp-v2-col">{r_pt}</div>
-                        </div>
-""")
+                html_content.append(f'<div class="comparison-fit rows-{rows} compare-matrix" style="--rows:{rows}"><div class="compare-matrix-head"><div></div><div class="side-title">{left_title}</div><div class="side-title">{right_title}</div></div>')
+                for i in range(rows): html_content.append(f'<div class="compare-matrix-row"><div class="row-number">{i+1:02d}</div><div class="compare-cell">{_esc(left_pts[i]) if i < len(left_pts) else "-"}</div><div class="compare-cell">{_esc(right_pts[i]) if i < len(right_pts) else "-"}</div></div>')
                 html_content.append('</div>')
+            else:
+                html_content.append(f'<div class="comparison-fit rows-{rows} compare-lanes" style="--rows:{rows}"><section class="lane-panel left"><div class="lane-title">{left_title}</div>')
+                for i in range(rows): html_content.append(f'<div class="lane-point">{_esc(left_pts[i]) if i < len(left_pts) else "-"}</div>')
+                html_content.append('</section><div class="compare-spine"><div class="spine-vs">VS</div>' + ''.join(f'<div class="spine-dot"><span>{i+1}</span></div>' for i in range(rows)) + f'</div><section class="lane-panel right"><div class="lane-title">{right_title}</div>')
+                for i in range(rows): html_content.append(f'<div class="lane-point">{_esc(right_pts[i]) if i < len(right_pts) else "-"}</div>')
+                html_content.append('</section></div>')
 
         elif layout_type_str == "grid" and slide.get("grid_data"):
             data = slide["grid_data"]
             cols = data.get("columns", [])
+            column_count = min(max(len(cols), 2), 6)
+            density_class = f"count-{column_count}"
+
+            def grid_points_html(column: dict) -> str:
+                points = column.get("points") or []
+                if not points and column.get("content"):
+                    points = [column["content"]]
+                return '<ul class="grid-points">' + ''.join(f'<li>{_esc(point)}</li>' for point in points if point) + '</ul>'
             
-            if is_v1 or len(cols) != 3:
-                # Standard Bento
-                css_class = "grid-v1 grid-4" if len(cols) == 4 else "grid-v1"
-                html_content.append(f'<div class="{css_class}">')
-                for i, col in enumerate(cols):
-                    html_content.append(f"""
-                        <div class="grid-v1-card">
-                            <img class="grid-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
-                            <h3>{_esc(col.get("header", ""))}</h3>
-                            <p>{_esc(col.get("content", ""))}</p>
-                        </div>
-""")
-                html_content.append('</div>')
-            else:
-                # Asymmetric Hero (works best with 3 items)
-                html_content.append('<div class="grid-v2">')
-                for i, col in enumerate(cols):
-                    if i == 0:
-                        html_content.append(f"""
-                            <div class="grid-v2-card grid-v2-hero">
-                                <img class="grid-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
-                                <h3>{_esc(col.get("header", ""))}</h3>
-                                <p>{_esc(col.get("content", ""))}</p>
-                            </div>
-""")
-                    else:
-                        html_content.append(f"""
-                            <div class="grid-v2-card">
-                                <img class="grid-icon" src="{_brand_icon_path(slide_idx, i)}" alt="">
-                                <h3>{_esc(col.get("header", ""))}</h3>
-                                <p>{_esc(col.get("content", ""))}</p>
-                            </div>
-""")
-                html_content.append('</div>')
+            grid_variant = "insight-grid" if is_v1 else "lane-grid"
+            html_content.append(f'<div class="grid-fit"><div class="gallery-grid {grid_variant} {density_class}">')
+            for i, col in enumerate(cols[:6]):
+                if is_v1:
+                    html_content.append(f'<section class="insight-card"><div class="insight-num">{i+1:02d}</div><img class="insight-icon" src="{_brand_icon_path(slide_idx, i)}" alt=""><h3>{_esc(col.get("header", ""))}</h3>{grid_points_html(col)}</section>')
+                else:
+                    html_content.append(f'<section class="lane-card"><div class="lane-num">{i+1:02d}</div><div class="lane-copy"><h3>{_esc(col.get("header", ""))}</h3>{grid_points_html(col)}</div></section>')
+            html_content.append('</div></div>')
                 
         else:
             # Fallback to standard bullets
@@ -289,26 +231,28 @@ def generate_html_slides_for_module(
                 bullets = slide.get("bullets")
             if not bullets:
                 bullets = slide.get("content", [])
+            bullets = [b for b in bullets if b and (isinstance(b, str) or b.get("text", ""))]
+            bullet_count = min(max(len(bullets), 1), 5)
                 
             if is_v1:
-                html_content.append(f'<div class="bullets-icon-panel"><img class="layout-icon" src="{_brand_icon_path(slide_idx)}" alt=""></div><ul class="bullets-v1">')
-                for b in bullets:
+                html_content.append(f'<div class="bullet-fit items-{bullet_count}"><ol class="editorial-list" style="--items:{bullet_count}">')
+                for i, b in enumerate(bullets):
                     b_text = b if isinstance(b, str) else b.get("text", "")
                     if b_text:
-                        html_content.append(f'<li>{_esc(b_text)}</li>')
-                html_content.append('</ul>')
+                        html_content.append(f'<li class="editorial-item"><div class="editorial-index">{i+1:02d}</div><p class="editorial-text">{_esc(b_text)}</p></li>')
+                html_content.append('</ol></div>')
             else:
-                html_content.append(f'<div class="bullets-icon-panel"><img class="layout-icon" src="{_brand_icon_path(slide_idx)}" alt=""></div><ul class="bullets-v2">')
+                html_content.append(f'<div class="bullet-fit items-{bullet_count}"><ol class="numbered-list" style="--items:{bullet_count}">')
                 for i, b in enumerate(bullets):
                     b_text = b if isinstance(b, str) else b.get("text", "")
                     if b_text:
                         html_content.append(f"""
-                            <li>
-                                <div class="bullets-v2-num">{i+1:02d}</div>
-                                <div class="bullets-v2-text">{_esc(b_text)}</div>
+                            <li class="numbered-item">
+                                <div class="numbered-index">{i+1:02d}</div>
+                                <p class="numbered-text">{_esc(b_text)}</p>
                             </li>
 """)
-                html_content.append('</ul>')
+                html_content.append('</ol></div>')
 
         html_content.append('</div>') # end content-area
 
@@ -316,18 +260,18 @@ def generate_html_slides_for_module(
         # Render Visual Asset Area
         # ----------------------------------------------------
         if has_images:
-            html_content.append(f'<div class="visual-area n-{min(img_count, 3)}">')
+            html_content.append(f'<aside class="image-grid count-{min(img_count, 3)}" aria-label="Course source images">')
             for img_id in slide_imgs[:3]: # Cap at 3 for layout safety
                 img_meta = images_by_id.get(img_id)
                 if img_meta:
                     raw_path = img_meta.get("file_path", "")
                     rel_img_path = raw_path.replace("assets/", "../../")
                     html_content.append(f"""
-                        <div class="img-frame">
+                        <div class="image">
                             <img src="{rel_img_path}">
                         </div>
 """)
-            html_content.append('</div>')
+            html_content.append('</aside>')
 
         html_content.append(f"""
             </div>
@@ -354,6 +298,65 @@ def generate_html_slides_for_module(
                     slide.classList.remove('active');
                 }
             });
+            requestAnimationFrame(() => {
+                fitSharedBodyText(slides[currentSlide]);
+                if (document.fonts && document.fonts.ready) {
+                    document.fonts.ready.then(() => fitSharedBodyText(slides[currentSlide]));
+                }
+            });
+        }
+
+        function fitSharedBodyText(slide) {
+            if (!slide || slide.classList.contains('slide--cover')) return;
+            let textSelector = '';
+            let containerSelector = '';
+            let minSize = 11;
+            let maxSize = 24;
+
+            if (slide.classList.contains('slide--grid')) {
+                textSelector = '.grid-points li';
+                containerSelector = '.insight-card, .lane-copy';
+                minSize = slide.classList.contains('has-images') ? 10 : 11;
+                maxSize = slide.classList.contains('has-images') ? 22 : 26;
+            } else if (slide.classList.contains('slide--steps')) {
+                textSelector = '.step-desc, .band-desc';
+                containerSelector = '.step-card, .step-band';
+                minSize = slide.classList.contains('has-images') ? 10 : 11;
+                maxSize = slide.classList.contains('has-images') ? 18 : 22;
+            } else if (slide.classList.contains('slide--comparison')) {
+                textSelector = '.compare-cell, .lane-point';
+                containerSelector = '.comparison-fit';
+                minSize = slide.classList.contains('has-images') ? 10 : 11;
+                maxSize = slide.classList.contains('has-images') ? 18 : 22;
+            } else if (slide.classList.contains('slide--bullets')) {
+                textSelector = '.editorial-text, .numbered-text';
+                containerSelector = '.bullet-fit';
+                minSize = slide.classList.contains('has-images') ? 12 : 14;
+                maxSize = slide.classList.contains('has-images') ? 28 : 34;
+            } else {
+                return;
+            }
+
+            const textNodes = [...slide.querySelectorAll(textSelector)];
+            const containers = [...slide.querySelectorAll(containerSelector)];
+            if (!textNodes.length || !containers.length) return;
+
+            const setSize = size => textNodes.forEach(node => { node.style.fontSize = `${size}px`; });
+            const fits = size => {
+                setSize(size);
+                return containers.every(node => node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1);
+            };
+
+            let low = minSize;
+            let high = maxSize;
+            let best = minSize;
+            while (high - low > 0.2) {
+                const middle = (low + high) / 2;
+                if (fits(middle)) { best = middle; low = middle; }
+                else { high = middle; }
+            }
+            setSize(Math.floor(best * 4) / 4);
+            slide.dataset.sharedBodySize = String(Math.floor(best * 4) / 4);
         }
 
         function nextSlide() {

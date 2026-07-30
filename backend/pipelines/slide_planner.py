@@ -23,7 +23,7 @@ class ModuleSlidesSchema(BaseModel):
     slides: List[SlidePlan] = Field(description="The final arranged slides")
 
 class SlideTitle(BaseModel):
-    title: str = Field(description="A clean, highly descriptive, standalone title for the slide based ONLY on its contents. DO NOT use prefixes like 'Module 1:' or 'Lesson 2:'.")
+    title: str = Field(max_length=60, description="A concise, learner-facing slide title of 4-9 words and no more than 60 characters. Use the module source and this slide's bullets for accuracy. Do not use prefixes like 'Module 1:' or 'Lesson 2:', trailing punctuation, or ellipses.")
 
 class SlideTitlesSchema(BaseModel):
     titles: List[SlideTitle] = Field(description="List of titles corresponding to the input slides in the exact same order.")
@@ -39,7 +39,7 @@ class ImageMappingResult(BaseModel):
 # --- Step 6 Schemas ---
 class ConceptLayoutData(BaseModel):
     core_term: str = Field(description="The main concept or term being defined.")
-    definition: str = Field(description="The definition or explanation of the core term.")
+    definition: str = Field(description="A grounded definition or explanation of the core term. It must contain at least 30 words.")
     key_takeaways: List[str] = Field(description="1 to 3 key takeaways or essential points about this concept.")
 
 class StepItem(BaseModel):
@@ -51,13 +51,13 @@ class StepsLayoutData(BaseModel):
 
 class ComparisonLayoutData(BaseModel):
     left_column_title: str = Field(description="Header for the left column (e.g., 'Pros', 'Before', 'Entity A').")
-    left_column_points: List[str] = Field(description="List of bullet points for the left column.")
+    left_column_points: List[str] = Field(min_length=2, description="At least two matched bullet points for the left column. Each point must contain at least 15 words.")
     right_column_title: str = Field(description="Header for the right column (e.g., 'Cons', 'After', 'Entity B').")
-    right_column_points: List[str] = Field(description="List of bullet points for the right column.")
+    right_column_points: List[str] = Field(min_length=2, description="At least two matched bullet points for the right column. Use the same number of points as the left column; each point must contain at least 15 words.")
 
 class GridColumnItem(BaseModel):
     header: str = Field(description="Header for this grid item.")
-    content: str = Field(description="Text content/description for this grid item.")
+    points: List[str] = Field(description="One or more grounded explanatory points for this grid item. Every point must contain at least 25 words.")
 
 class GridLayoutData(BaseModel):
     columns: List[GridColumnItem] = Field(description="List of independent pillars or categories. Must have 2 to 4 columns.")
@@ -73,6 +73,30 @@ class ArtDirectorSlidePlan(BaseModel):
 class ArtDirectorResponse(BaseModel):
     chain_of_thought: str = Field(description="Step 1: Slide Analysis. Step 2: Relationship Evaluation. Step 3: Layout Selection.")
     slides: List[ArtDirectorSlidePlan] = Field(description="The enhanced slides with assigned layouts and structured data, in the exact same order as the input slides.")
+
+
+def _convert_single_grid_to_concept(slide: Dict[str, Any]) -> bool:
+    """Replace an invalid one-card grid with a concept built from original grouped content."""
+    grid = slide.get("grid_data") or {}
+    columns = grid.get("columns") or []
+    if str(slide.get("layout_type", "")).lower() != "grid" or len(columns) != 1:
+        return False
+
+    column = columns[0] or {}
+    source_points = [str(point).strip() for point in slide.get("content", []) if str(point).strip()]
+    if not source_points:
+        source_points = [str(point).strip() for point in column.get("points", []) if str(point).strip()]
+    if not source_points:
+        return False
+
+    slide["layout_type"] = "concept"
+    slide["concept_data"] = {
+        "core_term": column.get("header") or slide.get("slide_title") or slide.get("title", "Key Concept"),
+        "definition": source_points[0],
+        "key_takeaways": source_points[1:],
+    }
+    slide.pop("grid_data", None)
+    return True
 
 def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict:
     """
@@ -114,7 +138,7 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
         # --- SECOND LLM CALL: SYNTHESIZE TITLES ---
         if parsed.slides:
             print(f"    -> Calling LLM to synthesize titles for {len(parsed.slides)} slides...")
-            titles_prompt = SLIDE_TITLES_PROMPT
+            titles_prompt = SLIDE_TITLES_PROMPT.format(source_text=text_input)
             
             for i, slide in enumerate(parsed.slides):
                 titles_prompt += f"Slide {i+1}:\n"
@@ -246,16 +270,18 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
             slides_text += f" - {b}\n"
         slides_text += "\n"
     
-    prompt = ART_DIRECTOR_PROMPT.format(slides_text=slides_text)
+    source_text = module.get("text", "").strip()
+    prompt = ART_DIRECTOR_PROMPT.format(slides_text=slides_text, source_text=source_text)
     try:
         json_schema = ArtDirectorResponse.model_json_schema()
+        messages = [
+            {"role": "system", "content": "You are a creative and analytical presentation art director."},
+            {"role": "user", "content": prompt}
+        ]
         response = safe_chat_completion(
             base_url=base_url,
             model=model_name,
-            messages=[
-                {"role": "system", "content": "You are a creative and analytical presentation art director."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             response_format={
                 "type": "json_schema",
                 "json_schema": {
@@ -265,11 +291,13 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
                 }
             },
             temperature=0.2,
-            default_max_tokens=4096
+            default_max_tokens=3072
         )
         
-        raw_content = response.choices[0].message.content
-        parsed = ArtDirectorResponse.model_validate_json(raw_content)
+        raw_payload = json.loads(response.choices[0].message.content)
+        for enhanced_slide in raw_payload.get("slides", []):
+            _convert_single_grid_to_concept(enhanced_slide)
+        parsed = ArtDirectorResponse.model_validate(raw_payload)
         
         for i, enhanced_slide in enumerate(parsed.slides):
             if i < len(planned_slides):
@@ -291,6 +319,8 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
                     planned_slides[i]["bullets_data"] = enhanced_slide.bullets
                     planned_slides[i]["content"] = enhanced_slide.bullets
                     planned_slides[i]["bullets"] = enhanced_slide.bullets
+
+                _convert_single_grid_to_concept(planned_slides[i])
 
         module["slides"] = planned_slides
         
@@ -370,6 +400,10 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
                     is_valid = False
                     print(f"Validation failed: Missing grid_data for grid layout in module {mod_copy.get('module_number')}")
                     break
+                if layout == "grid" and len(slide.get("grid_data", {}).get("columns", [])) < 2:
+                    is_valid = False
+                    print(f"Validation failed: One-card grid in module {mod_copy.get('module_number')}")
+                    break
             
             best_module_state = mod_copy
             if is_valid:
@@ -386,6 +420,10 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
             for slide in best_module_state.get("planned_slides", []):
                 content = slide.get("content", [])
                 layout = slide.get("layout_type", "")
+
+                if _convert_single_grid_to_concept(slide):
+                    layout = "concept"
+                    print(f"  -> Forcing 'concept' layout on one-card grid: '{slide.get('title')}'.")
                 
                 if not slide.get("slide_title"):
                     slide["slide_title"] = slide.get("title", "Fallback Title")

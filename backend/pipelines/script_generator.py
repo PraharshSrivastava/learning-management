@@ -7,7 +7,7 @@ import imageio_ffmpeg
 from typing import List
 from pydantic import BaseModel, Field, create_model
 
-from pipelines.config import get_llm_endpoint, safe_chat_completion, BASE_DIR, TTS_ENDPOINT, TTS_VOICE, TTS_SPEED
+from pipelines.config import get_llm_endpoint, safe_chat_completion, BASE_DIR, TTS_ENDPOINT, TTS_VOICE, TTS_TEMPERATURE, TTS_SPEED
 from pipelines.prompts import SCRIPT_GENERATION_PROMPT
 from pipelines.pipeline_runtime import retry
 
@@ -149,18 +149,22 @@ def synthesize_speech_for_slide(text: str, output_path: str, language: str = "En
     if not TTS_ENDPOINT:
         return False
 
+    # Sana is an uploaded clone registered directly on the RunPod TTS service.
     voice = TTS_VOICE
-    is_cloned_voice = voice.lower().startswith("ref_")
-    if is_cloned_voice:
-        tts_url = f"{TTS_ENDPOINT.rstrip('/')}/clone"
-        payload = {"text": cleaned_text, "voice_name": voice}
-    else:
-        tts_url = f"{TTS_ENDPOINT.rstrip('/')}/tts"
-        payload = {"text": cleaned_text, "language": language, "speaker": voice}
+    tts_url = f"{TTS_ENDPOINT.rstrip('/')}/clone"
+    payload = {
+        "voice_name": voice,
+        "text": cleaned_text,
+        "language": language,
+        "temperature": TTS_TEMPERATURE,
+        "top_p": 0.95,
+        "top_k": 50,
+    }
+    headers = {"Content-Type": "application/json"}
 
     try:
         print(f"    [TTS] Sending TTS request using voice '{voice}'...")
-        response = requests.post(tts_url, json=payload, headers={"Content-Type": "application/json"}, timeout=600)
+        response = requests.post(tts_url, json=payload, headers=headers, timeout=600)
         if response.status_code != 200:
             print(f"    [TTS][ERROR] TTS endpoint returned error {response.status_code}: {response.text}")
             return False

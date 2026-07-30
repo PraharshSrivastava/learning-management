@@ -1,0 +1,20 @@
+.bullet-fit { --bullet-size: 21px; --bullet-line: 1.28; --num-size: 30px; height: 100%; }
+.bullet-fit.items-1 { --bullet-size: 30px; }
+.bullet-fit.items-2 { --bullet-size: 25px; }
+.bullet-fit.items-3 { --bullet-size: 22px; }
+.bullet-fit.items-4 { --bullet-size: 19px; }
+.bullet-fit.items-5 { --bullet-size: 17px; }
+.numbered-list, .editorial-list { display: grid; grid-template-rows: repeat(var(--items), minmax(0, 1fr)); height: 100%; margin: 0; padding: 0; list-style: none; }
+.numbered-list { gap: 0; }
+.numbered-item { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; min-width: 0; min-height: 0; overflow: hidden; border-bottom: 1px solid var(--pc-line); }
+.numbered-item:first-child { border-top: 1px solid var(--pc-line); }
+.numbered-index { display: flex; align-items: center; color: var(--pc-primary); font-size: var(--num-size); font-weight: 700; letter-spacing: -.04em; }
+.numbered-text { min-width: 0; margin: 0; padding: 11px 0 11px 4px; color: var(--pc-body); font-size: var(--bullet-size); line-height: var(--bullet-line); font-weight: 500; overflow-wrap: anywhere; }
+.editorial-item { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; min-width: 0; min-height: 0; padding: 10px 0 10px 24px; border-left: 3px solid var(--pc-peach-accent); background: linear-gradient(90deg, rgba(255,255,255,.48), rgba(255,255,255,0)); }
+.editorial-item + .editorial-item { border-top: 1px solid rgba(29,58,120,.20); }
+.editorial-index { color: var(--pc-primary); font-size: var(--num-size); font-weight: 700; letter-spacing: -.04em; }
+.editorial-text { min-width: 0; margin: 0; color: var(--pc-body); font-size: var(--bullet-size); line-height: var(--bullet-line); font-weight: 500; overflow-wrap: anywhere; }
+.slide--with-images .bullet-fit.items-1 { --bullet-size: 24px; }
+.slide--with-images .bullet-fit.items-2 { --bullet-size: 20px; }
+.slide--with-images .bullet-fit.items-3 { --bullet-size: 16px; }
+.slide--with-images .bullet-fit.items-4, .slide--with-images .bullet-fit.items-5 { --bullet-size: 13px; }

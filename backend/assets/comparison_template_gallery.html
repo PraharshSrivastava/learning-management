@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comparison template gallery</title>
+  <link rel="stylesheet" href="slides.css">
+  <style>
+    html, body { width: auto; height: auto; min-height: 100%; overflow: auto; display: block; background: #202a35; }
+    body { color: #fff; font-family: Barlow, Arial, sans-serif; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 18px 16px 12px; }
+    .controls span { margin-left: 8px; color: #d4e0e9; font-size: 14px; font-weight: 600; }
+    button { border: 1px solid rgba(255,255,255,.26); border-radius: 99px; padding: 8px 13px; background: rgba(255,255,255,.08); color: #fff; cursor: pointer; font: 600 14px Barlow, Arial, sans-serif; }
+    button.active { border-color: var(--pc-blue-accent); background: var(--pc-blue-accent); color: var(--pc-deep-navy); }
+    .caption { margin: 0 0 14px; color: #d4e0e9; text-align: center; font-size: 14px; }
+    .frame { width: min(1280px, 100vw); margin: 0 auto 28px; box-shadow: 0 14px 42px rgba(0,0,0,.38); }
+    .slide { position: relative; display: flex; flex-direction: column; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; padding: 20px 58px 18px; background: linear-gradient(100deg, var(--pc-blue-wash) 0%, var(--pc-blue-mid) 52%, var(--pc-peach-wash) 100%); color: var(--pc-body); opacity: 1; }
+    .brand-header { position: relative; display: flex; min-height: 96px; align-items: flex-start; margin: 0 -20px 2px; padding: 41px 20px 0; flex-shrink: 0; }
+    .context { position: relative; max-width: 820px; padding-left: 14px; color: var(--pc-primary); font-size: 24px; line-height: 34px; font-weight: 600; }
+    .context:before { content: ""; position: absolute; top: 2px; bottom: 2px; left: 0; width: 3px; background: var(--pc-primary); }
+    .brand-lockup { position: absolute; top: 28px; right: -38px; width: 216px; color: var(--pc-primary); }
+    .brand-name { height: 34px; padding: 0 8px; font-size: 25px; line-height: 30px; font-weight: 700; text-align: center; }
+    .brand-tagline { height: 26px; padding: 0 10px; background: var(--pc-primary); color: #fff; font-size: 12px; line-height: 26px; font-weight: 500; text-align: center; white-space: nowrap; }
+    .body { position: relative; display: grid; min-height: 0; flex: 1; overflow: hidden; }
+    .slide.has-images .body { grid-template-columns: minmax(0, 1fr) minmax(340px, .62fr); gap: 24px; }
+    .content-area { min-width: 0; min-height: 0; overflow: hidden; }
+    .footer { position: relative; height: 38px; margin: 0 -20px; flex-shrink: 0; }
+    .footer:before { content: ""; position: absolute; top: 12px; left: 20px; right: 22px; height: 1px; background: linear-gradient(90deg, rgba(29,58,120,.64), rgba(245,170,143,.72)); }
+    .page { position: absolute; top: 2px; right: 0; color: var(--pc-primary); font-size: 14px; font-weight: 600; }
+    .image-grid { display: none; min-width: 0; min-height: 0; gap: 10px; padding: 10px; border: 1px solid rgba(255,255,255,.92); border-radius: 16px; background: linear-gradient(100deg, rgba(255,255,255,.52), rgba(255,255,255,.24)); }
+    .has-images .image-grid { display: grid; }
+    .image { min-width: 0; min-height: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.94); background: rgba(255,255,255,.52); }
+    .image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .count-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .count-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+    .count-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    .count-3 .image:first-child { grid-row: span 2; }
+    .comparison-fit { --compare-font: 15px; --compare-line: 1.22; height: 100%; }
+    .comparison-fit.rows-2 { --compare-font: 18px; --compare-line: 1.28; }
+    .comparison-fit.rows-3 { --compare-font: 15px; --compare-line: 1.24; }
+    .comparison-fit.rows-4 { --compare-font: 13px; --compare-line: 1.18; }
+    .comparison-fit.long-text.rows-2 { --compare-font: 16px; --compare-line: 1.22; }
+    .comparison-fit.long-text.rows-3 { --compare-font: 13px; --compare-line: 1.17; }
+    .comparison-fit.long-text.rows-4 { --compare-font: 12.5px; --compare-line: 1.16; }
+    .has-images .comparison-fit.rows-2 { --compare-font: 14px; --compare-line: 1.16; }
+    .has-images .comparison-fit.rows-3 { --compare-font: 11.5px; --compare-line: 1.11; }
+    .has-images .comparison-fit.rows-4 { --compare-font: 9.8px; --compare-line: 1.07; }
+    .has-images .comparison-fit.long-text.rows-2 { --compare-font: 11.5px; --compare-line: 1.1; }
+    .has-images .comparison-fit.long-text.rows-3 { --compare-font: 9px; --compare-line: 1.04; }
+    .has-images .comparison-fit.long-text.rows-4 { --compare-font: 7.7px; --compare-line: 1.02; }
+    .compare-matrix { display: grid; grid-template-rows: 58px repeat(var(--rows), minmax(0, 1fr)); overflow: hidden; border: 1px solid rgba(255,255,255,.92); border-radius: 16px; background: linear-gradient(100deg, rgba(255,255,255,.72), rgba(255,255,255,.30)); }
+    .compare-matrix-head, .compare-matrix-row { display: grid; grid-template-columns: 62px repeat(2, minmax(0, 1fr)); }
+    .compare-matrix-head { background: var(--pc-primary); color: var(--pc-white); }
+    .compare-matrix-head .side-title { display: flex; align-items: center; min-width: 0; padding: 0 26px; font-size: 22px; line-height: 1.05; font-weight: 700; }
+    .has-images .compare-matrix { grid-template-rows: 50px repeat(var(--rows), minmax(0, 1fr)); }
+    .has-images .compare-matrix-head, .has-images .compare-matrix-row { grid-template-columns: 54px repeat(2, minmax(0, 1fr)); }
+    .has-images .compare-matrix-head .side-title { padding: 0 20px; font-size: 19px; }
+    .compare-matrix-head .side-title + .side-title { border-left: 1px solid rgba(255,255,255,.32); }
+    .compare-matrix-row { min-height: 0; border-top: 1px solid var(--pc-line); }
+    .compare-matrix-row:nth-child(odd) { background: rgba(255,255,255,.18); }
+    .row-number { display: flex; align-items: center; justify-content: center; color: var(--pc-primary); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .compare-cell { display: flex; align-items: center; min-width: 0; min-height: 0; padding: 12px 24px; color: var(--pc-body); font-size: var(--compare-font); line-height: var(--compare-line); font-weight: 500; overflow: hidden; }
+    .has-images .compare-cell { padding: 8px 18px; }
+    .compare-cell + .compare-cell { border-left: 1px solid var(--pc-line); }
+    .compare-lanes { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 76px; height: 100%; }
+    .has-images .compare-lanes { gap: 54px; }
+    .lane-panel { display: grid; grid-template-rows: 62px repeat(var(--rows), minmax(0, 1fr)); min-width: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.92); border-radius: 16px; background: linear-gradient(100deg, rgba(255,255,255,.75), rgba(255,255,255,.32)); }
+    .lane-panel.right { background: linear-gradient(112deg, rgba(29,58,120,.94), rgba(14,40,65,.82) 54%, rgba(255,255,255,.22)); }
+    .lane-title { display: flex; align-items: center; padding: 0 28px; color: var(--pc-primary); font-size: 24px; line-height: 1.05; font-weight: 700; border-bottom: 1px solid var(--pc-line); }
+    .has-images .lane-panel { grid-template-rows: 50px repeat(var(--rows), minmax(0, 1fr)); }
+    .has-images .lane-title { padding: 0 20px; font-size: 19px; }
+    .lane-panel.right .lane-title { color: var(--pc-white); border-bottom-color: rgba(255,255,255,.34); }
+    .lane-point { display: flex; align-items: center; min-height: 0; padding: 12px 28px; border-top: 1px solid rgba(29,58,120,.22); color: var(--pc-body); font-size: var(--compare-font); line-height: var(--compare-line); font-weight: 500; overflow: hidden; }
+    .has-images .lane-point { padding: 8px 20px; }
+    .lane-point:first-of-type { border-top: 0; }
+    .lane-panel.right .lane-point { color: var(--pc-white); border-top-color: rgba(255,255,255,.24); }
+    .compare-spine { position: absolute; top: 0; bottom: 0; left: 50%; width: 56px; margin-left: -28px; display: grid; grid-template-rows: 62px repeat(var(--rows), minmax(0, 1fr)); align-items: stretch; pointer-events: none; }
+    .has-images .compare-spine { width: 42px; margin-left: -21px; }
+    .has-images .compare-spine { grid-template-rows: 50px repeat(var(--rows), minmax(0, 1fr)); }
+    .spine-vs { display: flex; align-items: center; justify-content: center; color: var(--pc-primary); font-size: 17px; font-weight: 700; letter-spacing: .12em; }
+    .spine-dot { display: flex; align-items: center; justify-content: center; position: relative; color: var(--pc-primary); font-size: 13px; font-weight: 700; }
+    .spine-dot::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--pc-line); }
+    .spine-dot span { position: relative; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid var(--pc-line); border-radius: 50%; background: rgba(255,255,255,.68); }
+    .has-images .spine-dot span { width: 28px; height: 28px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <span>Comparison template</span>
+    <button class="active" data-variant="v1">Variant A · Matched matrix</button>
+    <button data-variant="v2">Variant B · Mirrored lanes</button>
+    <span>Matched points</span>
+    <button class="active" data-points="2">2</button>
+    <button data-points="3">3</button>
+    <button data-points="4">4</button>
+    <span>Images</span>
+    <button class="active" data-images="0">0</button>
+    <button data-images="1">1</button>
+    <button data-images="2">2</button>
+    <button data-images="3">3</button>
+    <span>Point length</span>
+    <button class="active" data-length="normal">Normal</button>
+    <button data-length="long">Long stress</button>
+  </div>
+  <p class="caption" id="caption">Variant A · Matched matrix · 2 matched points · normal text</p>
+
+  <div class="frame">
+    <main class="slide no-images" id="slide">
+      <header class="brand-header">
+        <div class="context">Comparing Decision Approaches</div>
+        <div class="brand-lockup">
+          <div class="brand-name">PhillipCapital</div>
+          <div class="brand-tagline">Wealth. Across Chapters.</div>
+        </div>
+      </header>
+      <div class="body" id="body">
+        <div class="content-area" id="content"></div>
+      </div>
+      <footer class="footer"><span class="page">03</span></footer>
+    </main>
+  </div>
+
+  <script>
+    const normalLeft = [
+      'Uses the first available evidence to make a timely decision when the situation is familiar and low risk.',
+      'Relies on existing experience and standard practice when the consequences of being wrong are limited.',
+      'Keeps the process fast, simple, and easy to explain when the facts are already clear.',
+      'Works best when the decision does not require specialist review or major stakeholder alignment.'
+    ];
+    const normalRight = [
+      'Tests available evidence before acting when uncertainty, impact, or regulatory exposure is more material.',
+      'Uses explicit criteria so the decision can be reviewed, challenged, and applied consistently later.',
+      'Documents the reasoning behind the choice so accountability remains clear after the decision is made.',
+      'Works best when the decision affects clients, controls, approvals, or long-term business outcomes.'
+    ];
+    const longLeft = [
+      'Uses the first available evidence to make a timely decision when the situation is familiar, the operating context is stable, and the risk of being wrong is limited.',
+      'Relies on existing experience and standard practice when the consequences of the decision are contained, reversible, and unlikely to require formal escalation.',
+      'Keeps the process fast, simple, and easy to explain when the facts are already clear and the team has handled similar cases before.',
+      'Works best when the decision does not require specialist review, complex stakeholder alignment, or a detailed audit trail after the action is taken.'
+    ];
+    const longRight = [
+      'Tests available evidence before acting when uncertainty, impact, regulatory exposure, or client consequence makes the quality of reasoning more important than speed alone.',
+      'Uses explicit criteria so the decision can be reviewed, challenged, and applied consistently when similar cases appear across teams or business units.',
+      'Documents the reasoning behind the choice so accountability remains clear after the decision is made and later reviewers can understand the trade-offs.',
+      'Works best when the decision affects clients, controls, approvals, long-term business outcomes, or situations where inconsistent treatment could create risk.'
+    ];
+
+    let variant = 'v1';
+    let pointCount = 2;
+    let imageCount = 0;
+    let pointLength = 'normal';
+    const images = ['images/course_1784265088_0/page_2_img_1_22.jpeg', 'images/course_1784265088_0/page_4_img_1_27.jpeg', 'images/course_1784269956_1/page_10_img_1_35.png'];
+
+    const icon = (offset = 0) => `<span class="comparison-icon-frame"><img class="comparison-icon" src="brand/icon-${10 + offset}.svg" alt=""></span>`;
+    const currentPoints = () => ({
+      left: (pointLength === 'long' ? longLeft : normalLeft).slice(0, pointCount),
+      right: (pointLength === 'long' ? longRight : normalRight).slice(0, pointCount)
+    });
+
+    const fitClass = () => `comparison-fit rows-${pointCount} ${pointLength === 'long' ? 'long-text' : ''}`;
+    const imageMarkup = () => `<aside class="image-grid count-${imageCount}" aria-label="Course source images">${images.slice(0, imageCount).map(src => `<div class="image"><img src="${src}" alt="Course source image"></div>`).join('')}</aside>`;
+
+    function renderV1() {
+      const points = currentPoints();
+      return `<div class="${fitClass()} compare-matrix" style="--rows:${pointCount}">
+        <div class="compare-matrix-head">
+          <div></div>
+          <div class="side-title">Fast Judgement</div>
+          <div class="side-title">Structured Judgement</div>
+        </div>
+        ${points.left.map((left, i) => `<div class="compare-matrix-row">
+          <div class="row-number">${String(i + 1).padStart(2, '0')}</div>
+          <div class="compare-cell">${left}</div>
+          <div class="compare-cell">${points.right[i] || '-'}</div>
+        </div>`).join('')}
+      </div>`;
+    }
+
+    function renderV2() {
+      const points = currentPoints();
+      return `<div class="${fitClass()} compare-lanes" style="--rows:${pointCount}">
+        <section class="lane-panel left">
+          <div class="lane-title">Fast Judgement</div>
+          ${points.left.map(p => `<div class="lane-point">${p}</div>`).join('')}
+        </section>
+        <div class="compare-spine">
+          <div class="spine-vs">VS</div>
+          ${points.left.map((_, i) => `<div class="spine-dot"><span>${i + 1}</span></div>`).join('')}
+        </div>
+        <section class="lane-panel right">
+          <div class="lane-title">Structured Judgement</div>
+          ${points.right.map(p => `<div class="lane-point">${p}</div>`).join('')}
+        </section>
+      </div>`;
+    }
+
+    function redraw() {
+      const slide = document.querySelector('#slide');
+      const body = document.querySelector('#body');
+      slide.className = `slide ${imageCount ? 'has-images' : 'no-images'}`;
+      body.innerHTML = `<div class="content-area" id="content">${variant === 'v1' ? renderV1() : renderV2()}</div>${imageCount ? imageMarkup() : ''}`;
+      document.querySelector('#caption').textContent = `Variant ${variant === 'v1' ? 'A · Matched matrix' : 'B · Mirrored lanes'} · ${imageCount} image${imageCount === 1 ? '' : 's'} · ${pointCount} matched points · ${pointLength === 'long' ? 'long stress text' : 'normal text'}`;
+      document.querySelectorAll('[data-variant]').forEach(b => b.classList.toggle('active', b.dataset.variant === variant));
+      document.querySelectorAll('[data-points]').forEach(b => b.classList.toggle('active', +b.dataset.points === pointCount));
+      document.querySelectorAll('[data-images]').forEach(b => b.classList.toggle('active', +b.dataset.images === imageCount));
+      document.querySelectorAll('[data-length]').forEach(b => b.classList.toggle('active', b.dataset.length === pointLength));
+    }
+
+    document.querySelectorAll('[data-variant]').forEach(b => b.onclick = () => { variant = b.dataset.variant; redraw(); });
+    document.querySelectorAll('[data-points]').forEach(b => b.onclick = () => { pointCount = +b.dataset.points; redraw(); });
+    document.querySelectorAll('[data-images]').forEach(b => b.onclick = () => { imageCount = +b.dataset.images; redraw(); });
+    document.querySelectorAll('[data-length]').forEach(b => b.onclick = () => { pointLength = b.dataset.length; redraw(); });
+    redraw();
+  </script>
+</body>
+</html>

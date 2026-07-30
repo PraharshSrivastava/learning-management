@@ -1,0 +1,6 @@
+.module-cover { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 20px 0 34px; color: var(--pc-primary); }
+.slide--cover .brand-slide-title { display: none; }
+.module-cover-course { font-size: 16px; font-weight: 500; margin-bottom: 12px; }
+.module-cover-kicker { font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.module-cover h1 { max-width: 760px; margin-top: 16px; font-size: 54px; line-height: 1.02; font-weight: 700; }
+.module-cover-rule { width: 112px; height: 1px; margin-top: 28px; background: var(--pc-primary); }

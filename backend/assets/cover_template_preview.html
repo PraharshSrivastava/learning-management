@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Course cover — editorial preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --navy:#003383; --deep:#0e2841; --sky:#d0ebf6; --mist:#e7f1f3; --peach:#fab49b; --cream:#edddd7; }
+    * { box-sizing: border-box; }
+    body { display:grid; place-items:center; min-height:100vh; margin:0; background:#202a37; font-family:Barlow,Arial,sans-serif; }
+    .cover {
+      position:relative; isolation:isolate; width:min(1280px,100vw); aspect-ratio:16/9; overflow:hidden;
+      padding:56px 78px 52px; color:var(--deep);
+      background:linear-gradient(118deg, var(--sky) 0%, var(--mist) 53%, var(--cream) 100%);
+    }
+    .brand { position:absolute; z-index:3; top:49px; right:78px; width:220px; color:var(--navy); text-align:center; font-size:27px; font-weight:700; letter-spacing:-.045em; }
+    .brand__tagline { margin-top:5px; padding:5px 10px 6px; background:var(--navy); color:white; font-size:11px; font-weight:500; letter-spacing:.03em; }
+    .course-label { position:relative; z-index:3; width:max-content; max-width:560px; padding-left:17px; color:var(--navy); font-size:16px; font-weight:600; line-height:1.2; letter-spacing:.015em; }
+    .course-label::before { content:""; position:absolute; left:0; top:1px; bottom:1px; width:4px; background:var(--navy); }
+    .module-label { position:absolute; z-index:3; left:78px; bottom:55px; color:var(--navy); font-size:14px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; }
+    .title { position:absolute; z-index:3; left:78px; bottom:137px; width:650px; margin:0; color:var(--navy); font-size:76px; font-weight:700; letter-spacing:-.055em; line-height:.91; }
+    .title-rule { position:absolute; z-index:3; left:78px; bottom:108px; width:118px; height:6px; background:var(--peach); }
+    .module-number { position:absolute; z-index:1; right:50px; bottom:-126px; color:rgba(0,51,131,.115); font-size:525px; font-weight:700; letter-spacing:-.14em; line-height:1; }
+    .orb { position:absolute; z-index:0; width:570px; height:570px; right:-120px; top:88px; border:1px solid rgba(0,51,131,.23); border-radius:50%; }
+    .orb::before, .orb::after { content:""; position:absolute; border-radius:50%; }
+    .orb::before { inset:57px; border:43px solid rgba(255,255,255,.19); }
+    .orb::after { inset:135px; background:linear-gradient(135deg, rgba(250,180,155,.92), rgba(255,255,255,.10)); }
+    .swoosh { position:absolute; z-index:2; width:580px; height:122px; right:-69px; top:399px; border-top:6px solid rgba(250,180,155,.9); border-radius:50%; transform:rotate(-31deg); }
+    .swoosh::after { content:""; position:absolute; width:505px; height:85px; right:34px; top:27px; border-top:1px solid rgba(0,51,131,.36); border-radius:50%; }
+    @media (max-width:700px) {
+      .cover { padding:30px 32px; }
+      .brand { top:28px; right:32px; width:120px; font-size:15px; }
+      .brand__tagline { font-size:6px; }
+      .course-label { max-width:230px; padding-left:10px; font-size:11px; }
+      .course-label::before { width:3px; }
+      .title { left:32px; bottom:92px; width:62%; font-size:clamp(31px,9vw,55px); }
+      .title-rule { left:32px; bottom:72px; width:72px; height:4px; }
+      .module-label { left:32px; bottom:31px; font-size:9px; }
+      .module-number { right:-28px; bottom:-56px; font-size:260px; }
+      .orb { width:280px; height:280px; right:-65px; top:78px; }
+      .swoosh { top:245px; width:320px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cover" aria-label="Course module cover preview">
+    <div class="course-label">Introduction to Artificial Intelligence</div>
+    <div class="brand">PhillipCapital<div class="brand__tagline">Wealth. Across Chapters.</div></div>
+    <div class="orb" aria-hidden="true"></div>
+    <div class="swoosh" aria-hidden="true"></div>
+    <div class="module-number" aria-hidden="true">01</div>
+    <h1 class="title">What is Artificial Intelligence?</h1>
+    <div class="title-rule" aria-hidden="true"></div>
+    <div class="module-label">Module 1 of 6</div>
+  </main>
+</body>
+</html>

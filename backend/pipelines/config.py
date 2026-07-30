@@ -115,8 +115,12 @@ def safe_chat_completion(base_url, model, messages, response_format=None, temper
         request_once, course_id=course_id, stage=stage, attempts=attempts, module_number=module_number,
     )
 
-TTS_ENDPOINT = os.environ.get("VERTEX_TTS_ENDPOINT_ID", "https://7ly2ceze0uzno9-8081.proxy.runpod.net")
-TTS_VOICE = os.environ.get("TTS_VOICE", "Ryan")
+# The registered Sana clone is hosted directly on the RunPod TTS service.
+# It is intentionally not routed through the LiteLLM gateway, whose custom
+# voice route does not accept this registered clone.
+TTS_ENDPOINT = os.environ.get("TTS_ENDPOINT", "https://reiuxvqxqhsky7-8081.proxy.runpod.net")
+TTS_VOICE = os.environ.get("TTS_VOICE", "sana")
+TTS_TEMPERATURE = float(os.environ.get("TTS_TEMPERATURE", "0.6"))
 TTS_SPEED = float(os.environ.get("TTS_SPEED", "0.9"))
 # The generated narration is intentionally 0.9x.  Player controls expose this
 # mastered pace as the learner-facing 1x baseline.
