@@ -118,7 +118,7 @@ def safe_chat_completion(base_url, model, messages, response_format=None, temper
 # The registered Sana clone is hosted directly on the RunPod TTS service.
 # It is intentionally not routed through the LiteLLM gateway, whose custom
 # voice route does not accept this registered clone.
-TTS_ENDPOINT = os.environ.get("TTS_ENDPOINT", "https://reiuxvqxqhsky7-8081.proxy.runpod.net")
+TTS_ENDPOINT = os.environ.get("TTS_ENDPOINT", "https://jpulu46c77k24h-8081.proxy.runpod.net")
 TTS_VOICE = os.environ.get("TTS_VOICE", "sana")
 TTS_TEMPERATURE = float(os.environ.get("TTS_TEMPERATURE", "0.6"))
 TTS_SPEED = float(os.environ.get("TTS_SPEED", "0.9"))
