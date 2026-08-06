@@ -1,34 +1,26 @@
-import 'package:employee_frontend/main.dart';
-import 'package:employee_frontend/models/models.dart';
-import 'package:employee_frontend/providers/employee_providers.dart';
-import 'package:employee_frontend/widgets/employee_dashboard_page.dart';
+import 'package:employee_frontend/app/employee_app.dart';
+import 'package:employee_frontend/data/models/models.dart';
+import 'package:employee_frontend/features/dashboard/employee_dashboard_page.dart';
+import 'package:employee_frontend/state/employee_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _employeeOne = Employee(
-  id: 'emp_test_1',
-  employeeCode: 'EMPTEST1',
+  employeeId: 'emp_test_1',
   name: 'Aarav Mehta',
-  email: 'aarav@example.com',
   department: 'Sales',
-  role: 'Associate',
-  level: 'Associate',
+  jobTitle: 'Associate',
   joinDate: '2026-01-01',
-  location: 'Mumbai',
   status: 'active',
 );
 
 final _employeeTwo = Employee(
-  id: 'emp_test_2',
-  employeeCode: 'EMPTEST2',
+  employeeId: 'emp_test_2',
   name: 'Priya Rao',
-  email: 'priya@example.com',
   department: 'Compliance',
-  role: 'Manager',
-  level: 'Manager',
+  jobTitle: 'Manager',
   joinDate: '2025-10-01',
-  location: 'Delhi',
   status: 'active',
 );
 
@@ -80,7 +72,7 @@ void main() {
 
     expect(find.text('Employee learning access'), findsOneWidget);
     expect(find.text('Aarav Mehta'), findsOneWidget);
-    expect(find.text('EMPTEST1'), findsOneWidget);
+    expect(find.text('emp_test_1'), findsOneWidget);
     expect(find.text('Priya Rao'), findsOneWidget);
   });
 

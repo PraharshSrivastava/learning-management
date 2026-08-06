@@ -227,7 +227,7 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
             clips.append(clip_path)
         concatenate_clips(clips, str(output_path), working_dir=temporary_dir)
 
-    video_url = public_asset_url(
+    video_path = public_asset_url(
         "videos",
         f"course_{course_id}",
         f"module_{module_number}.mp4",
@@ -238,17 +238,17 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
         module_number,
         output_path,
     )
-    return video_url
+    return video_path
 
 
 def generate_video_for_module(course_id: str, module_number: int) -> str:
     course = load_course_for_generation(course_id)
     compile_slides_for_course(course_id)
-    video_url = render_video_for_module(course, course_id, module_number)
+    video_path = render_video_for_module(course, course_id, module_number)
     fresh_course = load_course_for_generation(course_id)
-    fresh_course["modules"][module_number - 1]["video_path"] = video_url
-    save_generated_course(course_id, fresh_course)
-    return video_url
+    fresh_course["modules"][module_number - 1]["video_path"] = video_path
+    save_generated_course(course_id, fresh_course, module_fields=("video_path",))
+    return video_path
 
 
 def generate_videos_for_course(course_id: str) -> dict:
@@ -269,7 +269,7 @@ def generate_videos_for_course(course_id: str) -> dict:
     def render_module(module_number: int) -> tuple[int, str]:
         started = time.perf_counter()
         log_event(course_id, "video", "module_started", module=module_number)
-        video_url = render_video_for_module(course, course_id, module_number)
+        video_path = render_video_for_module(course, course_id, module_number)
         log_event(
             course_id,
             "video",
@@ -277,7 +277,7 @@ def generate_videos_for_course(course_id: str) -> dict:
             module=module_number,
             elapsed=f"{time.perf_counter() - started:.1f}s",
         )
-        return module_number, video_url
+        return module_number, video_path
 
     results = run_parallel_stage_items(
         course_id=course_id,
@@ -287,8 +287,8 @@ def generate_videos_for_course(course_id: str) -> dict:
         item_label=lambda module_number: {"module": module_number},
         operation=render_module,
     )
-    for module_number, video_url in results:
-        modules[module_number - 1]["video_path"] = video_url
+    for module_number, video_path in results:
+        modules[module_number - 1]["video_path"] = video_path
     course["modules"] = modules
-    save_generated_course(course_id, course)
+    save_generated_course(course_id, course, module_fields=("video_path",))
     return course

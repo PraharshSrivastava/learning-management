@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
@@ -15,8 +14,10 @@ from app.core.settings import settings
 from app.core.storage import resolve_public_asset_path
 from app.repositories.courses import (
     CourseRepository,
-    delete_published_course,
     get_all_courses,
+    get_course,
+    patch_generated_course_fields,
+    patch_generation_state,
     save_all_courses,
     save_course,
 )
@@ -189,56 +190,41 @@ def complete_generation(course: dict, elapsed_seconds: float) -> None:
         state.pop(key, None)
 
 def load_course_for_generation(course_id: str) -> dict:
-    course = CourseRepository().get_draft(course_id)
+    course = get_course(course_id)
     if course is None:
         raise ValueError(f"Course '{course_id}' not found in courses database.")
     return course
 
-def _merge_generated_course(latest: dict, incoming: dict) -> dict:
-    merged = {**latest, **incoming}
+def save_generated_course(
+    course_id: str,
+    course: dict,
+    *,
+    course_fields: tuple[str, ...] = (),
+    module_fields: tuple[str, ...] = (),
+) -> None:
+    """Persist only fields owned by one generation stage.
 
-    latest_state = latest.get("generation")
-    if isinstance(latest_state, dict):
-        # Worker output must never overwrite coordinator-owned checkpoint state.
-        merged["generation"] = latest_state
-
-    latest_modules = latest.get("modules", [])
-    incoming_modules = incoming.get("modules", [])
-    if isinstance(latest_modules, list) and isinstance(incoming_modules, list):
-        modules = []
-        max_len = max(len(latest_modules), len(incoming_modules))
-        for index in range(max_len):
-            latest_module = latest_modules[index] if index < len(latest_modules) else {}
-            incoming_module = incoming_modules[index] if index < len(incoming_modules) else {}
-            if isinstance(latest_module, dict) and isinstance(incoming_module, dict):
-                modules.append({**latest_module, **incoming_module})
-            else:
-                modules.append(incoming_module or latest_module)
-        merged["modules"] = modules
-
-    return merged
-
-def save_generated_course(course_id: str, course: dict) -> None:
-    if course.get("id") != course_id:
+    Wave 1 stages run concurrently from independent snapshots. Restricting each
+    write to its declared fields prevents a slower worker from restoring stale
+    values over output already committed by another worker.
+    """
+    if course.get("course_id") != course_id:
         raise ValueError("Cannot save generated content for a different course")
-    repository = CourseRepository()
+    if not course_fields and not module_fields:
+        raise ValueError("Generated course writes must declare owned fields")
     with FileLock(f"{database_path()}.{course_id}.generation.lock", timeout=60):
-        latest = repository.get_draft(course_id)
-        repository.save_draft(
-            _merge_generated_course(latest, course) if latest else course
+        patch_generated_course_fields(
+            course_id,
+            course,
+            course_fields=course_fields,
+            module_fields=module_fields,
         )
 
 
 def update_generation_state(course_id: str, update: Callable[[dict], None]) -> dict:
     """Apply one coordinator-owned checkpoint transition to the latest course state."""
-    repository = CourseRepository()
     with FileLock(f"{database_path()}.{course_id}.generation.lock", timeout=60):
-        course = repository.get_draft(course_id)
-        if course is None:
-            raise ValueError(f"Course ID '{course_id}' not found in courses database.")
-        update(course)
-        repository.save_draft(course)
-        return course
+        return patch_generation_state(course_id, update)
 
 def ensure_module_cover_slide(
     course: dict, module: dict, module_number: int, total_modules: int
@@ -272,39 +258,36 @@ def ensure_module_cover_slide(
 
     slides.insert(0, cover_slide)
 
-def is_course_generation_complete(course: dict) -> bool:
+def _asset_is_nonempty(path: object) -> bool:
+    value = str(path or "").strip()
+    if not value:
+        return False
+    resolved = resolve_public_asset_path(value, settings)
+    return resolved.is_file() and resolved.stat().st_size > 0
+
+
+def _thumbnail_output_complete(course: dict) -> bool:
     from app.generation.thumbnails import course_thumbnail_signature
 
-    modules = course.get("modules", [])
-    if not modules:
-        return False
+    thumbnail_path = course.get("thumbnail_path")
+    return bool(
+        _asset_is_nonempty(thumbnail_path)
+        and course.get("thumbnail_prompt_hash") == course_thumbnail_signature(course)
+    )
 
-    thumbnail_path = course.get("thumbnail") or course.get("thumbnail_url")
-    if not thumbnail_path:
-        return False
-    if course.get("thumbnail_prompt_hash") != course_thumbnail_signature(course):
-        return False
 
-    for module in modules:
-        slides = module.get("slides", []) or []
-        if not slides or not str(module.get("notes") or "").strip():
-            return False
-        for slide in slides:
-            audio_path = str(slide.get("audio_path") or "").strip()
-            if (
-                not str(slide.get("script") or "").strip()
-                or not audio_path
-                or not resolve_public_asset_path(audio_path, settings).is_file()
-                or resolve_public_asset_path(audio_path, settings).stat().st_size == 0
-            ):
-                return False
-        video_path = str(module.get("video_path") or "").strip()
-        if (
-            not video_path
-            or not resolve_public_asset_path(video_path, settings).is_file()
-            or resolve_public_asset_path(video_path, settings).stat().st_size == 0
-        ):
-            return False
+def _slides_output_complete(course: dict) -> bool:
+    modules = course.get("modules") or []
+    return bool(modules) and all(module.get("slides") for module in modules)
+
+
+def _notes_output_complete(course: dict) -> bool:
+    modules = course.get("modules") or []
+    return bool(modules) and all(str(module.get("notes") or "").strip() for module in modules)
+
+
+def _quiz_output_complete(course: dict) -> bool:
+    for module in course.get("modules") or []:
         try:
             num_questions = int(module.get("num_questions", 0))
         except (TypeError, ValueError):
@@ -312,19 +295,72 @@ def is_course_generation_complete(course: dict) -> bool:
         if num_questions <= 0:
             continue
         quiz = module.get("quiz")
-        if not quiz or not isinstance(quiz, dict) or not quiz.get("questions"):
+        if not isinstance(quiz, dict) or not quiz.get("questions"):
             return False
+    return True
+
+
+def _scripts_output_complete(course: dict) -> bool:
+    return _slides_output_complete(course) and all(
+        str(slide.get("script") or "").strip()
+        for module in course.get("modules") or []
+        for slide in module.get("slides") or []
+    )
+
+
+def _tts_output_complete(course: dict) -> bool:
+    return _slides_output_complete(course) and all(
+        _asset_is_nonempty(slide.get("audio_path"))
+        for module in course.get("modules") or []
+        for slide in module.get("slides") or []
+    )
+
+
+def _video_output_complete(course: dict) -> bool:
+    modules = course.get("modules") or []
+    return bool(modules) and all(_asset_is_nonempty(module.get("video_path")) for module in modules)
+
+
+def _html_output_complete(course: dict) -> bool:
+    course_id = str(course.get("course_id") or "")
+    modules = course.get("modules") or []
+    return bool(course_id and modules) and all(
+        (settings.slide_dir / course_id / f"module_{index}.html").is_file()
+        and (settings.slide_dir / course_id / f"module_{index}.html").stat().st_size > 0
+        for index, _module in enumerate(modules, start=1)
+    )
+
+
+def missing_generation_outputs(course: dict) -> list[str]:
+    checks = (
+        ("thumbnail", _thumbnail_output_complete),
+        ("quiz", _quiz_output_complete),
+        ("notes", _notes_output_complete),
+        ("slides", _slides_output_complete),
+        ("html", _html_output_complete),
+        ("scripts", _scripts_output_complete),
+        ("tts", _tts_output_complete),
+        ("video", _video_output_complete),
+    )
+    return [stage for stage, check in checks if not check(course)]
+
+
+def is_course_generation_complete(course: dict) -> bool:
+    if not course.get("modules"):
+        return False
+    if missing_generation_outputs(course):
+        return False
 
     return True
 
 def sync_clean_database(course_id: str | None = None):
-    """Synchronize published courses while serializing concurrent publish operations."""
+    """Prepare complete courses while serializing lifecycle transitions."""
     with FileLock(f"{database_path()}.publish.lock", timeout=30):
         return _sync_clean_database(course_id)
 
 def _sync_clean_database(target_course_id: str | None = None):
     """
-    Convert already-complete draft courses into the employee-facing published shape.
+    Move complete generated courses into the ready lifecycle state.
 
     This function intentionally does not run generation work. The full pipeline is
     responsible for creating quizzes, videos, and thumbnails before this exporter runs.
@@ -338,87 +374,18 @@ def _sync_clean_database(target_course_id: str | None = None):
     else:
         draft_courses = get_all_courses("draft")
 
-    clean_courses = []
-    dirty_draft_course_ids = set()
+    ready_courses = []
     skipped_courses = []
 
     for course in draft_courses:
-        course_id = course.get("id", str(uuid.uuid4()))
-        if "id" not in course:
-            course["id"] = course_id
-            dirty_draft_course_ids.add(course_id)
-
+        course_id = course["course_id"]
         if not is_course_generation_complete(course):
             skipped_courses.append(course_id)
             continue
-
-        clean_modules = []
-        for m in course.get("modules", []):
-            clean_quiz = []
-            draft_quiz = m.get("quiz", {})
-            draft_questions = (
-                draft_quiz.get("questions", []) if isinstance(draft_quiz, dict) else []
-            )
-
-            for q in draft_questions:
-                # Retrieve or generate a persistent UUID for each question
-                q_id = q.get("question_id")
-                if not q_id:
-                    q_id = str(uuid.uuid4())
-                    q["question_id"] = q_id
-                    dirty_draft_course_ids.add(course_id)
-
-                # Options in draft: [{"key": "A", "text": "Opt A"}, ...]
-                # Options in clean: ["Opt A", "Opt B", "Opt C", "Opt D"]
-                draft_opts = q.get("options", [])
-                # Ensure options are sorted by key (A, B, C, D)
-                sorted_opts = sorted(
-                    draft_opts, key=lambda o: str(o.get("key", "")).strip().upper()
-                )
-                clean_opts = [o.get("text", "") for o in sorted_opts]
-
-                clean_quiz.append(
-                    {
-                        "question_id": q_id,
-                        "question": q.get("question_text", ""),
-                        "options": clean_opts,
-                        "correct": q.get("correct_option", "A"),
-                        "explanation": q.get("explanation", ""),
-                    }
-                )
-
-            clean_modules.append(
-                {
-                    "module_number": m.get("module_number", 1),
-                    "title": m.get("title", ""),
-                    "notes": m.get("notes", "") or "",
-                    "video_url": m.get("video_path", "") or "",
-                    "quiz": clean_quiz,
-                    "pass_mark": 0.67,
-                }
-            )
-
-        thumbnail_path = course.get("thumbnail") or course.get("thumbnail_url")
-
-        clean_courses.append(
-            {
-                "id": f"published:{course_id}",
-                "course_id": course_id,
-                "title": course.get("course_name", ""),
-                "course_description": course.get("course_description", ""),
-                "created_at": course.get("created_at", 0),
-                "modules": clean_modules,
-                "images": course.get("images", []),
-                "thumbnail": thumbnail_path or "",
-                "thumbnail_url": thumbnail_path or "",
-                "thumbnail_prompt_hash": course.get("thumbnail_prompt_hash", "")
-                if thumbnail_path
-                else "",
-            }
-        )
+        ready_courses.append(course)
 
     logger.info(
-        f"[EXPORTER] Prepared {len(clean_courses)} published course(s) "
+        f"[EXPORTER] Prepared {len(ready_courses)} ready course(s) "
         f"from {len(draft_courses)} draft course(s); skipped incomplete={len(skipped_courses)}"
     )
     if skipped_courses:
@@ -426,33 +393,20 @@ def _sync_clean_database(target_course_id: str | None = None):
         suffix = "..." if len(skipped_courses) > 5 else ""
         logger.info("publish_sync_skipped_incomplete course_ids=%s", f"{preview}{suffix}")
 
-    # Preserve only draft rows whose IDs changed; do not overwrite other jobs.
-    if dirty_draft_course_ids:
-        write_start = time.perf_counter()
-        for course in draft_courses:
-            if course["id"] in dirty_draft_course_ids:
-                save_course(course, "draft")
-        logger.info(
-            "publish_draft_metadata_saved count=%s elapsed_seconds=%.1f",
-            len(dirty_draft_course_ids),
-            time.perf_counter() - write_start,
-        )
-
-    # Write the clean employee-facing courses to SQLite published rows.
+    # Lifecycle changes must retain the canonical course and module payloads.
     write_start = time.perf_counter()
     if target_course_id:
-        if not clean_courses:
+        if not ready_courses:
             raise PipelineStageError(
                 "publish",
                 f"Course '{target_course_id}' is not complete enough to publish.",
             )
-        delete_published_course(target_course_id)
-        save_course(clean_courses[0], "published")
+        save_course(ready_courses[0], "ready")
     else:
-        save_all_courses(clean_courses, "published")
+        save_all_courses(ready_courses, "ready")
     logger.info(
         "publish_rows_synchronized count=%s db=%s elapsed_seconds=%.1f",
-        len(clean_courses),
+        len(ready_courses),
         database_path(),
         time.perf_counter() - write_start,
     )
@@ -464,36 +418,11 @@ def _sync_clean_database(target_course_id: str | None = None):
 def recover_interrupted_generations() -> None:
     """Mark work left running by a process restart as recoverable failure."""
     try:
-        repository = CourseRepository()
-        for course in repository.list_drafts():
-            state = generation_state(course)
-            if state.get("status") != "running":
-                continue
-            checkpoint = state.get("current_checkpoint") or "pipeline"
-            if checkpoint == "wave_1":
-                failed_stages = [
-                    stage
-                    for stage, entry in state.get("stages", {}).items()
-                    if isinstance(entry, dict) and entry.get("status") == "running"
-                ]
-                state.update(
-                    {
-                        "status": "failed",
-                        "current_checkpoint": "wave_1",
-                        "failed_checkpoint": "wave_1",
-                        "failed_stages": failed_stages,
-                        "error": "Generation interrupted because the backend process restarted. Continue Wave 1.",
-                    }
-                )
-            else:
-                mark_stage(
-                    course,
-                    checkpoint,
-                    "failed",
-                    error="Generation interrupted because the backend process restarted. Continue from this checkpoint.",
-                )
-            log_event(course.get("id", "unknown"), checkpoint, "interrupted_by_restart")
-            repository.save_draft(course)
+        from app.repositories.jobs import GenerationJobRepository
+
+        GenerationJobRepository().fail_interrupted(
+            "Generation interrupted because the backend process restarted. Continue from this checkpoint."
+        )
     except Exception:
         logger.exception("Could not recover interrupted course generations")
 
@@ -514,26 +443,37 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
     wave_stage_order = ("thumbnail", "quiz", "notes", "slides")
 
     def load_course() -> dict:
-        course = repository.get_draft(course_id)
+        course = get_course(course_id)
         if course is None:
             raise ValueError(f"Course ID '{course_id}' not found in courses database.")
         return course
 
     def clear_wave_stage_output(stage: str) -> None:
         course = load_course()
+        course_fields: tuple[str, ...] = ()
+        module_fields: tuple[str, ...] = ()
         for module in course.get("modules", []):
             if stage == "quiz":
                 module.pop("quiz", None)
                 module.pop("quiz_generation_error", None)
+                module_fields = ("quiz", "quiz_generation_error")
             elif stage == "notes":
                 module.pop("notes", None)
+                module_fields = ("notes",)
             elif stage == "slides":
                 for field in ("planned_slides", "slides", "video_path"):
                     module.pop(field, None)
+                module_fields = ("planned_slides", "slides", "video_path")
         if stage == "thumbnail":
-            for field in ("thumbnail", "thumbnail_url", "thumbnail_prompt_hash"):
+            for field in ("thumbnail_path", "thumbnail_prompt_hash"):
                 course.pop(field, None)
-        save_generated_course(course_id, course)
+            course_fields = ("thumbnail_path", "thumbnail_prompt_hash")
+        save_generated_course(
+            course_id,
+            course,
+            course_fields=course_fields,
+            module_fields=module_fields,
+        )
 
     def update_wave_stage(stage: str, status: str, error: str = "") -> None:
         def update(course: dict) -> None:
@@ -544,6 +484,17 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
                 entry["error"] = error
             else:
                 entry.pop("error", None)
+
+        update_generation_state(course_id, update)
+
+    def reset_stage_checkpoints(stages: tuple[str, ...]) -> None:
+        def update(course: dict) -> None:
+            state = generation_state(course)
+            for stage in stages:
+                entry = state["stages"].setdefault(stage, {})
+                entry["status"] = "pending"
+                for field in ("error", "started_at", "completed_at", "duration_seconds"):
+                    entry.pop(field, None)
 
         update_generation_state(course_id, update)
 
@@ -585,10 +536,13 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         thumbnail_path = generate_course_thumbnail(snapshot, course_id, attempts=attempts)
         if not thumbnail_path:
             raise ValueError("Thumbnail generation returned no file")
-        snapshot["thumbnail"] = thumbnail_path
-        snapshot["thumbnail_url"] = thumbnail_path
+        snapshot["thumbnail_path"] = thumbnail_path
         snapshot["thumbnail_prompt_hash"] = course_thumbnail_signature(snapshot)
-        save_generated_course(course_id, snapshot)
+        save_generated_course(
+            course_id,
+            snapshot,
+            course_fields=("thumbnail_path", "thumbnail_prompt_hash"),
+        )
 
     wave_operations = {
         "thumbnail": lambda: create_thumbnail(attempts=1),
@@ -604,13 +558,20 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         wave_stages = wave_stage_order
     else:
         state = generation_state(load_course())
-        wave_stages = (
-            tuple(stage for stage in state.get("failed_stages", []) if stage in wave_stage_order)
-            if state.get("failed_checkpoint") == "wave_1"
-            else ()
-        )
+        if state.get("failed_checkpoint") == "wave_1":
+            wave_stages = tuple(
+                stage for stage in state.get("failed_stages", []) if stage in wave_stage_order
+            )
+        elif state.get("failed_checkpoint") == "publish":
+            missing_outputs = set(missing_generation_outputs(load_course()))
+            wave_stages = tuple(stage for stage in wave_stage_order if stage in missing_outputs)
+        else:
+            wave_stages = ()
         for stage in wave_stages:
             clear_wave_stage_output(stage)
+
+    if "slides" in wave_stages:
+        reset_stage_checkpoints(("html", "scripts", "tts", "video"))
 
     if wave_stages:
         logger.info(
@@ -671,11 +632,13 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
 
         logger.info("Generation | Wave 1 completed | %.1fs", time.perf_counter() - wave_started)
 
-    def run_stage(stage: str, operation, attempts: int = 1):
+    def run_stage(stage: str, operation, attempts: int = 1, output_is_valid=None):
         state = generation_state(load_course())
         if state.get("stages", {}).get(stage, {}).get("status") == "completed":
-            logger.info("Generation | %s already completed", stage)
-            return None
+            if output_is_valid is None or output_is_valid(load_course()):
+                logger.info("Generation | %s already completed", stage)
+                return None
+            logger.warning("Generation | %s marked completed but output is missing; rerunning", stage)
         started = time.perf_counter()
         update_generation_state(course_id, lambda course: mark_stage(course, stage, "running"))
         logger.info("Generation | %s started", stage)
@@ -712,22 +675,64 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         logger.info("Generation | %s completed | %.1fs", stage, time.perf_counter() - started)
         return result
 
-    run_stage("html", lambda: compile_slides_for_course(course_id), attempts=3)
-    run_stage("scripts", lambda: generate_scripts_for_course(course_id))
-    run_stage("tts", lambda: generate_tts_for_course(course_id))
-    run_stage("video", lambda: generate_videos_for_course(course_id), attempts=3)
+    run_stage(
+        "html",
+        lambda: compile_slides_for_course(course_id),
+        attempts=3,
+        output_is_valid=_html_output_complete,
+    )
+
+    if not _scripts_output_complete(load_course()):
+        stale_course = load_course()
+        for module in stale_course.get("modules") or []:
+            for slide in module.get("slides") or []:
+                slide.pop("audio_path", None)
+            module.pop("video_path", None)
+        save_generated_course(
+            course_id,
+            stale_course,
+            module_fields=("slides", "video_path"),
+        )
+        reset_stage_checkpoints(("tts", "video"))
+    run_stage(
+        "scripts",
+        lambda: generate_scripts_for_course(course_id),
+        output_is_valid=_scripts_output_complete,
+    )
+
+    if not _tts_output_complete(load_course()):
+        stale_course = load_course()
+        for module in stale_course.get("modules") or []:
+            module.pop("video_path", None)
+        save_generated_course(course_id, stale_course, module_fields=("video_path",))
+        reset_stage_checkpoints(("video",))
+    run_stage(
+        "tts",
+        lambda: generate_tts_for_course(course_id),
+        output_is_valid=_tts_output_complete,
+    )
+    run_stage(
+        "video",
+        lambda: generate_videos_for_course(course_id),
+        attempts=3,
+        output_is_valid=_video_output_complete,
+    )
 
     def validate_and_publish() -> None:
-        if not is_course_generation_complete(load_course()):
+        course = load_course()
+        missing_outputs = missing_generation_outputs(course)
+        if missing_outputs:
             raise PipelineStageError(
                 "publish",
-                "Course validation failed: required quiz, slides, scripts, notes, audio, video, or thumbnail output is missing.",
+                "Course validation failed; missing output: " + ", ".join(missing_outputs),
             )
         sync_clean_database(course_id)
 
     run_stage("publish", validate_and_publish, attempts=3)
-    course = load_course()
+    course = get_course(course_id)
+    if course is None:
+        raise ValueError(f"Course ID '{course_id}' not found after generation.")
     complete_generation(course, time.perf_counter() - pipeline_start)
-    repository.save_draft(course)
+    save_course(course, course.get("status", "draft"))
     logger.info("Generation | Course completed | %.1fs", time.perf_counter() - pipeline_start)
     return course

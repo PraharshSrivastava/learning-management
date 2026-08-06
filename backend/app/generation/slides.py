@@ -37,7 +37,7 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
     """
     Step 5 logic: Groups bullets into slides, maps images, and generates titles.
     """
-    text_input = module.get("text", "")
+    text_input = module.get("source_text", "")
     if not text_input:
         module["planned_slides"] = []
         return module
@@ -252,7 +252,7 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
             slides_text += f" - {b}\n"
         slides_text += "\n"
 
-    source_text = module.get("text", "").strip()
+    source_text = module.get("source_text", "").strip()
     prompt = ART_DIRECTOR_PROMPT.format(slides_text=slides_text, source_text=source_text)
     try:
         json_schema = ArtDirectorResponse.model_json_schema()
@@ -473,7 +473,7 @@ def _generate_slides_for_module(
     is_valid = False
     module_number = best_module_state.get("module_number", index + 1)
     started = time.perf_counter()
-    log_event(course["id"], "slides", "module_started", module=module_number)
+    log_event(course["course_id"], "slides", "module_started", module=module_number)
 
     for attempt in range(max_retries):
         mod_copy = copy.deepcopy(module)
@@ -499,7 +499,7 @@ def _generate_slides_for_module(
 
     ensure_module_cover_slide(course, best_module_state, index + 1, len(course.get("modules", [])))
     log_event(
-        course["id"],
+        course["course_id"],
         "slides",
         "module_completed",
         module=module_number,
@@ -538,7 +538,11 @@ def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
 
     course["modules"] = modules
 
-    save_generated_course(course_id, course)
+    save_generated_course(
+        course_id,
+        course,
+        module_fields=("planned_slides", "slides"),
+    )
 
     logger.info(
         "course_slide_planning_completed course_id=%s course_name=%s",

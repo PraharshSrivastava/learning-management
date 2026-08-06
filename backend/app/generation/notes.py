@@ -20,7 +20,7 @@ def generate_summary_for_module(
     module: dict, course_id: str = "unknown", *, attempts: int = 3
 ) -> str:
     """Return a short, factual set of learner notes for one module."""
-    source = module.get("text", "").strip()
+    source = module.get("source_text", "").strip()
     if not source:
         raise ValueError(
             f"Module '{module.get('title', '')}' has no source text; notes generation cannot continue."
@@ -104,5 +104,5 @@ def generate_notes_for_course(course_id: str, *, attempts_per_module: int = 3) -
     for index, module in results:
         modules[index] = module
     course["modules"] = modules
-    save_generated_course(course_id, course)
+    save_generated_course(course_id, course, module_fields=("notes",))
     return course

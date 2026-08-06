@@ -1,0 +1,153 @@
+part of '../trainer_providers.dart';
+
+enum GenerationStatus { idle, generating, success, error }
+
+class CourseGenerationState {
+  final GenerationStatus status;
+  final String? error;
+
+  CourseGenerationState({required this.status, this.error});
+}
+
+class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
+  CourseGenerationNotifier()
+      : super(CourseGenerationState(status: GenerationStatus.idle));
+
+  Future<void> generateCourse(String fileName, WidgetRef ref) async {
+    state = CourseGenerationState(status: GenerationStatus.generating);
+    try {
+      final response = await http.post(
+        Uri.parse(AppConstants.generateCourseEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          ...ref.read(trainerAuthHeadersProvider),
+        },
+        body: jsonEncode({'file_name': fileName}),
+      );
+      if (response.statusCode == 200) {
+        state = CourseGenerationState(status: GenerationStatus.success);
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        final decoded = jsonDecode(response.body);
+        final newCourse = Course.fromJson(decoded);
+        ref.read(selectedCourseProvider.notifier).state = newCourse;
+        ref.read(currentTabProvider.notifier).state = 1;
+      } else {
+        final errorMsg = jsonDecode(response.body)['detail'] ??
+            'Course outline extraction failed.';
+        state = CourseGenerationState(
+            status: GenerationStatus.error, error: errorMsg.toString());
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        final failedBlueprint = ref
+            .read(courseListProvider)
+            .courses
+            .where((course) => course.generationStatus == 'failed')
+            .toList();
+        if (failedBlueprint.isNotEmpty) {
+          ref.read(selectedCourseProvider.notifier).state =
+              failedBlueprint.last;
+          ref.read(currentTabProvider.notifier).state = 1;
+        }
+      }
+    } catch (e) {
+      state = CourseGenerationState(
+          status: GenerationStatus.error, error: e.toString());
+    }
+  }
+
+  void reset() {
+    state = CourseGenerationState(status: GenerationStatus.idle);
+  }
+}
+
+final courseGenerationProvider =
+    StateNotifierProvider<CourseGenerationNotifier, CourseGenerationState>(
+        (ref) {
+  return CourseGenerationNotifier();
+});
+
+// Course manual update state
+class CourseUpdateState {
+  final bool isUpdating;
+  final String? error;
+
+  CourseUpdateState({this.isUpdating = false, this.error});
+}
+
+class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
+  CourseUpdateNotifier() : super(CourseUpdateState());
+
+  Future<bool> updateCourse(
+      String id, Map<String, dynamic> updatedFields, WidgetRef ref) async {
+    state = CourseUpdateState(isUpdating: true);
+    try {
+      final response = await http.put(
+        Uri.parse(AppConstants.updateCourseEndpoint(id)),
+        headers: {
+          'Content-Type': 'application/json',
+          ...ref.read(trainerAuthHeadersProvider),
+        },
+        body: jsonEncode(updatedFields),
+      );
+      if (response.statusCode == 200) {
+        state = CourseUpdateState(isUpdating: false);
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
+        final decoded = jsonDecode(response.body);
+        final updatedCourse = Course.fromJson(decoded);
+        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        return true;
+      } else {
+        final errorMsg = jsonDecode(response.body)['detail'] ??
+            'Failed to update course blueprint.';
+        state =
+            CourseUpdateState(isUpdating: false, error: errorMsg.toString());
+        return false;
+      }
+    } catch (e) {
+      state = CourseUpdateState(isUpdating: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> saveModuleQuiz(
+    String courseId,
+    int moduleNumber,
+    List<Map<String, dynamic>> questions,
+    WidgetRef ref,
+  ) async {
+    state = CourseUpdateState(isUpdating: true);
+    try {
+      final response = await http.put(
+        Uri.parse(AppConstants.moduleQuizEndpoint(courseId, moduleNumber)),
+        headers: {
+          'Content-Type': 'application/json',
+          ...ref.read(trainerAuthHeadersProvider),
+        },
+        body: jsonEncode({'questions': questions}),
+      );
+      if (response.statusCode == 200) {
+        state = CourseUpdateState(isUpdating: false);
+        await ref.read(courseListProvider.notifier).fetchCourses();
+        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
+        final decoded = jsonDecode(response.body);
+        final updatedCourse = Course.fromJson(decoded);
+        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        return true;
+      } else {
+        final decoded = jsonDecode(response.body);
+        final errorMsg = decoded['detail'] ?? 'Failed to save module quiz.';
+        state =
+            CourseUpdateState(isUpdating: false, error: errorMsg.toString());
+        return false;
+      }
+    } catch (e) {
+      state = CourseUpdateState(isUpdating: false, error: e.toString());
+      return false;
+    }
+  }
+}
+
+final courseUpdateProvider =
+    StateNotifierProvider<CourseUpdateNotifier, CourseUpdateState>((ref) {
+  return CourseUpdateNotifier();
+});

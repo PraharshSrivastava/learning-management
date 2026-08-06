@@ -32,28 +32,34 @@ backend/__pycache__/
 **/__pycache__/
 backend/*.db
 backend/*.db-journal
+backend/*.db-shm
+backend/*.db-wal
 backend/*.sqlite3
-backend/uploads/*
-!backend/uploads/.gitkeep
+backend/storage/*.db
+backend/storage/*.db-journal
+backend/storage/*.db-shm
+backend/storage/*.db-wal
+backend/storage/uploads/*
+!backend/storage/uploads/.keep
 backend/slides/*
 !backend/slides/.gitkeep
-backend/assets/images/course_*
-backend/assets/images/generated/
-backend/assets/images/test_*/
-backend/assets/images/course_thumbnails/
-backend/assets/audio/*
-!backend/assets/audio/.keep
-backend/assets/slides/*
-!backend/assets/slides/.keep
-backend/assets/videos/*
-!backend/assets/videos/.keep
+backend/storage/generated/images/*
+!backend/storage/generated/images/.keep
+backend/storage/generated/audio/*
+!backend/storage/generated/audio/.keep
+backend/storage/generated/slides/*
+!backend/storage/generated/slides/.keep
+backend/storage/generated/videos/*
+!backend/storage/generated/videos/.keep
 backend/.venv/
 backend/venv/
 backend/env/
+backend/.env
 *.pyc
 
 # Temp / local generated files
 audio-esv2-90p-bg-10p (7).mp3
+sana_crm_login_test.mp3
 improvements.txt
 refinements.txt
 employee_frontend/analyze_output.txt

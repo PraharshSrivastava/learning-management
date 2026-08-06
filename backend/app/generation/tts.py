@@ -68,17 +68,18 @@ def synthesize_speech_for_slide(text: str, output_path: str, language: str = "En
     if not TTS_ENDPOINT:
         return False
 
-    # Sana is an uploaded clone registered directly on the RunPod TTS service.
     voice = TTS_VOICE
-    tts_url = f"{TTS_ENDPOINT.rstrip('/')}/clone"
+    tts_url = f"{TTS_ENDPOINT.rstrip('/')}/v1/audio/speech"
     payload = {
-        "voice_name": voice,
-        "text": cleaned_text,
-        "language": language,
-        "temperature": TTS_TEMPERATURE,
-        "top_p": 0.95,
-        "top_k": 50,
+        "model": "qwen3-tts",
+        "input": cleaned_text,
+        "voice": voice,
+        "response_format": "wav",
     }
+    if language:
+        payload["language"] = language
+    if TTS_TEMPERATURE is not None:
+        payload["temperature"] = TTS_TEMPERATURE
     headers = {"Content-Type": "application/json"}
 
     try:
@@ -180,5 +181,5 @@ def generate_tts_for_course(course_id: str) -> dict:
     for module_index, slide_index, audio_rel in results:
         modules[module_index]["slides"][slide_index]["audio_path"] = audio_rel
     course["modules"] = modules
-    save_generated_course(course_id, course)
+    save_generated_course(course_id, course, module_fields=("slides",))
     return course

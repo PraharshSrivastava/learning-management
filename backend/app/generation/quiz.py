@@ -60,7 +60,7 @@ def _generate_quiz_for_module(
 
     module_number = module.get("module_number", index + 1)
     module_title = module.get("title", f"Module {index + 1}")
-    module_text = module.get("text", "")
+    module_text = module.get("source_text", "")
     log_event(course_id, "quiz", "module_started", module=module_number)
 
     if num_q <= 0:
@@ -217,7 +217,11 @@ def generate_quiz_for_course(
         modules[index] = module
 
     course["modules"] = modules
-    save_generated_course(course_id, course)
+    save_generated_course(
+        course_id,
+        course,
+        module_fields=("quiz", "quiz_generation_error"),
+    )
 
     logger.info(
         "course_quiz_generation_completed course_id=%s course_name=%s",

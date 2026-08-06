@@ -34,7 +34,7 @@ def _safe_filename(value: str) -> str:
 
 
 def course_thumbnail_signature(course: dict) -> str:
-    title = str(course.get("course_name") or course.get("title") or "Course").strip()
+    title = str(course.get("course_name") or "Course").strip()
     description = str(course.get("course_description") or "").strip()
     source = json.dumps(
         {
@@ -178,7 +178,7 @@ def generate_course_thumbnail(
     Returns a relative static asset path, e.g.
     assets/images/course_thumbnails/course-id-abc123.png.
     """
-    title = course.get("course_name") or course.get("title") or "Course"
+    title = course.get("course_name") or "Course"
     if not THUMBNAILS_ENABLED:
         logger.info("thumbnail_generation_skipped course_id=%s reason=disabled", course_id)
         return None

@@ -15,15 +15,14 @@ class CourseService:
     def __init__(self, repository: CourseRepository | None = None):
         self.repository = repository or CourseRepository()
 
-    def list_drafts(self, trainer_id: str | None = None) -> list[dict]:
+    def list_courses(self, trainer_id: str | None = None) -> list[dict]:
         if trainer_id:
-            return self.repository.list_drafts_for_trainer(trainer_id)
-        return self.repository.list_drafts()
+            return self.repository.list_for_trainer(trainer_id)
+        return self.repository.list()
 
     def generate_outline(self, filename: str, trainer_id: str) -> dict:
-        course = generate_course_outline(filename)
+        course = generate_course_outline(filename, trainer_id=trainer_id)
         course["trainer_id"] = trainer_id
-        course["created_by_trainer_id"] = trainer_id
         self.repository.save_draft(course)
         return course
 
@@ -47,7 +46,6 @@ class CourseService:
             "course_difficulty",
             "language",
             "target_audience",
-            "course_type",
         ):
             if field in updated_fields:
                 blueprint_changed = blueprint_changed or course.get(field) != updated_fields[field]
@@ -120,7 +118,7 @@ class CourseService:
         merged = []
         for index, item in enumerate(incoming_modules, start=1):
             values = (
-                {"title": item, "text": "", "start_line": None, "num_questions": 3}
+                {"title": item, "source_text": "", "start_line": None, "num_questions": 3}
                 if isinstance(item, str)
                 else item.model_dump()
             )
@@ -145,7 +143,7 @@ class CourseService:
                 "video_path",
             ):
                 module.pop(field, None)
-        for field in ("thumbnail", "thumbnail_url", "thumbnail_prompt_hash"):
+        for field in ("thumbnail_path", "thumbnail_prompt_hash"):
             course.pop(field, None)
         blueprint_stage = course.setdefault("generation", {}).get("stages", {}).get("blueprint")
         course["generation"] = {

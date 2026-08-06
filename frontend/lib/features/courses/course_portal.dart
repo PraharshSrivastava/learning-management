@@ -117,7 +117,7 @@ class CoursesSidebar extends ConsumerWidget {
                             itemBuilder: (context, index) {
                               final course = courseListState.courses[index];
                               final isSelected =
-                                  selectedCourse?.id == course.id;
+                                  selectedCourse?.courseId == course.courseId;
 
                               return ListTile(
                                 selected: isSelected,
@@ -272,7 +272,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
   @override
   void didUpdateWidget(covariant CourseDetailsView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.course.id != widget.course.id) {
+    if (oldWidget.course.courseId != widget.course.courseId) {
       _disposeControllers();
       _initControllers();
     }
@@ -305,7 +305,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     _moduleTitleControllers =
         _moduleData.map((m) => TextEditingController(text: m.title)).toList();
     _moduleTextControllers =
-        _moduleData.map((m) => TextEditingController(text: m.text)).toList();
+        _moduleData.map((m) => TextEditingController(text: m.sourceText)).toList();
     _moduleQuestionsControllers = _moduleData
         .map((m) => TextEditingController(text: m.numQuestions.toString()))
         .toList();
@@ -385,7 +385,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                               final hasModules =
                                   widget.course.modules.isNotEmpty;
                               final hasThumbnail =
-                                  widget.course.thumbnailUrl.isNotEmpty;
+                                  widget.course.thumbnailPath.isNotEmpty;
                               final checkpoint =
                                   widget.course.failedCheckpoint.isNotEmpty
                                       ? widget.course.failedCheckpoint
@@ -445,10 +445,10 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                                 .notifier);
                                         if (hasFailedCheckpoint) {
                                           notifier.continueFromCheckpoint(
-                                              widget.course.id, ref);
+                                              widget.course.courseId, ref);
                                         } else {
                                           notifier.generateFullCourse(
-                                              widget.course.id, ref);
+                                              widget.course.courseId, ref);
                                         }
                                       }
                                     : null,
@@ -680,7 +680,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                               _moduleData.add(CourseModule(
                                 moduleNumber: _moduleData.length + 1,
                                 title: '',
-                                text: '',
+                                sourceText: '',
                                 startLine: '',
                                 endLine: '',
                                 numQuestions: 3,
@@ -1074,7 +1074,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-+|-+$'), '');
-    return '${widget.course.id}-module-${module.moduleNumber}-${safeTitle.isEmpty ? 'video' : safeTitle}.mp4';
+    return '${widget.course.courseId}-module-${module.moduleNumber}-${safeTitle.isEmpty ? 'video' : safeTitle}.mp4';
   }
 
   void _onReorder(int oldIndex, int newIndex) {
@@ -1141,7 +1141,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
 
       final success = await ref
           .read(courseUpdateProvider.notifier)
-          .updateCourse(widget.course.id, updatedFields, ref);
+          .updateCourse(widget.course.courseId, updatedFields, ref);
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
