@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Concept density proposal gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--primary:#1d3a78;--deep:#0e2841;--body:#1f1f1f;--blue-wash:#d0ebf6;--blue-mid:#e7f1f3;--peach-wash:#edddd7;--blue-accent:#abe1fa;--line:rgba(29,58,120,.34)}
+    *{box-sizing:border-box}body{margin:0;background:#202a35;color:#fff;font-family:Barlow,Arial,sans-serif}.controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;padding:18px 16px 12px}.controls span{margin-left:8px;color:#d4e0e9;font-size:14px;font-weight:600}button{border:1px solid rgba(255,255,255,.26);border-radius:99px;padding:8px 13px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font:600 14px Barlow,Arial,sans-serif}button.active{border-color:var(--blue-accent);background:var(--blue-accent);color:var(--deep)}.caption{margin:0 0 14px;color:#d4e0e9;text-align:center;font-size:14px}.frame{width:min(1280px,100vw);margin:0 auto 28px;box-shadow:0 14px 42px rgba(0,0,0,.38)}
+    .slide{position:relative;display:flex;flex-direction:column;width:100%;aspect-ratio:16/9;overflow:hidden;padding:20px 58px 18px;background:linear-gradient(100deg,var(--blue-wash) 0%,var(--blue-mid) 52%,var(--peach-wash) 100%);color:var(--body)}.brand-header{position:relative;display:flex;min-height:96px;align-items:flex-start;margin:0 -20px 2px;padding:41px 20px 0;flex-shrink:0}.context{position:relative;max-width:900px;padding-left:14px;color:var(--primary);font-size:30px;line-height:40px;font-weight:600;white-space:nowrap}.context.long{max-width:960px;font-size:24px;line-height:34px}.context:before{content:"";position:absolute;top:3px;bottom:2px;left:0;width:3px;background:var(--primary)}.brand-lockup{position:absolute;top:28px;right:-38px;width:216px;color:var(--primary)}.brand-name{height:34px;padding:0 8px;font-size:25px;line-height:30px;font-weight:700;text-align:center}.brand-tagline{height:26px;padding:0 10px;background:var(--primary);color:#fff;font-size:12px;line-height:26px;font-weight:500;text-align:center;white-space:nowrap}.body{position:relative;display:grid;grid-template-columns:1fr;min-height:0;flex:1;overflow:hidden}.footer{position:relative;height:38px;margin:0 -20px;flex-shrink:0}.footer:before{content:"";position:absolute;top:12px;left:20px;right:22px;height:1px;background:linear-gradient(90deg,rgba(29,58,120,.64),rgba(245,170,143,.72))}.page{position:absolute;top:2px;right:0;color:var(--primary);font-size:14px;font-weight:600}
+    .silver-panel{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.92);border-radius:16px;background:linear-gradient(100deg,rgba(255,255,255,.76),rgba(255,255,255,.34))}.panel-title{color:var(--primary);font-size:42px;font-weight:700;letter-spacing:-.045em;line-height:1.04}.panel-definition{margin-top:19px;color:var(--body);font-size:21px;line-height:1.35}.point-list{display:grid;gap:0}.point{padding:13px 0 0;border-top:1px solid var(--line);color:var(--deep);font-size:15px;font-weight:600;line-height:1.28;overflow-wrap:anywhere}.point:before{content:"";display:block;width:28px;height:3px;margin-bottom:9px;background:var(--primary)}
+    .image-grid{display:none;min-width:0;min-height:0;gap:12px;padding:11px;border:1px solid rgba(255,255,255,.92);border-radius:16px;background:linear-gradient(100deg,rgba(255,255,255,.52),rgba(255,255,255,.24))}.has-images .image-grid{display:grid}.image{min-width:0;min-height:0;overflow:hidden;border:1px solid rgba(255,255,255,.94);background:rgba(255,255,255,.52)}.image img{display:block;width:100%;height:100%;object-fit:contain}.count-1{grid-template-columns:1fr;grid-template-rows:1fr}.count-2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}.count-3{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}.count-3 .image:first-child{grid-row:span 2}
+
+    .statement .body,.evidence .body{display:grid;grid-template-columns:1fr}.statement.has-images .body,.evidence.has-images .body{grid-template-columns:minmax(0,1fr) minmax(300px,.56fr);gap:30px}.statement .silver-panel,.evidence .silver-panel{display:grid;grid-template-rows:1fr auto;height:100%;padding:42px 46px 34px}.statement .point-list,.evidence .point-list{grid-template-columns:repeat(var(--point-cols,3),minmax(0,1fr));column-gap:22px;margin-top:26px}
+    .evidence .silver-panel{background:linear-gradient(112deg,rgba(29,58,120,.94),rgba(14,40,65,.82) 54%,rgba(255,255,255,.22));border-color:rgba(255,255,255,.88)}.evidence .panel-title,.evidence .point{color:#fff}.evidence .panel-definition{color:rgba(255,255,255,.92)}.evidence .point{border-top-color:rgba(255,255,255,.38)}.evidence .point:before{background:var(--blue-accent)}.evidence .image-grid{background:linear-gradient(100deg,rgba(29,58,120,.3),rgba(255,255,255,.28));border-color:rgba(255,255,255,.9)}
+
+    .concept-sparse.no-images .body{align-items:center;justify-items:center}.concept-sparse.no-images .silver-panel{width:min(960px,84%);height:auto;min-height:300px;display:block;padding:50px 56px}.concept-sparse.no-images .silver-panel:before{content:"";display:block;width:118px;height:5px;margin-bottom:31px;background:var(--primary)}.concept-sparse.evidence.no-images .silver-panel:before{background:var(--blue-accent)}.concept-sparse.no-images .panel-title{font-size:52px;line-height:1.02}.concept-sparse.no-images .panel-definition{max-width:750px;margin-top:22px;font-size:26px;line-height:1.32}.concept-sparse.no-images .point-list{display:none}
+    .concept-focus.no-images .body{align-items:center;justify-items:center}.concept-focus.no-images .silver-panel{width:min(1080px,91%);height:auto;min-height:404px;grid-template-rows:auto auto;padding:50px 54px 44px}.concept-focus.no-images .panel-title{font-size:50px}.concept-focus.no-images .panel-definition{max-width:820px;font-size:24px}.concept-focus.no-images .point-list{margin-top:38px;column-gap:34px}.concept-focus.no-images .point{font-size:20px;line-height:1.22;padding-top:17px}
+    .concept-balanced.no-images .silver-panel{grid-template-rows:minmax(0,.66fr) minmax(138px,.34fr);padding:44px 46px 34px}.concept-balanced.no-images .panel-title{font-size:45px}.concept-balanced.no-images .panel-definition{max-width:900px;font-size:22px}.concept-balanced.no-images .point-list{align-self:stretch;gap:18px;margin-top:0}.concept-balanced.no-images .point{display:flex;flex-direction:column;justify-content:flex-start;min-height:126px;padding:18px 18px 16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.18);font-size:18px;line-height:1.22}.concept-balanced.evidence.no-images .point{border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.08)}
+    .concept-image-sparse.has-images .body{grid-template-columns:minmax(380px,.86fr) minmax(0,1fr);gap:24px}.concept-image-sparse.has-images .image-grid{grid-column:1;grid-row:1;padding:18px}.concept-image-sparse.has-images .content-area{grid-column:2;grid-row:1}.concept-image-sparse.has-images .silver-panel{display:flex;height:100%;flex-direction:column;padding:42px 40px 34px}.concept-image-sparse.has-images .silver-panel:before{content:"";display:block;width:92px;height:4px;margin-bottom:27px;flex:0 0 auto;background:var(--primary)}.concept-image-sparse.evidence.has-images .silver-panel:before{background:var(--blue-accent)}.concept-image-sparse.has-images .panel-title{font-size:43px}.concept-image-sparse.has-images .panel-definition{margin-top:18px;font-size:21px;line-height:1.3}.concept-image-sparse.has-images .point-list{display:grid;grid-template-columns:1fr;gap:10px;margin-top:auto;padding-top:24px}.concept-image-sparse.has-images .point{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.22);font-size:15px;line-height:1.2}.concept-image-sparse.has-images .point:before{width:22px;height:2px;margin-bottom:7px}.concept-image-sparse.evidence.has-images .point{border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.08)}
+    .concept-image-dense.has-images .silver-panel{padding:30px 30px 23px}.concept-image-dense.has-images .panel-title{font-size:34px}.concept-image-dense.has-images .panel-definition{margin-top:14px;font-size:17px}.concept-image-dense.has-images .point-list{margin-top:18px;column-gap:13px}.concept-image-dense.has-images .point{padding-top:9px;font-size:12px}.concept-image-dense.has-images .point:before{width:20px;height:2px;margin-bottom:6px}
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <span>Concept proposal</span>
+    <button class="active" data-template="evidence">Inverted</button>
+    <button data-template="statement">Light</button>
+    <span>Images</span>
+    <button class="active" data-images="0">0</button>
+    <button data-images="1">1</button>
+    <button data-images="2">2</button>
+    <button data-images="3">3</button>
+    <span>Key points</span>
+    <button class="active" data-points="0">0</button>
+    <button data-points="1">1</button>
+    <button data-points="2">2</button>
+    <button data-points="3">3</button>
+    <button data-points="4">4</button>
+    <span>Copy</span>
+    <button class="active" data-copy="short">Short</button>
+    <button data-copy="standard">Standard</button>
+    <button data-copy="long">Long</button>
+  </div>
+  <p class="caption" id="caption"></p>
+  <div class="frame">
+    <main class="slide evidence no-images concept-sparse" id="slide">
+      <header class="brand-header">
+        <div class="context">Daily Login for Lead Assignments and Updates</div>
+        <div class="brand-lockup"><div class="brand-name">PhillipCapital</div><div class="brand-tagline">Wealth. Across Chapters.</div></div>
+      </header>
+      <div class="body" id="body"></div>
+      <footer class="footer"><span class="page">2</span></footer>
+    </main>
+  </div>
+  <script>
+    const images=['../static/brand/logo.png','../static/brand/icon-20.svg','../static/brand/icon-21.svg'];
+    const definitions={
+      short:'Sales Users must log into the mobile application daily to ensure timely receipt of lead assignments and updates.',
+      standard:'Decision quality describes how well a choice is made by using relevant evidence, testing assumptions, and applying a clear and consistent process.',
+      long:'Algorithmic bias occurs when an AI system produces skewed or unfair decisions because it was trained on data that reflects existing human biases. Biased input data directly results in biased and flawed AI outputs.'
+    };
+    const shortPoints=['Daily login confirms field availability.','New leads are assigned on time.','Updates stay visible to the sales user.','Missed activity can delay follow-up.'];
+    const longPoints=['Historical data showing male dominance in software engineering led an AI hiring tool to mistakenly downgrade resumes associated with women.','The AI learned the historical pattern, leading it to prefer male candidates despite the data source having inherent bias.','Teams must review both input quality and output behavior before relying on automated recommendations.','Escalation is required when the available evidence is incomplete, conflicting, or unclear.'];
+    let template='evidence', imageCount=0, pointCount=0, copy='short';
+    const imageMarkup=()=>`<aside class="image-grid count-${imageCount}" aria-label="Course source images">${images.slice(0,imageCount).map(src=>`<div class="image"><img src="${src}" alt=""></div>`).join('')}</aside>`;
+    const isDenseImage=()=>imageCount&&copy==='long'&&pointCount>=3;
+    const density=()=>imageCount?(isDenseImage()?'concept-image-dense':'concept-image-sparse'):pointCount===0?'concept-sparse':pointCount<3&&copy!=='long'?'concept-focus':'concept-balanced';
+    const pointMarkup=()=>`<div class="point-list">${(copy==='long'?longPoints:shortPoints).slice(0,pointCount).map(p=>`<div class="point">${p}</div>`).join('')}</div>`;
+    function redraw(){
+      const slide=document.querySelector('#slide');
+      const body=document.querySelector('#body');
+      const title=copy==='long'?'Algorithmic Bias: Garbage In, Garbage Out':copy==='standard'?'Decision Quality':'Daily Login';
+      slide.className=`slide ${template} ${imageCount?'has-images':'no-images'} points-${pointCount} ${density()}`;
+      const panel=`<section class="silver-panel" style="--point-cols:${Math.max(pointCount,1)}"><div class="panel-copy"><div class="panel-title">${title}</div><div class="panel-definition">${definitions[copy]}</div></div>${pointCount?pointMarkup():''}</section>`;
+      body.innerHTML=imageCount&&!isDenseImage()?`${imageMarkup()}<div class="content-area">${panel}</div>`:`<div class="content-area">${panel}</div>${imageCount?imageMarkup():''}`;
+      document.querySelector('#caption').textContent=`${template} | ${imageCount} image(s) | ${pointCount} key point(s) | ${copy} copy | ${density()}`;
+      document.querySelectorAll('[data-template]').forEach(b=>b.classList.toggle('active',b.dataset.template===template));
+      document.querySelectorAll('[data-images]').forEach(b=>b.classList.toggle('active',+b.dataset.images===imageCount));
+      document.querySelectorAll('[data-points]').forEach(b=>b.classList.toggle('active',+b.dataset.points===pointCount));
+      document.querySelectorAll('[data-copy]').forEach(b=>b.classList.toggle('active',b.dataset.copy===copy));
+    }
+    document.querySelectorAll('[data-template]').forEach(b=>b.onclick=()=>{template=b.dataset.template;redraw()});
+    document.querySelectorAll('[data-images]').forEach(b=>b.onclick=()=>{imageCount=+b.dataset.images;redraw()});
+    document.querySelectorAll('[data-points]').forEach(b=>b.onclick=()=>{pointCount=+b.dataset.points;redraw()});
+    document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{copy=b.dataset.copy;redraw()});
+    redraw();
+  </script>
+</body>
+</html>

@@ -64,20 +64,26 @@ def _render_cover(slide: dict[str, Any], module_number: int) -> list[str]:
     current_module = slide.get("module_number", module_number)
     suffix = f" of {escape(total_modules)}" if total_modules else ""
     title = slide.get("slide_title") or slide.get("title", "Untitled")
+    try:
+        module_display = f"{int(current_module):02d}"
+    except (TypeError, ValueError):
+        module_display = escape(current_module)
     return [
         '<div class="module-cover">',
         f'<div class="module-cover-course">{escape(slide.get("course_name", ""))}</div>',
-        f'<div class="module-cover-kicker">Module {escape(current_module)}{suffix}</div>',
+        '<div class="module-cover-brand">PhillipCapital'
+        '<div class="module-cover-brand-tagline">Wealth. Across Chapters.</div></div>',
+        '<div class="module-cover-orb" aria-hidden="true"></div>',
+        '<div class="module-cover-swoosh" aria-hidden="true"></div>',
+        f'<div class="module-cover-number" aria-hidden="true">{module_display}</div>',
         f"<h1>{escape(title)}</h1>",
-        '<div class="module-cover-rule"></div>',
+        '<div class="module-cover-rule" aria-hidden="true"></div>',
+        f'<div class="module-cover-kicker">Module {escape(current_module)}{suffix}</div>',
         "</div>",
     ]
 
 def _render_concept(data: dict[str, Any], slide_index: int) -> list[str]:
-    takeaways = data.get("key_takeaways", [])
-    if not takeaways and data.get("key_takeaway"):
-        takeaways = [data["key_takeaway"]]
-    takeaways = [str(item).strip() for item in takeaways if str(item).strip()]
+    takeaways = _concept_takeaways(data)
     points = (
         '<div class="point-list">'
         + "".join(f'<div class="point">{escape(item)}</div>' for item in takeaways)
@@ -94,6 +100,25 @@ def _render_concept(data: dict[str, Any], slide_index: int) -> list[str]:
         f'<div class="icon-tile"><img src="{brand_icon_path(slide_index)}" alt=""></div>'
         f"{points}</section>"
     ]
+
+def _concept_takeaways(data: dict[str, Any]) -> list[str]:
+    takeaways = data.get("key_takeaways", [])
+    if not takeaways and data.get("key_takeaway"):
+        takeaways = [data["key_takeaway"]]
+    return [str(item).strip() for item in takeaways if str(item).strip()]
+
+def _concept_density_class(slide: dict[str, Any], has_images: bool) -> str:
+    data = slide.get("concept_data") or {}
+    takeaways = _concept_takeaways(data)
+    definition_words = len(str(data.get("definition", "")).split())
+
+    if has_images:
+        return ""
+    if not takeaways:
+        return " concept-sparse"
+    if len(takeaways) < 3 and definition_words < 30:
+        return " concept-focus"
+    return " concept-balanced"
 
 def _render_steps(data: dict[str, Any], is_variant_one: bool) -> list[str]:
     steps = list(data.get("steps", []))[:5]
@@ -179,13 +204,14 @@ def _render_grid(data: dict[str, Any], is_variant_one: bool, slide_index: int) -
         )
         if is_variant_one:
             parts.append(
-                f'<section class="insight-card"><div class="insight-num">{index + 1:02d}</div>'
-                f'<img class="insight-icon" src="{brand_icon_path(slide_index, index)}" alt="">'
+                f'<section class="insight-card"><div class="insight-num grid-icon-tile">'
+                f'<img src="{brand_icon_path(slide_index, index)}" alt=""></div>'
                 f"<h3>{escape(column.get('header', ''))}</h3>{points_html}</section>"
             )
         else:
             parts.append(
-                f'<section class="lane-card"><div class="lane-num">{index + 1:02d}</div>'
+                f'<section class="lane-card"><div class="lane-num">'
+                f'<img src="{brand_icon_path(slide_index, index)}" alt=""></div>'
                 f'<div class="lane-copy"><h3>{escape(column.get("header", ""))}</h3>'
                 f"{points_html}</div></section>"
             )
@@ -297,6 +323,8 @@ def generate_html_slides_for_module(
             if layout_type_str == "concept" and is_v1
             else (" evidence" if layout_type_str == "concept" else "")
         )
+        if layout_type_str == "concept" and slide.get("concept_data"):
+            concept_template_class += _concept_density_class(slide, has_images)
         # The source-deck header holds the slide title; layouts must not repeat it.
         header_html = ""
 

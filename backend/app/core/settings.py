@@ -59,7 +59,7 @@ class Settings(BaseModel):
     llm_model_name: str = "gemma-4-e4b"
     llm_context_window: int = Field(default=8128, ge=256)
 
-    tts_endpoint: str = "https://4uyb5jkmtrvp36-8081.proxy.runpod.net"
+    tts_endpoint: str = "http://35.238.33.238:8081"
     tts_voice: str = "sana"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
     tts_speed: float = Field(default=0.9, gt=0)
@@ -143,7 +143,7 @@ class Settings(BaseModel):
                 "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "8128"),
                 "tts_endpoint": values.get(
                     "TTS_ENDPOINT",
-                    "https://4uyb5jkmtrvp36-8081.proxy.runpod.net",
+                    "http://35.238.33.238:8081",
                 ),
                 "tts_voice": values.get("TTS_VOICE", "sana"),
                 "tts_temperature": values.get("TTS_TEMPERATURE", "0.6"),

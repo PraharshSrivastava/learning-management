@@ -45,3 +45,16 @@
 .slide--with-images .lane-copy { padding: 8px 9px; }
 .slide--with-images .lane-copy h3 { font-size: 12.4px; }
 .slide--with-images .lane-copy li { padding-left: 8px; font-size: 8.8px; line-height: 1.04; }
+.slide--with-images .gallery-grid.count-2 { grid-template-columns: 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.slide--with-images .gallery-grid.count-2 .insight-card h3 { font-size: 18px; }
+.slide--with-images .gallery-grid.count-2 .insight-card li { font-size: 14px; line-height: 1.22; }
+.slide--with-images .gallery-grid.count-2 .lane-card { grid-template-columns: 48px minmax(0, 1fr); }
+.slide--with-images .gallery-grid.count-2 .lane-copy h3 { font-size: 17px; }
+.slide--with-images .gallery-grid.count-2 .lane-copy li { font-size: 13.5px; line-height: 1.2; }
+.insight-icon { display: none; }
+.grid-icon-tile { display: flex; align-items: flex-start; justify-content: center; }
+.insight-num img { display: block; width: 32px; height: 32px; object-fit: contain; }
+.lane-num img { width: 36px; height: 36px; object-fit: contain; filter: brightness(0) invert(1); opacity: .94; }
+.count-5 .insight-num img, .count-6 .insight-num img { width: 22px; height: 22px; }
+.slide--with-images .insight-num img { width: 18px; height: 18px; }
+.slide--with-images .lane-num img { width: 20px; height: 20px; }
