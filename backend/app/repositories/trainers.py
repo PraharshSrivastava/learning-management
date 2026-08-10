@@ -18,7 +18,7 @@ def _row_to_trainer(row) -> dict:
 
 def list_trainers() -> list[dict]:
     with get_connection() as connection:
-        rows = connection.execute("SELECT * FROM trainers ORDER BY name COLLATE NOCASE").fetchall()
+        rows = connection.execute("SELECT * FROM trainers ORDER BY lower(name), name").fetchall()
     return [TrainerRecord.model_validate(_row_to_trainer(row)).model_dump() for row in rows]
 
 

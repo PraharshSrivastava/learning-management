@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from app.repositories.jobs import GenerationJobRepository
 from app.schemas.generation import GenerationJobResponse
+from app.services.generation_queue import GenerationQueueTicket, generation_queue
 
 
 def _now() -> str:
@@ -32,6 +33,7 @@ class GenerationJobManager:
         self._repository = repository
         self._processes: dict[str, subprocess.Popen[str]] = {}
         self._jobs: dict[str, GenerationJobResponse] = {}
+        self._queue_tickets: dict[str, GenerationQueueTicket] = {}
         self._active_course_jobs: set[str] = set()
         self._lock = Lock()
 
@@ -115,6 +117,7 @@ class GenerationJobManager:
             processes = list(self._processes.values())
         for process in processes:
             self._terminate_process(process)
+        generation_queue.stop()
         if executor:
             executor.shutdown(wait=True, cancel_futures=True)
 
@@ -143,9 +146,15 @@ class GenerationJobManager:
             status="pending",
             created_at=_now(),
         )
-        if self._repository:
-            self._repository.create(job)
+        ticket = generation_queue.enqueue(course_id=course_id, operation="background_full_course")
+        try:
+            if self._repository:
+                self._repository.create(job)
+        except Exception:
+            generation_queue.complete(ticket)
+            raise
         self._jobs[job.id] = job
+        self._queue_tickets[job.id] = ticket
         self._active_course_jobs.add(course_id)
         return job
 
@@ -184,13 +193,16 @@ class GenerationJobManager:
             self._repository.save(job)
 
     def _run(self, job_id: str, operation: Callable[[], object]) -> None:
-        with self._lock:
-            job = self._jobs[job_id]
-            job.status = "running"
-            job.started_at = _now()
-            self._save(job)
         try:
-            operation()
+            with self._lock:
+                job = self._jobs[job_id]
+                ticket = self._queue_tickets[job_id]
+            with generation_queue.run_ticket(ticket):
+                with self._lock:
+                    job.status = "running"
+                    job.started_at = _now()
+                    self._save(job)
+                operation()
         except Exception as exc:
             with self._lock:
                 job.status = "failed"
@@ -205,3 +217,4 @@ class GenerationJobManager:
         finally:
             with self._lock:
                 self._active_course_jobs.discard(job.course_id)
+                self._queue_tickets.pop(job_id, None)

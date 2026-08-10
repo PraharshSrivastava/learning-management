@@ -16,20 +16,24 @@ from app.core.request_context import request_context_middleware
 from app.core.settings import settings
 from app.core.storage import ensure_storage_directories
 from app.generation.runtime import recover_interrupted_generations
+from app.repositories.database import close_pool
 from app.repositories.schema import init_db
 from app.schemas.common import HealthResponse
+from app.services.generation_queue import generation_queue
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     configure_logging(settings.log_level)
     ensure_storage_directories(settings)
+    generation_queue.start()
     init_db()
     recover_interrupted_generations()
     try:
         yield
     finally:
         generation_jobs.shutdown()
+        close_pool()
 
 
 def create_app() -> FastAPI:
@@ -55,7 +59,7 @@ def create_app() -> FastAPI:
     for asset_name, directory in public_directories.items():
         app.mount(
             f"/assets/{asset_name}",
-            StaticFiles(directory=str(directory)),
+            StaticFiles(directory=str(directory), check_dir=False),
             name=f"assets-{asset_name}",
         )
     app.include_router(api_router)

@@ -1,0 +1,8 @@
+.dart_tool/
+build/
+.pub-cache/
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+.env
+__pycache__/

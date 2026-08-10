@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import datetime
+
+from psycopg import IntegrityError
+from psycopg.types.json import Jsonb
 
 from app.repositories.database import get_connection
 from app.schemas.generation import GenerationJobResponse
@@ -30,8 +32,8 @@ class GenerationJobRepository:
         )
 
     @staticmethod
-    def _load_state_payload(value: str | None) -> tuple[dict, dict]:
-        payload = json.loads(value or "{}")
+    def _load_state_payload(value) -> tuple[dict, dict]:
+        payload = value if isinstance(value, dict) else json.loads(value or "{}")
         if not isinstance(payload, dict):
             payload = {}
         extra = payload.pop("__state", {})
@@ -40,20 +42,20 @@ class GenerationJobRepository:
         return payload, extra
 
     @staticmethod
-    def _dump_state_payload(stages: dict, extra: dict) -> str:
+    def _dump_state_payload(stages: dict, extra: dict) -> Jsonb:
         payload = dict(stages)
         if extra:
             payload["__state"] = extra
-        return json.dumps(payload, ensure_ascii=False)
+        return Jsonb(payload, dumps=lambda item: json.dumps(item, ensure_ascii=False))
 
     @classmethod
     def _failed_payload(
         cls,
         *,
-        stages_json: str | None,
+        stages_json,
         checkpoint: str | None,
         reason: str,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, Jsonb]:
         stages, extra = cls._load_state_payload(stages_json)
         now = cls._now()
         checkpoint = checkpoint or extra.get("current_checkpoint") or extra.get("failed_checkpoint")
@@ -145,7 +147,7 @@ class GenerationJobRepository:
                     (job.course_id, job.status, job.error, job.id, now),
                 )
                 connection.commit()
-        except sqlite3.IntegrityError as exc:
+        except IntegrityError as exc:
             raise ValueError("Generation is already running for this course") from exc
 
     def save(self, job: GenerationJobResponse) -> None:
@@ -175,7 +177,11 @@ class GenerationJobRepository:
             ).fetchone()
         if not row:
             return None
-        stages = json.loads(row["stages_json"] or "{}")
+        stages = (
+            row["stages_json"]
+            if isinstance(row["stages_json"], dict)
+            else json.loads(row["stages_json"] or "{}")
+        )
         return GenerationJobResponse.model_validate(
             {
                 "id": row["worker_id"],

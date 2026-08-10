@@ -5,6 +5,7 @@ frontend/.flutter-plugins-dependencies
 frontend/.metadata
 frontend/build/
 frontend/.env
+/.env
 frontend/.pub-cache/
 frontend/.pub/
 frontend/**/doc/api/

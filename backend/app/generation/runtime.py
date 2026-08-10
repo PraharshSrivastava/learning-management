@@ -8,8 +8,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 
-from filelock import FileLock
-
 from app.core.settings import settings
 from app.core.storage import resolve_public_asset_path
 from app.repositories.courses import (
@@ -21,7 +19,7 @@ from app.repositories.courses import (
     save_all_courses,
     save_course,
 )
-from app.repositories.database import database_path
+from app.repositories.database import advisory_lock
 from app.schemas.generation import GenerationState
 
 logger = logging.getLogger(__name__)
@@ -212,19 +210,17 @@ def save_generated_course(
         raise ValueError("Cannot save generated content for a different course")
     if not course_fields and not module_fields:
         raise ValueError("Generated course writes must declare owned fields")
-    with FileLock(f"{database_path()}.{course_id}.generation.lock", timeout=60):
-        patch_generated_course_fields(
-            course_id,
-            course,
-            course_fields=course_fields,
-            module_fields=module_fields,
-        )
+    patch_generated_course_fields(
+        course_id,
+        course,
+        course_fields=course_fields,
+        module_fields=module_fields,
+    )
 
 
 def update_generation_state(course_id: str, update: Callable[[dict], None]) -> dict:
     """Apply one coordinator-owned checkpoint transition to the latest course state."""
-    with FileLock(f"{database_path()}.{course_id}.generation.lock", timeout=60):
-        return patch_generation_state(course_id, update)
+    return patch_generation_state(course_id, update)
 
 def ensure_module_cover_slide(
     course: dict, module: dict, module_number: int, total_modules: int
@@ -355,7 +351,7 @@ def is_course_generation_complete(course: dict) -> bool:
 
 def sync_clean_database(course_id: str | None = None):
     """Prepare complete courses while serializing lifecycle transitions."""
-    with FileLock(f"{database_path()}.publish.lock", timeout=30):
+    with advisory_lock("publish_sync"):
         return _sync_clean_database(course_id)
 
 def _sync_clean_database(target_course_id: str | None = None):
@@ -366,7 +362,7 @@ def _sync_clean_database(target_course_id: str | None = None):
     responsible for creating quizzes, videos, and thumbnails before this exporter runs.
     """
     start = time.perf_counter()
-    logger.info("publish_sync_started db=%s", database_path())
+    logger.info("publish_sync_started")
 
     if target_course_id:
         draft_course = CourseRepository().get_draft(target_course_id)
@@ -405,9 +401,8 @@ def _sync_clean_database(target_course_id: str | None = None):
     else:
         save_all_courses(ready_courses, "ready")
     logger.info(
-        "publish_rows_synchronized count=%s db=%s elapsed_seconds=%.1f",
+        "publish_rows_synchronized count=%s elapsed_seconds=%.1f",
         len(ready_courses),
-        database_path(),
         time.perf_counter() - write_start,
     )
     logger.info(

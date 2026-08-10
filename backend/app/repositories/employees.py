@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import sqlite3
-
 from app.repositories.database import get_connection
 from app.schemas.employee import EmployeeResponse
 
 
-def _row_to_employee(row: sqlite3.Row) -> dict:
+def _row_to_employee(row) -> dict:
     employee_id = row["employee_id"]
     return {
         "employee_id": employee_id,
@@ -43,10 +41,15 @@ def get_employee(employee_id: str) -> dict | None:
 class EmployeeRepository:
     @staticmethod
     def _validated(employee: dict) -> dict:
-        EmployeeResponse.model_validate(employee); return employee
+        EmployeeResponse.model_validate(employee)
+        return employee
+
     def list(self, *, include_inactive: bool = False) -> list[dict]:
         return [self._validated(employee) for employee in list_employees(include_inactive=include_inactive)]
+
     def get(self, employee_id: str) -> dict | None:
-        employee = get_employee(employee_id); return self._validated(employee) if employee else None
+        employee = get_employee(employee_id)
+        return self._validated(employee) if employee else None
+
     def assignment_options(self) -> dict:
         return get_employee_assignment_options()

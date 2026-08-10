@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import date, datetime
+
+from psycopg.types.json import Jsonb
 
 from app.repositories.database import get_connection
 from app.repositories.employees import list_employees
@@ -60,7 +61,9 @@ def default_assignment_rule(course_id: str) -> dict:
     }
 
 
-def _loads(value: str | None) -> dict:
+def _loads(value) -> dict:
+    if isinstance(value, dict):
+        return value
     return json.loads(value or "{}")
 
 
@@ -78,7 +81,7 @@ def _ensure_course_for_rule(connection, course_id: str) -> None:
     )
 
 
-def _row_to_assignment_rule(row: sqlite3.Row) -> dict:
+def _row_to_assignment_rule(row) -> dict:
     include = _loads(row["include_filters_json"])
     exclude = _loads(row["exclude_filters_json"])
     return {
@@ -197,10 +200,10 @@ def save_assignment_rule(
             """,
             (
                 course_id,
-                json.dumps(include_filters, ensure_ascii=False),
-                json.dumps(exclude_filters, ensure_ascii=False),
+                Jsonb(include_filters, dumps=lambda item: json.dumps(item, ensure_ascii=False)),
+                Jsonb(exclude_filters, dumps=lambda item: json.dumps(item, ensure_ascii=False)),
                 normalized["deadline_days"],
-                int(normalized["is_active"]),
+                bool(normalized["is_active"]),
                 normalized["applied_deadline_days"],
                 normalized["published_at"],
                 normalized["disabled_at"],

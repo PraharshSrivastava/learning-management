@@ -2,13 +2,14 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.30.0
 python-multipart>=0.0.9
 pydantic>=2.7.0
+psycopg[binary]>=3.2.0
+psycopg-pool>=3.2.0
 # PDF & Data Extraction
 pdfplumber>=0.11.0
 pymupdf>=1.24.0
 
 # HTTP & Utils
 requests>=2.31.0
-filelock>=3.14.0
 
 # Video & Image Generation (Playwright requires: playwright install chromium)
 playwright>=1.44.0

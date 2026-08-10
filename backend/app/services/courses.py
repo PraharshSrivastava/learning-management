@@ -9,6 +9,7 @@ from app.generation.runtime import now_iso
 from app.repositories.courses import CourseRepository
 from app.schemas.course import CourseUpdateRequest
 from app.schemas.quiz import ManualQuizRequest
+from app.services.generation_queue import generation_queue
 
 
 class CourseService:
@@ -21,7 +22,8 @@ class CourseService:
         return self.repository.list()
 
     def generate_outline(self, filename: str, trainer_id: str) -> dict:
-        course = generate_course_outline(filename, trainer_id=trainer_id)
+        with generation_queue.run(course_id=f"blueprint:{trainer_id}:{filename}", operation="blueprint"):
+            course = generate_course_outline(filename, trainer_id=trainer_id)
         course["trainer_id"] = trainer_id
         self.repository.save_draft(course)
         return course

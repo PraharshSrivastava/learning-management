@@ -1,8 +1,6 @@
 import json
 import os
 import subprocess
-import sys
-import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -68,12 +66,14 @@ def _terminate(process):
             process.wait(timeout=10)
 
 
-def _seed_database(db_path):
+def _seed_database(database_url):
     env = os.environ.copy()
-    env["LMS_DB_PATH"] = str(db_path)
+    env["DATABASE_URL"] = database_url
     seed_code = (
         "import json;"
-        "from core.database import save_all_courses;"
+        "from app.repositories.schema import init_db;"
+        "from app.repositories.courses import save_all_courses;"
+        "init_db();"
         f"save_all_courses([json.loads({json.dumps(json.dumps(PUBLISHED_COURSE))})], 'published')"
     )
     subprocess.run(
@@ -89,105 +89,103 @@ def main():
         raise RuntimeError(f"Backend Python not found at {PYTHON}")
     if not FLUTTER.exists():
         raise RuntimeError(f"Flutter not found at {FLUTTER}")
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is required for the employee E2E smoke test.")
 
     backend_process = None
     frontend_process = None
-    with tempfile.TemporaryDirectory(
-        prefix="lms_employee_e2e_",
-        ignore_cleanup_errors=True,
-    ) as tmp_dir:
-        db_path = Path(tmp_dir) / "e2e_lms.db"
-        _seed_database(db_path)
+    _seed_database(database_url)
 
-        env = os.environ.copy()
-        env["LMS_DB_PATH"] = str(db_path)
-        env["DART_DISABLE_ANALYTICS"] = "true"
+    env = os.environ.copy()
+    env["DATABASE_URL"] = database_url
+    env["DART_DISABLE_ANALYTICS"] = "true"
 
-        backend_process = subprocess.Popen(
+    backend_process = subprocess.Popen(
+        [
+            str(PYTHON),
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(BACKEND_PORT),
+        ],
+        cwd=BACKEND_DIR,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    try:
+        _wait_for_url(f"http://127.0.0.1:{BACKEND_PORT}/health", timeout=45)
+
+        subprocess.run(
+            [str(FLUTTER), "build", "web", "--no-pub"],
+            cwd=EMPLOYEE_FRONTEND_DIR,
+            env=env,
+            check=True,
+        )
+
+        frontend_process = subprocess.Popen(
             [
                 str(PYTHON),
                 "-m",
-                "uvicorn",
-                "main:app",
-                "--host",
+                "http.server",
+                str(FRONTEND_PORT),
+                "--bind",
                 "127.0.0.1",
-                "--port",
-                str(BACKEND_PORT),
             ],
-            cwd=BACKEND_DIR,
+            cwd=EMPLOYEE_FRONTEND_DIR / "build" / "web",
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
 
-        try:
-            _wait_for_url(f"http://127.0.0.1:{BACKEND_PORT}/health", timeout=45)
+        _wait_for_url(f"http://127.0.0.1:{FRONTEND_PORT}", timeout=120)
 
-            subprocess.run(
-                [str(FLUTTER), "build", "web", "--no-pub"],
-                cwd=EMPLOYEE_FRONTEND_DIR,
-                env=env,
-                check=True,
-            )
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page(viewport={"width": 1440, "height": 950})
+            page.on("console", lambda message: print(f"[browser:{message.type}] {message.text}"))
+            page.on("requestfailed", lambda request: print(
+                f"[requestfailed] {request.url}: {request.failure}"
+            ))
+            with page.expect_response(
+                lambda response: response.url.endswith("/api/employees")
+                and response.status == 200,
+                timeout=90000,
+            ):
+                page.goto(f"http://127.0.0.1:{FRONTEND_PORT}")
 
-            frontend_process = subprocess.Popen(
-                [
-                    str(PYTHON),
-                    "-m",
-                    "http.server",
-                    str(FRONTEND_PORT),
-                    "--bind",
-                    "127.0.0.1",
-                ],
-                cwd=EMPLOYEE_FRONTEND_DIR / "build" / "web",
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
+            expect(page).to_have_title("PhillipCapital Employee LMS", timeout=90000)
 
-            _wait_for_url(f"http://127.0.0.1:{FRONTEND_PORT}", timeout=120)
+            with page.expect_response(
+                lambda response: response.url.endswith("/api/auth/demo-login")
+                and response.status == 200,
+                timeout=90000,
+            ), page.expect_response(
+                lambda response: response.url.endswith("/api/me/courses")
+                and response.status == 200,
+                timeout=90000,
+            ) as courses_info:
+                page.mouse.click(220, 335)
 
-            with sync_playwright() as playwright:
-                browser = playwright.chromium.launch()
-                page = browser.new_page(viewport={"width": 1440, "height": 950})
-                page.on("console", lambda message: print(f"[browser:{message.type}] {message.text}"))
-                page.on("requestfailed", lambda request: print(
-                    f"[requestfailed] {request.url}: {request.failure}"
-                ))
-                with page.expect_response(
-                    lambda response: response.url.endswith("/api/employees")
-                    and response.status == 200,
-                    timeout=90000,
-                ):
-                    page.goto(f"http://127.0.0.1:{FRONTEND_PORT}")
+            courses_response = courses_info.value
+            courses = courses_response.json()
+            assert any(
+                course.get("course_id") == PUBLISHED_COURSE["course_id"]
+                for course in courses
+            ), courses
+            browser.close()
 
-                expect(page).to_have_title("PhillipCapital Employee LMS", timeout=90000)
-
-                with page.expect_response(
-                    lambda response: response.url.endswith("/api/auth/demo-login")
-                    and response.status == 200,
-                    timeout=90000,
-                ), page.expect_response(
-                    lambda response: response.url.endswith("/api/me/courses")
-                    and response.status == 200,
-                    timeout=90000,
-                ) as courses_info:
-                    page.mouse.click(220, 335)
-
-                courses_response = courses_info.value
-                courses = courses_response.json()
-                assert any(
-                    course.get("course_id") == PUBLISHED_COURSE["course_id"]
-                    for course in courses
-                ), courses
-                browser.close()
-
-            print("Employee frontend E2E smoke test passed.")
-        finally:
-            _terminate(frontend_process)
-            _terminate(backend_process)
+        print("Employee frontend E2E smoke test passed.")
+    finally:
+        _terminate(frontend_process)
+        _terminate(backend_process)
 
 
 if __name__ == "__main__":

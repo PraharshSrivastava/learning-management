@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
 from datetime import datetime
+
+from psycopg.types.json import Jsonb
 
 from app.repositories.database import get_connection
 from app.schemas.progress import EmployeeCourseProgressRecord
@@ -14,10 +15,12 @@ from app.schemas.progress import EmployeeCourseProgressRecord
 def _loads(value: str | None, default):
     if value in (None, ""):
         return default
+    if isinstance(value, (dict, list)):
+        return value
     return json.loads(value)
 
 
-def _assignment_from_row(row: sqlite3.Row) -> dict:
+def _assignment_from_row(row) -> dict:
     return {
         "assignment_id": row["assignment_id"],
         "employee_id": row["employee_id"],
@@ -33,7 +36,7 @@ def _assignment_from_row(row: sqlite3.Row) -> dict:
     }
 
 
-def _progress_from_assignment(connection, row: sqlite3.Row) -> dict:
+def _progress_from_assignment(connection, row) -> dict:
     progress = _assignment_from_row(row)
     module_rows = connection.execute(
         """
@@ -227,12 +230,15 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 (
                     assignment_id,
                     module_id,
-                    int(bool(module_progress.get("video_watched"))),
-                    int(bool(module_progress.get("quiz_passed"))),
+                    bool(module_progress.get("video_watched")),
+                    bool(module_progress.get("quiz_passed")),
                     module_progress.get("quiz_score"),
                     int(attempt.get("count", 0)),
                     attempt.get("last_attempt_at"),
-                    json.dumps(module_progress.get("selected_answers", None), ensure_ascii=False),
+                    Jsonb(
+                        module_progress.get("selected_answers", None),
+                        dumps=lambda item: json.dumps(item, ensure_ascii=False),
+                    ),
                     module_progress.get("video_watched_at"),
                     now,
                 ),

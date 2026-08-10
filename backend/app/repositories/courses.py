@@ -7,7 +7,9 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from app.repositories.database import get_connection
+from psycopg.types.json import Jsonb
+
+from app.repositories.database import advisory_xact_lock, get_connection
 from app.schemas.course import CourseRecord
 
 COURSE_METADATA_FIELDS = {
@@ -23,14 +25,16 @@ MODULE_METADATA_FIELDS = {
 }
 
 
-def _json_loads(value: str | None, default: Any) -> Any:
+def _json_loads(value: Any, default: Any) -> Any:
     if value in (None, ""):
         return default
+    if isinstance(value, (dict, list)):
+        return value
     return json.loads(value)
 
 
-def _json_dumps(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False)
+def _json_dumps(value: Any) -> Jsonb:
+    return Jsonb(value, dumps=lambda item: json.dumps(item, ensure_ascii=False))
 
 
 def _module_to_record(course_id: str, index: int, module: dict) -> dict:
@@ -324,6 +328,7 @@ def patch_generated_course_fields(
     """Persist a generation stage's declared output fields without rewriting the course."""
     now = datetime.now().isoformat()
     with get_connection() as connection:
+        advisory_xact_lock(connection, f"course_generation:{course_id}")
         existing = connection.execute(
             "SELECT metadata_json FROM courses WHERE course_id = ?",
             (course_id,),
@@ -431,7 +436,7 @@ def patch_generation_state(course_id: str, update: Any) -> dict:
     """Apply a generation-state-only mutation without loading modules."""
     now = datetime.now().isoformat()
     with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
+        advisory_xact_lock(connection, f"course_generation:{course_id}")
         exists = connection.execute(
             "SELECT 1 FROM courses WHERE course_id = ?",
             (course_id,),

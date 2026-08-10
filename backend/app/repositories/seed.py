@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import sqlite3
 from datetime import date, datetime, timedelta
 
 
-def seed_demo_employees(cursor: sqlite3.Cursor) -> None:
+def seed_demo_employees(cursor) -> None:
     departments = ["Sales", "Operations", "Compliance", "Risk", "Finance", "HR", "IT", "Research"]
     job_titles = ["Associate", "Senior Associate", "Manager", "Director", "VP"]
     first = ["Aarav", "Ananya", "Rohit", "Sneha", "Vikram", "Neha", "Ishaan", "Priya", "Kabir", "Meera", "Arjun", "Riya"]
@@ -22,9 +21,10 @@ def seed_demo_employees(cursor: sqlite3.Cursor) -> None:
         employee_id = f"emp_{index:04d}"
         cursor.execute(
             """
-            INSERT OR IGNORE INTO employees (
+            INSERT INTO employees (
                 employee_id, name, job_title, department, join_date, status, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(employee_id) DO NOTHING
             """,
             (
                 employee_id,
@@ -39,7 +39,7 @@ def seed_demo_employees(cursor: sqlite3.Cursor) -> None:
         )
 
 
-def seed_demo_trainers(cursor: sqlite3.Cursor) -> None:
+def seed_demo_trainers(cursor) -> None:
     now = datetime.now().isoformat()
     for trainer_id, name in (
         ("trainer_0001", "Priya Sharma"),
@@ -48,8 +48,9 @@ def seed_demo_trainers(cursor: sqlite3.Cursor) -> None:
     ):
         cursor.execute(
             """
-            INSERT OR IGNORE INTO trainers (trainer_id, name, status, created_at, updated_at)
+            INSERT INTO trainers (trainer_id, name, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(trainer_id) DO NOTHING
             """,
             (trainer_id, name, "active", now, now),
         )

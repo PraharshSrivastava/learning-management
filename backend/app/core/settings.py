@@ -38,7 +38,7 @@ class Settings(BaseModel):
     app_env: str = "development"
     log_level: str = "INFO"
     backend_dir: Path = _BACKEND_DIR
-    db_path: Path = _BACKEND_DIR / "storage" / "lms.db"
+    database_url: str | None = None
     storage_dir: Path = _BACKEND_DIR / "storage"
     generated_dir: Path = _BACKEND_DIR / "storage" / "generated"
     upload_dir: Path = _BACKEND_DIR / "storage" / "uploads"
@@ -92,6 +92,8 @@ class Settings(BaseModel):
         missing = []
         if not self.llm_api_key:
             missing.append("LLM_API_KEY")
+        if not self.database_url:
+            missing.append("DATABASE_URL")
         if "*" in self.cors_allowed_origins:
             missing.append("CORS_ALLOWED_ORIGINS (explicit origins required)")
         if not self.llm_base_url:
@@ -118,9 +120,7 @@ class Settings(BaseModel):
                 "app_env": values.get("APP_ENV", "development"),
                 "log_level": values.get("LOG_LEVEL", "INFO"),
                 "backend_dir": backend_dir,
-                "db_path": Path(
-                    values.get("LMS_DB_PATH", backend_dir / "storage" / "lms.db")
-                ).resolve(),
+                "database_url": values.get("DATABASE_URL") or None,
                 "storage_dir": storage_dir,
                 "generated_dir": generated_dir,
                 "upload_dir": Path(values.get("LMS_UPLOAD_DIR", storage_dir / "uploads")).resolve(),
