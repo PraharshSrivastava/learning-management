@@ -2,9 +2,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConstants {
   static String get apiBaseUrl {
-    if (dotenv.env['USE_SAME_ORIGIN_API']?.toLowerCase() == 'true') {
-      return '';
-    }
     final configured = dotenv.env['API_BASE_URL'];
     if (configured != null && configured.trim().isNotEmpty) {
       return configured.trim();

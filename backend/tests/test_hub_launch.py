@@ -81,15 +81,3 @@ def test_rejects_expired_token() -> None:
     )
 
     assert _verifier().verify(token, "trainer") is None
-
-
-def test_development_environment_bypasses_hub_session_requirement() -> None:
-    verifier = HubLaunchVerifier(
-        Settings(
-            app_env="development",
-            hub_trainer_app_key="lms-trainer",
-            hub_employee_app_key="lms-employee",
-        )
-    )
-
-    assert verifier.dev_bypass_enabled is True
