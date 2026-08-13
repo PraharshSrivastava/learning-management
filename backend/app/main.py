@@ -19,6 +19,7 @@ from app.generation.runtime import recover_interrupted_generations
 from app.repositories.database import close_pool
 from app.repositories.schema import init_db
 from app.schemas.common import HealthResponse
+from app.security.hub_launch import HubLaunchMiddleware
 from app.services.generation_queue import generation_queue
 
 
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(HubLaunchMiddleware)
     app.middleware("http")(request_context_middleware)
     install_exception_handlers(app)
     public_directories = {

@@ -1,8 +1,13 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConstants {
-  static String get apiBaseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000';
+  static String get apiBaseUrl {
+    final configured = dotenv.env['API_BASE_URL'];
+    if (configured != null && configured.trim().isNotEmpty) {
+      return configured.trim();
+    }
+    return '';
+  }
 
   static String get uploadEndpoint => '$apiBaseUrl/api/upload';
   static String get listFilesEndpoint => '$apiBaseUrl/api/files';
@@ -10,14 +15,18 @@ class AppConstants {
       '$apiBaseUrl/api/courses/generate';
   static String get listCoursesEndpoint => '$apiBaseUrl/api/courses';
   static String get employeesEndpoint => '$apiBaseUrl/api/employees';
+  static String get hubSessionEndpoint => '$apiBaseUrl/api/hub/session/employee';
+  static String get hubLogoutEndpoint => '$apiBaseUrl/api/hub/logout/employee';
   static String get demoLoginEndpoint => '$apiBaseUrl/api/auth/demo-login';
   static String get meEndpoint => '$apiBaseUrl/api/me';
   static String get myCoursesEndpoint => '$apiBaseUrl/api/me/courses';
 
   static String myCoursesWsEndpoint(String token) {
-    final wsBase = apiBaseUrl
-        .replaceFirst('http://', 'ws://')
-        .replaceFirst('https://', 'wss://');
+    final wsBase = apiBaseUrl.isEmpty
+        ? '${Uri.base.scheme == 'https' ? 'wss' : 'ws'}://${Uri.base.authority}'
+        : apiBaseUrl
+            .replaceFirst('http://', 'ws://')
+            .replaceFirst('https://', 'wss://');
     return '$wsBase/api/me/courses/ws?token=$token';
   }
 

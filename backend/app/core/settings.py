@@ -76,6 +76,14 @@ class Settings(BaseModel):
     thumbnail_read_timeout: float = Field(default=180, gt=0)
     thumbnails_enabled: bool = True
     generation_max_concurrency: int = Field(default=1, ge=1, le=8)
+    hub_launch_secret: str | None = None
+    hub_trainer_app_key: str = "lms-trainer"
+    hub_employee_app_key: str = "lms-employee"
+    hub_trainer_cookie_name: str = "lms_trainer_hub"
+    hub_employee_cookie_name: str = "lms_employee_hub"
+    hub_launch_session_seconds: int = Field(default=28800, ge=60)
+    hub_launch_dev_mode: bool = False
+    hub_cookie_secure: bool = False
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -105,6 +113,13 @@ class Settings(BaseModel):
             missing.append("LLM_BASE_URL")
         if not self.tts_endpoint:
             missing.append("TTS_ENDPOINT")
+        if not self.hub_launch_dev_mode:
+            if not self.hub_launch_secret:
+                missing.append("HUB_LAUNCH_SECRET")
+            if not self.hub_trainer_app_key:
+                missing.append("HUB_TRAINER_APP_KEY")
+            if not self.hub_employee_app_key:
+                missing.append("HUB_EMPLOYEE_APP_KEY")
         if missing:
             raise ValueError("Incomplete production configuration: " + ", ".join(missing))
         return self
@@ -187,6 +202,23 @@ class Settings(BaseModel):
                 ),
                 "thumbnails_enabled": values.get("COURSE_THUMBNAILS_ENABLED", "true"),
                 "generation_max_concurrency": values.get("GENERATION_MAX_CONCURRENCY", "1"),
+                "hub_launch_secret": values.get("HUB_LAUNCH_SECRET") or None,
+                "hub_trainer_app_key": values.get("HUB_TRAINER_APP_KEY", "lms-trainer"),
+                "hub_employee_app_key": values.get("HUB_EMPLOYEE_APP_KEY", "lms-employee"),
+                "hub_trainer_cookie_name": values.get(
+                    "HUB_TRAINER_COOKIE_NAME",
+                    "lms_trainer_hub",
+                ),
+                "hub_employee_cookie_name": values.get(
+                    "HUB_EMPLOYEE_COOKIE_NAME",
+                    "lms_employee_hub",
+                ),
+                "hub_launch_session_seconds": values.get(
+                    "HUB_LAUNCH_SESSION_SECONDS",
+                    "28800",
+                ),
+                "hub_launch_dev_mode": values.get("HUB_LAUNCH_DEV_MODE", "false"),
+                "hub_cookie_secure": values.get("HUB_COOKIE_SECURE", "false"),
             }
         )
 

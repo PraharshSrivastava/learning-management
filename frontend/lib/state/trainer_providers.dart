@@ -8,6 +8,7 @@ import 'package:frontend/core/config/app_constants.dart';
 import 'package:frontend/data/models/models.dart';
 
 part 'trainer/auth_providers.dart';
+part 'trainer/hub_providers.dart';
 part 'trainer/file_providers.dart';
 part 'trainer/course_providers.dart';
 part 'trainer/assignment_providers.dart';

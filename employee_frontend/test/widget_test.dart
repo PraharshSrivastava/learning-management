@@ -38,6 +38,16 @@ class FakeDemoAuthNotifier extends DemoAuthNotifier {
   }
 }
 
+class FakeHubSessionNotifier extends HubSessionNotifier {
+  FakeHubSessionNotifier() : super(autoFetch: false) {
+    state = const HubSessionState(
+      isLoading: false,
+      isAuthenticated: true,
+      email: 'hub-user@phillipcapital.in',
+    );
+  }
+}
+
 class FakeEmployeeCourseListNotifier extends EmployeeCourseListNotifier {
   FakeEmployeeCourseListNotifier(EmployeeCourseListState initialState)
       : super(token: null) {
@@ -51,6 +61,7 @@ Widget _buildApp({
 }) {
   return ProviderScope(
     overrides: [
+      hubSessionProvider.overrideWith((ref) => FakeHubSessionNotifier()),
       demoAuthProvider.overrideWith((ref) => FakeDemoAuthNotifier(authState)),
       if (courseState != null)
         employeeCourseListProvider.overrideWith(

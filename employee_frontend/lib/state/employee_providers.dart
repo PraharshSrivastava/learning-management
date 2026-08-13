@@ -10,4 +10,5 @@ import 'package:employee_frontend/core/config/app_constants.dart';
 import 'package:employee_frontend/data/models/models.dart';
 
 part 'employee/auth_providers.dart';
+part 'employee/hub_providers.dart';
 part 'employee/course_progress_providers.dart';

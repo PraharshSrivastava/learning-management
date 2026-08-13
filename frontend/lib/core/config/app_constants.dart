@@ -1,8 +1,13 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConstants {
-  static String get apiBaseUrl =>
-      dotenv.env['API_BASE_URL'] ?? 'http://localhost:8000';
+  static String get apiBaseUrl {
+    final configured = dotenv.env['API_BASE_URL'];
+    if (configured != null && configured.trim().isNotEmpty) {
+      return configured.trim();
+    }
+    return '';
+  }
 
   static String get uploadEndpoint => '$apiBaseUrl/api/upload';
   static String get listFilesEndpoint => '$apiBaseUrl/api/files';
@@ -15,6 +20,8 @@ class AppConstants {
       '$apiBaseUrl/api/assignment/options';
   static String get trainerPerformanceEndpoint =>
       '$apiBaseUrl/api/trainer/performance';
+  static String get hubSessionEndpoint => '$apiBaseUrl/api/hub/session/trainer';
+  static String get hubLogoutEndpoint => '$apiBaseUrl/api/hub/logout/trainer';
   static String get trainerListEndpoint => '$apiBaseUrl/api/auth/trainers';
   static String get trainerDemoLoginEndpoint =>
       '$apiBaseUrl/api/auth/trainer-demo-login';
