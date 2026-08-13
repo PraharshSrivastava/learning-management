@@ -78,6 +78,7 @@ services:
       context: ./frontend
       args:
         API_BASE_URL: ${FRONTEND_API_BASE_URL:-}
+        USE_SAME_ORIGIN_API: ${FRONTEND_USE_SAME_ORIGIN_API:-true}
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-6969}:80"
@@ -90,6 +91,7 @@ services:
       context: ./employee_frontend
       args:
         API_BASE_URL: ${EMPLOYEE_FRONTEND_API_BASE_URL:-}
+        USE_SAME_ORIGIN_API: ${EMPLOYEE_FRONTEND_USE_SAME_ORIGIN_API:-true}
     restart: unless-stopped
     ports:
       - "${EMPLOYEE_FRONTEND_PORT:-6970}:80"

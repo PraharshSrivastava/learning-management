@@ -13,7 +13,8 @@ RUN flutter pub get
 
 COPY . .
 ARG API_BASE_URL=
-RUN printf "API_BASE_URL=%s\n" "$API_BASE_URL" > .env \
+ARG USE_SAME_ORIGIN_API=false
+RUN printf "API_BASE_URL=%s\nUSE_SAME_ORIGIN_API=%s\n" "$API_BASE_URL" "$USE_SAME_ORIGIN_API" > .env \
     && flutter build web --release
 
 FROM nginx:1.27-alpine

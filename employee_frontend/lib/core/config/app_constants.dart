@@ -2,21 +2,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConstants {
   static String get apiBaseUrl {
+    if (dotenv.env['USE_SAME_ORIGIN_API']?.toLowerCase() == 'true') {
+      return '';
+    }
     final configured = dotenv.env['API_BASE_URL'];
     if (configured != null && configured.trim().isNotEmpty) {
-      final value = configured.trim();
-      final configuredUri = Uri.tryParse(value);
-      if (!_isLocalHost && configuredUri?.host == Uri.base.host) {
-        return '';
-      }
-      return value;
+      return configured.trim();
     }
     return '';
-  }
-
-  static bool get _isLocalHost {
-    final host = Uri.base.host.toLowerCase();
-    return host == 'localhost' || host == '127.0.0.1' || host == '::1';
   }
 
   static String get uploadEndpoint => '$apiBaseUrl/api/upload';
