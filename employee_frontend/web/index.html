@@ -33,6 +33,42 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    (function () {
+      function startApp() {
+        var script = document.createElement('script');
+        script.src = 'flutter_bootstrap.js';
+        script.async = true;
+        document.body.appendChild(script);
+      }
+
+      var cleanup = [];
+      if ('serviceWorker' in navigator) {
+        cleanup.push(
+          navigator.serviceWorker
+            .getRegistrations()
+            .then(function (registrations) {
+              return Promise.all(
+                registrations.map(function (registration) {
+                  return registration.unregister();
+                })
+              );
+            })
+        );
+      }
+      if ('caches' in window) {
+        cleanup.push(
+          caches.keys().then(function (keys) {
+            return Promise.all(
+              keys.map(function (key) {
+                return caches.delete(key);
+              })
+            );
+          })
+        );
+      }
+      Promise.all(cleanup).catch(function () {}).then(startApp);
+    })();
+  </script>
 </body>
 </html>
