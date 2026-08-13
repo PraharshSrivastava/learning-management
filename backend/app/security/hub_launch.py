@@ -62,6 +62,13 @@ class HubLaunchVerifier:
     def __init__(self, config: Settings = settings):
         self.config = config
 
+    @property
+    def dev_bypass_enabled(self) -> bool:
+        return (
+            self.config.hub_launch_dev_mode
+            or self.config.app_env.lower() != "production"
+        )
+
     def app_key(self, app: HubApp) -> str:
         if app == "trainer":
             return self.config.hub_trainer_app_key
@@ -97,7 +104,7 @@ class HubLaunchVerifier:
         return HubSession.from_payload(app, payload)
 
     def session_from_request(self, request: Request, app: HubApp) -> HubSession | None:
-        if self.config.hub_launch_dev_mode:
+        if self.dev_bypass_enabled:
             return HubSession(
                 app=app,
                 app_key=self.app_key(app),
@@ -112,7 +119,7 @@ class HubLaunchVerifier:
         return self.verify(token, app)
 
     def require_session(self, request: Request, app: HubApp) -> HubSession:
-        if not self.config.hub_launch_secret and not self.config.hub_launch_dev_mode:
+        if not self.config.hub_launch_secret and not self.dev_bypass_enabled:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=OPEN_THROUGH_HUB,
@@ -180,6 +187,8 @@ class HubLaunchMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         if not path.startswith("/api/"):
             return await call_next(request)
+        if self.verifier.dev_bypass_enabled:
+            return await call_next(request)
 
         app = hub_app_from_header(request.headers.get("x-lms-app"))
         if app is None:
@@ -197,5 +206,5 @@ class HubLaunchMiddleware(BaseHTTPMiddleware):
     def configured(self) -> bool:
         return (
             bool(self.verifier.config.hub_launch_secret)
-            or self.verifier.config.hub_launch_dev_mode
+            or self.verifier.dev_bypass_enabled
         )
