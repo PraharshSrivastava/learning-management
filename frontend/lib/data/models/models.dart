@@ -2,6 +2,7 @@ class PDFFile {
   final String documentId;
   final String fileName;
   final String displayName;
+  final String fileType;
   final int size;
   final String createdAt;
 
@@ -9,20 +10,31 @@ class PDFFile {
     required this.documentId,
     required this.fileName,
     required this.displayName,
+    this.fileType = 'pdf',
     required this.size,
     required this.createdAt,
   });
 
   factory PDFFile.fromJson(Map<String, dynamic> json) {
+    final fileName = json['file_name'] as String;
+    final lowerName = fileName.toLowerCase();
     return PDFFile(
       documentId: json['document_id'] as String,
-      fileName: json['file_name'] as String,
-      displayName:
-          json['display_name']?.toString() ?? json['file_name'] as String,
+      fileName: fileName,
+      displayName: json['display_name']?.toString() ?? fileName,
+      fileType: json['file_type']?.toString() ??
+          (lowerName.endsWith('.pptx')
+              ? 'pptx'
+              : lowerName.endsWith('.docx')
+                  ? 'docx'
+                  : 'pdf'),
       size: json['size'] as int,
       createdAt: json['created_at'] as String,
     );
   }
+
+  bool get isPptx => fileType.toLowerCase() == 'pptx';
+  bool get isDocx => fileType.toLowerCase() == 'docx';
 
   String get formattedSize {
     if (size < 1024) return '$size B';
@@ -340,7 +352,8 @@ class PerformanceCourseOption {
   final String courseId;
   final String courseName;
 
-  const PerformanceCourseOption({required this.courseId, required this.courseName});
+  const PerformanceCourseOption(
+      {required this.courseId, required this.courseName});
 
   factory PerformanceCourseOption.fromJson(Map<String, dynamic> json) {
     return PerformanceCourseOption(

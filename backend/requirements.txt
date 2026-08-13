@@ -7,6 +7,7 @@ psycopg-pool>=3.2.0
 # PDF & Data Extraction
 pdfplumber>=0.11.0
 pymupdf>=1.24.0
+python-pptx>=0.6.23
 
 # HTTP & Utils
 requests>=2.31.0

@@ -17,6 +17,15 @@ class ModuleListSchema(BaseModel):
     modules: list[ModuleSchema]
 
 
+class CourseMetadataSchema(BaseModel):
+    course_name: str = ""
+    course_description: str = ""
+    course_objective: str = ""
+    course_difficulty: str = ""
+    language: str = ""
+    target_audience: str = ""
+
+
 class ExtractedModule(ModuleSchema):
     source_text: str = ""
     end_line: int | None = None

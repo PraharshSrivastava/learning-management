@@ -23,6 +23,8 @@ class AppConstants {
 
   static String viewFileUrl(String filename) =>
       '$apiBaseUrl/api/files/$filename';
+  static String previewFileUrl(String filename) =>
+      '$apiBaseUrl/api/files/$filename/preview';
   static String videoAssetUrl(String videoPath) {
     if (videoPath.startsWith('http')) return videoPath;
     final path = videoPath.startsWith('/') ? videoPath : '/$videoPath';

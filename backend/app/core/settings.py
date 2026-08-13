@@ -42,6 +42,7 @@ class Settings(BaseModel):
     storage_dir: Path = _BACKEND_DIR / "storage"
     generated_dir: Path = _BACKEND_DIR / "storage" / "generated"
     upload_dir: Path = _BACKEND_DIR / "storage" / "uploads"
+    derived_document_dir: Path = _BACKEND_DIR / "storage" / "derived_documents"
     image_dir: Path = _BACKEND_DIR / "storage" / "generated" / "images"
     audio_dir: Path = _BACKEND_DIR / "storage" / "generated" / "audio"
     slide_dir: Path = _BACKEND_DIR / "storage" / "generated" / "slides"
@@ -49,6 +50,8 @@ class Settings(BaseModel):
     static_dir: Path = _BACKEND_DIR / "app" / "static"
     template_dir: Path = _BACKEND_DIR / "app" / "templates" / "slides"
     prompt_dir: Path = _BACKEND_DIR / "app" / "prompts"
+    libreoffice_executable: str = "soffice"
+    document_conversion_timeout_seconds: float = Field(default=180, gt=0)
     cors_allowed_origins: tuple[str, ...] = (
         "http://localhost:3000",
         "http://localhost:8080",
@@ -57,10 +60,12 @@ class Settings(BaseModel):
     llm_base_url: str = "http://35.238.33.238:4000/v1"
     llm_api_key: str | None = "sk-test-litellm-gateway"
     llm_model_name: str = "gemma-4-e4b"
-    llm_context_window: int = Field(default=8128, ge=256)
+    llm_context_window: int = Field(default=128000, ge=256)
+    llm_max_input_tokens: int = Field(default=100000, ge=256)
+    llm_max_output_tokens: int = Field(default=28000, ge=256)
 
     tts_endpoint: str = "http://35.238.33.238:8081"
-    tts_voice: str = "sana"
+    tts_voice: str = "priyanka"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
     tts_speed: float = Field(default=0.9, gt=0)
     slide_transition_pause_seconds: float = Field(default=1.0, ge=0)
@@ -124,6 +129,12 @@ class Settings(BaseModel):
                 "storage_dir": storage_dir,
                 "generated_dir": generated_dir,
                 "upload_dir": Path(values.get("LMS_UPLOAD_DIR", storage_dir / "uploads")).resolve(),
+                "derived_document_dir": Path(
+                    values.get(
+                        "LMS_DERIVED_DOCUMENT_DIR",
+                        storage_dir / "derived_documents",
+                    )
+                ).resolve(),
                 "image_dir": Path(values.get("LMS_IMAGE_DIR", generated_dir / "images")).resolve(),
                 "audio_dir": Path(values.get("LMS_AUDIO_DIR", generated_dir / "audio")).resolve(),
                 "slide_dir": Path(values.get("LMS_SLIDE_DIR", generated_dir / "slides")).resolve(),
@@ -131,6 +142,10 @@ class Settings(BaseModel):
                 "static_dir": static_dir,
                 "template_dir": template_dir,
                 "prompt_dir": prompt_dir,
+                "libreoffice_executable": values.get("LIBREOFFICE_EXECUTABLE", "soffice"),
+                "document_conversion_timeout_seconds": values.get(
+                    "DOCUMENT_CONVERSION_TIMEOUT_SECONDS", "180"
+                ),
                 "cors_allowed_origins": values.get(
                     "CORS_ALLOWED_ORIGINS",
                     "http://localhost:3000,http://localhost:8080",
@@ -140,12 +155,14 @@ class Settings(BaseModel):
                 or values.get("LITELLM_API_KEY")
                 or "sk-test-litellm-gateway",
                 "llm_model_name": values.get("LLM_MODEL_NAME", "gemma-4-e4b"),
-                "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "8128"),
+                "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "128000"),
+                "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "100000"),
+                "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "28000"),
                 "tts_endpoint": values.get(
                     "TTS_ENDPOINT",
                     "http://35.238.33.238:8081",
                 ),
-                "tts_voice": values.get("TTS_VOICE", "sana"),
+                "tts_voice": values.get("TTS_VOICE", "priyanka"),
                 "tts_temperature": values.get("TTS_TEMPERATURE", "0.6"),
                 "tts_speed": values.get("TTS_SPEED", "0.9"),
                 "slide_transition_pause_seconds": values.get(

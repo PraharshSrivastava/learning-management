@@ -178,7 +178,6 @@ def api_publish_course_assignment(
 ):
     if trainer_id:
         _owned_draft_course(course_id, trainer_id)
-    previous_rule = _assignments.get(course_id)
     rule = _assignments.save(
         course_id,
         payload.model_dump(exclude_unset=True),

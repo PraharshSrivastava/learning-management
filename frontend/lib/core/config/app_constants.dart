@@ -21,6 +21,8 @@ class AppConstants {
 
   static String viewFileUrl(String filename) =>
       '$apiBaseUrl/api/files/$filename';
+  static String previewFileUrl(String filename) =>
+      '$apiBaseUrl/api/files/$filename/preview';
   static String updateCourseEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id';
   static String courseAssignmentEndpoint(String id) =>

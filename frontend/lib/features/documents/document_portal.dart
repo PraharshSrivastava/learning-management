@@ -379,14 +379,14 @@ class PDFViewerCard extends ConsumerWidget {
       );
     }
 
-    final fileUrl = AppConstants.viewFileUrl(selectedFile!.fileName);
+    final previewUrl = AppConstants.previewFileUrl(selectedFile!.fileName);
 
     if (kIsWeb) {
       final String viewId = 'pdf-viewer-${selectedFile!.fileName.hashCode}';
       ui_web.platformViewRegistry.registerViewFactory(
         viewId,
         (int id) => html.IFrameElement()
-          ..src = fileUrl
+          ..src = previewUrl
           ..style.border = 'none'
           ..style.width = '100%'
           ..style.height = '100%',
@@ -442,7 +442,7 @@ class PDFViewerCard extends ConsumerWidget {
                     icon: const Icon(Icons.open_in_new,
                         color: AppTheme.primaryBlue, size: 20),
                     onPressed: () {
-                      html.window.open(fileUrl, '_blank');
+                      html.window.open(previewUrl, '_blank');
                     },
                     tooltip: 'Open in new tab',
                   ),
@@ -481,7 +481,7 @@ class PDFViewerCard extends ConsumerWidget {
               icon: const Icon(Icons.open_in_new),
               label: const Text('Open Document Link'),
               onPressed: () {
-                debugPrint('Open URL: $fileUrl');
+                debugPrint('Open URL: $previewUrl');
               },
             ),
           ],

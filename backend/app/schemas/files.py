@@ -13,5 +13,6 @@ class StoredFileResponse(ApiSchema):
     document_id: str
     file_name: str
     display_name: str | None = None
+    file_type: str = "pdf"
     size: int
     created_at: str

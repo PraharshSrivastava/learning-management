@@ -1,24 +1,37 @@
 class PDFFile {
   final String documentId;
   final String fileName;
+  final String fileType;
   final int size;
   final String createdAt;
 
   PDFFile({
     required this.documentId,
     required this.fileName,
+    this.fileType = 'pdf',
     required this.size,
     required this.createdAt,
   });
 
   factory PDFFile.fromJson(Map<String, dynamic> json) {
+    final fileName = json['file_name'] as String;
+    final lowerName = fileName.toLowerCase();
     return PDFFile(
       documentId: json['document_id'] as String,
-      fileName: json['file_name'] as String,
+      fileName: fileName,
+      fileType: json['file_type']?.toString() ??
+          (lowerName.endsWith('.pptx')
+              ? 'pptx'
+              : lowerName.endsWith('.docx')
+                  ? 'docx'
+                  : 'pdf'),
       size: json['size'] as int,
       createdAt: json['created_at'] as String,
     );
   }
+
+  bool get isPptx => fileType.toLowerCase() == 'pptx';
+  bool get isDocx => fileType.toLowerCase() == 'docx';
 
   String get formattedSize {
     if (size < 1024) return '$size B';

@@ -4,6 +4,7 @@ import os
 import re
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Set
 
 import fitz
@@ -11,7 +12,10 @@ import pdfplumber
 
 from app.core.logging import generation_logger
 from app.core.providers import IMAGE_DIR, UPLOAD_DIR, get_llm_endpoint, safe_chat_completion
+from app.core.settings import settings
 from app.core.storage import public_asset_url
+from app.documents.conversion import convert_office_to_pdf
+from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
 from app.repositories.courses import get_all_courses, get_course, save_course
@@ -19,6 +23,7 @@ from app.repositories.documents import get_document_by_file_name, save_document
 from app.schemas.generation.blueprint import BlueprintExtractionResult, ModuleListSchema
 
 logger = generation_logger(__name__)
+
 
 def extract_text_and_pages(pdf_path: str):
     """
@@ -124,6 +129,7 @@ def extract_text_and_pages(pdf_path: str):
 
     return metadata, body_lines, body_line_pages
 
+
 def clean_extracted_text(text: str) -> str:
     """
     Cleans raw PDF text:
@@ -161,6 +167,7 @@ def clean_extracted_text(text: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
 
     return text.strip()
+
 
 def extract_metadata_programmatically(text: str):
     """
@@ -250,6 +257,7 @@ def extract_metadata_programmatically(text: str):
     remaining_text = text[last_end:].strip()
     return metadata, remaining_text
 
+
 def normalise_to_sentence_lines(text: str) -> str:
     """
     Two rules only:
@@ -273,6 +281,7 @@ def normalise_to_sentence_lines(text: str) -> str:
 
     return "\n".join(output_lines)
 
+
 def number_lines(text: str) -> tuple[str, list]:
     """
     Split text into lines, prefix each with [LINE N], and return:
@@ -286,6 +295,7 @@ def number_lines(text: str) -> tuple[str, list]:
     numbered_text = "\n".join(numbered_lines)
     return numbered_text, lines
 
+
 def extract_modules_with_llm(body_lines: List[str], course_id: str = "blueprint") -> List[dict]:
     """
     Number every line of the document body, send to LLM, and get back
@@ -296,8 +306,8 @@ def extract_modules_with_llm(body_lines: List[str], course_id: str = "blueprint"
     numbered_lines = [f"[LINE {i + 1}] {line}" for i, line in enumerate(body_lines)]
     numbered_text = "\n".join(numbered_lines)
 
-    # Truncate to 50,000 chars
-    content = numbered_text[:50000]
+    # Send the complete document. Provider preflight rejects oversized requests explicitly.
+    content = numbered_text
     total_lines = len(body_lines)
 
     logger.info("document_body_normalized line_count=%s", total_lines)
@@ -354,6 +364,7 @@ def extract_modules_with_llm(body_lines: List[str], course_id: str = "blueprint"
 
     return retry(generate_once, course_id=course_id, stage="blueprint", attempts=3)
 
+
 def _validate_start_lines(modules: List[dict], total_lines: int):
     """
     Ensure start_line values are strictly increasing and within [1, total_lines].
@@ -375,10 +386,12 @@ def _validate_start_lines(modules: List[dict], total_lines: int):
     if modules:
         modules[0]["start_line"] = 1
 
+
 def _looks_like_caption_line(line: str) -> bool:
     return bool(
         re.match(r"^\s*(?:figure|fig|img|image|caption|chart)\s*\d*[\s:.\-]", line, re.IGNORECASE)
     )
+
 
 def adjust_start_lines_for_headers(modules: List[dict], original_lines: List[str]):
     """
@@ -486,6 +499,7 @@ def adjust_start_lines_for_headers(modules: List[dict], original_lines: List[str
                 m["start_line"] = new_start
                 break
 
+
 def slice_modules_by_line(original_lines: list, modules: List[dict]) -> List[dict]:
     """
     Use the integer start_line from each module to slice original_lines directly.
@@ -524,6 +538,7 @@ def slice_modules_by_line(original_lines: list, modules: List[dict]) -> List[dic
         resolved.append(module)
 
     return resolved
+
 
 def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any]]:
     """
@@ -675,6 +690,7 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
 
     return extracted
 
+
 def parse_caption_prefix(text: str):
     """
     Parses a caption string to extract the prefix type, figure number, and the caption body.
@@ -694,6 +710,7 @@ def parse_caption_prefix(text: str):
         body = match.group(3).strip()
         return prefix_type, num, body
     return None, None, text.strip()
+
 
 def find_matching_line(
     caption: str,
@@ -760,6 +777,7 @@ def find_matching_line(
 
     return -1
 
+
 def get_caption_lines(
     caption: str, start_line_num: int, original_lines: List[str], raw_caption: str = None
 ) -> Set[int]:
@@ -797,6 +815,7 @@ def get_caption_lines(
         current_idx += 1
 
     return caption_line_indices
+
 
 def assign_images_to_modules(
     images: List[Dict[str, Any]],
@@ -865,6 +884,7 @@ def assign_images_to_modules(
 
     return modules
 
+
 def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> dict:
     metadata, original_lines, original_line_pages = extract_text_and_pages(pdf_path)
 
@@ -891,7 +911,6 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
 
         # Extract and assign images to modules
         import fitz
-
 
         doc = fitz.open(pdf_path)
         total_pages = len(doc)
@@ -959,11 +978,40 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
         images=images,
     ).model_dump()
 
+
+def run_pptx_blueprint_extraction(pptx_path: str, course_id: str = "temp_course") -> dict:
+    """Generate a blueprint from native PPTX text while intentionally ignoring images."""
+    original_lines = extract_text_from_pptx(pptx_path)
+    if not original_lines:
+        raise ValueError("No text could be extracted from the PPTX.")
+
+    metadata = extract_pptx_metadata_with_llm(original_lines, course_id=course_id)
+    raw_modules = extract_modules_with_llm(original_lines, course_id=course_id)
+    adjust_start_lines_for_headers(raw_modules, original_lines)
+    modules = slice_modules_by_line(original_lines, raw_modules)
+    good = sum(1 for module in modules if len(module.get("source_text", "")) >= 100)
+    logger.info("pptx_module_text_slicing_completed matched=%s total=%s", good, len(modules))
+
+    return BlueprintExtractionResult(
+        course_name=metadata.get("course_name", ""),
+        course_description=metadata.get("course_description", ""),
+        course_objective=metadata.get("course_objective", ""),
+        course_difficulty=metadata.get("course_difficulty", ""),
+        language=metadata.get("language", ""),
+        target_audience=metadata.get("target_audience", ""),
+        modules=modules,
+        images=[],
+    ).model_dump()
+
+
 def generate_course_outline(filename, course_id: str | None = None, trainer_id: str | None = None):
     logger.info("blueprint_generation_started file_name=%s", filename)
-    pdf_path = os.path.join(UPLOAD_DIR, filename)
-    if not os.path.exists(pdf_path):
-        raise FileNotFoundError(f"PDF file not found at {pdf_path}")
+    document_path = os.path.join(UPLOAD_DIR, filename)
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".pdf", ".pptx", ".docx"}:
+        raise ValueError("Only PDF, PPTX, and DOCX files are supported.")
+    if not os.path.exists(document_path):
+        raise FileNotFoundError(f"Document file not found at {document_path}")
 
     document = get_document_by_file_name(filename, trainer_id)
     if document is None and trainer_id is None:
@@ -1004,7 +1052,16 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
     log_event(course_id, "blueprint", "start", document_id=document["document_id"])
 
     try:
-        outline = run_blueprint_extraction(pdf_path, course_id=course_id)
+        if suffix == ".pptx":
+            outline = run_pptx_blueprint_extraction(document_path, course_id=course_id)
+        elif suffix == ".docx":
+            converted_pdf = Path(settings.derived_document_dir) / f"{document['document_id']}.pdf"
+            outline = run_blueprint_extraction(
+                str(convert_office_to_pdf(Path(document_path), converted_pdf)),
+                course_id=course_id,
+            )
+        else:
+            outline = run_blueprint_extraction(document_path, course_id=course_id)
     except Exception as exc:
         failed_course = get_course(course_id, "draft")
         if failed_course is not None:
@@ -1018,8 +1075,7 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
     course_name = base_name
     counter = 1
     while any(
-        c.get("course_id") != course_id and c.get("course_name") == course_name
-        for c in courses
+        c.get("course_id") != course_id and c.get("course_name") == course_name for c in courses
     ):
         course_name = f"{base_name} ({counter})"
         counter += 1

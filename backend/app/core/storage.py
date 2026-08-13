@@ -13,6 +13,7 @@ def ensure_storage_directories(config: Settings) -> None:
         config.storage_dir,
         config.generated_dir,
         config.upload_dir,
+        config.derived_document_dir,
         config.image_dir,
         config.audio_dir,
         config.slide_dir,

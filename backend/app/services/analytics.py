@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
 from app.repositories.employees import EmployeeRepository
 from app.repositories.progress import ProgressRepository
-from app.repositories.assignments import AssignmentRepository
 from app.services.course_access import course_title, parse_datetime
 
 _courses = CourseRepository()

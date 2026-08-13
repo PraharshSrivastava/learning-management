@@ -63,12 +63,16 @@ class LLMClient:
         model: str,
         api_key: str | None,
         context_window: int,
+        max_input_tokens: int,
+        max_output_tokens: int,
         timeout_seconds: float = 600,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self.context_window = context_window
+        self.max_input_tokens = max_input_tokens
+        self.max_output_tokens = max_output_tokens
         self.timeout_seconds = timeout_seconds
 
     def complete(
@@ -85,8 +89,17 @@ class LLMClient:
     ) -> ChatCompletionResponse:
         total_chars = sum(len(str(message.get("content", ""))) for message in messages)
         estimated_input = int(total_chars / 6.0) + 100
+        if estimated_input > self.max_input_tokens:
+            raise ProviderError(
+                f"Estimated input size is {estimated_input} tokens; the configured maximum is "
+                f"{self.max_input_tokens}. The request was not truncated."
+            )
         available_tokens = self.context_window - estimated_input - 150
-        max_tokens = min(default_max_tokens, max(256, available_tokens))
+        max_tokens = min(
+            default_max_tokens,
+            self.max_output_tokens,
+            max(256, available_tokens),
+        )
         logger.debug(
             "llm_request course_id=%s stage=%s module=%s estimated_input=%s "
             "max_tokens=%s attempts=%s",
@@ -113,7 +126,12 @@ class LLMClient:
                     detail,
                 )
                 max_tokens = (
-                    max(256, self.context_window - int(match.group(1)) - 100) if match else 512
+                    min(
+                        self.max_output_tokens,
+                        max(256, self.context_window - int(match.group(1)) - 100),
+                    )
+                    if match
+                    else 512
                 )
                 logger.warning(
                     "llm_context_retry course_id=%s stage=%s max_tokens=%s",
@@ -188,6 +206,8 @@ _default_llm_client = LLMClient(
     model=CHAT_MODEL_NAME,
     api_key=LITELLM_API_KEY,
     context_window=CHAT_MODEL_CONTEXT_WINDOW,
+    max_input_tokens=settings.llm_max_input_tokens,
+    max_output_tokens=settings.llm_max_output_tokens,
 )
 
 
@@ -215,6 +235,8 @@ def safe_chat_completion(
             model=model,
             api_key=settings.llm_api_key,
             context_window=settings.llm_context_window,
+            max_input_tokens=settings.llm_max_input_tokens,
+            max_output_tokens=settings.llm_max_output_tokens,
         )
     return client.complete(
         messages,

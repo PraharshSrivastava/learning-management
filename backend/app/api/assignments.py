@@ -8,7 +8,6 @@ from app.schemas.assignment import (
     CourseAssignmentResponse,
 )
 from app.schemas.course import CourseResponse
-from app.services.auth import current_trainer
 from app.services.assignments import (
     api_assignable_courses,
     api_assignment_options,
@@ -17,6 +16,7 @@ from app.services.assignments import (
     api_publish_course_assignment,
     api_save_course_assignment,
 )
+from app.services.auth import current_trainer
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 router.add_api_route(

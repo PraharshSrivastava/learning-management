@@ -66,6 +66,8 @@ refinements.txt
 employee_frontend/analyze_output.txt
 employee_frontend/out.txt
 employee_frontend/output.txt
+*_extracted_text.txt
+*.wav
 
 # Consolidated ignores; keep package-level ignore files out of git.
 backend/.gitignore
@@ -89,3 +91,4 @@ migrate_working_dir/
 # Ignored experiment and scratch directories
 .agents/
 slide_experiment/
+scratch/
