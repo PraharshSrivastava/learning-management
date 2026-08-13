@@ -4,9 +4,19 @@ class AppConstants {
   static String get apiBaseUrl {
     final configured = dotenv.env['API_BASE_URL'];
     if (configured != null && configured.trim().isNotEmpty) {
-      return configured.trim();
+      final value = configured.trim();
+      final configuredUri = Uri.tryParse(value);
+      if (!_isLocalHost && configuredUri?.host == Uri.base.host) {
+        return '';
+      }
+      return value;
     }
     return '';
+  }
+
+  static bool get _isLocalHost {
+    final host = Uri.base.host.toLowerCase();
+    return host == 'localhost' || host == '127.0.0.1' || host == '::1';
   }
 
   static String get uploadEndpoint => '$apiBaseUrl/api/upload';
