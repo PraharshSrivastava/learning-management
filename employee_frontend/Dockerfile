@@ -15,7 +15,8 @@ COPY . .
 ARG API_BASE_URL=
 ARG USE_SAME_ORIGIN_API=false
 RUN printf "API_BASE_URL=%s\nUSE_SAME_ORIGIN_API=%s\n" "$API_BASE_URL" "$USE_SAME_ORIGIN_API" > .env \
-    && flutter build web --release --pwa-strategy=none
+    && flutter build web --release --pwa-strategy=none \
+    && cp web/flutter_service_worker.js build/web/flutter_service_worker.js
 
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
