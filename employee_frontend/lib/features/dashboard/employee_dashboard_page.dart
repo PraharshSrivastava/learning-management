@@ -37,7 +37,7 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final courseState = ref.watch(employeeCourseListProvider);
-    final authState = ref.watch(demoAuthProvider);
+    final authState = ref.watch(employeeAuthProvider);
     final width = MediaQuery.sizeOf(context).width;
     final isCompact = width < 840;
     const usingPreviewData = false; // courseState.courses.isEmpty;
@@ -95,7 +95,7 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
                     onMenu: () => Scaffold.of(scaffoldContext).openDrawer(),
                     onNotifications: () => _showNotifications(unreadCourses),
                     onLogout: () =>
-                        ref.read(demoAuthProvider.notifier).logout(),
+                        ref.read(employeeAuthProvider.notifier).logout(),
                   ),
                 ),
                 Expanded(

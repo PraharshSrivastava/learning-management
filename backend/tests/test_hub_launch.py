@@ -8,6 +8,8 @@ import hmac
 import json
 import time
 
+from starlette.requests import Request
+
 from app.core.settings import Settings
 from app.security.hub_launch import HubLaunchVerifier
 
@@ -81,3 +83,16 @@ def test_rejects_expired_token() -> None:
     )
 
     assert _verifier().verify(token, "trainer") is None
+
+
+def test_dev_mode_does_not_fabricate_hub_session() -> None:
+    verifier = HubLaunchVerifier(
+        Settings(
+            hub_launch_dev_mode=True,
+            hub_trainer_app_key="lms-trainer",
+            hub_employee_app_key="lms-employee",
+        )
+    )
+    request = Request({"type": "http", "headers": []})
+
+    assert verifier.session_from_request(request, "employee") is None

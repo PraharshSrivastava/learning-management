@@ -17,7 +17,8 @@ class AppConstants {
   static String get employeesEndpoint => '$apiBaseUrl/api/employees';
   static String get hubSessionEndpoint => '$apiBaseUrl/api/hub/session/employee';
   static String get hubLogoutEndpoint => '$apiBaseUrl/api/hub/logout/employee';
-  static String get demoLoginEndpoint => '$apiBaseUrl/api/auth/demo-login';
+  static String get localEmployeeLoginEndpoint =>
+      '$apiBaseUrl/api/auth/local/employee-login';
   static String get meEndpoint => '$apiBaseUrl/api/me';
   static String get myCoursesEndpoint => '$apiBaseUrl/api/me/courses';
 

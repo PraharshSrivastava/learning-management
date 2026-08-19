@@ -9,6 +9,7 @@ import pytest
 from app.core.exceptions import ProviderError
 from app.core.providers import LLMClient
 from app.generation import blueprint
+from app.generation.runtime import PipelineStageError
 from app.services.uploads import UploadService
 
 
@@ -68,7 +69,6 @@ def test_shared_module_extractor_sends_complete_document_text(monkeypatch) -> No
         user_messages.append(kwargs["messages"][1]["content"])
         return _llm_response(
             {
-                "chain_of_thought": "",
                 "modules": [
                     {
                         "module_number": 1,
@@ -88,6 +88,13 @@ def test_shared_module_extractor_sends_complete_document_text(monkeypatch) -> No
     blueprint.extract_modules_with_llm(body_lines, course_id="document")
 
     assert tail_marker in user_messages[0]
+
+
+def test_module_extraction_schema_excludes_chain_of_thought() -> None:
+    schema = blueprint.ModuleListSchema.model_json_schema()
+
+    assert "chain_of_thought" not in schema["properties"]
+    assert schema["required"] == ["modules"]
 
 
 def test_pptx_runner_uses_shared_module_extractor_and_ignores_images(
@@ -248,6 +255,82 @@ def test_llm_client_rejects_oversized_input_without_truncating() -> None:
 
     with pytest.raises(ProviderError, match="request was not truncated"):
         client.complete([{"role": "user", "content": "x" * 6_000}])
+
+
+def test_llm_client_sends_thinking_flag(monkeypatch) -> None:
+    captured_payload: dict = {}
+
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "choices": [
+                    {
+                        "message": {"content": "{}"},
+                        "finish_reason": "stop",
+                    }
+                ]
+            }
+
+    def fake_post(url, headers, json, timeout):
+        del url, headers, timeout
+        captured_payload.update(json)
+        return Response()
+
+    monkeypatch.setattr("app.core.providers.requests.post", fake_post)
+    client = LLMClient(
+        base_url="http://llm",
+        model="model",
+        api_key=None,
+        context_window=128_000,
+        max_input_tokens=100_000,
+        max_output_tokens=28_000,
+        enable_thinking=False,
+    )
+
+    client.complete([{"role": "user", "content": "Return JSON."}])
+
+    assert captured_payload["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_llm_client_rejects_null_message_content(monkeypatch) -> None:
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "choices": [
+                    {
+                        "message": {"content": None},
+                        "finish_reason": "length",
+                    }
+                ]
+            }
+
+    def fake_post(url, headers, json, timeout):
+        del url, headers, json, timeout
+        return Response()
+
+    monkeypatch.setattr("app.core.providers.requests.post", fake_post)
+    client = LLMClient(
+        base_url="http://llm",
+        model="model",
+        api_key=None,
+        context_window=128_000,
+        max_input_tokens=100_000,
+        max_output_tokens=28_000,
+        enable_thinking=False,
+    )
+
+    with pytest.raises(PipelineStageError, match="message.content was null.*finish_reason=length"):
+        client.complete([{"role": "user", "content": "Return JSON."}], attempts=1)
 
 
 def test_pptx_text_extraction_reads_text_frames_and_tables(tmp_path) -> None:

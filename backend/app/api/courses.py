@@ -1,10 +1,10 @@
 """Course blueprint and authoring endpoints."""
 
-from fastapi import APIRouter, Header, Response
+from fastapi import APIRouter, Header, Request, Response
 
 from app.schemas.course import CourseResponse, CourseUpdateRequest, GenerateCourseRequest
 from app.schemas.quiz import ManualQuizRequest
-from app.services.auth import current_trainer
+from app.services.auth import current_trainer_from_request
 from app.services.courses import CourseService
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
@@ -12,14 +12,22 @@ service = CourseService()
 
 
 @router.post("/generate", response_model=CourseResponse)
-def generate_course(request: GenerateCourseRequest, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
-    return service.generate_outline(request.file_name, trainer["trainer_id"])
+def generate_course(
+    payload: GenerateCourseRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
+    return service.generate_outline(payload.file_name, trainer["trainer_id"])
 
 
 @router.get("", response_model=list[CourseResponse])
-def list_courses(response: Response, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
+def list_courses(
+    response: Response,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
     response.headers.update({"Cache-Control": "no-store", "Pragma": "no-cache", "Expires": "0"})
     return service.list_courses(trainer["trainer_id"])
 
@@ -28,9 +36,10 @@ def list_courses(response: Response, authorization: str | None = Header(default=
 def update_course(
     course_id: str,
     payload: CourseUpdateRequest,
+    request: Request,
     authorization: str | None = Header(default=None),
 ):
-    trainer = current_trainer(authorization)
+    trainer = current_trainer_from_request(request, authorization)
     return service.update_course(course_id, payload, trainer["trainer_id"])
 
 
@@ -39,7 +48,8 @@ def update_module_quiz(
     course_id: str,
     module_number: int,
     payload: ManualQuizRequest,
+    request: Request,
     authorization: str | None = Header(default=None),
 ):
-    trainer = current_trainer(authorization)
+    trainer = current_trainer_from_request(request, authorization)
     return service.update_module_quiz(course_id, module_number, payload, trainer["trainer_id"])

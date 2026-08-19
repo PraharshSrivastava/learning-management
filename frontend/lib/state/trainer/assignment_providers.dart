@@ -67,7 +67,10 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     state = state.copyWith(isLoading: true);
     try {
       final response =
-          await http.get(Uri.parse(AppConstants.assignmentOptionsEndpoint));
+          await http.get(
+        Uri.parse(AppConstants.assignmentOptionsEndpoint),
+        headers: ref.read(trainerAuthHeadersProvider),
+      );
       if (response.statusCode == 200) {
         state = state.copyWith(
           options: AssignmentOptions.fromJson(jsonDecode(response.body)),
@@ -153,12 +156,13 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         final matchCount = decoded['match_count'] ?? 0;
         final assignedCount = decoded['assigned_count'] ?? 0;
         final removedCount = decoded['removed_count'] ?? 0;
+        final reactivatedCount = decoded['reactivated_count'] ?? 0;
         final deadlineUpdateCount = decoded['deadline_update_count'] ?? 0;
         _applyAssignmentResponse(
           decoded,
           isPublishing: false,
           message: 'Published assignment for $matchCount matching employees. '
-              '$assignedCount added, $removedCount removed, '
+              '$assignedCount added, $reactivatedCount restored, $removedCount removed, '
               '$deadlineUpdateCount deadlines updated.',
           assignedCount: (decoded['assigned_count'] as num?)?.toInt(),
         );

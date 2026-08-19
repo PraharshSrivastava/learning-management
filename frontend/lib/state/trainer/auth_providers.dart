@@ -15,7 +15,7 @@ class TrainerAuthState {
     this.error,
   });
 
-  bool get isAuthenticated => trainer != null && token != null;
+  bool get isAuthenticated => trainer != null;
 
   TrainerAuthState copyWith({
     List<Trainer>? trainers,
@@ -37,7 +37,34 @@ class TrainerAuthState {
 
 class TrainerAuthNotifier extends StateNotifier<TrainerAuthState> {
   TrainerAuthNotifier() : super(const TrainerAuthState()) {
-    fetchTrainers();
+    fetchHubSession();
+  }
+
+  Future<void> fetchHubSession() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final response = await http.get(
+        Uri.parse(AppConstants.hubSessionEndpoint),
+        headers: const {'X-LMS-App': 'trainer'},
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final trainerJson = decoded['trainer'];
+        if (decoded['authenticated'] == true &&
+            trainerJson is Map<String, dynamic>) {
+          state = state.copyWith(
+            trainer: Trainer.fromJson(trainerJson),
+            token: null,
+            isLoading: false,
+          );
+          return;
+        }
+      }
+      await fetchTrainers();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      await fetchTrainers();
+    }
   }
 
   Future<void> fetchTrainers() async {
@@ -68,7 +95,7 @@ class TrainerAuthNotifier extends StateNotifier<TrainerAuthState> {
     state = state.copyWith(isLoading: true);
     try {
       final response = await http.post(
-        Uri.parse(AppConstants.trainerDemoLoginEndpoint),
+        Uri.parse(AppConstants.trainerLocalLoginEndpoint),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'trainer_id': trainer.trainerId}),
       );
@@ -92,7 +119,12 @@ class TrainerAuthNotifier extends StateNotifier<TrainerAuthState> {
   }
 
   void logout() {
+    http.post(
+      Uri.parse(AppConstants.hubLogoutEndpoint),
+      headers: const {'X-LMS-App': 'trainer'},
+    );
     state = state.copyWith(clearSession: true);
+    fetchTrainers();
   }
 }
 
@@ -104,6 +136,7 @@ final trainerAuthProvider =
 final trainerAuthHeadersProvider = Provider<Map<String, String>>((ref) {
   final token = ref.watch(trainerAuthProvider).token;
   return {
+    'X-LMS-App': 'trainer',
     if (token != null) 'Authorization': 'Bearer $token',
   };
 });

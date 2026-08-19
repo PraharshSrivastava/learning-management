@@ -1,9 +1,23 @@
-"""PostgreSQL schema initialization for the production LMS data model."""
+"""PostgreSQL schema initialization for the LMS data model."""
 
 from __future__ import annotations
 
 from app.repositories.database import get_connection
-from app.repositories.seed import seed_demo_employees, seed_demo_trainers
+
+TABLES = (
+    "module_progress",
+    "course_generation_status",
+    "course_generation_state",
+    "course_assignments",
+    "assignment_rules",
+    "course_modules",
+    "courses",
+    "documents",
+    "employee_groups",
+    "employees",
+    "trainers",
+    "directory_sync_state",
+)
 
 
 def init_db() -> None:
@@ -11,12 +25,17 @@ def init_db() -> None:
         cursor = connection.cursor()
         _create_tables(cursor)
         _create_indexes(cursor)
-        cursor.execute("SELECT COUNT(*) AS count FROM employees")
-        if cursor.fetchone()["count"] == 0:
-            seed_demo_employees(cursor)
-        cursor.execute("SELECT COUNT(*) AS count FROM trainers")
-        if cursor.fetchone()["count"] == 0:
-            seed_demo_trainers(cursor)
+        connection.commit()
+
+
+def recreate_db() -> None:
+    """Drop LMS tables and recreate a clean schema without seeded identities."""
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        for table in TABLES:
+            cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+        _create_tables(cursor)
+        _create_indexes(cursor)
         connection.commit()
 
 
@@ -27,6 +46,8 @@ def _create_tables(cursor) -> None:
             trainer_id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
+            directory_uuid TEXT UNIQUE,
+            email TEXT UNIQUE,
             created_at TEXT NOT NULL DEFAULT (now()::text),
             updated_at TEXT NOT NULL DEFAULT (now()::text)
         )
@@ -38,11 +59,52 @@ def _create_tables(cursor) -> None:
             employee_id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             job_title TEXT NOT NULL,
-            department TEXT NOT NULL,
-            join_date TEXT NOT NULL,
+            department TEXT,
+            join_date TEXT,
             status TEXT NOT NULL DEFAULT 'active',
+            directory_uuid TEXT UNIQUE,
+            hub_user_id INTEGER,
+            email TEXT UNIQUE,
+            sam_account_name TEXT,
+            company TEXT,
+            manager_directory_uuid TEXT,
+            manager_employee_id TEXT,
+            directory_status TEXT NOT NULL DEFAULT 'active',
+            source TEXT NOT NULL DEFAULT 'hub',
+            directory_changed_at TEXT,
+            synced_at TEXT,
             created_at TEXT NOT NULL DEFAULT (now()::text),
-            updated_at TEXT NOT NULL DEFAULT (now()::text)
+            updated_at TEXT NOT NULL DEFAULT (now()::text),
+            CHECK (status IN ('active', 'inactive')),
+            CHECK (directory_status IN ('active', 'inactive', 'unknown')),
+            CHECK (source IN ('hub', 'manual')),
+            FOREIGN KEY (manager_employee_id) REFERENCES employees(employee_id) ON DELETE SET NULL
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS employee_groups (
+            employee_id TEXT NOT NULL,
+            group_dn TEXT NOT NULL,
+            group_cn TEXT,
+            synced_at TEXT NOT NULL DEFAULT (now()::text),
+            PRIMARY KEY (employee_id, group_dn),
+            FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS directory_sync_state (
+            job_name TEXT PRIMARY KEY,
+            cursor INTEGER NOT NULL DEFAULT 0,
+            last_attempt_at TEXT,
+            last_success_at TEXT,
+            last_status TEXT NOT NULL DEFAULT 'never_run',
+            last_error TEXT,
+            stats_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+            CHECK (last_status IN ('never_run', 'success', 'partial', 'failed'))
         )
         """
     )
@@ -66,7 +128,7 @@ def _create_tables(cursor) -> None:
             course_id TEXT PRIMARY KEY,
             trainer_id TEXT NOT NULL,
             document_id TEXT,
-            course_name TEXT NOT NULL DEFAULT '',
+            course_name TEXT NOT NULL,
             course_description TEXT NOT NULL DEFAULT '',
             course_objective TEXT NOT NULL DEFAULT '',
             course_difficulty TEXT NOT NULL DEFAULT '',
@@ -114,6 +176,7 @@ def _create_tables(cursor) -> None:
             exclude_filters_json JSONB NOT NULL DEFAULT '{}'::jsonb,
             deadline_days INTEGER NOT NULL DEFAULT 7 CHECK (deadline_days >= 1),
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            include_inactive BOOLEAN NOT NULL DEFAULT FALSE,
             applied_deadline_days INTEGER CHECK (applied_deadline_days IS NULL OR applied_deadline_days >= 1),
             published_at TEXT,
             disabled_at TEXT,
@@ -137,6 +200,8 @@ def _create_tables(cursor) -> None:
             completed_at TEXT,
             last_activity_at TEXT,
             revoked_at TEXT,
+            assigned_department TEXT,
+            revoked_reason TEXT,
             created_at TEXT NOT NULL DEFAULT (now()::text),
             updated_at TEXT NOT NULL DEFAULT (now()::text),
             UNIQUE (course_id, employee_id),
@@ -168,7 +233,7 @@ def _create_tables(cursor) -> None:
     )
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS course_generation_state (
+        CREATE TABLE IF NOT EXISTS course_generation_status (
             course_id TEXT PRIMARY KEY,
             status TEXT NOT NULL DEFAULT 'pending',
             checkpoint TEXT,
@@ -188,19 +253,23 @@ def _create_tables(cursor) -> None:
 def _create_indexes(cursor) -> None:
     statements = (
         "CREATE INDEX IF NOT EXISTS idx_trainers_status ON trainers(status)",
-        "CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_directory_uuid ON employees(directory_uuid)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_email ON employees(email)",
         "CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department)",
-        "CREATE INDEX IF NOT EXISTS idx_employees_job_title ON employees(job_title)",
+        "CREATE INDEX IF NOT EXISTS idx_employees_manager ON employees(manager_employee_id)",
+        "CREATE INDEX IF NOT EXISTS idx_employees_dir_status ON employees(directory_status)",
+        "CREATE INDEX IF NOT EXISTS idx_employees_dept_active ON employees(department, directory_status)",
+        "CREATE INDEX IF NOT EXISTS idx_employee_groups_cn ON employee_groups(group_cn)",
         "CREATE INDEX IF NOT EXISTS idx_documents_trainer ON documents(trainer_id)",
         "CREATE INDEX IF NOT EXISTS idx_courses_trainer_status ON courses(trainer_id, status)",
         "CREATE INDEX IF NOT EXISTS idx_courses_document ON courses(document_id)",
         "CREATE INDEX IF NOT EXISTS idx_course_modules_course_number ON course_modules(course_id, module_number)",
         "CREATE INDEX IF NOT EXISTS idx_assignment_rules_active ON assignment_rules(is_active)",
-        "CREATE INDEX IF NOT EXISTS idx_course_assignments_employee_status ON course_assignments(employee_id, status)",
-        "CREATE INDEX IF NOT EXISTS idx_course_assignments_course_status ON course_assignments(course_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_assignments_employee ON course_assignments(employee_id)",
+        "CREATE INDEX IF NOT EXISTS idx_assignments_status ON course_assignments(status)",
         "CREATE INDEX IF NOT EXISTS idx_course_assignments_deadline ON course_assignments(deadline)",
         "CREATE INDEX IF NOT EXISTS idx_module_progress_assignment ON module_progress(assignment_id)",
-        "CREATE INDEX IF NOT EXISTS idx_course_generation_state_worker ON course_generation_state(status, locked_until)",
+        "CREATE INDEX IF NOT EXISTS idx_course_generation_status_worker ON course_generation_status(status, locked_until)",
     )
     for statement in statements:
         cursor.execute(statement)

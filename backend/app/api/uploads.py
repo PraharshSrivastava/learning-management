@@ -2,14 +2,14 @@
 
 from pathlib import Path
 
-from fastapi import APIRouter, File, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.settings import settings
 from app.documents.conversion import DocumentConversionError, convert_office_to_pdf
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.files import StoredFileResponse, UploadResponse
-from app.services.auth import current_trainer
+from app.services.auth import current_trainer_from_request
 from app.services.uploads import UploadService
 
 router = APIRouter(prefix="/api", tags=["uploads"])
@@ -23,10 +23,12 @@ MEDIA_TYPES = {
 
 @router.post("/upload", response_model=UploadResponse)
 def upload_file(
-    file: UploadFile = File(...), authorization: str | None = Header(default=None)
+    request: Request,
+    file: UploadFile = File(...),
+    authorization: str | None = Header(default=None),
 ) -> UploadResponse:
     try:
-        trainer = current_trainer(authorization)
+        trainer = current_trainer_from_request(request, authorization)
         return service.save_document(file.filename, file.file, trainer["trainer_id"])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -35,9 +37,12 @@ def upload_file(
 
 
 @router.get("/files", response_model=list[StoredFileResponse])
-def list_files(authorization: str | None = Header(default=None)) -> list[StoredFileResponse]:
+def list_files(
+    request: Request,
+    authorization: str | None = Header(default=None),
+) -> list[StoredFileResponse]:
     try:
-        trainer = current_trainer(authorization)
+        trainer = current_trainer_from_request(request, authorization)
         return service.list_documents(trainer["trainer_id"])
     except OSError as exc:
         raise HTTPException(status_code=500, detail="Failed to list files") from exc

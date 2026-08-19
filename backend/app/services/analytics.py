@@ -151,6 +151,8 @@ def api_trainer_performance(
     scores = []
 
     for progress in _progress.list():
+        if progress.get("status") == "revoked":
+            continue
         employee = employees.get(progress["employee_id"])
         course = courses.get(progress["course_id"])
         if not employee or not course:
@@ -196,17 +198,7 @@ def api_trainer_performance(
         )
         rows.append(
             {
-                "employee": {
-                    key: employee[key]
-                    for key in (
-                        "employee_id",
-                        "name",
-                        "department",
-                        "job_title",
-                        "join_date",
-                        "status",
-                    )
-                },
+                "employee": employee,
                 "course": {
                     "course_id": progress["course_id"],
                     "course_name": course_title(course),

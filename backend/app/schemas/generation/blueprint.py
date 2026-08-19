@@ -13,7 +13,6 @@ class ModuleSchema(BaseModel):
 
 
 class ModuleListSchema(BaseModel):
-    chain_of_thought: str
     modules: list[ModuleSchema]
 
 

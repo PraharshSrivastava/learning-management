@@ -20,6 +20,10 @@ from app.repositories.database import close_pool
 from app.repositories.schema import init_db
 from app.schemas.common import HealthResponse
 from app.security.hub_launch import HubLaunchMiddleware
+from app.services.directory_scheduler import (
+    start_directory_sync_scheduler,
+    stop_directory_sync_scheduler,
+)
 from app.services.generation_queue import generation_queue
 
 
@@ -29,10 +33,12 @@ async def lifespan(_: FastAPI):
     ensure_storage_directories(settings)
     generation_queue.start()
     init_db()
+    start_directory_sync_scheduler()
     recover_interrupted_generations()
     try:
         yield
     finally:
+        await stop_directory_sync_scheduler()
         generation_jobs.shutdown()
         close_pool()
 

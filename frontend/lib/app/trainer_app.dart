@@ -31,7 +31,7 @@ class TrainerHubGate extends ConsumerWidget {
         child: CircularProgressIndicator(),
       );
     }
-    if (!session.isAuthenticated) {
+    if (!session.isAuthenticated && !session.isLocalDevMode) {
       return _HubGateScaffold(
         title: 'Trainer access',
         message: session.error ?? 'Open this application from the Hub dashboard.',

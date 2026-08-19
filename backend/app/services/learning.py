@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from fastapi import Request
+
 from app.core.exceptions import NotFoundError
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
@@ -15,7 +17,7 @@ from app.schemas.progress import (
     ModuleProgressUpdateRequest,
 )
 from app.services.assignments import ensure_assignments_for_employee
-from app.services.auth import current_employee
+from app.services.auth import current_employee_from_request
 from app.services.notifications import (
     broadcast_employee_courses,
     websocket_endpoint,
@@ -111,25 +113,40 @@ def get_enriched_employee_courses(employee_id: str) -> list[dict]:
     return employee_courses
 
 
-def my_courses(authorization: str | None):
-    employee = current_employee(authorization)
+def my_courses(request: Request | None, authorization: str | None):
+    employee = current_employee_from_request(request, authorization)
     return get_enriched_employee_courses(employee["employee_id"])
+
+
+def _assigned_progress_for_employee(employee: dict, course_id: str, now: datetime) -> dict:
+    progress = _progress.get_for_employee(employee["employee_id"])
+    if course_id not in progress:
+        raise NotFoundError("Course not assigned to employee")
+    course_progress = progress[course_id]
+    if course_progress.get("status") == "revoked":
+        raise NotFoundError("Course not assigned to employee")
+    rule = _assignments.get(course_id)
+    if (
+        not rule.get("published_at")
+        or not rule.get("is_active", True)
+        or not _assignments.matches_employee(employee, rule, now)
+    ):
+        raise NotFoundError("Course not assigned to employee")
+    return course_progress
 
 
 async def update_course_status(
     course_id: str,
     payload: CourseStatusUpdateRequest,
+    request: Request | None = None,
     authorization: str | None = None,
 ) -> CourseStatusUpdateResponse:
-    employee = current_employee(authorization)
+    employee = current_employee_from_request(request, authorization)
     employee_id = employee["employee_id"]
     ensure_assignments_for_employee(employee_id)
-    progress = _progress.get_for_employee(employee_id)
-    if course_id not in progress:
-        raise NotFoundError("Course not assigned to employee")
 
     now = datetime.now().isoformat()
-    course_progress = progress[course_id]
+    course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
     course_progress["status"] = payload.status
     course_progress["last_activity_at"] = now
     if payload.status == "started" and not course_progress.get("started_at"):
@@ -152,17 +169,15 @@ async def update_module_progress(
     course_id: str,
     module_number: str,
     payload: ModuleProgressUpdateRequest,
+    request: Request | None = None,
     authorization: str | None = None,
 ):
-    employee = current_employee(authorization)
+    employee = current_employee_from_request(request, authorization)
     employee_id = employee["employee_id"]
     ensure_assignments_for_employee(employee_id)
-    progress = _progress.get_for_employee(employee_id)
-    if course_id not in progress:
-        raise NotFoundError("Course not assigned")
 
     now = datetime.now().isoformat()
-    course_progress = progress[course_id]
+    course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
     course_progress.setdefault("modules", {})
     course_progress.setdefault("attempts", {})
     course_progress["last_activity_at"] = now

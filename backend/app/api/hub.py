@@ -8,7 +8,11 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from starlette.responses import RedirectResponse
 
 from app.schemas.common import ApiSchema
+from app.schemas.employee import EmployeeResponse
+from app.schemas.trainer import TrainerResponse
+from app.core.settings import settings
 from app.security.hub_launch import OPEN_THROUGH_HUB, HubApp, hub_launch_verifier
+from app.services.auth import current_employee_from_request, current_trainer_from_request
 
 router = APIRouter(prefix="/api/hub", tags=["hub"])
 
@@ -21,6 +25,9 @@ class HubSessionResponse(ApiSchema):
     sub: int | None = None
     email: str | None = None
     exp: int | None = None
+    local_dev_mode: bool = False
+    employee: EmployeeResponse | None = None
+    trainer: TrainerResponse | None = None
 
 
 def _launch(request: Request, app: HubApp) -> RedirectResponse:
@@ -38,9 +45,19 @@ def _launch(request: Request, app: HubApp) -> RedirectResponse:
 def _session(request: Request, app: HubApp) -> HubSessionResponse:
     session = hub_launch_verifier.session_from_request(request, app)
     if session is None:
-        return HubSessionResponse(authenticated=False)
+        return HubSessionResponse(
+            authenticated=False,
+            app=app,
+            local_dev_mode=settings.hub_launch_dev_mode,
+        )
     request.state.hub_user = session.as_response()
-    return HubSessionResponse.model_validate(session.as_response())
+    payload = session.as_response()
+    payload["local_dev_mode"] = settings.hub_launch_dev_mode
+    if app == "employee":
+        payload["employee"] = current_employee_from_request(request)
+    else:
+        payload["trainer"] = current_trainer_from_request(request)
+    return HubSessionResponse.model_validate(payload)
 
 
 def _logout(app: HubApp) -> Response:

@@ -164,7 +164,7 @@ def main():
             expect(page).to_have_title("PhillipCapital Employee LMS", timeout=90000)
 
             with page.expect_response(
-                lambda response: response.url.endswith("/api/auth/demo-login")
+                lambda response: response.url.endswith("/api/auth/local/employee-login")
                 and response.status == 200,
                 timeout=90000,
             ), page.expect_response(

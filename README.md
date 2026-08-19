@@ -91,6 +91,9 @@ LLM_BASE_URL
 LLM_API_KEY
 TTS_ENDPOINT
 COURSE_THUMBNAIL_ENDPOINT
+HUB_LAUNCH_SECRET
+DIRECTORY_EXPORTS_API_KEY
+DIRECTORY_SYNC_ADMIN_KEY
 ```
 
 Start or update the deployment:
@@ -211,11 +214,82 @@ COURSE_THUMBNAIL_ENDPOINT
 COURSE_THUMBNAIL_API_KEY
 GENERATION_MAX_CONCURRENCY
 LMS_STORAGE_DIR
+HUB_LAUNCH_SECRET
+HUB_TRAINER_APP_KEY
+HUB_EMPLOYEE_APP_KEY
+HUB_LAUNCH_DEV_MODE
+DIRECTORY_EXPORTS_BASE_URL
+DIRECTORY_EXPORTS_API_KEY
+DIRECTORY_SYNC_ADMIN_KEY
+DIRECTORY_SYNC_ENABLED
+DIRECTORY_SYNC_INTERVAL_HOURS
 ```
 
 Generated uploads, audio, images, slides, and videos live under `/app/storage`
 inside the backend container and `/opt/lms/storage` on the VM host. Structured
 application data lives in PostgreSQL. SQLite is no longer supported.
+
+## Hub Directory Sync
+
+The app imports real employees from the Hub directory export API. Department is
+stored on `employees.department`. Mailing-list assignment filters use
+`employee_groups.group_cn`, parsed from each AD group in the employee's group
+list. `employee_groups.group_dn` keeps the full AD distinguished name for audit
+and future use.
+
+For the first clean production bootstrap, run a full employee import before
+opening the app to users:
+
+```bash
+docker compose exec backend python -m scripts.sync_directory full
+```
+
+Then drain employee change logs once from `after_id=0` so the incremental cursor
+starts from the current Hub state:
+
+```bash
+docker compose exec backend python -m scripts.sync_directory incremental --after-id 0
+```
+
+After bootstrap, set `DIRECTORY_SYNC_ENABLED=true` for the backend container.
+The scheduler runs incremental change-log sync based on
+`DIRECTORY_SYNC_INTERVAL_HOURS`, which should normally stay at `24` because the
+company AD data itself changes once per day.
+
+Manual sync endpoints are protected by `X-Directory-Sync-Key`:
+
+```bash
+curl -sS -H "X-Directory-Sync-Key: $DIRECTORY_SYNC_ADMIN_KEY" \
+  http://127.0.0.1:3060/api/directory/sync/status
+
+curl -sS -X POST -H "X-Directory-Sync-Key: $DIRECTORY_SYNC_ADMIN_KEY" \
+  http://127.0.0.1:3060/api/directory/sync/incremental
+```
+
+Rotate the Hub directory export API key before production if it has been shared
+outside secret storage.
+
+## Clean Production Reset
+
+The new schema is a clean PostgreSQL schema. Existing rows and generated files
+are not changed by normal startup, because startup only creates missing tables.
+For the agreed clean start, take a backup and then run the reset script once:
+
+```bash
+stamp=$(date +%Y%m%d_%H%M%S)
+docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "/opt/lms/backups/lms_${stamp}.sql"
+tar -czf "/opt/lms/backups/storage_${stamp}.tar.gz" -C /opt/lms storage
+
+docker compose stop backend frontend employee_frontend
+docker compose run --rm backend python -m scripts.recreate_lms_database
+docker compose run --rm backend python -m scripts.sync_directory full
+docker compose run --rm backend python -m scripts.sync_directory incremental --after-id 0
+docker compose up -d --build
+```
+
+This deletes LMS table rows and clears uploaded/generated LMS files, then
+recreates employees from the Hub directory export. It preserves application
+templates and brand assets.
 
 ## Generation Pipeline
 
@@ -271,11 +345,12 @@ Remaining hardening items after the VM Docker rollout:
 8. Add upload size/type limits and API rate limits.
 9. Add structured logs, alerts, backups, and queue/stage monitoring.
 
-## Replacing `feat/docker`
+## Branch Deployment Note
 
-The `feat/docker` branch is the old deployed Docker shape. It persists SQLite and
-old asset folders. Replace it from the current code after testing this Compose
-deployment; do not merge the old branch into the current app.
+As of the latest remote check, `origin/main` and `origin/feat/docker` point to
+the same commit. Finish and test changes on `main`, then fast-forward
+`feat/docker` to the exact tested commit for deployment. Do not merge a stale
+local `feat/docker` branch into this app.
 
 ## Verification
 

@@ -73,7 +73,9 @@ class PerformanceState {
 }
 
 class PerformanceNotifier extends StateNotifier<PerformanceState> {
-  PerformanceNotifier() : super(const PerformanceState()) {
+  final Ref ref;
+
+  PerformanceNotifier(this.ref) : super(const PerformanceState()) {
     fetch();
   }
 
@@ -93,7 +95,10 @@ class PerformanceNotifier extends StateNotifier<PerformanceState> {
       }
       final uri = Uri.parse(AppConstants.trainerPerformanceEndpoint)
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri);
+      final response = await http.get(
+        uri,
+        headers: ref.read(trainerAuthHeadersProvider),
+      );
       if (response.statusCode == 200) {
         state = state.copyWith(
           dashboard: PerformanceDashboard.fromJson(
@@ -125,5 +130,5 @@ class PerformanceNotifier extends StateNotifier<PerformanceState> {
 
 final performanceProvider =
     StateNotifierProvider<PerformanceNotifier, PerformanceState>((ref) {
-  return PerformanceNotifier();
+  return PerformanceNotifier(ref);
 });

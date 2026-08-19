@@ -3,12 +3,14 @@ part of '../employee_providers.dart';
 class HubSessionState {
   final bool isLoading;
   final bool isAuthenticated;
+  final bool isLocalDevMode;
   final String? email;
   final String? error;
 
   const HubSessionState({
     this.isLoading = true,
     this.isAuthenticated = false,
+    this.isLocalDevMode = false,
     this.email,
     this.error,
   });
@@ -16,12 +18,14 @@ class HubSessionState {
   HubSessionState copyWith({
     bool? isLoading,
     bool? isAuthenticated,
+    bool? isLocalDevMode,
     String? email,
     String? error,
   }) {
     return HubSessionState(
       isLoading: isLoading ?? this.isLoading,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      isLocalDevMode: isLocalDevMode ?? this.isLocalDevMode,
       email: email ?? this.email,
       error: error,
     );
@@ -40,6 +44,7 @@ class HubSessionNotifier extends StateNotifier<HubSessionState> {
     try {
       final response = await http.get(
         Uri.parse(AppConstants.hubSessionEndpoint),
+        headers: const {'X-LMS-App': 'employee'},
       );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -47,6 +52,7 @@ class HubSessionNotifier extends StateNotifier<HubSessionState> {
         state = HubSessionState(
           isLoading: false,
           isAuthenticated: authenticated,
+          isLocalDevMode: decoded['local_dev_mode'] == true,
           email: authenticated ? decoded['email']?.toString() : null,
         );
         return;
@@ -61,7 +67,10 @@ class HubSessionNotifier extends StateNotifier<HubSessionState> {
   }
 
   Future<void> logout() async {
-    await http.post(Uri.parse(AppConstants.hubLogoutEndpoint));
+    await http.post(
+      Uri.parse(AppConstants.hubLogoutEndpoint),
+      headers: const {'X-LMS-App': 'employee'},
+    );
     state = const HubSessionState(
       isLoading: false,
       error: 'Open this application from the Hub dashboard.',

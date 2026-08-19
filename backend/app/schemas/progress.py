@@ -48,11 +48,14 @@ class QuizAttemptRecord(ApiSchema):
 class EmployeeCourseProgressRecord(ApiSchema):
     employee_id: str | None = None
     course_id: str | None = None
-    status: Literal["pending", "started", "completed", "overdue"] = "pending"
+    status: Literal["pending", "started", "completed", "overdue", "revoked"] = "pending"
     assigned_at: str
     deadline: str
     started_at: str | None = None
     completed_at: str | None = None
+    revoked_at: str | None = None
+    assigned_department: str | None = None
+    revoked_reason: str | None = None
     modules: dict[str, ModuleProgressRecord] = Field(default_factory=dict)
     attempts: dict[str, QuizAttemptRecord] = Field(default_factory=dict)
     last_activity_at: str | None = None

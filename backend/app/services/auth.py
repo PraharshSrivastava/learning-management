@@ -4,16 +4,32 @@ from __future__ import annotations
 
 import secrets
 
+from fastapi import Request
+
 from app.core.exceptions import AuthenticationError, NotFoundError
+from app.core.settings import settings
 from app.repositories.employees import EmployeeRepository
 from app.repositories.trainers import TrainerRepository
-from app.schemas.employee import DemoLoginRequest
-from app.schemas.trainer import TrainerDemoLoginRequest
+from app.schemas.employee import LocalEmployeeLoginRequest
+from app.schemas.trainer import TrainerLocalLoginRequest
+from app.security.hub_launch import HubApp, hub_launch_verifier
 
 _employees = EmployeeRepository()
 _trainers = TrainerRepository()
-_demo_sessions: dict[str, str] = {}
-_trainer_demo_sessions: dict[str, str] = {}
+_local_employee_sessions: dict[str, str] = {}
+_local_trainer_sessions: dict[str, str] = {}
+
+
+def _require_local_auth_enabled() -> None:
+    if not settings.hub_launch_dev_mode:
+        raise AuthenticationError("Local login is disabled outside development mode")
+
+
+def _real_synced_employee(employee: dict) -> bool:
+    return (
+        employee.get("status") == "active"
+        and employee.get("source") == "hub"
+    )
 
 
 def authorization_token(authorization: str | None) -> str:
@@ -26,7 +42,8 @@ def authorization_token(authorization: str | None) -> str:
 
 
 def employee_id_from_token(token: str) -> str:
-    employee_id = _demo_sessions.get(token)
+    _require_local_auth_enabled()
+    employee_id = _local_employee_sessions.get(token)
     if not employee_id:
         raise AuthenticationError("Invalid or expired session")
     return employee_id
@@ -39,8 +56,38 @@ def current_employee(authorization: str | None) -> dict:
     return employee
 
 
+def _hub_session(request: Request | None, app: HubApp):
+    if request is None:
+        return None
+    session_data = getattr(request.state, "hub_user", None)
+    if isinstance(session_data, dict) and session_data.get("app") == app:
+        return session_data
+    session = hub_launch_verifier.session_from_request(request, app)
+    if session is None:
+        return None
+    request.state.hub_user = session.as_response()
+    return request.state.hub_user
+
+
+def current_employee_from_request(
+    request: Request | None,
+    authorization: str | None = None,
+) -> dict:
+    session = _hub_session(request, "employee")
+    if session is not None:
+        employee = _employees.get_by_hub_user_id(int(session["sub"]))
+        if not employee or employee.get("status") != "active":
+            raise AuthenticationError("Employee is not active or not synced from Hub")
+        from app.services.assignments import ensure_assignments_for_employee
+
+        ensure_assignments_for_employee(employee["employee_id"])
+        return employee
+    return current_employee(authorization)
+
+
 def trainer_id_from_token(token: str) -> str:
-    trainer_id = _trainer_demo_sessions.get(token)
+    _require_local_auth_enabled()
+    trainer_id = _local_trainer_sessions.get(token)
     if not trainer_id:
         raise AuthenticationError("Invalid or expired trainer session")
     return trainer_id
@@ -53,28 +100,58 @@ def current_trainer(authorization: str | None) -> dict:
     return trainer
 
 
-def demo_login(payload: DemoLoginRequest):
+def current_trainer_from_request(
+    request: Request | None,
+    authorization: str | None = None,
+) -> dict:
+    session = _hub_session(request, "trainer")
+    if session is not None:
+        employee = _employees.get_by_hub_user_id(int(session["sub"]))
+        if not employee or employee.get("status") != "active":
+            raise AuthenticationError("Trainer employee is not active or not synced from Hub")
+        trainer = _trainers.upsert_from_employee(employee)
+        if not trainer or trainer.get("status") != "active":
+            raise AuthenticationError("Trainer is not active")
+        return trainer
+    return current_trainer(authorization)
+
+
+def local_employee_login(payload: LocalEmployeeLoginRequest):
     from app.services.assignments import ensure_assignments_for_employee
 
+    _require_local_auth_enabled()
     employee = _employees.get(payload.employee_id)
-    if not employee or employee.get("status") != "active":
-        raise NotFoundError("Active employee not found")
+    if not employee or not _real_synced_employee(employee):
+        raise NotFoundError("Active synced employee not found")
     token = secrets.token_urlsafe(32)
-    _demo_sessions[token] = employee["employee_id"]
+    _local_employee_sessions[token] = employee["employee_id"]
     ensure_assignments_for_employee(employee["employee_id"])
     return {"token": token, "employee": employee}
 
 
-def list_demo_trainers() -> list[dict]:
-    return [trainer for trainer in _trainers.list() if trainer.get("status") == "active"]
+def list_local_trainers() -> list[dict]:
+    _require_local_auth_enabled()
+    return [
+        {
+            "trainer_id": employee["employee_id"],
+            "name": employee["name"],
+            "status": employee["status"],
+            "directory_uuid": employee.get("directory_uuid"),
+            "email": employee.get("email"),
+        }
+        for employee in _employees.list()
+        if _real_synced_employee(employee)
+    ]
 
 
-def trainer_demo_login(payload: TrainerDemoLoginRequest):
-    trainer = _trainers.get(payload.trainer_id)
-    if not trainer or trainer.get("status") != "active":
-        raise NotFoundError("Active trainer not found")
+def local_trainer_login(payload: TrainerLocalLoginRequest):
+    _require_local_auth_enabled()
+    employee = _employees.get(payload.trainer_id)
+    if not employee or not _real_synced_employee(employee):
+        raise NotFoundError("Active synced trainer employee not found")
+    trainer = _trainers.upsert_from_employee(employee)
     token = secrets.token_urlsafe(32)
-    _trainer_demo_sessions[token] = trainer["trainer_id"]
+    _local_trainer_sessions[token] = trainer["trainer_id"]
     return {"token": token, "trainer": trainer}
 
 
@@ -82,7 +159,7 @@ def get_current_employee(authorization: str | None):
     return current_employee(authorization)
 
 
-def clear_demo_sessions() -> None:
-    """Reset in-memory demo auth state for isolated tests."""
-    _demo_sessions.clear()
-    _trainer_demo_sessions.clear()
+def clear_local_sessions() -> None:
+    """Reset in-memory local auth state for isolated tests."""
+    _local_employee_sessions.clear()
+    _local_trainer_sessions.clear()

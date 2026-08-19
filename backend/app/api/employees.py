@@ -1,9 +1,9 @@
 """Employee directory endpoints."""
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Request
 
 from app.schemas.employee import EmployeeResponse
-from app.services.auth import get_current_employee
+from app.services.auth import current_employee_from_request
 from app.services.employees import list_employees
 
 router = APIRouter(prefix="/api", tags=["employees"])
@@ -15,5 +15,5 @@ def employees():
 
 
 @router.get("/me", response_model=EmployeeResponse)
-def me(authorization: str | None = Header(default=None)):
-    return get_current_employee(authorization)
+def me(request: Request, authorization: str | None = Header(default=None)):
+    return current_employee_from_request(request, authorization)

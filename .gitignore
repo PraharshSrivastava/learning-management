@@ -92,3 +92,4 @@ migrate_working_dir/
 .agents/
 slide_experiment/
 scratch/
+/tmp/

@@ -2,19 +2,20 @@ part of '../employee_providers.dart';
 
 final currentEmployeeTabProvider = StateProvider<int>((ref) => 0);
 
-Map<String, String> _authHeaders(String token) => {
+Map<String, String> _authHeaders(String? token) => {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
+      'X-LMS-App': 'employee',
+      if (token != null) 'Authorization': 'Bearer $token',
     };
 
-class DemoAuthState {
+class EmployeeAuthState {
   final List<Employee> employees;
   final Employee? employee;
   final String? token;
   final bool isLoading;
   final String? error;
 
-  DemoAuthState({
+  EmployeeAuthState({
     this.employees = const [],
     this.employee,
     this.token,
@@ -22,9 +23,9 @@ class DemoAuthState {
     this.error,
   });
 
-  bool get isAuthenticated => employee != null && token != null;
+  bool get isAuthenticated => employee != null;
 
-  DemoAuthState copyWith({
+  EmployeeAuthState copyWith({
     List<Employee>? employees,
     Employee? employee,
     String? token,
@@ -32,7 +33,7 @@ class DemoAuthState {
     String? error,
     bool clearSession = false,
   }) {
-    return DemoAuthState(
+    return EmployeeAuthState(
       employees: employees ?? this.employees,
       employee: clearSession ? null : (employee ?? this.employee),
       token: clearSession ? null : (token ?? this.token),
@@ -42,10 +43,37 @@ class DemoAuthState {
   }
 }
 
-class DemoAuthNotifier extends StateNotifier<DemoAuthState> {
-  DemoAuthNotifier({bool autoFetch = true}) : super(DemoAuthState()) {
+class EmployeeAuthNotifier extends StateNotifier<EmployeeAuthState> {
+  EmployeeAuthNotifier({bool autoFetch = true}) : super(EmployeeAuthState()) {
     if (autoFetch) {
-      fetchEmployees();
+      fetchHubSession();
+    }
+  }
+
+  Future<void> fetchHubSession() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final response = await http.get(
+        Uri.parse(AppConstants.hubSessionEndpoint),
+        headers: const {'X-LMS-App': 'employee'},
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final employeeJson = decoded['employee'];
+        if (decoded['authenticated'] == true &&
+            employeeJson is Map<String, dynamic>) {
+          state = state.copyWith(
+            employee: Employee.fromJson(employeeJson),
+            token: null,
+            isLoading: false,
+          );
+          return;
+        }
+      }
+      await fetchEmployees();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      await fetchEmployees();
     }
   }
 
@@ -75,7 +103,7 @@ class DemoAuthNotifier extends StateNotifier<DemoAuthState> {
     state = state.copyWith(isLoading: true);
     try {
       final response = await http.post(
-        Uri.parse(AppConstants.demoLoginEndpoint),
+        Uri.parse(AppConstants.localEmployeeLoginEndpoint),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'employee_id': employee.employeeId}),
       );
@@ -100,11 +128,16 @@ class DemoAuthNotifier extends StateNotifier<DemoAuthState> {
   }
 
   void logout() {
+    http.post(
+      Uri.parse(AppConstants.hubLogoutEndpoint),
+      headers: const {'X-LMS-App': 'employee'},
+    );
     state = state.copyWith(clearSession: true);
+    fetchEmployees();
   }
 }
 
-final demoAuthProvider =
-    StateNotifierProvider<DemoAuthNotifier, DemoAuthState>((ref) {
-  return DemoAuthNotifier();
+final employeeAuthProvider =
+    StateNotifierProvider<EmployeeAuthNotifier, EmployeeAuthState>((ref) {
+  return EmployeeAuthNotifier();
 });

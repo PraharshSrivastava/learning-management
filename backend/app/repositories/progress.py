@@ -33,6 +33,9 @@ def _assignment_from_row(row) -> dict:
         "modules": {},
         "attempts": {},
         "last_activity_at": row["last_activity_at"],
+        "revoked_at": row["revoked_at"],
+        "assigned_department": row.get("assigned_department"),
+        "revoked_reason": row.get("revoked_reason"),
     }
 
 
@@ -155,16 +158,7 @@ def _assignment_course_id(connection, course_id: str) -> str:
     ).fetchone()
     if row:
         return row["course_id"]
-    now = datetime.now().isoformat()
-    connection.execute(
-        """
-        INSERT INTO courses (
-            course_id, trainer_id, course_name, status, created_at, updated_at
-        ) VALUES (?, 'trainer_0001', '', 'draft', ?, ?)
-        """,
-        (course_id, now, now),
-    )
-    return course_id
+    raise ValueError(f"Course ID '{course_id}' not found in courses database.")
 
 
 def save_employee_course_progress(employee_id: str, course_id: str, data: dict) -> None:
@@ -180,8 +174,9 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
             """
             INSERT INTO course_assignments (
                 assignment_id, course_id, employee_id, status, assigned_at, deadline,
-                started_at, completed_at, last_activity_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                started_at, completed_at, last_activity_at, revoked_at,
+                assigned_department, revoked_reason, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(course_id, employee_id) DO UPDATE SET
                 status = excluded.status,
                 assigned_at = excluded.assigned_at,
@@ -189,6 +184,9 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 started_at = excluded.started_at,
                 completed_at = excluded.completed_at,
                 last_activity_at = excluded.last_activity_at,
+                revoked_at = excluded.revoked_at,
+                assigned_department = excluded.assigned_department,
+                revoked_reason = excluded.revoked_reason,
                 updated_at = excluded.updated_at
             """,
             (
@@ -201,6 +199,9 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 data.get("started_at"),
                 data.get("completed_at"),
                 data.get("last_activity_at", now),
+                data.get("revoked_at"),
+                data.get("assigned_department"),
+                data.get("revoked_reason"),
                 now,
             ),
         )

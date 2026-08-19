@@ -20,8 +20,8 @@ class EmployeeCourseListNotifier
 
   EmployeeCourseListNotifier({required this.token})
       : super(EmployeeCourseListState()) {
+    fetchCourses();
     if (token != null) {
-      fetchCourses();
       _connectWebSocket();
     }
   }
@@ -88,12 +88,11 @@ class EmployeeCourseListNotifier
   }
 
   Future<void> fetchCourses() async {
-    if (token == null) return;
     state = EmployeeCourseListState(courses: state.courses, isLoading: true);
     try {
       final response = await http.get(
         Uri.parse(AppConstants.myCoursesEndpoint),
-        headers: _authHeaders(token!),
+        headers: _authHeaders(token),
       );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as List<dynamic>;
@@ -123,12 +122,11 @@ class EmployeeCourseListNotifier
     int moduleNumber,
     Map<String, dynamic> payload,
   ) async {
-    if (token == null) return;
     try {
       final response = await http.put(
         Uri.parse(AppConstants.updateMyModuleProgressEndpoint(
             courseId, moduleNumber)),
-        headers: _authHeaders(token!),
+        headers: _authHeaders(token),
         body: jsonEncode(payload),
       );
 
@@ -142,10 +140,9 @@ class EmployeeCourseListNotifier
   }
 
   Future<void> updateCourseStatus(String courseId, String status) async {
-    if (token == null) return;
     final response = await http.put(
       Uri.parse(AppConstants.updateMyCourseStatusEndpoint(courseId)),
-      headers: _authHeaders(token!),
+      headers: _authHeaders(token),
       body: jsonEncode({'status': status}),
     );
     if (response.statusCode != 200) {
@@ -165,6 +162,7 @@ class EmployeeCourseListNotifier
 final employeeCourseListProvider =
     StateNotifierProvider<EmployeeCourseListNotifier, EmployeeCourseListState>(
         (ref) {
-  final token = ref.watch(demoAuthProvider.select((state) => state.token));
+  final token = ref.watch(employeeAuthProvider.select((state) => state.token));
+  ref.watch(employeeAuthProvider.select((state) => state.isAuthenticated));
   return EmployeeCourseListNotifier(token: token);
 });

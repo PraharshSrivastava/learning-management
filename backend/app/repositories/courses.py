@@ -121,7 +121,7 @@ def _row_to_course(connection, row) -> dict:
         module.update(module_metadata.get("extra") or {})
         course["modules"].append(module)
     generation = connection.execute(
-        "SELECT * FROM course_generation_state WHERE course_id = ?", (course_id,)
+        "SELECT * FROM course_generation_status WHERE course_id = ?", (course_id,)
     ).fetchone()
     if generation:
         state_payload = _json_loads(generation["stages_json"], {})
@@ -169,7 +169,9 @@ def save_course(course: dict, status: str) -> None:
     course["course_id"] = course_id
     course["status"] = status
     CourseRecord.model_validate(course)
-    trainer_id = course.get("trainer_id") or "trainer_0001"
+    trainer_id = course.get("trainer_id")
+    if not trainer_id:
+        raise ValueError("A trainer_id is required to save a course.")
     now = datetime.now().isoformat()
     created_at = course.get("created_at") if isinstance(course.get("created_at"), str) else now
     metadata = {key: course[key] for key in COURSE_METADATA_FIELDS if key in course}
@@ -289,7 +291,7 @@ def save_course(course: dict, status: str) -> None:
                 stages_payload["__state"] = state_extra
             connection.execute(
                 """
-                INSERT INTO course_generation_state (
+                INSERT INTO course_generation_status (
                     course_id, status, checkpoint, stages_json, error, attempt_count, updated_at
                 ) VALUES (?, ?, ?, ?, ?, 0, ?)
                 ON CONFLICT(course_id) DO UPDATE SET
@@ -446,7 +448,7 @@ def patch_generation_state(course_id: str, update: Any) -> dict:
         row = connection.execute(
             """
             SELECT status, checkpoint, stages_json, error, updated_at
-            FROM course_generation_state
+            FROM course_generation_status
             WHERE course_id = ?
             """,
             (course_id,),
@@ -487,7 +489,7 @@ def patch_generation_state(course_id: str, update: Any) -> dict:
             stages_payload["__state"] = state_extra
         connection.execute(
             """
-            INSERT INTO course_generation_state (
+            INSERT INTO course_generation_status (
                 course_id, status, checkpoint, stages_json, error, attempt_count, updated_at
             ) VALUES (?, ?, ?, ?, ?, 0, ?)
             ON CONFLICT(course_id) DO UPDATE SET
@@ -512,10 +514,20 @@ def patch_generation_state(course_id: str, update: Any) -> dict:
 
 
 def update_course_status(course_id: str, new_status: str) -> None:
+    now = datetime.now().isoformat()
     with get_connection() as connection:
         connection.execute(
-            "UPDATE courses SET status = ?, updated_at = ? WHERE course_id = ?",
-            (new_status, datetime.now().isoformat(), course_id),
+            """
+            UPDATE courses
+            SET status = ?,
+                updated_at = ?,
+                published_at = CASE
+                    WHEN ? = 'published' AND published_at IS NULL THEN ?
+                    ELSE published_at
+                END
+            WHERE course_id = ?
+            """,
+            (new_status, now, new_status, now, course_id),
         )
         connection.commit()
 
@@ -536,7 +548,7 @@ class CourseRepository:
         return [self._validated(course) for course in get_all_courses(status)]
 
     def list_for_trainer(self, trainer_id: str, status: str | None = None) -> list[dict]:
-        return [course for course in self.list(status) if course.get("trainer_id", "trainer_0001") == trainer_id]
+        return [course for course in self.list(status) if course.get("trainer_id") == trainer_id]
 
     def get_draft(self, course_id: str) -> dict | None:
         course = get_course(course_id)
@@ -544,7 +556,7 @@ class CourseRepository:
 
     def get_draft_for_trainer(self, course_id: str, trainer_id: str) -> dict | None:
         course = self.get_draft(course_id)
-        if not course or course.get("trainer_id", "trainer_0001") != trainer_id:
+        if not course or course.get("trainer_id") != trainer_id:
             return None
         return course
 

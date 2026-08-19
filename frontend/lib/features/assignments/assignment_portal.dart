@@ -21,7 +21,8 @@ class AssignmentPortal extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final assignableCourses = ref.watch(assignableCourseListProvider).courses;
     final effectiveCourse = selectedCourse != null &&
-            assignableCourses.any((course) => course.courseId == selectedCourse!.courseId)
+            assignableCourses
+                .any((course) => course.courseId == selectedCourse!.courseId)
         ? selectedCourse
         : null;
 
@@ -344,8 +345,9 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                 FilledButton.icon(
                   onPressed: assignment.isSaving || assignment.isPublishing
                       ? null
-                      : () =>
-                          ref.read(assignmentProvider.notifier).save(course.courseId),
+                      : () => ref
+                          .read(assignmentProvider.notifier)
+                          .save(course.courseId),
                   icon: const Icon(Icons.save_outlined, size: 18),
                   label: const Text('Save Rule'),
                   style: FilledButton.styleFrom(
@@ -530,12 +532,14 @@ class _ChoiceChips extends StatelessWidget {
   final String title;
   final List<String> values;
   final List<String> selected;
+  final String Function(String value)? labelFor;
   final ValueChanged<List<String>> onChanged;
 
   const _ChoiceChips({
     required this.title,
     required this.values,
     required this.selected,
+    this.labelFor,
     required this.onChanged,
   });
 
@@ -552,7 +556,7 @@ class _ChoiceChips extends StatelessWidget {
           children: [
             for (final value in values)
               FilterChip(
-                label: Text(value),
+                label: Text(labelFor?.call(value) ?? value),
                 selected: selected.contains(value),
                 onSelected: (isSelected) {
                   final next = [...selected];
@@ -716,11 +720,11 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
           ),
           const SizedBox(height: 16),
           _ChoiceChips(
-            title: 'Job titles',
-            values: widget.options.jobTitles,
-            selected: group.jobTitles,
+            title: 'Mailing lists',
+            values: widget.options.mailingLists,
+            selected: group.mailingLists,
             onChanged: (values) =>
-                widget.onChanged(group.copyWith(jobTitles: values)),
+                widget.onChanged(group.copyWith(mailingLists: values)),
           ),
           if (widget.allowJoinedFilter) ...[
             const SizedBox(height: 16),
@@ -783,8 +787,9 @@ class _EmployeeSelector extends StatelessWidget {
             for (final employee in selectedEmployees)
               InputChip(
                 label: Text('${employee.name} (${employee.employeeId})'),
-                onDeleted: () => onChanged(
-                    selectedIds.where((id) => id != employee.employeeId).toList()),
+                onDeleted: () => onChanged(selectedIds
+                    .where((id) => id != employee.employeeId)
+                    .toList()),
               ),
             ActionChip(
               avatar: const Icon(Icons.person_add_alt_1, size: 18),
@@ -794,7 +799,8 @@ class _EmployeeSelector extends StatelessWidget {
                   context: context,
                   builder: (context) => _EmployeePickerDialog(
                     employees: employees
-                        .where((employee) => !selectedIds.contains(employee.employeeId))
+                        .where((employee) =>
+                            !selectedIds.contains(employee.employeeId))
                         .toList(),
                   ),
                 );
@@ -826,7 +832,7 @@ class _EmployeePickerDialogState extends State<_EmployeePickerDialog> {
   Widget build(BuildContext context) {
     final filtered = widget.employees.where((employee) {
       final haystack =
-          '${employee.name} ${employee.employeeId} ${employee.department} ${employee.jobTitle}'
+          '${employee.name} ${employee.employeeId} ${employee.department} ${employee.jobTitle} ${employee.mailingLists.join(' ')}'
               .toLowerCase();
       return haystack.contains(_query.toLowerCase());
     }).toList();
@@ -853,8 +859,8 @@ class _EmployeePickerDialogState extends State<_EmployeePickerDialog> {
                   final employee = filtered[index];
                   return ListTile(
                     title: Text(employee.name),
-                    subtitle: Text(
-                        '${employee.employeeId} • ${employee.department} • ${employee.jobTitle}'),
+                    subtitle:
+                        Text('${employee.employeeId} • ${employee.department}'),
                     onTap: () => Navigator.of(context).pop(employee),
                   );
                 },

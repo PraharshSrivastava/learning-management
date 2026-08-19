@@ -22,9 +22,9 @@ class AppConstants {
       '$apiBaseUrl/api/trainer/performance';
   static String get hubSessionEndpoint => '$apiBaseUrl/api/hub/session/trainer';
   static String get hubLogoutEndpoint => '$apiBaseUrl/api/hub/logout/trainer';
-  static String get trainerListEndpoint => '$apiBaseUrl/api/auth/trainers';
-  static String get trainerDemoLoginEndpoint =>
-      '$apiBaseUrl/api/auth/trainer-demo-login';
+  static String get trainerListEndpoint => '$apiBaseUrl/api/auth/local/trainers';
+  static String get trainerLocalLoginEndpoint =>
+      '$apiBaseUrl/api/auth/local/trainer-login';
 
   static String viewFileUrl(String filename) =>
       '$apiBaseUrl/api/files/$filename';

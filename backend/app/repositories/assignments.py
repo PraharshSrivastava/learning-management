@@ -16,6 +16,7 @@ def _filters(
     *,
     employee_ids: list[str] | None = None,
     departments: list[str] | None = None,
+    mailing_lists: list[str] | None = None,
     job_titles: list[str] | None = None,
     joined_within_days: int | None = None,
     include_all: bool | None = None,
@@ -25,6 +26,7 @@ def _filters(
     data = {
         "employee_ids": list(employee_ids or []),
         "departments": list(departments or []),
+        "mailing_lists": list(mailing_lists or []),
         "job_titles": list(job_titles or []),
         "joined_within_days": joined_within_days,
     }
@@ -45,11 +47,13 @@ def default_assignment_rule(course_id: str) -> dict:
         "include_groups": [],
         "include_employee_ids": [],
         "include_departments": [],
+        "include_mailing_lists": [],
         "include_job_titles": [],
         "joined_less_than_days_ago": None,
         "exclude_groups": [],
         "exclude_employee_ids": [],
         "exclude_departments": [],
+        "exclude_mailing_lists": [],
         "exclude_job_titles": [],
         "deadline_days": 7,
         "applied_deadline_days": None,
@@ -57,6 +61,7 @@ def default_assignment_rule(course_id: str) -> dict:
         "is_active": True,
         "disabled_at": None,
         "disabled_by_trainer_id": None,
+        "include_inactive": False,
         "updated_at": None,
     }
 
@@ -70,15 +75,7 @@ def _loads(value) -> dict:
 def _ensure_course_for_rule(connection, course_id: str) -> None:
     if connection.execute("SELECT 1 FROM courses WHERE course_id = ?", (course_id,)).fetchone():
         return
-    now = datetime.now().isoformat()
-    connection.execute(
-        """
-        INSERT INTO courses (
-            course_id, trainer_id, course_name, status, created_at, updated_at
-        ) VALUES (?, 'trainer_0001', '', 'draft', ?, ?)
-        """,
-        (course_id, now, now),
-    )
+    raise ValueError(f"Course ID '{course_id}' not found in courses database.")
 
 
 def _row_to_assignment_rule(row) -> dict:
@@ -91,11 +88,13 @@ def _row_to_assignment_rule(row) -> dict:
         "include_groups": include.get("groups") or [],
         "include_employee_ids": include.get("employee_ids") or [],
         "include_departments": include.get("departments") or [],
+        "include_mailing_lists": include.get("mailing_lists") or [],
         "include_job_titles": include.get("job_titles") or [],
         "joined_less_than_days_ago": include.get("joined_within_days"),
         "exclude_groups": exclude.get("groups") or [],
         "exclude_employee_ids": exclude.get("employee_ids") or [],
         "exclude_departments": exclude.get("departments") or [],
+        "exclude_mailing_lists": exclude.get("mailing_lists") or [],
         "exclude_job_titles": exclude.get("job_titles") or [],
         "deadline_days": row["deadline_days"],
         "applied_deadline_days": row["applied_deadline_days"],
@@ -103,6 +102,7 @@ def _row_to_assignment_rule(row) -> dict:
         "is_active": bool(row["is_active"]),
         "disabled_at": row["disabled_at"],
         "disabled_by_trainer_id": row["disabled_by_trainer_id"],
+        "include_inactive": bool(row["include_inactive"]),
         "updated_at": row["updated_at"],
     }
 
@@ -133,11 +133,13 @@ def save_assignment_rule(
             "include_groups": list(rule.get("include_groups") or []),
             "include_employee_ids": list(rule.get("include_employee_ids") or []),
             "include_departments": list(rule.get("include_departments") or []),
+            "include_mailing_lists": list(rule.get("include_mailing_lists") or []),
             "include_job_titles": list(rule.get("include_job_titles") or []),
             "joined_less_than_days_ago": rule.get("joined_less_than_days_ago"),
             "exclude_groups": list(rule.get("exclude_groups") or []),
             "exclude_employee_ids": list(rule.get("exclude_employee_ids") or []),
             "exclude_departments": list(rule.get("exclude_departments") or []),
+            "exclude_mailing_lists": list(rule.get("exclude_mailing_lists") or []),
             "exclude_job_titles": list(rule.get("exclude_job_titles") or []),
             "deadline_days": max(1, int(rule.get("deadline_days") or normalized["deadline_days"])),
             "applied_deadline_days": existing.get("applied_deadline_days"),
@@ -147,6 +149,7 @@ def save_assignment_rule(
             "disabled_by_trainer_id": rule.get(
                 "disabled_by_trainer_id", existing.get("disabled_by_trainer_id")
             ),
+            "include_inactive": bool(rule.get("include_inactive", existing.get("include_inactive", False))),
             "updated_at": now,
         }
     )
@@ -166,6 +169,7 @@ def save_assignment_rule(
     include_filters = _filters(
         employee_ids=normalized["include_employee_ids"],
         departments=normalized["include_departments"],
+        mailing_lists=normalized["include_mailing_lists"],
         job_titles=normalized["include_job_titles"],
         joined_within_days=normalized["joined_less_than_days_ago"],
         include_all=normalized["include_all"],
@@ -175,6 +179,7 @@ def save_assignment_rule(
     exclude_filters = _filters(
         employee_ids=normalized["exclude_employee_ids"],
         departments=normalized["exclude_departments"],
+        mailing_lists=normalized["exclude_mailing_lists"],
         job_titles=normalized["exclude_job_titles"],
         groups=normalized["exclude_groups"],
     )
@@ -184,14 +189,15 @@ def save_assignment_rule(
             """
             INSERT INTO assignment_rules (
                 course_id, include_filters_json, exclude_filters_json, deadline_days,
-                is_active, applied_deadline_days, published_at, disabled_at,
-                disabled_by_trainer_id, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                is_active, include_inactive, applied_deadline_days, published_at,
+                disabled_at, disabled_by_trainer_id, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(course_id) DO UPDATE SET
                 include_filters_json = excluded.include_filters_json,
                 exclude_filters_json = excluded.exclude_filters_json,
                 deadline_days = excluded.deadline_days,
                 is_active = excluded.is_active,
+                include_inactive = excluded.include_inactive,
                 applied_deadline_days = excluded.applied_deadline_days,
                 published_at = excluded.published_at,
                 disabled_at = excluded.disabled_at,
@@ -204,6 +210,7 @@ def save_assignment_rule(
                 Jsonb(exclude_filters, dumps=lambda item: json.dumps(item, ensure_ascii=False)),
                 normalized["deadline_days"],
                 bool(normalized["is_active"]),
+                bool(normalized["include_inactive"]),
                 normalized["applied_deadline_days"],
                 normalized["published_at"],
                 normalized["disabled_at"],
@@ -223,11 +230,13 @@ def _normalize_assignment_groups(rule: dict, prefix: str) -> list[dict]:
         return [
             *({"employee_ids": [value]} for value in rule.get("exclude_employee_ids") or []),
             *({"departments": [value]} for value in rule.get("exclude_departments") or []),
+            *({"mailing_lists": [value]} for value in rule.get("exclude_mailing_lists") or []),
             *({"job_titles": [value]} for value in rule.get("exclude_job_titles") or []),
         ]
     group = {
         "employee_ids": list(rule.get("include_employee_ids") or []),
         "departments": list(rule.get("include_departments") or []),
+        "mailing_lists": list(rule.get("include_mailing_lists") or []),
         "job_titles": list(rule.get("include_job_titles") or []),
         "joined_within_days": rule.get("joined_less_than_days_ago"),
         "joined_less_than_days_ago": rule.get("joined_less_than_days_ago"),
@@ -236,24 +245,32 @@ def _normalize_assignment_groups(rule: dict, prefix: str) -> list[dict]:
 
 
 def _employee_matches_group(employee: dict, group: dict, as_of: datetime | None = None) -> bool:
+    has_assignment_filter = False
     checks = (
         ("employee_ids", "employee_id"),
         ("departments", "department"),
-        ("job_titles", "job_title"),
     )
     for group_key, employee_key in checks:
         allowed = set(group.get(group_key) or [])
-        if allowed and employee.get(employee_key) not in allowed:
+        if allowed:
+            has_assignment_filter = True
+            if employee.get(employee_key) not in allowed:
+                return False
+    allowed_mailing_lists = set(group.get("mailing_lists") or [])
+    if allowed_mailing_lists:
+        has_assignment_filter = True
+        if allowed_mailing_lists.isdisjoint(employee.get("mailing_lists") or []):
             return False
     days = group.get("joined_within_days", group.get("joined_less_than_days_ago"))
     if days is not None:
+        has_assignment_filter = True
         try:
             joined = date.fromisoformat(employee.get("join_date"))
         except (TypeError, ValueError):
             return False
         if ((as_of or datetime.now()).date() - joined).days >= int(days):
             return False
-    return True
+    return has_assignment_filter
 
 
 def employee_matches_assignment_rule(

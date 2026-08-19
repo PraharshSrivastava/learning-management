@@ -167,6 +167,7 @@ class Employee {
   final String employeeId;
   final String name;
   final String department;
+  final List<String> mailingLists;
   final String jobTitle;
   final String joinDate;
   final String status;
@@ -175,6 +176,7 @@ class Employee {
     required this.employeeId,
     required this.name,
     required this.department,
+    this.mailingLists = const [],
     required this.jobTitle,
     required this.joinDate,
     required this.status,
@@ -185,6 +187,9 @@ class Employee {
       employeeId: json['employee_id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       department: json['department']?.toString() ?? '',
+      mailingLists: (json['mailing_lists'] as List? ?? [])
+          .map((item) => item.toString())
+          .toList(),
       jobTitle: json['job_title']?.toString() ?? '',
       joinDate: json['join_date']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
@@ -223,6 +228,7 @@ class AssignmentRule {
               AssignmentGroup(
                 employeeIds: strings('include_employee_ids'),
                 departments: strings('include_departments'),
+                mailingLists: strings('include_mailing_lists'),
                 jobTitles: strings('include_job_titles'),
                 joinedLessThanDaysAgo:
                     (json['joined_less_than_days_ago'] as num?)?.toInt(),
@@ -234,6 +240,7 @@ class AssignmentRule {
               AssignmentGroup(
                 employeeIds: strings('exclude_employee_ids'),
                 departments: strings('exclude_departments'),
+                mailingLists: strings('exclude_mailing_lists'),
                 jobTitles: strings('exclude_job_titles'),
               )
             ].where((group) => !group.isEmpty).toList(),
@@ -269,12 +276,14 @@ class AssignmentRule {
 class AssignmentGroup {
   final List<String> employeeIds;
   final List<String> departments;
+  final List<String> mailingLists;
   final List<String> jobTitles;
   final int? joinedLessThanDaysAgo;
 
   const AssignmentGroup({
     this.employeeIds = const [],
     this.departments = const [],
+    this.mailingLists = const [],
     this.jobTitles = const [],
     this.joinedLessThanDaysAgo,
   });
@@ -282,6 +291,7 @@ class AssignmentGroup {
   bool get isEmpty =>
       employeeIds.isEmpty &&
       departments.isEmpty &&
+      mailingLists.isEmpty &&
       jobTitles.isEmpty &&
       joinedLessThanDaysAgo == null;
 
@@ -291,6 +301,7 @@ class AssignmentGroup {
     return AssignmentGroup(
       employeeIds: strings('employee_ids'),
       departments: strings('departments'),
+      mailingLists: strings('mailing_lists'),
       jobTitles: strings('job_titles'),
       joinedLessThanDaysAgo:
           (json['joined_less_than_days_ago'] as num?)?.toInt(),
@@ -300,6 +311,7 @@ class AssignmentGroup {
   AssignmentGroup copyWith({
     List<String>? employeeIds,
     List<String>? departments,
+    List<String>? mailingLists,
     List<String>? jobTitles,
     int? joinedLessThanDaysAgo,
     bool clearJoinedLessThanDaysAgo = false,
@@ -307,6 +319,7 @@ class AssignmentGroup {
     return AssignmentGroup(
       employeeIds: employeeIds ?? this.employeeIds,
       departments: departments ?? this.departments,
+      mailingLists: mailingLists ?? this.mailingLists,
       jobTitles: jobTitles ?? this.jobTitles,
       joinedLessThanDaysAgo: clearJoinedLessThanDaysAgo
           ? null
@@ -317,6 +330,7 @@ class AssignmentGroup {
   Map<String, dynamic> toJson() => {
         'employee_ids': employeeIds,
         'departments': departments,
+        'mailing_lists': mailingLists,
         'job_titles': jobTitles,
         'joined_less_than_days_ago': joinedLessThanDaysAgo,
       };
@@ -325,11 +339,13 @@ class AssignmentGroup {
 class AssignmentOptions {
   final List<Employee> employees;
   final List<String> departments;
+  final List<String> mailingLists;
   final List<String> jobTitles;
 
   const AssignmentOptions({
     this.employees = const [],
     this.departments = const [],
+    this.mailingLists = const [],
     this.jobTitles = const [],
   });
 
@@ -339,6 +355,9 @@ class AssignmentOptions {
           .map((item) => Employee.fromJson(item as Map<String, dynamic>))
           .toList(),
       departments: (json['departments'] as List? ?? [])
+          .map((item) => item.toString())
+          .toList(),
+      mailingLists: (json['mailing_lists'] as List? ?? [])
           .map((item) => item.toString())
           .toList(),
       jobTitles: (json['job_titles'] as List? ?? [])
@@ -380,6 +399,7 @@ class PerformanceStatusOption {
 class PerformanceOptions {
   final List<Employee> employees;
   final List<String> departments;
+  final List<String> mailingLists;
   final List<String> jobTitles;
   final List<PerformanceCourseOption> courses;
   final List<PerformanceStatusOption> statuses;
@@ -387,6 +407,7 @@ class PerformanceOptions {
   const PerformanceOptions({
     this.employees = const [],
     this.departments = const [],
+    this.mailingLists = const [],
     this.jobTitles = const [],
     this.courses = const [],
     this.statuses = const [],
@@ -398,6 +419,9 @@ class PerformanceOptions {
           .map((item) => Employee.fromJson(item as Map<String, dynamic>))
           .toList(),
       departments: (json['departments'] as List? ?? [])
+          .map((item) => item.toString())
+          .toList(),
+      mailingLists: (json['mailing_lists'] as List? ?? [])
           .map((item) => item.toString())
           .toList(),
       jobTitles: (json['job_titles'] as List? ?? [])

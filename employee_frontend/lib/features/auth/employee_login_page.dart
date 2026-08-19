@@ -18,7 +18,7 @@ class _EmployeeLoginPageState extends ConsumerState<EmployeeLoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(demoAuthProvider);
+    final auth = ref.watch(employeeAuthProvider);
     final departments = [
       'All',
       ...{
@@ -81,7 +81,7 @@ class _EmployeeLoginPageState extends ConsumerState<EmployeeLoginPage> {
                             ),
                             SizedBox(height: 3),
                             Text(
-                              'Select a demo employee to open an isolated learning session.',
+                              'Select a synced employee for local testing.',
                               style: TextStyle(color: Color(0xFF667085)),
                             ),
                           ],
@@ -91,7 +91,7 @@ class _EmployeeLoginPageState extends ConsumerState<EmployeeLoginPage> {
                         onPressed: auth.isLoading
                             ? null
                             : () => ref
-                                .read(demoAuthProvider.notifier)
+                                .read(employeeAuthProvider.notifier)
                                 .fetchEmployees(),
                         icon: const Icon(Icons.refresh),
                         tooltip: 'Refresh employees',
@@ -185,7 +185,7 @@ class _EmployeeLoginPageState extends ConsumerState<EmployeeLoginPage> {
                                       employee: employees[index],
                                       isBusy: auth.isLoading,
                                       onSelect: () => ref
-                                          .read(demoAuthProvider.notifier)
+                                          .read(employeeAuthProvider.notifier)
                                           .login(employees[index]),
                                     ),
                                   );

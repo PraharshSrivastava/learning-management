@@ -65,6 +65,7 @@ class LLMClient:
         context_window: int,
         max_input_tokens: int,
         max_output_tokens: int,
+        enable_thinking: bool | None = None,
         timeout_seconds: float = 600,
     ):
         self.base_url = base_url.rstrip("/")
@@ -73,6 +74,7 @@ class LLMClient:
         self.context_window = context_window
         self.max_input_tokens = max_input_tokens
         self.max_output_tokens = max_output_tokens
+        self.enable_thinking = enable_thinking
         self.timeout_seconds = timeout_seconds
 
     def complete(
@@ -162,12 +164,18 @@ class LLMClient:
         normalized_messages = [
             {**message, "content": str(message.get("content", ""))} for message in messages
         ]
+        chat_template_kwargs = (
+            {"enable_thinking": self.enable_thinking}
+            if self.enable_thinking is not None
+            else None
+        )
         payload = ChatCompletionRequest(
             model=self.model,
             messages=normalized_messages,
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
+            chat_template_kwargs=chat_template_kwargs,
         ).model_dump(exclude_none=True)
         try:
             response = requests.post(
@@ -187,15 +195,22 @@ class LLMClient:
         except ValueError as exc:
             raise ProviderError("LLM returned invalid JSON") from exc
 
-        choices = [
-            ChatCompletionChoice(
-                message=ChatCompletionMessage(
-                    content=str(choice.get("message", {}).get("content", ""))
-                ),
-                finish_reason=str(choice.get("finish_reason", "stop")),
+        choices = []
+        for choice in body.get("choices", []):
+            message = choice.get("message", {})
+            content = message.get("content")
+            finish_reason = str(choice.get("finish_reason", "stop"))
+            if content is None:
+                raise ProviderError(
+                    "LLM response message.content was null"
+                    + (f" with finish_reason={finish_reason}" if finish_reason else "")
+                )
+            choices.append(
+                ChatCompletionChoice(
+                    message=ChatCompletionMessage(content=str(content)),
+                    finish_reason=finish_reason,
+                )
             )
-            for choice in body.get("choices", [])
-        ]
         if not choices:
             raise ProviderError("LLM response contained no choices")
         return ChatCompletionResponse(choices=choices)
@@ -208,6 +223,7 @@ _default_llm_client = LLMClient(
     context_window=CHAT_MODEL_CONTEXT_WINDOW,
     max_input_tokens=settings.llm_max_input_tokens,
     max_output_tokens=settings.llm_max_output_tokens,
+    enable_thinking=settings.llm_enable_thinking,
 )
 
 
@@ -237,6 +253,7 @@ def safe_chat_completion(
             context_window=settings.llm_context_window,
             max_input_tokens=settings.llm_max_input_tokens,
             max_output_tokens=settings.llm_max_output_tokens,
+            enable_thinking=settings.llm_enable_thinking,
         )
     return client.complete(
         messages,

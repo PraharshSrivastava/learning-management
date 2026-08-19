@@ -1,12 +1,12 @@
 """Generation-stage and background-job endpoints."""
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 
 from app.core.settings import settings
 from app.generation.runtime import PipelineStageError
 from app.schemas.course import CourseResponse
 from app.schemas.generation import GenerationJobResponse
-from app.services.auth import current_trainer
+from app.services.auth import current_trainer_from_request
 from app.services.generation import build_generation_service
 
 router = APIRouter(prefix="/api", tags=["generation"])
@@ -15,20 +15,20 @@ generation_jobs = service.jobs
 
 
 @router.post("/courses/{course_id}/generate-quiz", response_model=CourseResponse)
-def generate_quiz(course_id: str, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
+def generate_quiz(course_id: str, request: Request, authorization: str | None = Header(default=None)):
+    trainer = current_trainer_from_request(request, authorization)
     return service.generate_quiz(course_id, trainer["trainer_id"])
 
 
 @router.post("/courses/{course_id}/generate-slides", response_model=CourseResponse)
-def generate_slides(course_id: str, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
+def generate_slides(course_id: str, request: Request, authorization: str | None = Header(default=None)):
+    trainer = current_trainer_from_request(request, authorization)
     return service.generate_slides(course_id, trainer["trainer_id"])
 
 
 @router.post("/courses/{course_id}/generate-scripts", response_model=CourseResponse)
-def generate_scripts(course_id: str, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
+def generate_scripts(course_id: str, request: Request, authorization: str | None = Header(default=None)):
+    trainer = current_trainer_from_request(request, authorization)
     return service.generate_scripts(course_id, trainer["trainer_id"])
 
 
@@ -39,15 +39,20 @@ def generate_scripts(course_id: str, authorization: str | None = Header(default=
 def generate_video(
     course_id: str,
     module_number: int,
+    request: Request,
     authorization: str | None = Header(default=None),
 ):
-    trainer = current_trainer(authorization)
+    trainer = current_trainer_from_request(request, authorization)
     return service.generate_video(course_id, module_number, trainer["trainer_id"])
 
 
 @router.post("/courses/{course_id}/generate-full-course", response_model=CourseResponse)
-def generate_full_course(course_id: str, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
+def generate_full_course(
+    course_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
     try:
         return service.generate_full_course(course_id, trainer["trainer_id"])
     except PipelineStageError as exc:
@@ -62,8 +67,12 @@ def generate_full_course(course_id: str, authorization: str | None = Header(defa
     response_model=GenerationJobResponse,
     status_code=202,
 )
-def create_generation_job(course_id: str, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
+def create_generation_job(
+    course_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
     return service.start_full_course_job(course_id, trainer["trainer_id"])
 
 
@@ -73,8 +82,12 @@ def get_generation_job(job_id: str):
 
 
 @router.post("/courses/{course_id}/continue-generation", response_model=CourseResponse)
-def continue_generation(course_id: str, authorization: str | None = Header(default=None)):
-    trainer = current_trainer(authorization)
+def continue_generation(
+    course_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
     try:
         return service.continue_generation(course_id, trainer["trainer_id"])
     except PipelineStageError as exc:

@@ -21,15 +21,7 @@ class GenerationJobRepository:
     def _ensure_course(connection, course_id: str) -> None:
         if connection.execute("SELECT 1 FROM courses WHERE course_id = ?", (course_id,)).fetchone():
             return
-        now = GenerationJobRepository._now()
-        connection.execute(
-            """
-            INSERT INTO courses (
-                course_id, trainer_id, course_name, status, created_at, updated_at
-            ) VALUES (?, 'trainer_0001', '', 'draft', ?, ?)
-            """,
-            (course_id, now, now),
-        )
+        raise ValueError(f"Course ID '{course_id}' not found in courses database.")
 
     @staticmethod
     def _load_state_payload(value) -> tuple[dict, dict]:
@@ -124,7 +116,7 @@ class GenerationJobRepository:
                 self._ensure_course(connection, job.course_id)
                 active = connection.execute(
                     """
-                    SELECT worker_id FROM course_generation_state
+                    SELECT worker_id FROM course_generation_status
                     WHERE course_id = ? AND status IN ('pending', 'running') AND worker_id IS NOT NULL
                     """,
                     (job.course_id,),
@@ -133,7 +125,7 @@ class GenerationJobRepository:
                     raise ValueError("Generation is already running for this course")
                 connection.execute(
                     """
-                    INSERT INTO course_generation_state (
+                    INSERT INTO course_generation_status (
                         course_id, status, checkpoint, stages_json, error, worker_id,
                         attempt_count, updated_at
                     ) VALUES (?, ?, NULL, '{}', ?, ?, 1, ?)
@@ -141,7 +133,7 @@ class GenerationJobRepository:
                         status = excluded.status,
                         error = excluded.error,
                         worker_id = excluded.worker_id,
-                        attempt_count = course_generation_state.attempt_count + 1,
+                        attempt_count = course_generation_status.attempt_count + 1,
                         updated_at = excluded.updated_at
                     """,
                     (job.course_id, job.status, job.error, job.id, now),
@@ -157,7 +149,7 @@ class GenerationJobRepository:
         with get_connection() as connection:
             connection.execute(
                 """
-                UPDATE course_generation_state
+                UPDATE course_generation_status
                 SET status = ?, error = ?, worker_id = ?, updated_at = ?
                 WHERE worker_id = ?
                 """,
@@ -170,7 +162,7 @@ class GenerationJobRepository:
             row = connection.execute(
                 """
                 SELECT course_id, status, error, worker_id, updated_at, stages_json
-                FROM course_generation_state
+                FROM course_generation_status
                 WHERE worker_id = ?
                 """,
                 (job_id,),
@@ -203,7 +195,7 @@ class GenerationJobRepository:
             rows = connection.execute(
                 """
                 SELECT course_id, status, checkpoint, stages_json
-                FROM course_generation_state
+                FROM course_generation_status
                 WHERE status IN ('pending', 'running', 'failed')
                 """
             ).fetchall()
@@ -219,7 +211,7 @@ class GenerationJobRepository:
                 )
                 connection.execute(
                     """
-                    UPDATE course_generation_state
+                    UPDATE course_generation_status
                     SET status = 'failed',
                         checkpoint = ?,
                         stages_json = ?,
@@ -241,7 +233,7 @@ class GenerationJobRepository:
             row = connection.execute(
                 """
                 SELECT course_id, checkpoint, stages_json
-                FROM course_generation_state
+                FROM course_generation_status
                 WHERE worker_id = ?
                 """,
                 (worker_id,),
@@ -255,7 +247,7 @@ class GenerationJobRepository:
             )
             connection.execute(
                 """
-                UPDATE course_generation_state
+                UPDATE course_generation_status
                 SET status = 'failed',
                     checkpoint = ?,
                     stages_json = ?,

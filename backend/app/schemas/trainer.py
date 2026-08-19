@@ -9,6 +9,8 @@ class TrainerResponse(ApiSchema):
     trainer_id: str
     name: str
     status: str = "active"
+    directory_uuid: str | None = None
+    email: str | None = None
 
 
 class TrainerRecord(TrainerResponse):
@@ -16,7 +18,7 @@ class TrainerRecord(TrainerResponse):
     updated_at: str
 
 
-class TrainerDemoLoginRequest(RequestSchema):
+class TrainerLocalLoginRequest(RequestSchema):
     trainer_id: str = Field(min_length=1)
 
 

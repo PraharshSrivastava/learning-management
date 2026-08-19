@@ -465,7 +465,7 @@ class _TrainerLoginPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'Select a demo trainer to manage their own courses and documents.',
+                          'Select a synced employee to test trainer access locally.',
                           style: TextStyle(color: Color(0xFF667085)),
                         ),
                       ],

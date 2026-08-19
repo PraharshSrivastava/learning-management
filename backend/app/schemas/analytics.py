@@ -85,6 +85,7 @@ class StatusOption(ApiSchema):
 
 class PerformanceOptions(ApiSchema):
     departments: list[str] = Field(default_factory=list)
+    mailing_lists: list[str] = Field(default_factory=list)
     job_titles: list[str] = Field(default_factory=list)
     employees: list[EmployeeResponse] = Field(default_factory=list)
     courses: list[SelectOption] = Field(default_factory=list)

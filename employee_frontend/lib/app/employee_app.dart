@@ -32,7 +32,7 @@ class EmployeeHubGate extends ConsumerWidget {
         child: CircularProgressIndicator(),
       );
     }
-    if (!session.isAuthenticated) {
+    if (!session.isAuthenticated && !session.isLocalDevMode) {
       return _HubGateScaffold(
         title: 'Employee learning access',
         message: session.error ?? 'Open this application from the Hub dashboard.',
@@ -48,7 +48,7 @@ class EmployeeAuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(demoAuthProvider);
+    final auth = ref.watch(employeeAuthProvider);
     return auth.isAuthenticated
         ? const EmployeeDashboardPage()
         : const EmployeeLoginPage();

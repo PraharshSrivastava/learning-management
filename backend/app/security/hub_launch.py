@@ -97,15 +97,6 @@ class HubLaunchVerifier:
         return HubSession.from_payload(app, payload)
 
     def session_from_request(self, request: Request, app: HubApp) -> HubSession | None:
-        if self.config.hub_launch_dev_mode:
-            return HubSession(
-                app=app,
-                app_key=self.app_key(app),
-                app_id=None,
-                sub=0,
-                email="local-dev@phillipcapital.in",
-                exp=int(time.time()) + self.config.hub_launch_session_seconds,
-            )
         token = request.cookies.get(self.cookie_name(app))
         if not token:
             return None
@@ -168,6 +159,9 @@ class HubLaunchMiddleware(BaseHTTPMiddleware):
             "/api/hub/session/employee",
             "/api/hub/logout/trainer",
             "/api/hub/logout/employee",
+            "/api/directory/sync/status",
+            "/api/directory/sync/full",
+            "/api/directory/sync/incremental",
         }
 
     async def dispatch(self, request: Request, call_next):
@@ -179,6 +173,8 @@ class HubLaunchMiddleware(BaseHTTPMiddleware):
         ):
             return await call_next(request)
         if not path.startswith("/api/"):
+            return await call_next(request)
+        if self.verifier.config.hub_launch_dev_mode:
             return await call_next(request)
 
         app = hub_app_from_header(request.headers.get("x-lms-app"))

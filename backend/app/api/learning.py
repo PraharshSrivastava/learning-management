@@ -1,6 +1,6 @@
 """Authenticated learner course and progress endpoints."""
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Request
 
 from app.schemas.learning import LearnerCourseResponse, ModuleProgressUpdateResponse
 from app.schemas.progress import (
@@ -14,8 +14,8 @@ router = APIRouter(prefix="/api", tags=["learning"])
 
 
 @router.get("/me/courses", response_model=list[LearnerCourseResponse])
-def my_courses(authorization: str | None = Header(default=None)):
-    return learning.my_courses(authorization)
+def my_courses(request: Request, authorization: str | None = Header(default=None)):
+    return learning.my_courses(request, authorization)
 
 
 router.add_api_websocket_route("/me/courses/ws", learning.websocket_endpoint)
@@ -28,9 +28,10 @@ router.add_api_websocket_route("/me/courses/ws", learning.websocket_endpoint)
 async def update_course_status(
     course_id: str,
     payload: CourseStatusUpdateRequest,
+    request: Request,
     authorization: str | None = Header(default=None),
 ):
-    return await learning.update_course_status(course_id, payload, authorization)
+    return await learning.update_course_status(course_id, payload, request, authorization)
 
 
 @router.put(
@@ -41,6 +42,7 @@ async def update_module_progress(
     course_id: str,
     module_number: str,
     payload: ModuleProgressUpdateRequest,
+    request: Request,
     authorization: str | None = Header(default=None),
 ):
-    return await learning.update_module_progress(course_id, module_number, payload, authorization)
+    return await learning.update_module_progress(course_id, module_number, payload, request, authorization)

@@ -59,7 +59,8 @@ class Settings(BaseModel):
 
     llm_base_url: str = "http://35.238.33.238:4000/v1"
     llm_api_key: str | None = "sk-test-litellm-gateway"
-    llm_model_name: str = "gemma-4-e4b"
+    llm_model_name: str = "qwen3.6-35b"
+    llm_enable_thinking: bool = False
     llm_context_window: int = Field(default=128000, ge=256)
     llm_max_input_tokens: int = Field(default=100000, ge=256)
     llm_max_output_tokens: int = Field(default=28000, ge=256)
@@ -73,7 +74,7 @@ class Settings(BaseModel):
     thumbnail_model: str = "ernie-image"
     thumbnail_api_key: str | None = None
     thumbnail_connect_timeout: float = Field(default=60, gt=0)
-    thumbnail_read_timeout: float = Field(default=180, gt=0)
+    thumbnail_read_timeout: float = Field(default=500, gt=0)
     thumbnails_enabled: bool = True
     generation_max_concurrency: int = Field(default=1, ge=1, le=8)
     hub_launch_secret: str | None = None
@@ -84,6 +85,14 @@ class Settings(BaseModel):
     hub_launch_session_seconds: int = Field(default=28800, ge=60)
     hub_launch_dev_mode: bool = False
     hub_cookie_secure: bool = False
+    directory_exports_base_url: str | None = None
+    directory_exports_api_key: str | None = None
+    directory_sync_admin_key: str | None = None
+    directory_sync_timeout_seconds: float = Field(default=30, gt=0)
+    directory_sync_page_limit: int = Field(default=100, ge=1, le=500)
+    directory_sync_enabled: bool = False
+    directory_sync_interval_hours: float = Field(default=24, gt=0)
+    directory_sync_initial_delay_seconds: float = Field(default=0, ge=0)
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -120,6 +129,13 @@ class Settings(BaseModel):
                 missing.append("HUB_TRAINER_APP_KEY")
             if not self.hub_employee_app_key:
                 missing.append("HUB_EMPLOYEE_APP_KEY")
+        if self.directory_sync_enabled:
+            if not self.directory_exports_base_url:
+                missing.append("DIRECTORY_EXPORTS_BASE_URL")
+            if not self.directory_exports_api_key:
+                missing.append("DIRECTORY_EXPORTS_API_KEY")
+            if not self.directory_sync_admin_key:
+                missing.append("DIRECTORY_SYNC_ADMIN_KEY")
         if missing:
             raise ValueError("Incomplete production configuration: " + ", ".join(missing))
         return self
@@ -169,7 +185,8 @@ class Settings(BaseModel):
                 "llm_api_key": values.get("LLM_API_KEY")
                 or values.get("LITELLM_API_KEY")
                 or "sk-test-litellm-gateway",
-                "llm_model_name": values.get("LLM_MODEL_NAME", "gemma-4-e4b"),
+                "llm_model_name": values.get("LLM_MODEL_NAME", "qwen3.6-35b"),
+                "llm_enable_thinking": values.get("LLM_ENABLE_THINKING", "false"),
                 "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "128000"),
                 "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "100000"),
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "28000"),
@@ -198,7 +215,7 @@ class Settings(BaseModel):
                 ),
                 "thumbnail_read_timeout": values.get(
                     "COURSE_THUMBNAIL_READ_TIMEOUT",
-                    "180",
+                    "500",
                 ),
                 "thumbnails_enabled": values.get("COURSE_THUMBNAILS_ENABLED", "true"),
                 "generation_max_concurrency": values.get("GENERATION_MAX_CONCURRENCY", "1"),
@@ -219,6 +236,23 @@ class Settings(BaseModel):
                 ),
                 "hub_launch_dev_mode": values.get("HUB_LAUNCH_DEV_MODE", "false"),
                 "hub_cookie_secure": values.get("HUB_COOKIE_SECURE", "false"),
+                "directory_exports_base_url": values.get("DIRECTORY_EXPORTS_BASE_URL") or None,
+                "directory_exports_api_key": values.get("DIRECTORY_EXPORTS_API_KEY") or None,
+                "directory_sync_admin_key": values.get("DIRECTORY_SYNC_ADMIN_KEY") or None,
+                "directory_sync_timeout_seconds": values.get(
+                    "DIRECTORY_SYNC_TIMEOUT_SECONDS",
+                    "30",
+                ),
+                "directory_sync_page_limit": values.get("DIRECTORY_SYNC_PAGE_LIMIT", "100"),
+                "directory_sync_enabled": values.get("DIRECTORY_SYNC_ENABLED", "false"),
+                "directory_sync_interval_hours": values.get(
+                    "DIRECTORY_SYNC_INTERVAL_HOURS",
+                    "24",
+                ),
+                "directory_sync_initial_delay_seconds": values.get(
+                    "DIRECTORY_SYNC_INITIAL_DELAY_SECONDS",
+                    "0",
+                ),
             }
         )
 

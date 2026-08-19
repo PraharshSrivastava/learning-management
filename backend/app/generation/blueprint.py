@@ -19,7 +19,7 @@ from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
 from app.repositories.courses import get_all_courses, get_course, save_course
-from app.repositories.documents import get_document_by_file_name, save_document
+from app.repositories.documents import get_document_by_file_name
 from app.schemas.generation.blueprint import BlueprintExtractionResult, ModuleListSchema
 
 logger = generation_logger(__name__)
@@ -343,7 +343,7 @@ def extract_modules_with_llm(body_lines: List[str], course_id: str = "blueprint"
                 "json_schema": {"name": "ModuleListSchema", "schema": json_schema},
             },
             temperature=0.1,
-            default_max_tokens=1024,
+            default_max_tokens=4096,
             course_id=course_id,
             stage="blueprint",
             attempts=1,
@@ -1016,8 +1016,6 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
     document = get_document_by_file_name(filename, trainer_id)
     if document is None and trainer_id is None:
         document = get_document_by_file_name(filename)
-    if document is None and trainer_id is None:
-        document = save_document("trainer_0001", filename, filename)
     if document is None:
         raise FileNotFoundError("Uploaded document record not found")
     trainer_id = trainer_id or document["trainer_id"]

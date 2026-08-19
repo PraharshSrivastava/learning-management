@@ -24,8 +24,8 @@ final _employeeTwo = Employee(
   status: 'active',
 );
 
-class FakeDemoAuthNotifier extends DemoAuthNotifier {
-  FakeDemoAuthNotifier(DemoAuthState initialState) : super(autoFetch: false) {
+class FakeEmployeeAuthNotifier extends EmployeeAuthNotifier {
+  FakeEmployeeAuthNotifier(EmployeeAuthState initialState) : super(autoFetch: false) {
     state = initialState;
   }
 
@@ -56,13 +56,13 @@ class FakeEmployeeCourseListNotifier extends EmployeeCourseListNotifier {
 }
 
 Widget _buildApp({
-  required DemoAuthState authState,
+  required EmployeeAuthState authState,
   EmployeeCourseListState? courseState,
 }) {
   return ProviderScope(
     overrides: [
       hubSessionProvider.overrideWith((ref) => FakeHubSessionNotifier()),
-      demoAuthProvider.overrideWith((ref) => FakeDemoAuthNotifier(authState)),
+      employeeAuthProvider.overrideWith((ref) => FakeEmployeeAuthNotifier(authState)),
       if (courseState != null)
         employeeCourseListProvider.overrideWith(
           (ref) => FakeEmployeeCourseListNotifier(courseState),
@@ -73,10 +73,10 @@ Widget _buildApp({
 }
 
 void main() {
-  testWidgets('employee login screen lists demo employees', (tester) async {
+  testWidgets('employee login screen lists synced employees', (tester) async {
     await tester.pumpWidget(
       _buildApp(
-        authState: DemoAuthState(employees: [_employeeOne, _employeeTwo]),
+        authState: EmployeeAuthState(employees: [_employeeOne, _employeeTwo]),
       ),
     );
     await tester.pump();
@@ -90,7 +90,7 @@ void main() {
   testWidgets('employee login search filters employees', (tester) async {
     await tester.pumpWidget(
       _buildApp(
-        authState: DemoAuthState(employees: [_employeeOne, _employeeTwo]),
+        authState: EmployeeAuthState(employees: [_employeeOne, _employeeTwo]),
       ),
     );
     await tester.pump();
@@ -105,7 +105,7 @@ void main() {
   testWidgets('authenticated employee sees dashboard shell', (tester) async {
     await tester.pumpWidget(
       _buildApp(
-        authState: DemoAuthState(
+        authState: EmployeeAuthState(
           employees: [_employeeOne, _employeeTwo],
           employee: _employeeOne,
           token: 'fake-token',

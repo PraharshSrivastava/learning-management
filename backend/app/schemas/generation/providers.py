@@ -16,3 +16,4 @@ class ChatCompletionRequest(BaseModel):
     temperature: float
     max_tokens: int
     response_format: dict[str, Any] | None = None
+    chat_template_kwargs: dict[str, Any] | None = None

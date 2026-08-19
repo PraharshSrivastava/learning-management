@@ -100,7 +100,7 @@ class CourseRecord(ApiSchema):
     """Validated course persistence shape."""
 
     course_id: str = Field(min_length=1)
-    trainer_id: str = "trainer_0001"
+    trainer_id: str = Field(min_length=1)
     document_id: str | None = None
     course_name: str = ""
     course_description: str = ""

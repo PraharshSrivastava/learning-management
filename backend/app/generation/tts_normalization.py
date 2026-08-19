@@ -140,6 +140,14 @@ def _expand_financial_year(match: re.Match) -> str:
     return f"financial year {year} {suffix}"
 
 
+def _normalize_spacing_preserving_breaks(text: str) -> str:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = re.sub(r"[ \t\f\v]+", " ", normalized)
+    normalized = "\n".join(line.strip() for line in normalized.split("\n"))
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+    return normalized.strip()
+
+
 def normalize_financial_text(text: str) -> str:
     if not text:
         return text
@@ -163,8 +171,7 @@ def normalize_financial_text(text: str) -> str:
         normalized,
         flags=re.IGNORECASE,
     )
-    normalized = re.sub(r"\s+", " ", normalized).strip()
-    return normalized
+    return _normalize_spacing_preserving_breaks(normalized)
 
 
 def clean_text_for_tts(text: str) -> str:
@@ -176,4 +183,4 @@ def clean_text_for_tts(text: str) -> str:
     cleaned_text = cleaned_text.replace("...", ".")
     cleaned_text = re.sub(r"\b[A-Z]{2,}\b", lambda match: " ".join(match.group(0)), cleaned_text)
     cleaned_text = cleaned_text.replace("Ltd.", "Limited").replace("Rs ", "Rupees ")
-    return cleaned_text
+    return _normalize_spacing_preserving_breaks(cleaned_text)
