@@ -93,6 +93,8 @@ class Settings(BaseModel):
     directory_sync_enabled: bool = False
     directory_sync_interval_hours: float = Field(default=24, gt=0)
     directory_sync_initial_delay_seconds: float = Field(default=0, ge=0)
+    directory_sync_time: str = "09:10"
+    directory_sync_timezone: str = "Asia/Kolkata"
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -253,6 +255,8 @@ class Settings(BaseModel):
                     "DIRECTORY_SYNC_INITIAL_DELAY_SECONDS",
                     "0",
                 ),
+                "directory_sync_time": values.get("DIRECTORY_SYNC_TIME", "09:10"),
+                "directory_sync_timezone": values.get("DIRECTORY_SYNC_TIMEZONE", "Asia/Kolkata"),
             }
         )
 

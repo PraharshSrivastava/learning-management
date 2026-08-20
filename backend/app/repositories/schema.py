@@ -254,6 +254,7 @@ def _create_indexes(cursor) -> None:
     statements = (
         "CREATE INDEX IF NOT EXISTS idx_trainers_status ON trainers(status)",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_directory_uuid ON employees(directory_uuid)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_hub_user_id ON employees(hub_user_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_email ON employees(email)",
         "CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department)",
         "CREATE INDEX IF NOT EXISTS idx_employees_manager ON employees(manager_employee_id)",

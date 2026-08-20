@@ -223,6 +223,8 @@ DIRECTORY_EXPORTS_API_KEY
 DIRECTORY_SYNC_ADMIN_KEY
 DIRECTORY_SYNC_ENABLED
 DIRECTORY_SYNC_INTERVAL_HOURS
+DIRECTORY_SYNC_TIME
+DIRECTORY_SYNC_TIMEZONE
 ```
 
 Generated uploads, audio, images, slides, and videos live under `/app/storage`
@@ -251,10 +253,19 @@ starts from the current Hub state:
 docker compose exec backend python -m scripts.sync_directory incremental --after-id 0
 ```
 
-After bootstrap, set `DIRECTORY_SYNC_ENABLED=true` for the backend container.
-The scheduler runs incremental change-log sync based on
-`DIRECTORY_SYNC_INTERVAL_HOURS`, which should normally stay at `24` because the
-company AD data itself changes once per day.
+After bootstrap, keep `DIRECTORY_SYNC_ENABLED=true` for the backend container.
+The scheduler runs incremental change-log sync once per calendar day at
+`DIRECTORY_SYNC_TIME` in `DIRECTORY_SYNC_TIMEZONE`; production defaults are
+`09:10` and `Asia/Kolkata`. `DIRECTORY_SYNC_INTERVAL_HOURS` is still accepted
+for older env files, but daily scheduling is time-of-day based.
+
+Incremental changes are merged by stable Hub identity (`hub_user_id` and
+`directory_uuid`), not by email or username. Partial change-log events only
+update fields that are present, so omitted group lists do not erase existing
+assignment-group data. When a Hub employee is disabled or disappears from a full
+export, the LMS soft-disables the employee and any existing trainer projection;
+courses, assignment rules, assignment rows, progress, quiz scores, documents,
+and generated files remain intact.
 
 Manual sync endpoints are protected by `X-Directory-Sync-Key`:
 

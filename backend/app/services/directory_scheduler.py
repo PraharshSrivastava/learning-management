@@ -4,21 +4,53 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.settings import settings
-from app.repositories.employees import next_sync_due_seconds
 from app.services.directory_sync import sync_directory_changes
 
 logger = logging.getLogger(__name__)
 _task: asyncio.Task | None = None
 
 
+def _sync_timezone() -> ZoneInfo:
+    try:
+        return ZoneInfo(settings.directory_sync_timezone)
+    except ZoneInfoNotFoundError:
+        logger.warning(
+            "invalid_directory_sync_timezone timezone=%s falling_back=Asia/Kolkata",
+            settings.directory_sync_timezone,
+        )
+        return ZoneInfo("Asia/Kolkata")
+
+
+def _sync_time() -> time:
+    try:
+        hour, minute = settings.directory_sync_time.split(":", 1)
+        return time(hour=int(hour), minute=int(minute))
+    except (AttributeError, TypeError, ValueError):
+        logger.warning(
+            "invalid_directory_sync_time time=%s falling_back=09:10",
+            settings.directory_sync_time,
+        )
+        return time(hour=9, minute=10)
+
+
+def next_directory_sync_run(now: datetime | None = None) -> datetime:
+    timezone = _sync_timezone()
+    current = (now or datetime.now(timezone)).astimezone(timezone)
+    target = datetime.combine(current.date(), _sync_time(), tzinfo=timezone)
+    if current >= target:
+        target += timedelta(days=1)
+    return target
+
+
 async def _run_loop() -> None:
     if settings.directory_sync_initial_delay_seconds:
         await asyncio.sleep(settings.directory_sync_initial_delay_seconds)
-    interval_seconds = settings.directory_sync_interval_hours * 60 * 60
     while True:
-        due_in = next_sync_due_seconds("employee_change_logs", interval_seconds)
+        due_in = (next_directory_sync_run() - datetime.now(_sync_timezone())).total_seconds()
         if due_in > 0:
             await asyncio.sleep(due_in)
         try:
@@ -27,7 +59,7 @@ async def _run_loop() -> None:
             raise
         except Exception:
             logger.exception("scheduled_directory_sync_failed")
-        await asyncio.sleep(interval_seconds)
+        await asyncio.sleep(60)
 
 
 def start_directory_sync_scheduler() -> None:

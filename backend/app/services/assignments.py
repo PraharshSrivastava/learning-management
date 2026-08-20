@@ -99,7 +99,7 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
             continue
         reason = None
         if not employee or employee.get("status") != "active":
-            reason = "employee_inactive"
+            reason = "directory_leaver" if employee and employee.get("source") == "hub" else "employee_inactive"
         elif course_id not in published_courses:
             reason = "course_no_longer_published"
         else:

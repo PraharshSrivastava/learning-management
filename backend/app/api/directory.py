@@ -9,6 +9,7 @@ from app.core.exceptions import AuthenticationError, DomainValidationError
 from app.core.settings import settings
 from app.repositories.employees import list_sync_states
 from app.schemas.common import ApiSchema
+from app.services.directory_scheduler import next_directory_sync_run
 from app.services.directory_sync import bootstrap_full_directory, sync_directory_changes
 
 router = APIRouter(prefix="/api/directory", tags=["directory"])
@@ -24,6 +25,7 @@ class DirectorySyncResponse(ApiSchema):
     has_more: bool = False
     history_complete_from: str | None = None
     managers_resolved: int = 0
+    stale_events_skipped: int = 0
 
 
 class DirectorySyncStateResponse(ApiSchema):
@@ -39,6 +41,9 @@ class DirectorySyncStateResponse(ApiSchema):
 class DirectorySyncStatusResponse(ApiSchema):
     enabled: bool
     interval_hours: float
+    sync_time: str
+    sync_timezone: str
+    next_run_at: str | None = None
     page_limit: int
     configured: bool
     states: list[DirectorySyncStateResponse] = Field(default_factory=list)
@@ -57,6 +62,9 @@ def sync_status(x_directory_sync_key: str | None = Header(default=None)):
     return {
         "enabled": settings.directory_sync_enabled,
         "interval_hours": settings.directory_sync_interval_hours,
+        "sync_time": settings.directory_sync_time,
+        "sync_timezone": settings.directory_sync_timezone,
+        "next_run_at": next_directory_sync_run().isoformat() if settings.directory_sync_enabled else None,
         "page_limit": settings.directory_sync_page_limit,
         "configured": bool(settings.directory_exports_base_url and settings.directory_exports_api_key),
         "states": list_sync_states(),

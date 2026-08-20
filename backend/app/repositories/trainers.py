@@ -47,6 +47,18 @@ def get_trainer_by_email(email: str) -> dict | None:
     return TrainerRecord.model_validate(_row_to_trainer(row)).model_dump() if row else None
 
 
+def refresh_existing_trainer_from_employee(employee: dict) -> dict | None:
+    """Update a trainer projection only when that trainer already exists."""
+    existing = None
+    if employee.get("directory_uuid"):
+        existing = get_trainer_by_directory_uuid(employee["directory_uuid"])
+    if existing is None:
+        existing = get_trainer(employee.get("employee_id"))
+    if existing is None:
+        return None
+    return upsert_trainer_from_employee(employee, trainer_id=existing["trainer_id"])
+
+
 def upsert_trainer_from_employee(employee: dict, trainer_id: str | None = None) -> dict:
     now = datetime.now().isoformat()
     resolved_trainer_id = trainer_id or employee.get("employee_id")
@@ -97,5 +109,7 @@ def upsert_trainer_from_employee(employee: dict, trainer_id: str | None = None) 
 class TrainerRepository:
     def list(self) -> list[dict]: return list_trainers()
     def get(self, trainer_id: str) -> dict | None: return get_trainer(trainer_id)
+    def refresh_existing_from_employee(self, employee: dict) -> dict | None:
+        return refresh_existing_trainer_from_employee(employee)
     def upsert_from_employee(self, employee: dict, trainer_id: str | None = None) -> dict:
         return upsert_trainer_from_employee(employee, trainer_id)
