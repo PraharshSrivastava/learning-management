@@ -69,6 +69,7 @@ def test_shared_module_extractor_sends_complete_document_text(monkeypatch) -> No
         user_messages.append(kwargs["messages"][1]["content"])
         return _llm_response(
             {
+                "chain_of_thought": "The document starts with one introduction module.",
                 "modules": [
                     {
                         "module_number": 1,
@@ -90,11 +91,11 @@ def test_shared_module_extractor_sends_complete_document_text(monkeypatch) -> No
     assert tail_marker in user_messages[0]
 
 
-def test_module_extraction_schema_excludes_chain_of_thought() -> None:
+def test_module_extraction_schema_includes_chain_of_thought() -> None:
     schema = blueprint.ModuleListSchema.model_json_schema()
 
-    assert "chain_of_thought" not in schema["properties"]
-    assert schema["required"] == ["modules"]
+    assert "chain_of_thought" in schema["properties"]
+    assert schema["required"] == ["chain_of_thought", "modules"]
 
 
 def test_pptx_runner_uses_shared_module_extractor_and_ignores_images(
@@ -257,7 +258,7 @@ def test_llm_client_rejects_oversized_input_without_truncating() -> None:
         client.complete([{"role": "user", "content": "x" * 6_000}])
 
 
-def test_llm_client_sends_thinking_flag(monkeypatch) -> None:
+def test_llm_client_does_not_send_qwen_thinking_flag(monkeypatch) -> None:
     captured_payload: dict = {}
 
     class Response:
@@ -286,15 +287,14 @@ def test_llm_client_sends_thinking_flag(monkeypatch) -> None:
         base_url="http://llm",
         model="model",
         api_key=None,
-        context_window=128_000,
-        max_input_tokens=100_000,
-        max_output_tokens=28_000,
-        enable_thinking=False,
+        context_window=100_000,
+        max_input_tokens=87_000,
+        max_output_tokens=12_000,
     )
 
     client.complete([{"role": "user", "content": "Return JSON."}])
 
-    assert captured_payload["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "chat_template_kwargs" not in captured_payload
 
 
 def test_llm_client_rejects_null_message_content(monkeypatch) -> None:
@@ -323,10 +323,9 @@ def test_llm_client_rejects_null_message_content(monkeypatch) -> None:
         base_url="http://llm",
         model="model",
         api_key=None,
-        context_window=128_000,
-        max_input_tokens=100_000,
-        max_output_tokens=28_000,
-        enable_thinking=False,
+        context_window=100_000,
+        max_input_tokens=87_000,
+        max_output_tokens=12_000,
     )
 
     with pytest.raises(PipelineStageError, match="message.content was null.*finish_reason=length"):

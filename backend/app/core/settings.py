@@ -59,11 +59,10 @@ class Settings(BaseModel):
 
     llm_base_url: str = "http://35.238.33.238:4000/v1"
     llm_api_key: str | None = "sk-test-litellm-gateway"
-    llm_model_name: str = "qwen3.6-35b"
-    llm_enable_thinking: bool = False
-    llm_context_window: int = Field(default=128000, ge=256)
-    llm_max_input_tokens: int = Field(default=100000, ge=256)
-    llm_max_output_tokens: int = Field(default=28000, ge=256)
+    llm_model_name: str = "gemma-4-e4b"
+    llm_context_window: int = Field(default=100000, ge=256)
+    llm_max_input_tokens: int = Field(default=87000, ge=256)
+    llm_max_output_tokens: int = Field(default=12000, ge=256)
 
     tts_endpoint: str = "http://35.238.33.238:8081"
     tts_voice: str = "priyanka"
@@ -187,11 +186,10 @@ class Settings(BaseModel):
                 "llm_api_key": values.get("LLM_API_KEY")
                 or values.get("LITELLM_API_KEY")
                 or "sk-test-litellm-gateway",
-                "llm_model_name": values.get("LLM_MODEL_NAME", "qwen3.6-35b"),
-                "llm_enable_thinking": values.get("LLM_ENABLE_THINKING", "false"),
-                "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "128000"),
-                "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "100000"),
-                "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "28000"),
+                "llm_model_name": values.get("LLM_MODEL_NAME", "gemma-4-e4b"),
+                "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "100000"),
+                "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "87000"),
+                "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),
                 "tts_endpoint": values.get(
                     "TTS_ENDPOINT",
                     "http://35.238.33.238:8081",

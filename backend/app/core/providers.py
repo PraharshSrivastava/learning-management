@@ -29,6 +29,7 @@ LITELLM_BASE_URL = settings.llm_base_url
 LITELLM_API_KEY = settings.llm_api_key
 CHAT_MODEL_NAME = settings.llm_model_name
 CHAT_MODEL_CONTEXT_WINDOW = settings.llm_context_window
+TOKEN_SAFETY_MARGIN = 1000
 
 TTS_ENDPOINT = settings.tts_endpoint
 TTS_VOICE = settings.tts_voice
@@ -65,7 +66,6 @@ class LLMClient:
         context_window: int,
         max_input_tokens: int,
         max_output_tokens: int,
-        enable_thinking: bool | None = None,
         timeout_seconds: float = 600,
     ):
         self.base_url = base_url.rstrip("/")
@@ -74,7 +74,6 @@ class LLMClient:
         self.context_window = context_window
         self.max_input_tokens = max_input_tokens
         self.max_output_tokens = max_output_tokens
-        self.enable_thinking = enable_thinking
         self.timeout_seconds = timeout_seconds
 
     def complete(
@@ -90,13 +89,13 @@ class LLMClient:
         attempts: int = 3,
     ) -> ChatCompletionResponse:
         total_chars = sum(len(str(message.get("content", ""))) for message in messages)
-        estimated_input = int(total_chars / 6.0) + 100
+        estimated_input = int(total_chars / 3.0) + 500
         if estimated_input > self.max_input_tokens:
             raise ProviderError(
                 f"Estimated input size is {estimated_input} tokens; the configured maximum is "
                 f"{self.max_input_tokens}. The request was not truncated."
             )
-        available_tokens = self.context_window - estimated_input - 150
+        available_tokens = self.context_window - estimated_input - TOKEN_SAFETY_MARGIN
         max_tokens = min(
             default_max_tokens,
             self.max_output_tokens,
@@ -130,7 +129,7 @@ class LLMClient:
                 max_tokens = (
                     min(
                         self.max_output_tokens,
-                        max(256, self.context_window - int(match.group(1)) - 100),
+                        max(256, self.context_window - int(match.group(1)) - TOKEN_SAFETY_MARGIN),
                     )
                     if match
                     else 512
@@ -164,18 +163,12 @@ class LLMClient:
         normalized_messages = [
             {**message, "content": str(message.get("content", ""))} for message in messages
         ]
-        chat_template_kwargs = (
-            {"enable_thinking": self.enable_thinking}
-            if self.enable_thinking is not None
-            else None
-        )
         payload = ChatCompletionRequest(
             model=self.model,
             messages=normalized_messages,
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
-            chat_template_kwargs=chat_template_kwargs,
         ).model_dump(exclude_none=True)
         try:
             response = requests.post(
@@ -223,7 +216,6 @@ _default_llm_client = LLMClient(
     context_window=CHAT_MODEL_CONTEXT_WINDOW,
     max_input_tokens=settings.llm_max_input_tokens,
     max_output_tokens=settings.llm_max_output_tokens,
-    enable_thinking=settings.llm_enable_thinking,
 )
 
 
@@ -253,7 +245,6 @@ def safe_chat_completion(
             context_window=settings.llm_context_window,
             max_input_tokens=settings.llm_max_input_tokens,
             max_output_tokens=settings.llm_max_output_tokens,
-            enable_thinking=settings.llm_enable_thinking,
         )
     return client.complete(
         messages,
