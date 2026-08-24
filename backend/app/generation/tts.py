@@ -2,7 +2,7 @@
 
 import copy
 import os
-import subprocess
+import subprocess  # nosec B404
 import time
 
 import imageio_ffmpeg
@@ -47,7 +47,7 @@ def _apply_tts_speed(output_path: str) -> bool:
         f"atempo={TTS_SPEED}",
         temp_path,
     ]
-    result = subprocess.run(command, capture_output=True, text=True, errors="ignore")
+    result = subprocess.run(command, capture_output=True, text=True, errors="ignore")  # nosec B603
     if result.returncode != 0:
         logger.warning("tts_speed_apply_failed speed=%s error=%s", TTS_SPEED, result.stderr)
         if os.path.exists(temp_path):

@@ -90,7 +90,7 @@ services:
         API_BASE_URL: ${FRONTEND_API_BASE_URL:-}
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-6969}:80"
+      - "${FRONTEND_PORT:-6969}:8080"
     depends_on:
       backend:
         condition: service_healthy
@@ -102,7 +102,7 @@ services:
         API_BASE_URL: ${EMPLOYEE_FRONTEND_API_BASE_URL:-}
     restart: unless-stopped
     ports:
-      - "${EMPLOYEE_FRONTEND_PORT:-6970}:80"
+      - "${EMPLOYEE_FRONTEND_PORT:-6970}:8080"
     depends_on:
       backend:
         condition: service_healthy

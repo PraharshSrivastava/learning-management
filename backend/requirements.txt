@@ -1,18 +1,18 @@
-fastapi>=0.110.0
-uvicorn[standard]>=0.30.0
-python-multipart>=0.0.9
-pydantic>=2.7.0
-psycopg[binary]>=3.2.0
-psycopg-pool>=3.2.0
+fastapi==0.139.1
+uvicorn[standard]==0.51.0
+python-multipart==0.0.32
+pydantic==2.13.4
+psycopg[binary]==3.3.4
+psycopg-pool==3.3.1
 # PDF & Data Extraction
-pdfplumber>=0.11.0
-pymupdf>=1.24.0
-python-pptx>=0.6.23
+pdfplumber==0.11.10
+pymupdf==1.28.0
+python-pptx==1.0.2
 
 # HTTP & Utils
-requests>=2.31.0
+requests==2.34.2
 
 # Video & Image Generation (Playwright requires: playwright install chromium)
-playwright>=1.44.0
-pillow>=10.3.0
-imageio-ffmpeg>=0.5.1
+playwright==1.61.0
+pillow==12.3.0
+imageio-ffmpeg==0.6.0

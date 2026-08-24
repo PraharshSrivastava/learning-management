@@ -135,7 +135,7 @@ class LLMClient:
                     else 512
                 )
                 logger.warning(
-                    "llm_context_retry course_id=%s stage=%s max_tokens=%s",
+                    "llm_context_retry course_id=%s stage=%s reduced_output_tokens=%s",
                     course_id,
                     stage,
                     max_tokens,

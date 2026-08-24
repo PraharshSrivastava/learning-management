@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
+import subprocess  # nosec B404
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -83,7 +83,7 @@ class GenerationJobManager:
             else:
                 popen_kwargs["start_new_session"] = True
             with self._lock:
-                process = subprocess.Popen(
+                process = subprocess.Popen(  # nosec B603
                     command,
                     **popen_kwargs,
                 )
@@ -163,7 +163,7 @@ class GenerationJobManager:
         if process.poll() is not None:
             return
         if sys.platform == "win32":
-            subprocess.run(
+            subprocess.run(  # nosec B603 B607
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
                 capture_output=True,
                 text=True,

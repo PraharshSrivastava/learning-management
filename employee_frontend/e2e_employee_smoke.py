@@ -1,7 +1,8 @@
 import json
 import os
-import subprocess
+import subprocess  # nosec B404
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -15,6 +16,7 @@ PYTHON = BACKEND_DIR / ".venv" / "Scripts" / "python.exe"
 FLUTTER = Path(r"C:\Users\LPUSER\flutter\bin\flutter.bat")
 BACKEND_PORT = 8000
 FRONTEND_PORT = 8121
+ALLOWED_WAIT_HOSTS = {"127.0.0.1", "localhost"}
 
 
 PUBLISHED_COURSE = {
@@ -43,11 +45,14 @@ PUBLISHED_COURSE = {
 
 
 def _wait_for_url(url, timeout=90):
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "http" or parsed.hostname not in ALLOWED_WAIT_HOSTS:
+        raise ValueError(f"Refusing to wait on non-local URL: {url}")
     deadline = time.time() + timeout
     last_error = None
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=2) as response:
+            with urllib.request.urlopen(url, timeout=2) as response:  # nosec B310
                 if response.status < 500:
                     return
         except Exception as exc:
@@ -76,7 +81,7 @@ def _seed_database(database_url):
         "init_db();"
         f"save_all_courses([json.loads({json.dumps(json.dumps(PUBLISHED_COURSE))})], 'published')"
     )
-    subprocess.run(
+    subprocess.run(  # nosec B603
         [str(PYTHON), "-c", seed_code],
         cwd=BACKEND_DIR,
         env=env,
@@ -101,7 +106,7 @@ def main():
     env["DATABASE_URL"] = database_url
     env["DART_DISABLE_ANALYTICS"] = "true"
 
-    backend_process = subprocess.Popen(
+    backend_process = subprocess.Popen(  # nosec B603
         [
             str(PYTHON),
             "-m",
@@ -122,14 +127,14 @@ def main():
     try:
         _wait_for_url(f"http://127.0.0.1:{BACKEND_PORT}/health", timeout=45)
 
-        subprocess.run(
+        subprocess.run(  # nosec B603
             [str(FLUTTER), "build", "web", "--no-pub"],
             cwd=EMPLOYEE_FRONTEND_DIR,
             env=env,
             check=True,
         )
 
-        frontend_process = subprocess.Popen(
+        frontend_process = subprocess.Popen(  # nosec B603
             [
                 str(PYTHON),
                 "-m",

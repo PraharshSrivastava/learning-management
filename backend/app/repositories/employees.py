@@ -44,8 +44,9 @@ def _employee_group_summary(connection, employee_ids: list[str] | None = None) -
         if not employee_ids:
             return {}
         placeholders = ", ".join("?" for _ in employee_ids)
-        where = f"WHERE employee_id IN ({placeholders})"
+        where = f"WHERE employee_id IN ({placeholders})"  # nosec B608
         params = employee_ids
+    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
     rows = connection.execute(
         f"""
         SELECT employee_id, group_cn, group_dn
@@ -225,8 +226,9 @@ def mark_missing_hub_employees_inactive(active_employee_ids: set[str]) -> list[s
     if not active_employee_ids:
         return []
     now = datetime.now().isoformat()
-    placeholders = ", ".join("?" for _ in active_employee_ids)
+    placeholders = ", ".join("?" for _ in active_employee_ids)  # nosec B608
     with get_connection() as connection:
+        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
         rows = connection.execute(
             f"""
             SELECT employee_id
@@ -239,7 +241,8 @@ def mark_missing_hub_employees_inactive(active_employee_ids: set[str]) -> list[s
         ).fetchall()
         missing_ids = [row["employee_id"] for row in rows]
         if missing_ids:
-            missing_placeholders = ", ".join("?" for _ in missing_ids)
+            missing_placeholders = ", ".join("?" for _ in missing_ids)  # nosec B608
+            # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
             connection.execute(
                 f"""
                 UPDATE employees

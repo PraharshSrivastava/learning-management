@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 import time
 from pathlib import Path
@@ -89,7 +89,7 @@ def audio_duration(audio_path: str) -> float:
     if not audio_path or not Path(audio_path).is_file():
         raise FileNotFoundError(f"Narration audio not found: {audio_path}")
     executable = imageio_ffmpeg.get_ffmpeg_exe()
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603
         [executable, "-i", audio_path],
         capture_output=True,
         text=True,
@@ -135,7 +135,7 @@ def encode_slide_clip(
         str(duration + transition_pause_seconds),
         output_path,
     ]
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603
         command,
         capture_output=True,
         text=True,
@@ -164,7 +164,7 @@ def concatenate_clips(clips: list[str], output_path: str, *, working_dir: str) -
         "copy",
         output_path,
     ]
-    result = subprocess.run(
+    result = subprocess.run(  # nosec B603
         command,
         capture_output=True,
         text=True,

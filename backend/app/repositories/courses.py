@@ -361,8 +361,9 @@ def patch_generated_course_fields(
             course_updates.append("updated_at = ?")
             params.append(now)
             params.append(course_id)
+            # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
             connection.execute(
-                f"UPDATE courses SET {', '.join(course_updates)} WHERE course_id = ?",
+                f"UPDATE courses SET {', '.join(course_updates)} WHERE course_id = ?",  # nosec B608
                 params,
             )
 
@@ -427,8 +428,9 @@ def patch_generated_course_fields(
                     module_updates.append("updated_at = ?")
                     module_params.append(now)
                     module_params.append(row["module_id"])
+                    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
                     connection.execute(
-                        f"UPDATE course_modules SET {', '.join(module_updates)} WHERE module_id = ?",
+                        f"UPDATE course_modules SET {', '.join(module_updates)} WHERE module_id = ?",  # nosec B608
                         module_params,
                     )
         connection.commit()

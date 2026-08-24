@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 from pathlib import Path
 
@@ -64,7 +64,7 @@ def convert_office_to_pdf(source_path: Path, output_pdf: Path) -> Path:
         ]
         logger.info("document_pdf_conversion_started source=%s", source)
         try:
-            completed = subprocess.run(
+            completed = subprocess.run(  # nosec B603
                 command,
                 capture_output=True,
                 text=True,
