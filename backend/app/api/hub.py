@@ -7,10 +7,10 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from starlette.responses import RedirectResponse
 
+from app.core.settings import settings
 from app.schemas.common import ApiSchema
 from app.schemas.employee import EmployeeResponse
 from app.schemas.trainer import TrainerResponse
-from app.core.settings import settings
 from app.security.hub_launch import OPEN_THROUGH_HUB, HubApp, hub_launch_verifier
 from app.services.auth import current_employee_from_request, current_trainer_from_request
 
@@ -38,7 +38,11 @@ def _launch(request: Request, app: HubApp) -> RedirectResponse:
     if session is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=OPEN_THROUGH_HUB)
     response = RedirectResponse("/", status_code=302)
-    hub_launch_verifier.set_cookie(response, app, token)
+    hub_launch_verifier.set_cookie(
+        response,
+        app,
+        hub_launch_verifier.issue_session_token(session),
+    )
     return response
 
 

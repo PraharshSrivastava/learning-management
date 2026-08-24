@@ -244,6 +244,52 @@ def test_generate_course_outline_converts_docx_then_uses_pdf_runner(tmp_path, mo
     assert result["course_name"] == "DOCX Course"
 
 
+def test_generate_course_outline_removes_new_checkpoint_when_blueprint_fails(
+    tmp_path, monkeypatch
+) -> None:
+    pptx_path = tmp_path / "broken.pptx"
+    pptx_path.write_bytes(b"pptx")
+    document = {
+        "document_id": "document_failed",
+        "trainer_id": "trainer_1",
+        "file_name": "broken.pptx",
+    }
+    saved_courses: dict[str, dict] = {}
+    deleted_course_ids: list[str] = []
+
+    def fake_save_course(course: dict, status: str) -> None:
+        saved_courses[course["course_id"]] = dict(course)
+
+    def fake_delete_course(course_id: str) -> None:
+        deleted_course_ids.append(course_id)
+        saved_courses.pop(course_id, None)
+
+    monkeypatch.setattr(blueprint, "UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        blueprint,
+        "get_document_by_file_name",
+        lambda filename, trainer_id=None: document,
+    )
+    monkeypatch.setattr(blueprint, "get_all_courses", lambda status: [])
+    monkeypatch.setattr(blueprint, "get_course", lambda course_id, status=None: saved_courses.get(course_id))
+    monkeypatch.setattr(blueprint, "save_course", fake_save_course)
+    monkeypatch.setattr(blueprint, "delete_course", fake_delete_course)
+    monkeypatch.setattr(blueprint, "log_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        blueprint,
+        "run_pptx_blueprint_extraction",
+        lambda path, course_id: (_ for _ in ()).throw(RuntimeError("extraction failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="extraction failed"):
+        blueprint.generate_course_outline(
+            "broken.pptx", course_id="course_failed", trainer_id="trainer_1"
+        )
+
+    assert deleted_course_ids == ["course_failed"]
+    assert saved_courses == {}
+
+
 def test_llm_client_rejects_oversized_input_without_truncating() -> None:
     client = LLMClient(
         base_url="http://llm",

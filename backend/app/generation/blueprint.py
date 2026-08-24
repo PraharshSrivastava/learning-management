@@ -18,7 +18,7 @@ from app.documents.conversion import convert_office_to_pdf
 from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
-from app.repositories.courses import get_all_courses, get_course, save_course
+from app.repositories.courses import delete_course, get_all_courses, get_course, save_course
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.generation.blueprint import BlueprintExtractionResult, ModuleListSchema
 
@@ -1027,6 +1027,7 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
     existing_index = next(
         (i for i, course in enumerate(courses) if course.get("course_id") == course_id), None
     )
+    created_checkpoint = existing_index is None
     checkpoint_course = (
         courses[existing_index]
         if existing_index is not None
@@ -1061,10 +1062,13 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
         else:
             outline = run_blueprint_extraction(document_path, course_id=course_id)
     except Exception as exc:
-        failed_course = get_course(course_id, "draft")
-        if failed_course is not None:
-            mark_stage(failed_course, "blueprint", "failed", error=str(exc))
-            save_course(failed_course, "draft")
+        if created_checkpoint:
+            delete_course(course_id)
+        else:
+            failed_course = get_course(course_id, "draft")
+            if failed_course is not None:
+                mark_stage(failed_course, "blueprint", "failed", error=str(exc))
+                save_course(failed_course, "draft")
         log_event(course_id, "blueprint", "failed", reason=str(exc))
         raise
 

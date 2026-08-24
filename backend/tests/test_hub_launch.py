@@ -11,6 +11,7 @@ import time
 from starlette.requests import Request
 
 from app.core.settings import Settings
+from app.security import hub_launch
 from app.security.hub_launch import HubLaunchVerifier
 
 
@@ -34,6 +35,7 @@ def _verifier(secret: str = "test-secret") -> HubLaunchVerifier:
             hub_launch_secret=secret,
             hub_trainer_app_key="lms-trainer",
             hub_employee_app_key="lms-employee",
+            hub_launch_session_seconds=3600,
         )
     )
 
@@ -83,6 +85,43 @@ def test_rejects_expired_token() -> None:
     )
 
     assert _verifier().verify(token, "trainer") is None
+
+
+def test_launch_token_is_exchanged_for_independent_session_cookie(monkeypatch) -> None:
+    now = int(time.time())
+    verifier = _verifier()
+    launch_token = _token(
+        "test-secret",
+        {
+            "app_key": "lms-trainer",
+            "sub": 42,
+            "email": "trainer@phillipcapital.in",
+            "exp": now + 1,
+        },
+    )
+    launch_session = verifier.verify(launch_token, "trainer")
+    assert launch_session is not None
+
+    session_token = verifier.issue_session_token(launch_session)
+    assert verifier.verify(session_token, "trainer") is None
+
+    monkeypatch.setattr(hub_launch.time, "time", lambda: now + 2)
+    request = Request(
+        {
+            "type": "http",
+            "headers": [
+                (
+                    b"cookie",
+                    f"{verifier.cookie_name('trainer')}={session_token}".encode("ascii"),
+                )
+            ],
+        }
+    )
+
+    session = verifier.session_from_request(request, "trainer")
+
+    assert session is not None
+    assert session.email == "trainer@phillipcapital.in"
 
 
 def test_dev_mode_does_not_fabricate_hub_session() -> None:

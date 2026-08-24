@@ -37,16 +37,6 @@ class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
         state = CourseGenerationState(
             status: GenerationStatus.error, error: errorMsg.toString());
         await ref.read(courseListProvider.notifier).fetchCourses();
-        final failedBlueprint = ref
-            .read(courseListProvider)
-            .courses
-            .where((course) => course.generationStatus == 'failed')
-            .toList();
-        if (failedBlueprint.isNotEmpty) {
-          ref.read(selectedCourseProvider.notifier).state =
-              failedBlueprint.last;
-          ref.read(currentTabProvider.notifier).state = 1;
-        }
       }
     } catch (e) {
       state = CourseGenerationState(

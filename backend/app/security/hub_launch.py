@@ -58,6 +58,10 @@ def _b64decode(value: str) -> bytes:
     return base64.urlsafe_b64decode(value.encode("ascii"))
 
 
+def _b64encode(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
 class HubLaunchVerifier:
     def __init__(self, config: Settings = settings):
         self.config = config
@@ -72,7 +76,16 @@ class HubLaunchVerifier:
             return self.config.hub_trainer_cookie_name
         return self.config.hub_employee_cookie_name
 
-    def verify(self, token: str, app: HubApp) -> HubSession | None:
+    def _sign_payload(self, payload: dict) -> str:
+        payload_b64 = _b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+        signature = hmac.new(
+            self.config.hub_launch_secret.encode("utf-8"),
+            payload_b64.encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+        return f"{payload_b64}.{_b64encode(signature)}"
+
+    def _verify_payload(self, token: str, app: HubApp) -> dict | None:
         if not self.config.hub_launch_secret or "." not in token:
             return None
         payload_b64, sig_b64 = token.rsplit(".", 1)
@@ -94,13 +107,38 @@ class HubLaunchVerifier:
             return None
         if not payload.get("email") or payload.get("sub") is None:
             return None
+        return payload
+
+    def verify(self, token: str, app: HubApp) -> HubSession | None:
+        payload = self._verify_payload(token, app)
+        if payload is None or payload.get("token_type") == "lms_session":
+            return None
+        return HubSession.from_payload(app, payload)
+
+    def issue_session_token(self, session: HubSession) -> str:
+        now = int(time.time())
+        payload = {
+            "token_type": "lms_session",
+            "app_key": session.app_key,
+            "app_id": session.app_id,
+            "sub": session.sub,
+            "email": session.email,
+            "iat": now,
+            "exp": now + int(self.config.hub_launch_session_seconds),
+        }
+        return self._sign_payload(payload)
+
+    def verify_session_token(self, token: str, app: HubApp) -> HubSession | None:
+        payload = self._verify_payload(token, app)
+        if payload is None or payload.get("token_type") != "lms_session":
+            return None
         return HubSession.from_payload(app, payload)
 
     def session_from_request(self, request: Request, app: HubApp) -> HubSession | None:
         token = request.cookies.get(self.cookie_name(app))
         if not token:
             return None
-        return self.verify(token, app)
+        return self.verify_session_token(token, app)
 
     def require_session(self, request: Request, app: HubApp) -> HubSession:
         if not self.config.hub_launch_secret and not self.config.hub_launch_dev_mode:
