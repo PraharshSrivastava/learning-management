@@ -32,8 +32,10 @@ class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
         ref.read(selectedCourseProvider.notifier).state = newCourse;
         ref.read(currentTabProvider.notifier).state = 1;
       } else {
-        final errorMsg = jsonDecode(response.body)['detail'] ??
-            'Course outline extraction failed.';
+        final errorMsg = _responseErrorDetail(
+          response,
+          fallback: 'Course outline extraction failed.',
+        );
         state = CourseGenerationState(
             status: GenerationStatus.error, error: errorMsg.toString());
         await ref.read(courseListProvider.notifier).fetchCourses();
@@ -87,8 +89,10 @@ class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
         ref.read(selectedCourseProvider.notifier).state = updatedCourse;
         return true;
       } else {
-        final errorMsg = jsonDecode(response.body)['detail'] ??
-            'Failed to update course blueprint.';
+        final errorMsg = _responseErrorDetail(
+          response,
+          fallback: 'Failed to update course blueprint.',
+        );
         state =
             CourseUpdateState(isUpdating: false, error: errorMsg.toString());
         return false;
@@ -124,8 +128,10 @@ class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
         ref.read(selectedCourseProvider.notifier).state = updatedCourse;
         return true;
       } else {
-        final decoded = jsonDecode(response.body);
-        final errorMsg = decoded['detail'] ?? 'Failed to save module quiz.';
+        final errorMsg = _responseErrorDetail(
+          response,
+          fallback: 'Failed to save module quiz.',
+        );
         state =
             CourseUpdateState(isUpdating: false, error: errorMsg.toString());
         return false;
@@ -141,3 +147,18 @@ final courseUpdateProvider =
     StateNotifierProvider<CourseUpdateNotifier, CourseUpdateState>((ref) {
   return CourseUpdateNotifier();
 });
+
+String _responseErrorDetail(http.Response response, {required String fallback}) {
+  try {
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      final detail = decoded['detail'];
+      if (detail != null && detail.toString().trim().isNotEmpty) {
+        return detail.toString();
+      }
+    }
+  } catch (_) {
+    // Some framework errors are plain text, not JSON.
+  }
+  return '$fallback Server returned ${response.statusCode}.';
+}

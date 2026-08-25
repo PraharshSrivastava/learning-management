@@ -119,13 +119,20 @@ class CourseService:
         }
         merged = []
         for index, item in enumerate(incoming_modules, start=1):
-            values = (
-                {"title": item, "source_text": "", "start_line": None, "num_questions": 3}
-                if isinstance(item, str)
-                else item.model_dump()
-            )
-            match = by_start_line.get(start_line_key(values["start_line"])) or by_title.get(
-                values["title"].strip()
+            if isinstance(item, str):
+                values = {
+                    "title": item,
+                    "source_text": "",
+                    "start_line": None,
+                    "num_questions": 3,
+                }
+            elif isinstance(item, dict):
+                values = dict(item)
+            else:
+                values = item.model_dump()
+            title = str(values.get("title") or "").strip()
+            match = by_start_line.get(start_line_key(values.get("start_line"))) or by_title.get(
+                title
             )
             module = dict(match) if match else {}
             module.update({"module_number": index, **values})
