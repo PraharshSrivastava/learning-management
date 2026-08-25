@@ -28,6 +28,7 @@ class DashboardPage extends ConsumerWidget {
 
     final generationState = ref.watch(courseGenerationProvider);
     final updateState = ref.watch(courseUpdateProvider);
+    final fullCourseGenState = ref.watch(fullCourseGenerationProvider);
     final isPublishingAssignment = activeTab == 3 &&
         ref.watch(assignmentProvider.select((state) => state.isPublishing));
 
@@ -154,6 +155,10 @@ class DashboardPage extends ConsumerWidget {
         ),
         if (generationState.status == GenerationStatus.generating)
           const _LoadingOverlay(message: 'Creating your course outline'),
+        if (fullCourseGenState.status == FullCourseGenStatus.generating)
+          const _LoadingOverlay(
+            message: 'Generating course content',
+          ),
         if (updateState.isUpdating)
           const _LoadingOverlay(
               message: 'Saving course blueprint modifications...'),
