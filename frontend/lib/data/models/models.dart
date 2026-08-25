@@ -705,11 +705,14 @@ class Course {
   final List<CourseModule> modules;
   final List<CourseImage> images;
   final String thumbnailPath;
+  final String status;
   final String createdAt;
   final String generationStatus;
   final String failedCheckpoint;
   final String currentCheckpoint;
   final String generationError;
+  final int moduleCount;
+  final bool isAssignable;
 
   Course({
     required this.courseId,
@@ -722,14 +725,42 @@ class Course {
     required this.modules,
     required this.images,
     this.thumbnailPath = '',
+    this.status = '',
     required this.createdAt,
     this.generationStatus = '',
     this.failedCheckpoint = '',
     this.currentCheckpoint = '',
     this.generationError = '',
-  });
+    int? moduleCount,
+    this.isAssignable = false,
+  }) : moduleCount = moduleCount ?? modules.length;
 
   factory Course.fromJson(Map<String, dynamic> json) {
+    final modules = (json['modules'] as List? ?? []).map((item) {
+      if (item is Map<String, dynamic>) {
+        return CourseModule.fromJson(item);
+      }
+      return CourseModule(
+        moduleNumber: 0,
+        title: item.toString(),
+        sourceText: '',
+        startLine: '',
+        endLine: '',
+      );
+    }).toList();
+    final status = json['status']?.toString() ?? '';
+    final thumbnailPath = json['thumbnail_path']?.toString() ?? '';
+    final inferredAssignable = (status == 'ready' || status == 'published') &&
+        thumbnailPath.isNotEmpty &&
+        modules.isNotEmpty &&
+        modules.every((module) {
+          if (module.videoPath == null || module.videoPath!.isEmpty) {
+            return false;
+          }
+          if (module.numQuestions <= 0) return true;
+          final questions = module.quiz?['questions'] as List?;
+          return questions != null && questions.isNotEmpty;
+        });
     return Course(
       courseId: json['course_id']?.toString() ?? '',
       courseName: json['course_name']?.toString() ?? '',
@@ -738,22 +769,12 @@ class Course {
       courseDifficulty: json['course_difficulty']?.toString() ?? '',
       language: json['language']?.toString() ?? '',
       targetAudience: json['target_audience']?.toString() ?? '',
-      modules: (json['modules'] as List? ?? []).map((item) {
-        if (item is Map<String, dynamic>) {
-          return CourseModule.fromJson(item);
-        }
-        return CourseModule(
-          moduleNumber: 0,
-          title: item.toString(),
-          sourceText: '',
-          startLine: '',
-          endLine: '',
-        );
-      }).toList(),
+      modules: modules,
       images: (json['images'] as List? ?? [])
           .map((img) => CourseImage.fromJson(img as Map<String, dynamic>))
           .toList(),
-      thumbnailPath: json['thumbnail_path']?.toString() ?? '',
+      thumbnailPath: thumbnailPath,
+      status: status,
       createdAt: json['created_at']?.toString() ?? '',
       generationStatus:
           (json['generation'] as Map?)?['status']?.toString() ?? '',
@@ -762,6 +783,77 @@ class Course {
       currentCheckpoint:
           (json['generation'] as Map?)?['current_checkpoint']?.toString() ?? '',
       generationError: (json['generation'] as Map?)?['error']?.toString() ?? '',
+      moduleCount:
+          (json['module_count'] as num?)?.toInt() ?? modules.length,
+      isAssignable: json['is_assignable'] == true || inferredAssignable,
+    );
+  }
+
+  Course copyWith({
+    String? courseId,
+    String? courseName,
+    String? courseDescription,
+    String? courseObjective,
+    String? courseDifficulty,
+    String? language,
+    String? targetAudience,
+    List<CourseModule>? modules,
+    List<CourseImage>? images,
+    String? thumbnailPath,
+    String? status,
+    String? createdAt,
+    String? generationStatus,
+    String? failedCheckpoint,
+    String? currentCheckpoint,
+    String? generationError,
+    int? moduleCount,
+    bool? isAssignable,
+  }) {
+    final nextModules = modules ?? this.modules;
+    return Course(
+      courseId: courseId ?? this.courseId,
+      courseName: courseName ?? this.courseName,
+      courseDescription: courseDescription ?? this.courseDescription,
+      courseObjective: courseObjective ?? this.courseObjective,
+      courseDifficulty: courseDifficulty ?? this.courseDifficulty,
+      language: language ?? this.language,
+      targetAudience: targetAudience ?? this.targetAudience,
+      modules: nextModules,
+      images: images ?? this.images,
+      thumbnailPath: thumbnailPath ?? this.thumbnailPath,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      generationStatus: generationStatus ?? this.generationStatus,
+      failedCheckpoint: failedCheckpoint ?? this.failedCheckpoint,
+      currentCheckpoint: currentCheckpoint ?? this.currentCheckpoint,
+      generationError: generationError ?? this.generationError,
+      moduleCount: moduleCount ?? nextModules.length,
+      isAssignable: isAssignable ?? this.isAssignable,
+    );
+  }
+}
+
+class GenerationJob {
+  final String id;
+  final String courseId;
+  final String status;
+  final String? error;
+
+  const GenerationJob({
+    required this.id,
+    required this.courseId,
+    required this.status,
+    this.error,
+  });
+
+  bool get isComplete => status == 'completed' || status == 'failed';
+
+  factory GenerationJob.fromJson(Map<String, dynamic> json) {
+    return GenerationJob(
+      id: json['id']?.toString() ?? '',
+      courseId: json['course_id']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      error: json['error']?.toString(),
     );
   }
 }

@@ -164,6 +164,98 @@ def get_course(course_id: str, status: str | None = None) -> dict | None:
         return _row_to_course(connection, row) if row else None
 
 
+def _row_to_course_summary(row) -> dict:
+    metadata = _json_loads(row["metadata_json"], {})
+    state = None
+    if row.get("generation_status"):
+        stages_payload = _json_loads(row["generation_stages_json"], {})
+        state_extra = stages_payload.pop("__state", {})
+        state = {
+            "status": row["generation_status"],
+            "current_checkpoint": row["generation_checkpoint"],
+            "stages": stages_payload,
+            "error": row["generation_error"],
+            "updated_at": row["generation_updated_at"],
+        }
+        if isinstance(state_extra, dict):
+            state.update(state_extra)
+        if row["generation_status"] == "failed":
+            state.setdefault("failed_checkpoint", row["generation_checkpoint"])
+
+    return {
+        "course_id": row["course_id"],
+        "trainer_id": row["trainer_id"],
+        "document_id": row["document_id"],
+        "course_name": row["course_name"],
+        "course_description": row["course_description"],
+        "course_objective": row["course_objective"],
+        "course_difficulty": row["course_difficulty"],
+        "language": row["language"],
+        "target_audience": row["target_audience"],
+        "thumbnail_path": row["thumbnail_path"],
+        "status": row["status"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "published_at": row["published_at"],
+        "module_count": int(row["module_count"] or 0),
+        "is_assignable": bool(row["is_assignable"]),
+        "thumbnail_prompt_hash": metadata.get("thumbnail_prompt_hash"),
+        "images": metadata.get("images") or [],
+        "modules": [],
+        "generation": state,
+    }
+
+
+def list_course_summaries_for_trainer(trainer_id: str) -> list[dict]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                c.*,
+                COUNT(cm.module_id) AS module_count,
+                bool_or(
+                    cm.video_path IS NOT NULL
+                    AND (
+                        COALESCE(cm.num_questions, 0) <= 0
+                        OR jsonb_array_length(COALESCE(cm.quiz_json -> 'questions', '[]'::jsonb)) > 0
+                    )
+                ) FILTER (WHERE cm.module_id IS NOT NULL) AS has_publishable_module,
+                bool_and(
+                    cm.video_path IS NOT NULL
+                    AND (
+                        COALESCE(cm.num_questions, 0) <= 0
+                        OR jsonb_array_length(COALESCE(cm.quiz_json -> 'questions', '[]'::jsonb)) > 0
+                    )
+                ) FILTER (WHERE cm.module_id IS NOT NULL) AS modules_publishable,
+                g.status AS generation_status,
+                g.checkpoint AS generation_checkpoint,
+                g.stages_json AS generation_stages_json,
+                g.error AS generation_error,
+                g.updated_at AS generation_updated_at,
+                (
+                    c.status IN ('ready', 'published')
+                    AND c.thumbnail_path IS NOT NULL
+                    AND COUNT(cm.module_id) > 0
+                    AND COALESCE(bool_and(
+                        cm.video_path IS NOT NULL
+                        AND (
+                            COALESCE(cm.num_questions, 0) <= 0
+                            OR jsonb_array_length(COALESCE(cm.quiz_json -> 'questions', '[]'::jsonb)) > 0
+                        )
+                    ) FILTER (WHERE cm.module_id IS NOT NULL), false)
+                ) AS is_assignable
+            FROM courses c
+            LEFT JOIN course_modules cm ON cm.course_id = c.course_id
+            LEFT JOIN course_generation_status g ON g.course_id = c.course_id
+            WHERE c.trainer_id = ?
+            GROUP BY c.course_id, g.status, g.checkpoint, g.stages_json, g.error, g.updated_at
+            ORDER BY c.created_at
+            """,
+            (trainer_id,),
+        ).fetchall()
+        return [_row_to_course_summary(row) for row in rows]
+
+
 def save_course(course: dict, status: str) -> None:
     course_id = str(course.get("course_id") or uuid.uuid4())
     course["course_id"] = course_id
@@ -551,6 +643,9 @@ class CourseRepository:
 
     def list_for_trainer(self, trainer_id: str, status: str | None = None) -> list[dict]:
         return [course for course in self.list(status) if course.get("trainer_id") == trainer_id]
+
+    def list_summaries_for_trainer(self, trainer_id: str) -> list[dict]:
+        return list_course_summaries_for_trainer(trainer_id)
 
     def get_draft(self, course_id: str) -> dict | None:
         course = get_course(course_id)

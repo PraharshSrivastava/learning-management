@@ -21,6 +21,15 @@ class CourseService:
             return self.repository.list_for_trainer(trainer_id)
         return self.repository.list()
 
+    def list_course_summaries(self, trainer_id: str) -> list[dict]:
+        return self.repository.list_summaries_for_trainer(trainer_id)
+
+    def get_course(self, course_id: str, trainer_id: str) -> dict:
+        course = self.repository.get_draft_for_trainer(course_id, trainer_id)
+        if course is None:
+            raise NotFoundError("Course not found")
+        return course
+
     def generate_outline(self, filename: str, trainer_id: str) -> dict:
         with generation_queue.run(course_id=f"blueprint:{trainer_id}:{filename}", operation="blueprint"):
             course = generate_course_outline(filename, trainer_id=trainer_id)

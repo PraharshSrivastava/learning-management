@@ -2,7 +2,12 @@
 
 from fastapi import APIRouter, Header, Request, Response
 
-from app.schemas.course import CourseResponse, CourseUpdateRequest, GenerateCourseRequest
+from app.schemas.course import (
+    CourseResponse,
+    CourseSummaryResponse,
+    CourseUpdateRequest,
+    GenerateCourseRequest,
+)
 from app.schemas.quiz import ManualQuizRequest
 from app.services.auth import current_trainer_from_request
 from app.services.courses import CourseService
@@ -21,7 +26,7 @@ def generate_course(
     return service.generate_outline(payload.file_name, trainer["trainer_id"])
 
 
-@router.get("", response_model=list[CourseResponse])
+@router.get("", response_model=list[CourseSummaryResponse])
 def list_courses(
     response: Response,
     request: Request,
@@ -29,7 +34,19 @@ def list_courses(
 ):
     trainer = current_trainer_from_request(request, authorization)
     response.headers.update({"Cache-Control": "no-store", "Pragma": "no-cache", "Expires": "0"})
-    return service.list_courses(trainer["trainer_id"])
+    return service.list_course_summaries(trainer["trainer_id"])
+
+
+@router.get("/{course_id}", response_model=CourseResponse)
+def get_course(
+    course_id: str,
+    response: Response,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
+    response.headers.update({"Cache-Control": "no-store", "Pragma": "no-cache", "Expires": "0"})
+    return service.get_course(course_id, trainer["trainer_id"])
 
 
 @router.put("/{course_id}", response_model=CourseResponse)

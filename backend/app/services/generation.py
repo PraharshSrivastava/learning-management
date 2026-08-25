@@ -85,10 +85,12 @@ class GenerationService:
         except ValueError as exc:
             raise ConflictError(str(exc)) from exc
 
-    def get_job(self, job_id: str):
+    def get_job(self, job_id: str, trainer_id: str | None = None):
         job = self.jobs.get(job_id)
         if job is None:
             raise FileNotFoundError("Generation job not found")
+        if trainer_id:
+            self.draft(job.course_id, trainer_id)
         return job
 
     def continue_generation(self, course_id: str, trainer_id: str | None = None) -> dict:

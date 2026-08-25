@@ -15,6 +15,8 @@ class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
 
   Future<void> generateCourse(String fileName, WidgetRef ref) async {
     state = CourseGenerationState(status: GenerationStatus.generating);
+    ref.read(selectedCourseProvider.notifier).state = null;
+    ref.read(currentTabProvider.notifier).state = 1;
     try {
       final response = await http.post(
         Uri.parse(AppConstants.generateCourseEndpoint),
@@ -25,12 +27,10 @@ class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
         body: jsonEncode({'file_name': fileName}),
       );
       if (response.statusCode == 200) {
-        state = CourseGenerationState(status: GenerationStatus.success);
-        await ref.read(courseListProvider.notifier).fetchCourses();
         final decoded = jsonDecode(response.body);
         final newCourse = Course.fromJson(decoded);
-        ref.read(selectedCourseProvider.notifier).state = newCourse;
-        ref.read(currentTabProvider.notifier).state = 1;
+        ref.read(courseListProvider.notifier).upsertCourse(newCourse, select: true);
+        state = CourseGenerationState(status: GenerationStatus.success);
       } else {
         final errorMsg = _responseErrorDetail(
           response,
@@ -38,7 +38,6 @@ class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
         );
         state = CourseGenerationState(
             status: GenerationStatus.error, error: errorMsg.toString());
-        await ref.read(courseListProvider.notifier).fetchCourses();
       }
     } catch (e) {
       state = CourseGenerationState(
@@ -81,12 +80,13 @@ class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
         body: jsonEncode(updatedFields),
       );
       if (response.statusCode == 200) {
-        state = CourseUpdateState(isUpdating: false);
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
         final decoded = jsonDecode(response.body);
         final updatedCourse = Course.fromJson(decoded);
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
+        state = CourseUpdateState(isUpdating: false);
         return true;
       } else {
         final errorMsg = _responseErrorDetail(
@@ -120,12 +120,13 @@ class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
         body: jsonEncode({'questions': questions}),
       );
       if (response.statusCode == 200) {
-        state = CourseUpdateState(isUpdating: false);
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
         final decoded = jsonDecode(response.body);
         final updatedCourse = Course.fromJson(decoded);
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
+        state = CourseUpdateState(isUpdating: false);
         return true;
       } else {
         final errorMsg = _responseErrorDetail(

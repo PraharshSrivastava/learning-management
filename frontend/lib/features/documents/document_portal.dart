@@ -11,6 +11,8 @@ import 'package:frontend/core/config/app_constants.dart';
 import 'package:frontend/data/models/models.dart';
 import 'package:frontend/state/trainer_providers.dart';
 
+final Set<String> _registeredPreviewViewIds = <String>{};
+
 class UploadCard extends ConsumerWidget {
   const UploadCard({super.key});
 
@@ -383,14 +385,17 @@ class PDFViewerCard extends ConsumerWidget {
 
     if (kIsWeb) {
       final String viewId = 'pdf-viewer-${selectedFile!.fileName.hashCode}';
-      ui_web.platformViewRegistry.registerViewFactory(
-        viewId,
-        (int id) => html.IFrameElement()
-          ..src = previewUrl
-          ..style.border = 'none'
-          ..style.width = '100%'
-          ..style.height = '100%',
-      );
+      if (!_registeredPreviewViewIds.contains(viewId)) {
+        _registeredPreviewViewIds.add(viewId);
+        ui_web.platformViewRegistry.registerViewFactory(
+          viewId,
+          (int id) => html.IFrameElement()
+            ..src = previewUrl
+            ..style.border = 'none'
+            ..style.width = '100%'
+            ..style.height = '100%',
+        );
+      }
 
       return Container(
         decoration: BoxDecoration(

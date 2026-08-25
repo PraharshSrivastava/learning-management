@@ -28,7 +28,6 @@ class DashboardPage extends ConsumerWidget {
 
     final generationState = ref.watch(courseGenerationProvider);
     final updateState = ref.watch(courseUpdateProvider);
-    final fullCourseGenState = ref.watch(fullCourseGenerationProvider);
     final isPublishingAssignment = activeTab == 3 &&
         ref.watch(assignmentProvider.select((state) => state.isPublishing));
 
@@ -139,26 +138,22 @@ class DashboardPage extends ConsumerWidget {
               ),
             ),
           ),
-          body: activeTab == 0
-              ? _buildDocumentsPortal(context, ref, selectedFile, isMobile)
-              : activeTab == 1
-                  ? _buildCoursesPortal(context, ref, selectedCourse, isMobile)
-                  : activeTab == 2
-                      ? _buildTrainingPortal(
-                          context, ref, selectedCourse, isMobile)
-                      : activeTab == 3
-                          ? AssignmentPortal(
-                              selectedCourse: selectedCourse,
-                              isMobile: isMobile,
-                            )
-                          : const PerformancePortal(),
+          body: IndexedStack(
+            index: activeTab,
+            children: [
+              _buildDocumentsPortal(context, ref, selectedFile, isMobile),
+              _buildCoursesPortal(context, ref, selectedCourse, isMobile),
+              _buildTrainingPortal(context, ref, selectedCourse, isMobile),
+              AssignmentPortal(
+                selectedCourse: selectedCourse,
+                isMobile: isMobile,
+              ),
+              const PerformancePortal(),
+            ],
+          ),
         ),
         if (generationState.status == GenerationStatus.generating)
           const _LoadingOverlay(message: 'Creating your course outline'),
-        if (fullCourseGenState.status == FullCourseGenStatus.generating)
-          const _LoadingOverlay(
-            message: 'Generating course content',
-          ),
         if (updateState.isUpdating)
           const _LoadingOverlay(
               message: 'Saving course blueprint modifications...'),
@@ -375,11 +370,11 @@ Future<void> _activateTrainerTab(WidgetRef ref, int tabIndex) async {
       break;
     case 1:
     case 2:
-      await ref.read(courseListProvider.notifier).fetchCourses();
+      await ref.read(courseListProvider.notifier).ensureLoaded();
       _syncSelectedCourseFromList(ref);
       break;
     case 3:
-      await ref.read(assignableCourseListProvider.notifier).fetchCourses();
+      await ref.read(assignableCourseListProvider.notifier).ensureLoaded();
       _syncSelectedCourseFromAssignableList(ref);
       break;
     case 4:
@@ -505,11 +500,11 @@ class _TrainerLoginPage extends ConsumerWidget {
                                             .fetchFiles();
                                         ref
                                             .read(courseListProvider.notifier)
-                                            .fetchCourses();
+                                            .ensureLoaded();
                                         ref
                                             .read(assignableCourseListProvider
                                                 .notifier)
-                                            .fetchCourses();
+                                            .ensureLoaded();
                                         ref
                                             .read(performanceProvider.notifier)
                                             .fetch();

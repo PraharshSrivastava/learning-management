@@ -25,13 +25,13 @@ class QuizGenerationNotifier extends StateNotifier<QuizGenerationState> {
         },
       );
       if (response.statusCode == 200) {
-        state = QuizGenerationState(status: QuizGenStatus.success);
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
         final decoded = jsonDecode(response.body);
         final updatedCourse = Course.fromJson(decoded);
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
-        ref.read(currentTabProvider.notifier).state = 5; // Navigate to Quiz tab
+        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
+        state = QuizGenerationState(status: QuizGenStatus.success);
       } else {
         final errorMsg =
             jsonDecode(response.body)['detail'] ?? 'Quiz generation failed.';
@@ -79,12 +79,13 @@ class SlideGenerationNotifier extends StateNotifier<SlideGenerationState> {
         },
       );
       if (response.statusCode == 200) {
-        state = SlideGenerationState(status: SlideGenStatus.success);
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
         final decoded = jsonDecode(response.body);
         final updatedCourse = Course.fromJson(decoded);
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
+        state = SlideGenerationState(status: SlideGenStatus.success);
         return true;
       } else {
         final errorMsg =
@@ -135,12 +136,13 @@ class ScriptGenerationNotifier extends StateNotifier<ScriptGenerationState> {
         },
       );
       if (response.statusCode == 200) {
-        state = ScriptGenerationState(status: ScriptGenStatus.success);
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
         final decoded = jsonDecode(response.body);
         final updatedCourse = Course.fromJson(decoded);
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
+        state = ScriptGenerationState(status: ScriptGenStatus.success);
         return true;
       } else {
         final errorMsg =
@@ -170,16 +172,11 @@ final scriptGenerationProvider =
 final activeSlideIndexProvider = StateProvider<int>((ref) => 0);
 
 Future<Course?> _refreshSelectedCourse(String courseId, WidgetRef ref) async {
-  await ref.read(courseListProvider.notifier).fetchCourses();
-  await ref.read(assignableCourseListProvider.notifier).fetchCourses();
-  final refreshedCourses = ref.read(courseListProvider).courses;
-  final matches =
-      refreshedCourses.where((course) => course.courseId == courseId).toList();
-  if (matches.isEmpty) {
-    return null;
-  }
-  final updatedCourse = matches.first;
-  ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+  final updatedCourse =
+      await ref.read(courseListProvider.notifier).refreshCourseDetail(courseId);
+  ref
+      .read(assignableCourseListProvider.notifier)
+      .syncFromCourseList(ref.read(courseListProvider).courses);
   return updatedCourse;
 }
 
@@ -222,9 +219,10 @@ class VideoGenerationNotifier extends StateNotifier<VideoGenerationState> {
 
         state = VideoGenerationState(
             status: VideoGenStatus.success, videoUrl: absoluteUrl);
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
         return true;
       } else {
         final errorMsg =
@@ -269,24 +267,20 @@ class FullCourseGenerationNotifier
     state = FullCourseGenerationState(status: FullCourseGenStatus.generating);
     try {
       final response = await http.post(
-        Uri.parse(AppConstants.generateFullCourseEndpoint(courseId)),
+        Uri.parse(AppConstants.generationJobEndpoint(courseId)),
         headers: {
           'Content-Type': 'application/json',
           ...ref.read(trainerAuthHeadersProvider),
         },
       );
-      if (response.statusCode == 200) {
-        state = FullCourseGenerationState(status: FullCourseGenStatus.success);
-        final decoded = jsonDecode(response.body);
-        final updatedCourse = Course.fromJson(decoded);
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
-        ref.read(currentTabProvider.notifier).state =
-            2; // Navigate to Courses tab (formerly Training tab)
+      if (response.statusCode == 202 || response.statusCode == 200) {
+        final job = GenerationJob.fromJson(jsonDecode(response.body));
+        await _pollFullCourseJob(job.id, courseId, ref);
       } else {
-        final errorMsg = jsonDecode(response.body)['detail'] ??
-            'Full course generation failed.';
+        final errorMsg = _generationErrorDetail(
+          response,
+          fallback: 'Full course generation failed.',
+        );
         state = FullCourseGenerationState(
             status: FullCourseGenStatus.error, error: errorMsg.toString());
         final failedCourse = await _refreshSelectedCourse(courseId, ref);
@@ -324,9 +318,10 @@ class FullCourseGenerationNotifier
                 module.quiz != null &&
                 (((module.quiz!['questions'] as List?)?.isNotEmpty == true) ||
                     module.numQuestions <= 0));
-        await ref.read(courseListProvider.notifier).fetchCourses();
-        await ref.read(assignableCourseListProvider.notifier).fetchCourses();
-        ref.read(selectedCourseProvider.notifier).state = updatedCourse;
+        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
         ref.read(currentTabProvider.notifier).state = isFullyGenerated ? 2 : 1;
         state = FullCourseGenerationState(status: FullCourseGenStatus.success);
       } else {
@@ -353,9 +348,70 @@ class FullCourseGenerationNotifier
   void reset() {
     state = FullCourseGenerationState(status: FullCourseGenStatus.idle);
   }
+
+  Future<void> _pollFullCourseJob(
+    String jobId,
+    String courseId,
+    WidgetRef ref,
+  ) async {
+    while (true) {
+      await Future.delayed(const Duration(seconds: 4));
+      final response = await http.get(
+        Uri.parse(AppConstants.generationJobStatusEndpoint(jobId)),
+        headers: ref.read(trainerAuthHeadersProvider),
+      );
+      if (response.statusCode != 200) {
+        final errorMsg = _generationErrorDetail(
+          response,
+          fallback: 'Could not check generation progress.',
+        );
+        state = FullCourseGenerationState(
+          status: FullCourseGenStatus.error,
+          error: errorMsg,
+        );
+        await _refreshSelectedCourse(courseId, ref);
+        return;
+      }
+      final job = GenerationJob.fromJson(jsonDecode(response.body));
+      await _refreshSelectedCourse(courseId, ref);
+      if (!job.isComplete) continue;
+      if (job.status == 'completed') {
+        state = FullCourseGenerationState(status: FullCourseGenStatus.success);
+        ref.read(currentTabProvider.notifier).state = 2;
+        return;
+      }
+      state = FullCourseGenerationState(
+        status: FullCourseGenStatus.error,
+        error: job.error ?? 'Full course generation failed.',
+      );
+      ref.read(currentTabProvider.notifier).state = 1;
+      return;
+    }
+  }
 }
 
 final fullCourseGenerationProvider = StateNotifierProvider<
     FullCourseGenerationNotifier, FullCourseGenerationState>((ref) {
   return FullCourseGenerationNotifier();
 });
+
+String _generationErrorDetail(http.Response response, {required String fallback}) {
+  try {
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      final detail = decoded['detail'];
+      if (detail is Map<String, dynamic>) {
+        final message = detail['message'];
+        if (message != null && message.toString().trim().isNotEmpty) {
+          return message.toString();
+        }
+      }
+      if (detail != null && detail.toString().trim().isNotEmpty) {
+        return detail.toString();
+      }
+    }
+  } catch (_) {
+    // Plain-text framework errors are possible here.
+  }
+  return '$fallback Server returned ${response.statusCode}.';
+}

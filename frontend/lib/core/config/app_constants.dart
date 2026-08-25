@@ -35,6 +35,8 @@ class AppConstants {
       '$apiBaseUrl/api/files/$filename/preview';
   static String updateCourseEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id';
+  static String courseDetailEndpoint(String id) =>
+      '$apiBaseUrl/api/courses/$id';
   static String courseAssignmentEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id/assignment';
   static String publishCourseAssignmentEndpoint(String id) =>
@@ -49,6 +51,10 @@ class AppConstants {
       '$apiBaseUrl/api/courses/$id/generate-scripts';
   static String generateFullCourseEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id/generate-full-course';
+  static String generationJobEndpoint(String id) =>
+      '$apiBaseUrl/api/courses/$id/generation-jobs';
+  static String generationJobStatusEndpoint(String id) =>
+      '$apiBaseUrl/api/generation-jobs/$id';
   static String continueGenerationEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id/continue-generation';
   static String moduleQuizEndpoint(String id, int moduleNumber) =>

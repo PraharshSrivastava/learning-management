@@ -48,7 +48,7 @@ class CoursesSidebar extends ConsumerWidget {
           ),
           const Divider(height: 1, color: AppTheme.lightGray),
           Expanded(
-            child: courseListState.isLoading
+            child: courseListState.isLoading && courseListState.courses.isEmpty
                 ? const Center(
                     child: CircularProgressIndicator(
                       valueColor:
@@ -157,17 +157,34 @@ class CoursesSidebar extends ConsumerWidget {
                                             fontWeight: FontWeight.bold,
                                           ),
                                     ),
-                                    Text(
-                                      '${course.modules.length} module${course.modules.length == 1 ? '' : 's'}',
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall,
-                                    ),
+                                    if (courseListState.isLoading)
+                                      const SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                            AppTheme.primaryBlue,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Text(
+                                        '${course.moduleCount} module${course.moduleCount == 1 ? '' : 's'}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
+                                      ),
                                   ],
                                 ),
                                 onTap: () {
                                   ref
                                       .read(selectedCourseProvider.notifier)
                                       .state = course;
+                                  ref
+                                      .read(courseListProvider.notifier)
+                                      .fetchCourseDetail(course.courseId);
                                 },
                               );
                             },
@@ -267,6 +284,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
   void initState() {
     super.initState();
     _initControllers();
+    _loadDetailsIfNeeded();
   }
 
   @override
@@ -275,7 +293,30 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     if (oldWidget.course.courseId != widget.course.courseId) {
       _disposeControllers();
       _initControllers();
+      _loadDetailsIfNeeded();
+    } else if (oldWidget.course.courseName != widget.course.courseName ||
+        oldWidget.course.courseDescription != widget.course.courseDescription ||
+        oldWidget.course.courseObjective != widget.course.courseObjective ||
+        oldWidget.course.courseDifficulty != widget.course.courseDifficulty ||
+        oldWidget.course.language != widget.course.language ||
+        oldWidget.course.targetAudience != widget.course.targetAudience ||
+        oldWidget.course.modules.length != widget.course.modules.length ||
+        oldWidget.course.thumbnailPath != widget.course.thumbnailPath) {
+      _disposeControllers();
+      _initControllers();
     }
+  }
+
+  void _loadDetailsIfNeeded() {
+    if (widget.course.modules.isNotEmpty || widget.course.moduleCount == 0) {
+      return;
+    }
+    Future.microtask(() {
+      if (!mounted) return;
+      ref
+          .read(courseListProvider.notifier)
+          .fetchCourseDetail(widget.course.courseId);
+    });
   }
 
   void _initControllers() {
@@ -334,6 +375,20 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.course.modules.isEmpty && widget.course.moduleCount > 0) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: AppTheme.pShapeRadius,
+          border: Border.all(color: AppTheme.lightGray, width: 1),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
+          ),
+        ),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

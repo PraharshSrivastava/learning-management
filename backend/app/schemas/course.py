@@ -96,6 +96,27 @@ class CourseResponse(ApiSchema):
     generation: GenerationState | None = None
 
 
+class CourseSummaryResponse(ApiSchema):
+    course_id: str
+    trainer_id: str
+    document_id: str | None = None
+    course_name: str = ""
+    course_description: str = ""
+    course_objective: str = ""
+    course_difficulty: str = ""
+    language: str = ""
+    target_audience: str = ""
+    thumbnail_path: str | None = None
+    status: CourseStatus
+    created_at: str = ""
+    updated_at: str = ""
+    published_at: str | None = None
+    module_count: int = 0
+    is_assignable: bool = False
+    thumbnail_prompt_hash: str | None = None
+    generation: GenerationState | None = None
+
+
 class CourseRecord(ApiSchema):
     """Validated course persistence shape."""
 

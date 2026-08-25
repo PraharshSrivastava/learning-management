@@ -77,8 +77,13 @@ def create_generation_job(
 
 
 @router.get("/generation-jobs/{job_id}", response_model=GenerationJobResponse)
-def get_generation_job(job_id: str):
-    return service.get_job(job_id)
+def get_generation_job(
+    job_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
+    return service.get_job(job_id, trainer["trainer_id"])
 
 
 @router.post("/courses/{course_id}/continue-generation", response_model=CourseResponse)
