@@ -11,14 +11,33 @@ import 'package:frontend/features/training/training_portal.dart';
 import 'package:frontend/features/assignments/assignment_portal.dart';
 import 'package:frontend/features/performance/performance_portal.dart';
 
-class DashboardPage extends ConsumerWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  String? _bootstrappedTrainerId;
+
+  @override
+  Widget build(BuildContext context) {
     final trainerAuth = ref.watch(trainerAuthProvider);
     if (!trainerAuth.isAuthenticated) {
+      _bootstrappedTrainerId = null;
       return _TrainerLoginPage(auth: trainerAuth);
+    }
+    final trainerId = trainerAuth.trainer?.trainerId;
+    if (trainerId != null && _bootstrappedTrainerId != trainerId) {
+      _bootstrappedTrainerId = trainerId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final currentTrainerId =
+            ref.read(trainerAuthProvider).trainer?.trainerId;
+        if (currentTrainerId != trainerId) return;
+        _bootstrapTrainerData(ref);
+      });
     }
 
     final activeTab = ref.watch(currentTabProvider);
@@ -154,38 +173,54 @@ class DashboardPage extends ConsumerWidget {
           ),
         ),
         if (generationState.status == GenerationStatus.generating)
-          const _LoadingOverlay(message: 'Creating your course outline'),
+          const Positioned.fill(
+            child: _LoadingOverlay(message: 'Creating your course outline'),
+          ),
         if (fullCourseGenState.status == FullCourseGenStatus.generating)
-          const _LoadingOverlay(
-            message: 'Generating course content',
+          const Positioned.fill(
+            child: _LoadingOverlay(
+              message: 'Generating course content',
+            ),
           ),
         if (updateState.isUpdating)
-          const _LoadingOverlay(
-              message: 'Saving course blueprint modifications...'),
+          const Positioned.fill(
+            child: _LoadingOverlay(
+                message: 'Saving course blueprint modifications...'),
+          ),
         if (ref.watch(quizGenerationProvider).status ==
             QuizGenStatus.generating)
-          const _LoadingOverlay(
-            message: 'Generating quizzes',
+          const Positioned.fill(
+            child: _LoadingOverlay(
+              message: 'Generating quizzes',
+            ),
           ),
         if (ref.watch(slideGenerationProvider).status ==
             SlideGenStatus.generating)
-          const _LoadingOverlay(
-            message: 'Generating slides',
+          const Positioned.fill(
+            child: _LoadingOverlay(
+              message: 'Generating slides',
+            ),
           ),
         if (ref.watch(scriptGenerationProvider).status ==
             ScriptGenStatus.generating)
-          const _LoadingOverlay(
-            message: 'Generating narration',
+          const Positioned.fill(
+            child: _LoadingOverlay(
+              message: 'Generating narration',
+            ),
           ),
         if (ref.watch(videoGenerationProvider).status ==
             VideoGenStatus.generating)
-          const _LoadingOverlay(
-            message: 'Generating video',
+          const Positioned.fill(
+            child: _LoadingOverlay(
+              message: 'Generating video',
+            ),
           ),
         if (isPublishingAssignment)
-          const _LoadingOverlay(
-            message: 'Publishing assignment...\n'
-                'Publishing may take up to 2 minutes.',
+          const Positioned.fill(
+            child: _LoadingOverlay(
+              message: 'Publishing assignment...\n'
+                  'Publishing may take up to 2 minutes.',
+            ),
           ),
       ],
     );
@@ -365,6 +400,13 @@ class DashboardPage extends ConsumerWidget {
       ],
     );
   }
+}
+
+void _bootstrapTrainerData(WidgetRef ref) {
+  ref.read(fileListProvider.notifier).fetchFiles();
+  ref.read(courseListProvider.notifier).ensureLoaded();
+  ref.read(assignableCourseListProvider.notifier).ensureLoaded();
+  ref.read(performanceProvider.notifier).fetch();
 }
 
 Future<void> _activateTrainerTab(WidgetRef ref, int tabIndex) async {
@@ -614,109 +656,114 @@ class _LoadingOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final content = _LoadingOverlayContent.fromMessage(message);
 
-    return Container(
-      color: const Color(0xFF101828).withOpacity(0.52),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Material(
-            color: Colors.white,
-            elevation: 18,
-            shadowColor: Colors.black.withOpacity(0.22),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE7EFFF),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppTheme.primaryBlue,
-                            ),
-                            strokeWidth: 3.8,
-                          ),
-                        ),
-                        Icon(
-                          content.icon,
-                          color: AppTheme.primaryBlue,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  Text(
-                    content.title,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.manrope(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF101828),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    content.message,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.dmSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF475467),
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F7FA),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE6E9EF)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.schedule_outlined,
-                          color: AppTheme.primaryBlue,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            content.expectation,
-                            style: GoogleFonts.dmSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF344054),
+    return Stack(
+      children: [
+        ModalBarrier(
+          dismissible: false,
+          color: const Color(0xFF101828).withOpacity(0.52),
+        ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Material(
+              color: Colors.white,
+              elevation: 18,
+              shadowColor: Colors.black.withOpacity(0.22),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE7EFFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppTheme.primaryBlue,
+                              ),
+                              strokeWidth: 3.8,
                             ),
                           ),
-                        ),
-                      ],
+                          Icon(
+                            content.icon,
+                            color: AppTheme.primaryBlue,
+                            size: 22,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 22),
+                    Text(
+                      content.title,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.manrope(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF101828),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      content.message,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF475467),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F7FA),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE6E9EF)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.schedule_outlined,
+                            color: AppTheme.primaryBlue,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              content.expectation,
+                              style: GoogleFonts.dmSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF344054),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

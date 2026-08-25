@@ -4,12 +4,14 @@ class CourseListState {
   final List<Course> courses;
   final bool isLoading;
   final bool hasLoaded;
+  final String? ownerTrainerId;
   final String? error;
 
   CourseListState({
     this.courses = const [],
     this.isLoading = false,
     this.hasLoaded = false,
+    this.ownerTrainerId,
     this.error,
   });
 }
@@ -18,36 +20,59 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
   final Ref ref;
 
   Future<void>? _fetchInFlight;
+  String? _fetchTrainerId;
+  String? _currentTrainerId;
   final Map<String, Future<Course?>> _detailInFlight = {};
 
   CourseListNotifier(this.ref) : super(CourseListState());
 
   Future<void> ensureLoaded() {
-    if (state.hasLoaded || state.isLoading) {
+    final trainerId = _currentTrainerId;
+    if (trainerId == null) return Future.value();
+    if (state.hasLoaded &&
+        state.ownerTrainerId == trainerId &&
+        state.error == null) {
+      return Future.value();
+    }
+    if (state.isLoading && _fetchTrainerId == trainerId) {
       return _fetchInFlight ?? Future.value();
     }
     return fetchCourses();
   }
 
   Future<void> fetchCourses() {
-    if (_fetchInFlight != null) return _fetchInFlight!;
+    final trainerId = _currentTrainerId;
+    if (trainerId == null) return Future.value();
+    if (_fetchInFlight != null && _fetchTrainerId == trainerId) {
+      return _fetchInFlight!;
+    }
     final request = _fetchCourses();
     _fetchInFlight = request;
-    request.whenComplete(() => _fetchInFlight = null);
+    _fetchTrainerId = trainerId;
+    request.whenComplete(() {
+      if (_fetchInFlight == request) {
+        _fetchInFlight = null;
+        _fetchTrainerId = null;
+      }
+    });
     return request;
   }
 
   Future<void> _fetchCourses() async {
+    final trainerId = _currentTrainerId;
+    if (trainerId == null) return;
     state = CourseListState(
       courses: state.courses,
       isLoading: true,
       hasLoaded: state.hasLoaded,
+      ownerTrainerId: trainerId,
     );
     try {
       final response = await http.get(
         Uri.parse(AppConstants.listCoursesEndpoint),
         headers: ref.read(trainerAuthHeadersProvider),
       );
+      if (_currentTrainerId != trainerId) return;
       if (response.statusCode == 200) {
         final List<dynamic> decoded = jsonDecode(response.body);
         final summaries = decoded.map((item) => Course.fromJson(item)).toList();
@@ -56,6 +81,7 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
           courses: courseList,
           isLoading: false,
           hasLoaded: true,
+          ownerTrainerId: trainerId,
         );
         _syncSelectedAfterListRefresh();
       } else {
@@ -63,13 +89,16 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
             courses: state.courses,
             isLoading: false,
             hasLoaded: state.hasLoaded,
+            ownerTrainerId: trainerId,
             error: 'Server returned ${response.statusCode}');
       }
     } catch (e) {
+      if (_currentTrainerId != trainerId) return;
       state = CourseListState(
           courses: state.courses,
           isLoading: false,
           hasLoaded: state.hasLoaded,
+          ownerTrainerId: trainerId,
           error: e.toString());
     }
   }
@@ -121,16 +150,20 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
   }
 
   Future<Course?> _fetchCourseDetail(String courseId) async {
+    final trainerId = _currentTrainerId;
+    if (trainerId == null) return null;
     try {
       final response = await http.get(
         Uri.parse(AppConstants.courseDetailEndpoint(courseId)),
         headers: ref.read(trainerAuthHeadersProvider),
       );
+      if (_currentTrainerId != trainerId) return null;
       if (response.statusCode != 200) {
         state = CourseListState(
           courses: state.courses,
           isLoading: false,
           hasLoaded: state.hasLoaded,
+          ownerTrainerId: trainerId,
           error: 'Server returned ${response.statusCode}',
         );
         return null;
@@ -139,10 +172,12 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
       upsertCourse(course, select: true);
       return course;
     } catch (e) {
+      if (_currentTrainerId != trainerId) return null;
       state = CourseListState(
         courses: state.courses,
         isLoading: false,
         hasLoaded: state.hasLoaded,
+        ownerTrainerId: trainerId,
         error: e.toString(),
       );
       return null;
@@ -150,6 +185,7 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
   }
 
   void upsertCourse(Course course, {bool select = false}) {
+    final trainerId = _currentTrainerId;
     final index =
         state.courses.indexWhere((item) => item.courseId == course.courseId);
     final next = [...state.courses];
@@ -161,7 +197,8 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
     state = CourseListState(
       courses: next,
       isLoading: false,
-      hasLoaded: true,
+      hasLoaded: state.hasLoaded && state.ownerTrainerId == trainerId,
+      ownerTrainerId: trainerId ?? state.ownerTrainerId,
     );
     if (select) {
       ref.read(selectedCourseProvider.notifier).state = course;
@@ -176,6 +213,7 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
           state.courses.where((course) => course.courseId != courseId).toList(),
       isLoading: false,
       hasLoaded: state.hasLoaded,
+      ownerTrainerId: state.ownerTrainerId,
     );
     final selected = ref.read(selectedCourseProvider);
     if (selected?.courseId == courseId) {
@@ -193,46 +231,87 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
       ref.read(selectedCourseProvider.notifier).state = matches.first;
     }
   }
+
+  void handleAuthChanged(String? trainerId) {
+    if (_currentTrainerId == trainerId) return;
+    _currentTrainerId = trainerId;
+    _detailInFlight.clear();
+    if (trainerId == null) {
+      state = CourseListState();
+      ref.read(selectedCourseProvider.notifier).state = null;
+      return;
+    }
+    state = CourseListState(ownerTrainerId: trainerId);
+    Future.microtask(ensureLoaded);
+  }
 }
 
 final courseListProvider =
     StateNotifierProvider<CourseListNotifier, CourseListState>((ref) {
-  return CourseListNotifier(ref);
+  final notifier = CourseListNotifier(ref);
+  notifier.handleAuthChanged(ref.read(trainerAuthProvider).trainer?.trainerId);
+  ref.listen<TrainerAuthState>(trainerAuthProvider, (previous, next) {
+    notifier.handleAuthChanged(next.trainer?.trainerId);
+  });
+  return notifier;
 });
 
 class AssignableCourseListNotifier extends StateNotifier<CourseListState> {
   final Ref ref;
 
   Future<void>? _fetchInFlight;
+  String? _fetchTrainerId;
+  String? _currentTrainerId;
 
   AssignableCourseListNotifier(this.ref) : super(CourseListState());
 
   Future<void> ensureLoaded() {
-    if (state.hasLoaded || state.isLoading) {
+    final trainerId = _currentTrainerId;
+    if (trainerId == null) return Future.value();
+    if (state.hasLoaded &&
+        state.ownerTrainerId == trainerId &&
+        state.error == null) {
+      return Future.value();
+    }
+    if (state.isLoading && _fetchTrainerId == trainerId) {
       return _fetchInFlight ?? Future.value();
     }
     return fetchCourses();
   }
 
   Future<void> fetchCourses() {
-    if (_fetchInFlight != null) return _fetchInFlight!;
+    final trainerId = _currentTrainerId;
+    if (trainerId == null) return Future.value();
+    if (_fetchInFlight != null && _fetchTrainerId == trainerId) {
+      return _fetchInFlight!;
+    }
     final request = _fetchCourses();
     _fetchInFlight = request;
-    request.whenComplete(() => _fetchInFlight = null);
+    _fetchTrainerId = trainerId;
+    request.whenComplete(() {
+      if (_fetchInFlight == request) {
+        _fetchInFlight = null;
+        _fetchTrainerId = null;
+      }
+    });
     return request;
   }
 
   Future<void> _fetchCourses() async {
+    final trainerId = _currentTrainerId;
+    if (trainerId == null) return;
     state = CourseListState(
       courses: state.courses,
       isLoading: true,
       hasLoaded: state.hasLoaded,
+      ownerTrainerId: trainerId,
     );
     try {
       final response = await http.get(
         Uri.parse(AppConstants.assignableCoursesEndpoint),
         headers: ref.read(trainerAuthHeadersProvider),
       );
+      if (_currentTrainerId != trainerId) return;
       if (response.statusCode == 200) {
         final List<dynamic> decoded = jsonDecode(response.body);
         final courseList =
@@ -241,36 +320,59 @@ class AssignableCourseListNotifier extends StateNotifier<CourseListState> {
           courses: courseList,
           isLoading: false,
           hasLoaded: true,
+          ownerTrainerId: trainerId,
         );
       } else {
         state = CourseListState(
           courses: state.courses,
           isLoading: false,
           hasLoaded: state.hasLoaded,
+          ownerTrainerId: trainerId,
           error: 'Server returned ${response.statusCode}',
         );
       }
     } catch (e) {
+      if (_currentTrainerId != trainerId) return;
       state = CourseListState(
           courses: state.courses,
           isLoading: false,
           hasLoaded: state.hasLoaded,
+          ownerTrainerId: trainerId,
           error: e.toString());
     }
   }
 
   void syncFromCourseList(List<Course> courses) {
+    final source = ref.read(courseListProvider);
+    final trainerId = _currentTrainerId;
     state = CourseListState(
       courses: courses.where((course) => course.isAssignable).toList(),
       isLoading: false,
-      hasLoaded: true,
+      hasLoaded: source.hasLoaded && source.ownerTrainerId == trainerId,
+      ownerTrainerId: trainerId,
     );
+  }
+
+  void handleAuthChanged(String? trainerId) {
+    if (_currentTrainerId == trainerId) return;
+    _currentTrainerId = trainerId;
+    if (trainerId == null) {
+      state = CourseListState();
+      return;
+    }
+    state = CourseListState(ownerTrainerId: trainerId);
+    Future.microtask(ensureLoaded);
   }
 }
 
 final assignableCourseListProvider =
     StateNotifierProvider<AssignableCourseListNotifier, CourseListState>((ref) {
-  return AssignableCourseListNotifier(ref);
+  final notifier = AssignableCourseListNotifier(ref);
+  notifier.handleAuthChanged(ref.read(trainerAuthProvider).trainer?.trainerId);
+  ref.listen<TrainerAuthState>(trainerAuthProvider, (previous, next) {
+    notifier.handleAuthChanged(next.trainer?.trainerId);
+  });
+  return notifier;
 });
 
 // Active selections & current tab
