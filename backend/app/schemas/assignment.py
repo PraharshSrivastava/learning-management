@@ -11,6 +11,8 @@ from app.schemas.employee import EmployeeResponse
 
 
 class AssignmentGroup(ApiSchema):
+    saved_group_id: str | None = None
+    name: str | None = None
     employee_ids: list[str] = Field(default_factory=list)
     departments: list[str] = Field(default_factory=list)
     mailing_lists: list[str] = Field(default_factory=list)
@@ -66,6 +68,30 @@ class AssignmentOptionsResponse(ApiSchema):
     mailing_lists: list[str] = Field(default_factory=list)
     job_titles: list[str] = Field(default_factory=list)
     employees: list[EmployeeResponse] = Field(default_factory=list)
+
+
+class SavedAssignmentGroupRequest(RequestSchema):
+    name: str = Field(min_length=1)
+    group_type: Literal["include", "exclude"]
+    employee_ids: list[str] = Field(default_factory=list)
+    departments: list[str] = Field(default_factory=list)
+    mailing_lists: list[str] = Field(default_factory=list)
+    job_titles: list[str] = Field(default_factory=list)
+    joined_less_than_days_ago: int | None = Field(default=None, ge=0)
+
+
+class SavedAssignmentGroupResponse(ApiSchema):
+    saved_group_id: str
+    trainer_id: str
+    name: str
+    group_type: Literal["include", "exclude"]
+    employee_ids: list[str] = Field(default_factory=list)
+    departments: list[str] = Field(default_factory=list)
+    mailing_lists: list[str] = Field(default_factory=list)
+    job_titles: list[str] = Field(default_factory=list)
+    joined_less_than_days_ago: int | None = Field(default=None, ge=0)
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class CourseAssignmentResponse(ApiSchema):

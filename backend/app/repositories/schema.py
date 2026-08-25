@@ -10,6 +10,7 @@ TABLES = (
     "course_generation_state",
     "course_assignments",
     "assignment_rules",
+    "saved_assignment_groups",
     "course_modules",
     "courses",
     "documents",
@@ -189,6 +190,22 @@ def _create_tables(cursor) -> None:
     )
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS saved_assignment_groups (
+            saved_group_id TEXT PRIMARY KEY,
+            trainer_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            group_type TEXT NOT NULL,
+            filters_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TEXT NOT NULL DEFAULT (now()::text),
+            updated_at TEXT NOT NULL DEFAULT (now()::text),
+            UNIQUE (trainer_id, group_type, name),
+            CHECK (group_type IN ('include', 'exclude')),
+            FOREIGN KEY (trainer_id) REFERENCES trainers(trainer_id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS course_assignments (
             assignment_id TEXT PRIMARY KEY,
             course_id TEXT NOT NULL,
@@ -266,6 +283,8 @@ def _create_indexes(cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_courses_document ON courses(document_id)",
         "CREATE INDEX IF NOT EXISTS idx_course_modules_course_number ON course_modules(course_id, module_number)",
         "CREATE INDEX IF NOT EXISTS idx_assignment_rules_active ON assignment_rules(is_active)",
+        "CREATE INDEX IF NOT EXISTS idx_saved_assignment_groups_trainer "
+        "ON saved_assignment_groups(trainer_id, group_type)",
         "CREATE INDEX IF NOT EXISTS idx_assignments_employee ON course_assignments(employee_id)",
         "CREATE INDEX IF NOT EXISTS idx_assignments_status ON course_assignments(status)",
         "CREATE INDEX IF NOT EXISTS idx_course_assignments_deadline ON course_assignments(deadline)",

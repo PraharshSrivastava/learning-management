@@ -274,6 +274,8 @@ class AssignmentRule {
 }
 
 class AssignmentGroup {
+  final String? savedGroupId;
+  final String name;
   final List<String> employeeIds;
   final List<String> departments;
   final List<String> mailingLists;
@@ -281,6 +283,8 @@ class AssignmentGroup {
   final int? joinedLessThanDaysAgo;
 
   const AssignmentGroup({
+    this.savedGroupId,
+    this.name = '',
     this.employeeIds = const [],
     this.departments = const [],
     this.mailingLists = const [],
@@ -299,6 +303,8 @@ class AssignmentGroup {
     List<String> strings(String key) =>
         (json[key] as List? ?? []).map((item) => item.toString()).toList();
     return AssignmentGroup(
+      savedGroupId: json['saved_group_id']?.toString(),
+      name: json['name']?.toString() ?? '',
       employeeIds: strings('employee_ids'),
       departments: strings('departments'),
       mailingLists: strings('mailing_lists'),
@@ -309,6 +315,8 @@ class AssignmentGroup {
   }
 
   AssignmentGroup copyWith({
+    String? savedGroupId,
+    String? name,
     List<String>? employeeIds,
     List<String>? departments,
     List<String>? mailingLists,
@@ -317,6 +325,8 @@ class AssignmentGroup {
     bool clearJoinedLessThanDaysAgo = false,
   }) {
     return AssignmentGroup(
+      savedGroupId: savedGroupId ?? this.savedGroupId,
+      name: name ?? this.name,
       employeeIds: employeeIds ?? this.employeeIds,
       departments: departments ?? this.departments,
       mailingLists: mailingLists ?? this.mailingLists,
@@ -328,12 +338,43 @@ class AssignmentGroup {
   }
 
   Map<String, dynamic> toJson() => {
+        if (savedGroupId != null) 'saved_group_id': savedGroupId,
+        if (name.trim().isNotEmpty) 'name': name.trim(),
         'employee_ids': employeeIds,
         'departments': departments,
         'mailing_lists': mailingLists,
         'job_titles': jobTitles,
         'joined_less_than_days_ago': joinedLessThanDaysAgo,
       };
+}
+
+class SavedAssignmentGroup {
+  final String savedGroupId;
+  final String trainerId;
+  final String name;
+  final String groupType;
+  final AssignmentGroup group;
+
+  const SavedAssignmentGroup({
+    required this.savedGroupId,
+    required this.trainerId,
+    required this.name,
+    required this.groupType,
+    required this.group,
+  });
+
+  factory SavedAssignmentGroup.fromJson(Map<String, dynamic> json) {
+    return SavedAssignmentGroup(
+      savedGroupId: json['saved_group_id']?.toString() ?? '',
+      trainerId: json['trainer_id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      groupType: json['group_type']?.toString() ?? 'include',
+      group: AssignmentGroup.fromJson(json).copyWith(
+        savedGroupId: json['saved_group_id']?.toString(),
+        name: json['name']?.toString() ?? '',
+      ),
+    );
+  }
 }
 
 class AssignmentOptions {

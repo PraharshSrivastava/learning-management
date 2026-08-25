@@ -76,19 +76,17 @@ def list_employees(include_inactive: bool = False) -> list[dict]:
 def get_employee_assignment_options() -> dict:
     employees = list_employees()
     job_titles = sorted({employee["job_title"] for employee in employees if employee["job_title"]})
-    with get_connection() as connection:
-        group_rows = connection.execute(
-            """
-            SELECT group_cn
-            FROM employee_groups
-            WHERE group_cn IS NOT NULL
-            ORDER BY group_cn
-            """
-        ).fetchall()
     return {
         "employees": employees,
         "departments": sorted({employee["department"] for employee in employees if employee["department"]}),
-        "mailing_lists": sorted({row["group_cn"] for row in group_rows if row["group_cn"]}),
+        "mailing_lists": sorted(
+            {
+                mailing_list
+                for employee in employees
+                for mailing_list in employee.get("mailing_lists", [])
+                if mailing_list
+            }
+        ),
         "job_titles": job_titles,
     }
 

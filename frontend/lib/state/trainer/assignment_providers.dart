@@ -2,6 +2,7 @@ part of '../trainer_providers.dart';
 
 class AssignmentState {
   final AssignmentOptions options;
+  final List<SavedAssignmentGroup> savedGroups;
   final AssignmentRule rule;
   final List<Employee> previewEmployees;
   final int matchCount;
@@ -15,6 +16,7 @@ class AssignmentState {
 
   AssignmentState({
     this.options = const AssignmentOptions(),
+    this.savedGroups = const [],
     this.rule = const AssignmentRule(),
     this.previewEmployees = const [],
     this.matchCount = 0,
@@ -29,6 +31,7 @@ class AssignmentState {
 
   AssignmentState copyWith({
     AssignmentOptions? options,
+    List<SavedAssignmentGroup>? savedGroups,
     AssignmentRule? rule,
     List<Employee>? previewEmployees,
     int? matchCount,
@@ -42,6 +45,7 @@ class AssignmentState {
   }) {
     return AssignmentState(
       options: options ?? this.options,
+      savedGroups: savedGroups ?? this.savedGroups,
       rule: rule ?? this.rule,
       previewEmployees: previewEmployees ?? this.previewEmployees,
       matchCount: matchCount ?? this.matchCount,
@@ -61,13 +65,13 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
 
   AssignmentNotifier(this.ref) : super(AssignmentState()) {
     fetchOptions();
+    fetchSavedGroups();
   }
 
   Future<void> fetchOptions() async {
     state = state.copyWith(isLoading: true);
     try {
-      final response =
-          await http.get(
+      final response = await http.get(
         Uri.parse(AppConstants.assignmentOptionsEndpoint),
         headers: ref.read(trainerAuthHeadersProvider),
       );
@@ -85,10 +89,35 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     }
   }
 
+  Future<void> refreshOptionsAndGroups() async {
+    await Future.wait([fetchOptions(), fetchSavedGroups()]);
+  }
+
+  Future<void> fetchSavedGroups() async {
+    try {
+      final response = await http.get(
+        Uri.parse(AppConstants.savedAssignmentGroupsEndpoint),
+        headers: ref.read(trainerAuthHeadersProvider),
+      );
+      if (response.statusCode == 200) {
+        state = state.copyWith(
+          savedGroups: (jsonDecode(response.body) as List? ?? [])
+              .map((item) =>
+                  SavedAssignmentGroup.fromJson(item as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+    } catch (_) {
+      // Saved groups are a convenience layer; assignment authoring still works
+      // if this fetch fails and the main rule endpoint succeeds.
+    }
+  }
+
   Future<void> loadForCourse(String courseId) async {
     if (state.loadedCourseId == courseId) return;
     state = state.copyWith(isLoading: true, loadedCourseId: courseId);
     try {
+      await refreshOptionsAndGroups();
       final response = await http.get(
         Uri.parse(AppConstants.courseAssignmentEndpoint(courseId)),
         headers: ref.read(trainerAuthHeadersProvider),
@@ -114,19 +143,21 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   Future<void> save(String courseId) async {
     state = state.copyWith(isSaving: true);
     try {
+      final ruleToSave = await _persistReusableGroups(state.rule);
       final response = await http.put(
         Uri.parse(AppConstants.courseAssignmentEndpoint(courseId)),
         headers: {
           'Content-Type': 'application/json',
           ...ref.read(trainerAuthHeadersProvider),
         },
-        body: jsonEncode(state.rule.toJson()),
+        body: jsonEncode(ruleToSave.toJson()),
       );
       if (response.statusCode == 200) {
         _applyAssignmentResponse(
             jsonDecode(response.body) as Map<String, dynamic>,
             isSaving: false,
             message: 'Assignment rule saved.');
+        await fetchSavedGroups();
       } else {
         final decoded = jsonDecode(response.body);
         state = state.copyWith(
@@ -143,13 +174,14 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   Future<void> publish(String courseId) async {
     state = state.copyWith(isPublishing: true);
     try {
+      final ruleToPublish = await _persistReusableGroups(state.rule);
       final response = await http.post(
         Uri.parse(AppConstants.publishCourseAssignmentEndpoint(courseId)),
         headers: {
           'Content-Type': 'application/json',
           ...ref.read(trainerAuthHeadersProvider),
         },
-        body: jsonEncode(state.rule.toJson()),
+        body: jsonEncode(ruleToPublish.toJson()),
       );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -168,6 +200,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         );
         await ref.read(assignableCourseListProvider.notifier).fetchCourses();
         await ref.read(performanceProvider.notifier).fetch();
+        await fetchSavedGroups();
       } else {
         final decoded = jsonDecode(response.body);
         state = state.copyWith(
@@ -179,6 +212,76 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     } catch (e) {
       state = state.copyWith(isPublishing: false, error: e.toString());
     }
+  }
+
+  Future<AssignmentRule> _persistReusableGroups(AssignmentRule rule) async {
+    Future<AssignmentGroup> persist(
+      AssignmentGroup group,
+      String groupType,
+      int index,
+    ) async {
+      if (group.isEmpty) return group;
+      final name = group.name.trim().isNotEmpty
+          ? group.name.trim()
+          : '${groupType == 'include' ? 'Include' : 'Exclude'} group '
+              '${index + 1}';
+      final payload = {
+        'name': name,
+        'group_type': groupType,
+        'employee_ids': group.employeeIds,
+        'departments': group.departments,
+        'mailing_lists': group.mailingLists,
+        'job_titles': group.jobTitles,
+        'joined_less_than_days_ago': group.joinedLessThanDaysAgo,
+      };
+      final savedGroupId = group.savedGroupId;
+      final response = savedGroupId == null
+          ? await http.post(
+              Uri.parse(AppConstants.savedAssignmentGroupsEndpoint),
+              headers: {
+                'Content-Type': 'application/json',
+                ...ref.read(trainerAuthHeadersProvider),
+              },
+              body: jsonEncode(payload),
+            )
+          : await http.put(
+              Uri.parse(
+                  AppConstants.savedAssignmentGroupEndpoint(savedGroupId)),
+              headers: {
+                'Content-Type': 'application/json',
+                ...ref.read(trainerAuthHeadersProvider),
+              },
+              body: jsonEncode(payload),
+            );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final decoded = jsonDecode(response.body);
+        throw Exception(
+          decoded['detail']?.toString() ?? 'Failed to save reusable group',
+        );
+      }
+      return SavedAssignmentGroup.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      ).group;
+    }
+
+    final includeGroups = <AssignmentGroup>[];
+    for (var index = 0; index < rule.includeGroups.length; index++) {
+      includeGroups.add(
+        await persist(rule.includeGroups[index], 'include', index),
+      );
+    }
+    final excludeGroups = <AssignmentGroup>[];
+    for (var index = 0; index < rule.excludeGroups.length; index++) {
+      excludeGroups.add(
+        await persist(rule.excludeGroups[index], 'exclude', index),
+      );
+    }
+    final updatedRule = rule.copyWith(
+      includeGroups: includeGroups,
+      excludeGroups: excludeGroups,
+    );
+    state = state.copyWith(rule: updatedRule);
+    return updatedRule;
   }
 
   Future<void> disable(String courseId) async {

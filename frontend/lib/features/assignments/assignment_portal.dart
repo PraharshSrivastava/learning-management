@@ -358,6 +358,18 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                   ),
                 ),
                 const SizedBox(width: 10),
+                IconButton.outlined(
+                  tooltip: 'Refresh people and saved groups',
+                  onPressed: assignment.isLoading ||
+                          assignment.isSaving ||
+                          assignment.isPublishing
+                      ? null
+                      : () => ref
+                          .read(assignmentProvider.notifier)
+                          .refreshOptionsAndGroups(),
+                  icon: const Icon(Icons.refresh),
+                ),
+                const SizedBox(width: 10),
                 FilledButton.icon(
                   onPressed: assignment.isSaving || assignment.isPublishing
                       ? null
@@ -432,7 +444,11 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                           'Employees matching any include group are selected. Conditions inside a group are matched together.',
                       emptyLabel: 'Add include group',
                       groups: rule.includeGroups,
+                      savedGroups: assignment.savedGroups
+                          .where((group) => group.groupType == 'include')
+                          .toList(),
                       options: assignment.options,
+                      groupType: 'include',
                       onChanged: (groups) =>
                           _update(rule.copyWith(includeGroups: groups)),
                     ),
@@ -449,7 +465,11 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                     'Employees matching any exclude group are removed from the assignment.',
                 emptyLabel: 'Add exclude group',
                 groups: rule.excludeGroups,
+                savedGroups: assignment.savedGroups
+                    .where((group) => group.groupType == 'exclude')
+                    .toList(),
                 options: assignment.options,
+                groupType: 'exclude',
                 allowJoinedFilter: false,
                 onChanged: (groups) =>
                     _update(rule.copyWith(excludeGroups: groups)),
@@ -528,18 +548,16 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _ChoiceChips extends StatelessWidget {
+class _MultiSelectDropdown extends StatelessWidget {
   final String title;
   final List<String> values;
   final List<String> selected;
-  final String Function(String value)? labelFor;
   final ValueChanged<List<String>> onChanged;
 
-  const _ChoiceChips({
+  const _MultiSelectDropdown({
     required this.title,
     required this.values,
     required this.selected,
-    this.labelFor,
     required this.onChanged,
   });
 
@@ -550,21 +568,132 @@ class _ChoiceChips extends StatelessWidget {
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        OutlinedButton.icon(
+          onPressed: values.isEmpty
+              ? null
+              : () async {
+                  final next = await showDialog<List<String>>(
+                    context: context,
+                    builder: (context) => _MultiSelectDialog(
+                      title: title,
+                      values: values,
+                      selected: selected,
+                    ),
+                  );
+                  if (next != null) onChanged(next);
+                },
+          icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 18),
+          label: Text(
+            selected.isEmpty
+                ? 'Select ${title.toLowerCase()}'
+                : '${selected.length} selected',
+          ),
+        ),
+        if (selected.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final value in selected)
+                InputChip(
+                  label: Text(value),
+                  onDeleted: () => onChanged(
+                    selected.where((item) => item != value).toList(),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MultiSelectDialog extends StatefulWidget {
+  final String title;
+  final List<String> values;
+  final List<String> selected;
+
+  const _MultiSelectDialog({
+    required this.title,
+    required this.values,
+    required this.selected,
+  });
+
+  @override
+  State<_MultiSelectDialog> createState() => _MultiSelectDialogState();
+}
+
+class _MultiSelectDialogState extends State<_MultiSelectDialog> {
+  late List<String> _selected;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = [...widget.selected];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.values.where((value) {
+      return value.toLowerCase().contains(_query.toLowerCase());
+    }).toList();
+    return AlertDialog(
+      title: Text('Select ${widget.title.toLowerCase()}'),
+      content: SizedBox(
+        width: 520,
+        height: 460,
+        child: Column(
           children: [
-            for (final value in values)
-              FilterChip(
-                label: Text(labelFor?.call(value) ?? value),
-                selected: selected.contains(value),
-                onSelected: (isSelected) {
-                  final next = [...selected];
-                  isSelected ? next.add(value) : next.remove(value);
-                  onChanged(next);
+            TextField(
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Search ${widget.title.toLowerCase()}',
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (value) => setState(() => _query = value),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final value = filtered[index];
+                  final checked = _selected.contains(value);
+                  return CheckboxListTile(
+                    value: checked,
+                    dense: true,
+                    title: Text(value),
+                    onChanged: (isChecked) {
+                      setState(() {
+                        if (isChecked == true && !checked) {
+                          _selected.add(value);
+                        } else {
+                          _selected.remove(value);
+                        }
+                      });
+                    },
+                  );
                 },
               ),
+            ),
           ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => setState(() => _selected = []),
+          child: const Text('Clear'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_selected),
+          child: const Text('Apply'),
         ),
       ],
     );
@@ -576,7 +705,9 @@ class _GroupList extends StatelessWidget {
   final String helper;
   final String emptyLabel;
   final List<AssignmentGroup> groups;
+  final List<SavedAssignmentGroup> savedGroups;
   final AssignmentOptions options;
+  final String groupType;
   final bool allowJoinedFilter;
   final ValueChanged<List<AssignmentGroup>> onChanged;
 
@@ -585,7 +716,9 @@ class _GroupList extends StatelessWidget {
     required this.helper,
     required this.emptyLabel,
     required this.groups,
+    required this.savedGroups,
     required this.options,
+    required this.groupType,
     required this.onChanged,
     this.allowJoinedFilter = true,
   });
@@ -618,10 +751,37 @@ class _GroupList extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        OutlinedButton.icon(
-          onPressed: () => onChanged([...groups, const AssignmentGroup()]),
-          icon: const Icon(Icons.add),
-          label: Text(emptyLabel),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => onChanged([
+                ...groups,
+                AssignmentGroup(
+                  name:
+                      '${groupType == 'include' ? 'Include' : 'Exclude'} group ${groups.length + 1}',
+                ),
+              ]),
+              icon: const Icon(Icons.add),
+              label: Text(emptyLabel),
+            ),
+            if (savedGroups.isNotEmpty)
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final selected = await showDialog<SavedAssignmentGroup>(
+                    context: context,
+                    builder: (context) =>
+                        _SavedGroupPickerDialog(savedGroups: savedGroups),
+                  );
+                  if (selected != null) {
+                    onChanged([...groups, selected.group]);
+                  }
+                },
+                icon: const Icon(Icons.bookmark_add_outlined),
+                label: const Text('Use saved group'),
+              ),
+          ],
         ),
       ],
     );
@@ -651,10 +811,12 @@ class _AssignmentGroupCard extends StatefulWidget {
 
 class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
   late final TextEditingController _joinedController;
+  late final TextEditingController _nameController;
 
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(text: _displayName);
     _joinedController = TextEditingController(
       text: widget.group.joinedLessThanDaysAgo?.toString() ?? '',
     );
@@ -663,6 +825,10 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
   @override
   void didUpdateWidget(covariant _AssignmentGroupCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final name = _displayName;
+    if (_nameController.text != name) {
+      _nameController.text = name;
+    }
     final next = widget.group.joinedLessThanDaysAgo?.toString() ?? '';
     if (_joinedController.text != next) {
       _joinedController.text = next;
@@ -671,9 +837,14 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _joinedController.dispose();
     super.dispose();
   }
+
+  String get _displayName => widget.group.name.trim().isNotEmpty
+      ? widget.group.name
+      : 'Group ${widget.index + 1}';
 
   @override
   Widget build(BuildContext context) {
@@ -690,9 +861,16 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Group ${widget.index + 1}',
+                child: TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    hintText: 'Group name',
+                  ),
                   style: const TextStyle(fontWeight: FontWeight.w800),
+                  onChanged: (value) =>
+                      widget.onChanged(group.copyWith(name: value)),
                 ),
               ),
               IconButton(
@@ -711,7 +889,7 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
                 widget.onChanged(group.copyWith(employeeIds: ids)),
           ),
           const SizedBox(height: 16),
-          _ChoiceChips(
+          _MultiSelectDropdown(
             title: 'Departments',
             values: widget.options.departments,
             selected: group.departments,
@@ -719,7 +897,7 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
                 widget.onChanged(group.copyWith(departments: values)),
           ),
           const SizedBox(height: 16),
-          _ChoiceChips(
+          _MultiSelectDropdown(
             title: 'Mailing lists',
             values: widget.options.mailingLists,
             selected: group.mailingLists,
@@ -752,6 +930,93 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
         ],
       ),
     );
+  }
+}
+
+class _SavedGroupPickerDialog extends StatefulWidget {
+  final List<SavedAssignmentGroup> savedGroups;
+
+  const _SavedGroupPickerDialog({required this.savedGroups});
+
+  @override
+  State<_SavedGroupPickerDialog> createState() =>
+      _SavedGroupPickerDialogState();
+}
+
+class _SavedGroupPickerDialogState extends State<_SavedGroupPickerDialog> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.savedGroups.where((group) {
+      final haystack =
+          '${group.name} ${group.group.departments.join(' ')} ${group.group.mailingLists.join(' ')}'
+              .toLowerCase();
+      return haystack.contains(_query.toLowerCase());
+    }).toList();
+    return AlertDialog(
+      title: const Text('Use saved group'),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Search saved groups',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => setState(() => _query = value),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.separated(
+                itemCount: filtered.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final savedGroup = filtered[index];
+                  return ListTile(
+                    title: Text(savedGroup.name),
+                    subtitle: Text(_savedGroupSummary(savedGroup.group)),
+                    onTap: () => Navigator.of(context).pop(savedGroup),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  String _savedGroupSummary(AssignmentGroup group) {
+    final parts = <String>[];
+    if (group.employeeIds.isNotEmpty) {
+      parts.add(
+        '${group.employeeIds.length} employee${group.employeeIds.length == 1 ? '' : 's'}',
+      );
+    }
+    if (group.departments.isNotEmpty) {
+      parts.add(
+        '${group.departments.length} department${group.departments.length == 1 ? '' : 's'}',
+      );
+    }
+    if (group.mailingLists.isNotEmpty) {
+      parts.add(
+        '${group.mailingLists.length} mailing list${group.mailingLists.length == 1 ? '' : 's'}',
+      );
+    }
+    if (group.joinedLessThanDaysAgo != null) {
+      parts.add('joined under ${group.joinedLessThanDaysAgo} days');
+    }
+    return parts.isEmpty ? 'No criteria yet' : parts.join(' • ');
   }
 }
 

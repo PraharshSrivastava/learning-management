@@ -349,168 +349,184 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
             Container(
               padding: const EdgeInsets.all(24),
               color: AppTheme.primaryBlue,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'COURSE BLUEPRINT',
-                        style: GoogleFonts.barlow(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white.withOpacity(0.7),
-                          letterSpacing: 2,
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  textSelectionTheme: const TextSelectionThemeData(
+                    cursorColor: Colors.white,
+                    selectionColor: Colors.white30,
+                    selectionHandleColor: Colors.white,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'COURSE BLUEPRINT',
+                          style: GoogleFonts.barlow(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white.withOpacity(0.7),
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white),
+                              onPressed: () {
+                                setState(() {
+                                  _disposeControllers();
+                                  _initControllers();
+                                });
+                              },
+                              child: const Text('Reset'),
+                            ),
+                            const SizedBox(width: 8),
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final fullGeneration =
+                                    ref.watch(fullCourseGenerationProvider);
+                                final hasModules =
+                                    _moduleTitleControllers.isNotEmpty;
+                                final hasThumbnail =
+                                    widget.course.thumbnailPath.isNotEmpty;
+                                final checkpoint =
+                                    widget.course.failedCheckpoint.isNotEmpty
+                                        ? widget.course.failedCheckpoint
+                                        : widget.course.currentCheckpoint;
+                                final hasFailedCheckpoint =
+                                    widget.course.generationStatus ==
+                                            'failed' &&
+                                        checkpoint.isNotEmpty;
+                                final isGenerating = fullGeneration.status ==
+                                        FullCourseGenStatus.generating ||
+                                    (widget.course.generationStatus ==
+                                            'running' &&
+                                        !hasFailedCheckpoint);
+                                final isFullyGenerated = hasModules &&
+                                    hasThumbnail &&
+                                    widget.course.modules.every((m) =>
+                                        m.videoPath != null &&
+                                        m.videoPath!.isNotEmpty &&
+                                        m.quiz != null &&
+                                        ((m.quiz!['questions'] as List?)
+                                                    ?.isNotEmpty ==
+                                                true ||
+                                            m.numQuestions <= 0));
+                                final label = isGenerating
+                                    ? 'Generating...'
+                                    : hasFailedCheckpoint
+                                        ? checkpoint == 'wave_1'
+                                            ? 'Continue generation'
+                                            : 'Continue from $checkpoint'
+                                        : isFullyGenerated
+                                            ? 'Already Generated'
+                                            : 'Generate Course';
+                                final button = ElevatedButton.icon(
+                                  icon: Icon(
+                                    hasFailedCheckpoint
+                                        ? Icons.play_arrow
+                                        : Icons.auto_awesome,
+                                    size: 14,
+                                  ),
+                                  label: Text(label),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        isFullyGenerated && !hasFailedCheckpoint
+                                            ? Colors.grey[700]
+                                            : AppTheme.accentOrange,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  onPressed: (!isGenerating &&
+                                          (hasFailedCheckpoint ||
+                                              (hasModules &&
+                                                  !isFullyGenerated)))
+                                      ? () async {
+                                          final notifier = ref.read(
+                                              fullCourseGenerationProvider
+                                                  .notifier);
+                                          if (hasFailedCheckpoint) {
+                                            notifier.continueFromCheckpoint(
+                                                widget.course.courseId, ref);
+                                          } else {
+                                            final saved =
+                                                await _saveCourseModifications(
+                                              showSuccessMessage: false,
+                                            );
+                                            if (!saved) return;
+                                            notifier.generateFullCourse(
+                                                widget.course.courseId, ref);
+                                          }
+                                        }
+                                      : null,
+                                );
+                                if (!hasFailedCheckpoint ||
+                                    widget.course.generationError.isEmpty) {
+                                  return button;
+                                }
+                                return Tooltip(
+                                  message: widget.course.generationError,
+                                  child: button,
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.save, size: 14),
+                              label: const Text('Save Changes'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.accentGreen,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              onPressed: () => _saveCourseModifications(),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Course Name',
+                      style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    TextFormField(
+                      controller: _nameController,
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white38),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white),
                         ),
                       ),
-                      Row(
-                        children: [
-                          TextButton(
-                            style: TextButton.styleFrom(
-                                foregroundColor: Colors.white),
-                            onPressed: () {
-                              setState(() {
-                                _disposeControllers();
-                                _initControllers();
-                              });
-                            },
-                            child: const Text('Reset'),
-                          ),
-                          const SizedBox(width: 8),
-                          Consumer(
-                            builder: (context, ref, _) {
-                              final fullGeneration =
-                                  ref.watch(fullCourseGenerationProvider);
-                              final hasModules =
-                                  widget.course.modules.isNotEmpty;
-                              final hasThumbnail =
-                                  widget.course.thumbnailPath.isNotEmpty;
-                              final checkpoint =
-                                  widget.course.failedCheckpoint.isNotEmpty
-                                      ? widget.course.failedCheckpoint
-                                      : widget.course.currentCheckpoint;
-                              final hasFailedCheckpoint =
-                                  widget.course.generationStatus == 'failed' &&
-                                      checkpoint.isNotEmpty;
-                              final isGenerating = fullGeneration.status ==
-                                      FullCourseGenStatus.generating ||
-                                  (widget.course.generationStatus == 'running' &&
-                                      !hasFailedCheckpoint);
-                              final isFullyGenerated = hasModules &&
-                                  hasThumbnail &&
-                                  widget.course.modules.every((m) =>
-                                      m.videoPath != null &&
-                                      m.videoPath!.isNotEmpty &&
-                                      m.quiz != null &&
-                                      ((m.quiz!['questions'] as List?)
-                                                  ?.isNotEmpty ==
-                                              true ||
-                                          m.numQuestions <= 0));
-                              final label = isGenerating
-                                  ? 'Generating...'
-                                  : hasFailedCheckpoint
-                                      ? checkpoint == 'wave_1'
-                                          ? 'Continue generation'
-                                          : 'Continue from $checkpoint'
-                                      : isFullyGenerated
-                                          ? 'Already Generated'
-                                          : 'Generate Course';
-                              final button = ElevatedButton.icon(
-                                icon: Icon(
-                                  hasFailedCheckpoint
-                                      ? Icons.play_arrow
-                                      : Icons.auto_awesome,
-                                  size: 14,
-                                ),
-                                label: Text(label),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      isFullyGenerated && !hasFailedCheckpoint
-                                          ? Colors.grey[700]
-                                          : AppTheme.accentOrange,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                ),
-                                onPressed: (!isGenerating &&
-                                        (hasFailedCheckpoint ||
-                                            (hasModules && !isFullyGenerated)))
-                                    ? () {
-                                        final notifier = ref.read(
-                                            fullCourseGenerationProvider
-                                                .notifier);
-                                        if (hasFailedCheckpoint) {
-                                          notifier.continueFromCheckpoint(
-                                              widget.course.courseId, ref);
-                                        } else {
-                                          notifier.generateFullCourse(
-                                              widget.course.courseId, ref);
-                                        }
-                                      }
-                                    : null,
-                              );
-                              if (!hasFailedCheckpoint ||
-                                  widget.course.generationError.isEmpty) {
-                                return button;
-                              }
-                              return Tooltip(
-                                message: widget.course.generationError,
-                                child: button,
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.save, size: 14),
-                            label: const Text('Save Changes'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.accentGreen,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                            onPressed: _saveCourseModifications,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Course Name',
-                    style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  TextFormField(
-                    controller: _nameController,
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Required' : null,
                     ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white38),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
-                      ),
-                    ),
-                    validator: (value) =>
-                        value == null || value.isEmpty ? 'Required' : null,
-                  ),
                   const SizedBox(height: 16),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,7 +610,8 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                       ),
                     ],
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
             Expanded(
@@ -655,44 +672,17 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                     ),
                     const SizedBox(height: 24),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.format_list_numbered,
-                                size: 18, color: AppTheme.primaryBlue),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Modules Curriculum Outline',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryBlue,
-                              ),
-                            ),
-                          ],
-                        ),
-                        TextButton.icon(
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Add Module'),
-                          onPressed: () {
-                            setState(() {
-                              _moduleData.add(CourseModule(
-                                moduleNumber: _moduleData.length + 1,
-                                title: '',
-                                sourceText: '',
-                                startLine: '',
-                                endLine: '',
-                                numQuestions: 3,
-                              ));
-                              _moduleTitleControllers
-                                  .add(TextEditingController());
-                              _moduleTextControllers
-                                  .add(TextEditingController());
-                              _moduleQuestionsControllers
-                                  .add(TextEditingController(text: '3'));
-                            });
-                          },
+                        const Icon(Icons.format_list_numbered,
+                            size: 18, color: AppTheme.primaryBlue),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Modules Curriculum Outline',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryBlue,
+                          ),
                         ),
                       ],
                     ),
@@ -868,6 +858,23 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                           ),
                         );
                       },
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Module'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryBlue,
+                          side: const BorderSide(color: AppTheme.primaryBlue),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        onPressed: _addModule,
+                      ),
                     ),
                     const SizedBox(height: 32),
                     Row(
@@ -1098,6 +1105,22 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     });
   }
 
+  void _addModule() {
+    setState(() {
+      _moduleData.add(CourseModule(
+        moduleNumber: _moduleData.length + 1,
+        title: '',
+        sourceText: '',
+        startLine: '',
+        endLine: '',
+        numQuestions: 3,
+      ));
+      _moduleTitleControllers.add(TextEditingController());
+      _moduleTextControllers.add(TextEditingController());
+      _moduleQuestionsControllers.add(TextEditingController(text: '3'));
+    });
+  }
+
   int? _moduleNumberForImage(String imageId) {
     for (final module in _moduleData) {
       final hasImage = module.images.any((img) => img.imageId == imageId);
@@ -1106,52 +1129,68 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     return null;
   }
 
-  void _saveCourseModifications() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      final updatedModules = _moduleTitleControllers
-          .asMap()
-          .entries
-          .where((e) => e.value.text.trim().isNotEmpty)
-          .map((e) {
-        final idx = e.key;
-        final original = idx < _moduleData.length ? _moduleData[idx] : null;
-        return {
-          'title': e.value.text.trim(),
-          'text': idx < _moduleTextControllers.length
-              ? _moduleTextControllers[idx].text.trim()
-              : '',
-          'num_questions': idx < _moduleQuestionsControllers.length
-              ? int.tryParse(_moduleQuestionsControllers[idx].text.trim()) ?? 0
-              : 0,
-          'start_line': original?.startLine ?? '',
-          'end_line': original?.endLine ?? '',
-          'images': original?.images.map((img) => img.toJson()).toList() ?? [],
-        };
-      }).toList();
-
-      final updatedFields = {
-        'course_name': _nameController.text.trim(),
-        'course_description': _descController.text.trim(),
-        'course_objective': _objController.text.trim(),
-        'target_audience': _audienceController.text.trim(),
-        'language': _langController.text.trim(),
-        'course_difficulty': _selectedDifficulty,
-        'modules': updatedModules,
+  Map<String, dynamic> _buildCourseUpdatePayload() {
+    final updatedModules = _moduleTitleControllers
+        .asMap()
+        .entries
+        .where((e) => e.value.text.trim().isNotEmpty)
+        .map((e) {
+      final idx = e.key;
+      final original = idx < _moduleData.length ? _moduleData[idx] : null;
+      return {
+        'title': e.value.text.trim(),
+        'source_text': idx < _moduleTextControllers.length
+            ? _moduleTextControllers[idx].text.trim()
+            : '',
+        'num_questions': idx < _moduleQuestionsControllers.length
+            ? int.tryParse(_moduleQuestionsControllers[idx].text.trim()) ?? 0
+            : 0,
+        'start_line': original?.startLine ?? '',
       };
+    }).toList();
 
+    return {
+      'course_name': _nameController.text.trim(),
+      'course_description': _descController.text.trim(),
+      'course_objective': _objController.text.trim(),
+      'target_audience': _audienceController.text.trim(),
+      'language': _langController.text.trim(),
+      'course_difficulty': _selectedDifficulty,
+      'modules': updatedModules,
+    };
+  }
+
+  Future<bool> _saveCourseModifications({
+    bool showSuccessMessage = true,
+  }) async {
+    if (_formKey.currentState?.validate() ?? false) {
       final success = await ref
           .read(courseUpdateProvider.notifier)
-          .updateCourse(widget.course.courseId, updatedFields, ref);
+          .updateCourse(
+              widget.course.courseId, _buildCourseUpdatePayload(), ref);
 
-      if (success && mounted) {
+      if (!mounted) return success;
+
+      if (success && showSuccessMessage) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Course blueprint successfully saved!'),
             backgroundColor: AppTheme.accentGreen,
           ),
         );
+      } else if (!success) {
+        final error = ref.read(courseUpdateProvider).error ??
+            'Failed to save course blueprint.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: AppTheme.accentRed,
+          ),
+        );
       }
+      return success;
     }
+    return false;
   }
 }
 

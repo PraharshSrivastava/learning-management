@@ -18,11 +18,14 @@ class AppConstants {
       '$apiBaseUrl/api/assignment/courses';
   static String get assignmentOptionsEndpoint =>
       '$apiBaseUrl/api/assignment/options';
+  static String get savedAssignmentGroupsEndpoint =>
+      '$apiBaseUrl/api/assignment/saved-groups';
   static String get trainerPerformanceEndpoint =>
       '$apiBaseUrl/api/trainer/performance';
   static String get hubSessionEndpoint => '$apiBaseUrl/api/hub/session/trainer';
   static String get hubLogoutEndpoint => '$apiBaseUrl/api/hub/logout/trainer';
-  static String get trainerListEndpoint => '$apiBaseUrl/api/auth/local/trainers';
+  static String get trainerListEndpoint =>
+      '$apiBaseUrl/api/auth/local/trainers';
   static String get trainerLocalLoginEndpoint =>
       '$apiBaseUrl/api/auth/local/trainer-login';
 
@@ -38,6 +41,8 @@ class AppConstants {
       '$apiBaseUrl/api/courses/$id/publish-assignment';
   static String disableCourseAssignmentEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id/disable-assignment';
+  static String savedAssignmentGroupEndpoint(String id) =>
+      '$apiBaseUrl/api/assignment/saved-groups/$id';
   static String generateSlidesEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id/generate-slides';
   static String generateScriptsEndpoint(String id) =>

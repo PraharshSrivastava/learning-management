@@ -9,13 +9,15 @@ from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository, update_course_status
 from app.repositories.employees import EmployeeRepository
 from app.repositories.progress import ProgressRepository
-from app.schemas.assignment import AssignmentRuleRequest
+from app.repositories.saved_assignment_groups import SavedAssignmentGroupRepository
+from app.schemas.assignment import AssignmentRuleRequest, SavedAssignmentGroupRequest
 from app.services.course_access import course_is_publishable
 
 _assignments = AssignmentRepository()
 _courses = CourseRepository()
 _employees = EmployeeRepository()
 _progress = ProgressRepository()
+_saved_groups = SavedAssignmentGroupRepository()
 
 
 def _new_progress(now: datetime, deadline_days: int) -> dict:
@@ -246,6 +248,31 @@ def api_assignment_options():
     return _employees.assignment_options()
 
 
+def api_saved_assignment_groups(trainer_id: str, group_type: str | None = None):
+    return _saved_groups.list(trainer_id, group_type)
+
+
+def api_create_saved_assignment_group(
+    trainer_id: str, payload: SavedAssignmentGroupRequest
+):
+    return _saved_groups.upsert(trainer_id, payload.model_dump())
+
+
+def api_update_saved_assignment_group(
+    trainer_id: str, saved_group_id: str, payload: SavedAssignmentGroupRequest
+):
+    group = _saved_groups.update(trainer_id, saved_group_id, payload.model_dump())
+    if not group:
+        raise NotFoundError("Saved group not found")
+    return group
+
+
+def api_delete_saved_assignment_group(trainer_id: str, saved_group_id: str):
+    if not _saved_groups.delete(trainer_id, saved_group_id):
+        raise NotFoundError("Saved group not found")
+    return {"message": "Saved group deleted."}
+
+
 def _owned_draft_course(course_id: str, trainer_id: str) -> dict:
     course = next(
         (
@@ -357,6 +384,10 @@ __all__ = [
     "api_assignable_courses",
     "api_assignment_options",
     "api_get_course_assignment",
+    "api_saved_assignment_groups",
+    "api_create_saved_assignment_group",
+    "api_update_saved_assignment_group",
+    "api_delete_saved_assignment_group",
     "api_publish_course_assignment",
     "api_save_course_assignment",
     "api_disable_course_assignment",
