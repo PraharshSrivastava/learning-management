@@ -11,6 +11,7 @@ from typing import Any
 
 import requests
 
+from app.core.dates import normalize_date_like
 from app.core.exceptions import DomainValidationError, ProviderError
 from app.core.settings import settings
 from app.repositories.database import advisory_lock
@@ -224,6 +225,25 @@ def _directory_status_or_existing(data: dict, existing: dict | None) -> str:
     return (existing or {}).get("directory_status") or "active"
 
 
+def _join_date_or_existing(data: dict, existing: dict | None) -> str | None:
+    explicit = _first(
+        data,
+        "join_date",
+        "joinDate",
+        "joining_date",
+        "joiningDate",
+        "date_of_joining",
+        "dateOfJoining",
+        "hire_date",
+        "hireDate",
+        "employee_join_date",
+        "employeeJoinDate",
+    )
+    if explicit is not None:
+        return normalize_date_like(explicit)
+    return normalize_date_like((existing or {}).get("join_date"))
+
+
 def _groups_from_payload(data: dict, synced_at: str) -> list[dict] | None:
     if not _has_any(data, *_GROUP_KEYS):
         return None
@@ -240,7 +260,7 @@ def _normalize_employee(data: dict, existing: dict | None = None) -> tuple[dict,
         "name": str(_value_or_existing(data, existing, "name", "name", "displayName", "display_name", "cn") or ""),
         "job_title": str(_value_or_existing(data, existing, "job_title", "job_title", "title", "designation") or ""),
         "department": _value_or_existing(data, existing, "department", "department"),
-        "join_date": _value_or_existing(data, existing, "join_date", "join_date", "whenCreated", "when_created", "created_at"),
+        "join_date": _join_date_or_existing(data, existing),
         "status": _status_or_existing(data, existing),
         "directory_uuid": _value_or_existing(data, existing, "directory_uuid", "directory_uuid", "objectGUID", "object_guid", "guid"),
         "hub_user_id": _hub_user_id(_value_or_existing(data, existing, "hub_user_id", "hub_user_id", "hubUserId", "user_id", "id")),

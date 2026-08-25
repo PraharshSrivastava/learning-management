@@ -94,8 +94,6 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
                     employee: authState.employee,
                     onMenu: () => Scaffold.of(scaffoldContext).openDrawer(),
                     onNotifications: () => _showNotifications(unreadCourses),
-                    onLogout: () =>
-                        ref.read(employeeAuthProvider.notifier).logout(),
                   ),
                 ),
                 Expanded(
@@ -230,7 +228,6 @@ class _DashboardAppBar extends StatelessWidget {
   final Employee? employee;
   final VoidCallback onMenu;
   final VoidCallback onNotifications;
-  final VoidCallback onLogout;
 
   const _DashboardAppBar({
     required this.isCompact,
@@ -239,7 +236,6 @@ class _DashboardAppBar extends StatelessWidget {
     required this.employee,
     required this.onMenu,
     required this.onNotifications,
-    required this.onLogout,
   });
 
   @override
@@ -295,57 +291,12 @@ class _DashboardAppBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            PopupMenuButton<String>(
-              tooltip: 'Employee session',
-              onSelected: (value) {
-                if (value == 'logout') onLogout();
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem<String>(
-                  enabled: false,
-                  child: SizedBox(
-                    width: 220,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          employee?.name ?? 'Employee',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF101828),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          [
-                            employee?.employeeId,
-                            employee?.department,
-                            employee?.jobTitle,
-                          ]
-                              .whereType<String>()
-                              .where((v) => v.isNotEmpty)
-                              .join(' - '),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF667085),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem<String>(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.swap_horiz, size: 18),
-                      SizedBox(width: 8),
-                      Text('Switch employee'),
-                    ],
-                  ),
-                ),
-              ],
+            Tooltip(
+              message: [
+                employee?.name ?? 'Employee',
+                employee?.department,
+                employee?.jobTitle,
+              ].whereType<String>().where((v) => v.isNotEmpty).join(' - '),
               child: CircleAvatar(
                 radius: 18,
                 backgroundColor: const Color(0xFFE7EFFF),

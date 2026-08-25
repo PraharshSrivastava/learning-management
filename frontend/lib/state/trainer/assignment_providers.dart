@@ -140,7 +140,30 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     state = state.copyWith(rule: rule, message: null, assignedCount: null);
   }
 
+  String? _groupValidationError(AssignmentRule rule) {
+    String? validate(List<AssignmentGroup> groups, String label) {
+      for (var index = 0; index < groups.length; index++) {
+        final group = groups[index];
+        if (group.hasMixedSelection) {
+          return '$label group ${index + 1} mixes specific employees with filters. Clear one side before saving.';
+        }
+        if (group.joinedLessThanDaysAgo == 0) {
+          return '$label group ${index + 1} joined-days filter must be at least 1.';
+        }
+      }
+      return null;
+    }
+
+    return validate(rule.includeGroups, 'Include') ??
+        validate(rule.excludeGroups, 'Exclude');
+  }
+
   Future<void> save(String courseId) async {
+    final validationError = _groupValidationError(state.rule);
+    if (validationError != null) {
+      state = state.copyWith(error: validationError);
+      return;
+    }
     state = state.copyWith(isSaving: true);
     try {
       final ruleToSave = await _persistReusableGroups(state.rule);
@@ -172,6 +195,11 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   }
 
   Future<void> publish(String courseId) async {
+    final validationError = _groupValidationError(state.rule);
+    if (validationError != null) {
+      state = state.copyWith(error: validationError);
+      return;
+    }
     state = state.copyWith(isPublishing: true);
     try {
       final ruleToPublish = await _persistReusableGroups(state.rule);

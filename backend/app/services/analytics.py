@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from app.core.dates import parse_date_like
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
 from app.repositories.employees import EmployeeRepository
@@ -170,9 +171,8 @@ def api_trainer_performance(
         if job_title and employee.get("job_title") != job_title:
             continue
         if joined_less_than_days_ago is not None:
-            try:
-                join_date = datetime.fromisoformat(employee["join_date"]).date()
-            except (KeyError, TypeError, ValueError):
+            join_date = parse_date_like(employee.get("join_date"))
+            if join_date is None:
                 continue
             if (now.date() - join_date).days >= joined_less_than_days_ago:
                 continue

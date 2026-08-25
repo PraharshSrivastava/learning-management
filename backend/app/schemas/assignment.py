@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.schemas.common import ApiSchema, RequestSchema
 from app.schemas.employee import EmployeeResponse
@@ -19,6 +19,33 @@ class AssignmentGroup(ApiSchema):
     job_titles: list[str] = Field(default_factory=list)
     joined_less_than_days_ago: int | None = Field(default=None, ge=0)
 
+    @property
+    def has_employee_selection(self) -> bool:
+        return bool(self.employee_ids)
+
+    @property
+    def has_attribute_filters(self) -> bool:
+        return bool(
+            self.departments
+            or self.mailing_lists
+            or self.job_titles
+            or self.joined_less_than_days_ago is not None
+        )
+
+
+def _validate_new_assignment_groups(
+    groups: list[AssignmentGroup] | None, label: str
+) -> None:
+    for index, group in enumerate(groups or [], start=1):
+        if group.has_employee_selection and group.has_attribute_filters:
+            raise ValueError(
+                f"{label} group {index} cannot mix specific employees with attribute filters"
+            )
+        if group.joined_less_than_days_ago == 0:
+            raise ValueError(
+                f"{label} group {index} joined filter must be at least 1 day"
+            )
+
 
 class AssignmentRuleRequest(RequestSchema):
     include_all: bool | None = None
@@ -28,7 +55,7 @@ class AssignmentRuleRequest(RequestSchema):
     include_departments: list[str] | None = None
     include_mailing_lists: list[str] | None = None
     include_job_titles: list[str] | None = None
-    joined_less_than_days_ago: int | None = Field(default=None, ge=0)
+    joined_less_than_days_ago: int | None = Field(default=None, ge=1)
     exclude_groups: list[AssignmentGroup] | None = None
     exclude_employee_ids: list[str] | None = None
     exclude_departments: list[str] | None = None
@@ -36,6 +63,12 @@ class AssignmentRuleRequest(RequestSchema):
     exclude_job_titles: list[str] | None = None
     include_inactive: bool | None = None
     deadline_days: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_group_filters(self):
+        _validate_new_assignment_groups(self.include_groups, "Include")
+        _validate_new_assignment_groups(self.exclude_groups, "Exclude")
+        return self
 
 
 class AssignmentRuleRecord(ApiSchema):
@@ -77,7 +110,19 @@ class SavedAssignmentGroupRequest(RequestSchema):
     departments: list[str] = Field(default_factory=list)
     mailing_lists: list[str] = Field(default_factory=list)
     job_titles: list[str] = Field(default_factory=list)
-    joined_less_than_days_ago: int | None = Field(default=None, ge=0)
+    joined_less_than_days_ago: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_group_filters(self):
+        group = AssignmentGroup(
+            employee_ids=self.employee_ids,
+            departments=self.departments,
+            mailing_lists=self.mailing_lists,
+            job_titles=self.job_titles,
+            joined_less_than_days_ago=self.joined_less_than_days_ago,
+        )
+        _validate_new_assignment_groups([group], "Saved")
+        return self
 
 
 class SavedAssignmentGroupResponse(ApiSchema):

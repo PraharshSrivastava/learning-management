@@ -50,6 +50,39 @@ def test_assignment_does_not_match_without_required_group_cn_mailing_list():
     assert not employee_matches_assignment_rule(_employee(), rule, datetime(2026, 8, 18))
 
 
+def test_assignment_matches_joined_days_with_timestamp_join_date():
+    rule = {
+        "include_all": False,
+        "include_groups": [
+            {
+                "departments": ["Risk"],
+                "joined_less_than_days_ago": 200,
+            }
+        ],
+        "exclude_groups": [],
+    }
+
+    assert employee_matches_assignment_rule(
+        _employee(join_date="2026-02-16T09:30:00+00:00"),
+        rule,
+        datetime(2026, 8, 25),
+    )
+
+
+def test_assignment_does_not_match_when_joined_days_window_has_elapsed():
+    rule = {
+        "include_all": False,
+        "include_groups": [{"joined_less_than_days_ago": 24}],
+        "exclude_groups": [],
+    }
+
+    assert not employee_matches_assignment_rule(
+        _employee(join_date="2026-08-01T00:00:00Z"),
+        rule,
+        datetime(2026, 8, 25),
+    )
+
+
 def test_job_title_no_longer_drives_assignment_matching():
     rule = {
         "include_all": False,

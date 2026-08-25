@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import datetime
 
 from psycopg.types.json import Jsonb
 
+from app.core.dates import parse_date_like
 from app.repositories.database import get_connection
 from app.repositories.employees import list_employees
 from app.schemas.assignment import AssignmentRuleRecord
@@ -264,9 +265,8 @@ def _employee_matches_group(employee: dict, group: dict, as_of: datetime | None 
     days = group.get("joined_within_days", group.get("joined_less_than_days_ago"))
     if days is not None:
         has_assignment_filter = True
-        try:
-            joined = date.fromisoformat(employee.get("join_date"))
-        except (TypeError, ValueError):
+        joined = parse_date_like(employee.get("join_date"))
+        if joined is None:
             return False
         if ((as_of or datetime.now()).date() - joined).days >= int(days):
             return False

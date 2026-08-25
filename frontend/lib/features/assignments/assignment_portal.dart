@@ -849,6 +849,11 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
   @override
   Widget build(BuildContext context) {
     final group = widget.group;
+    final hasEmployees = group.hasEmployeeSelection;
+    final hasAttributes = group.hasAttributeFilters;
+    final hasMixedSelection = group.hasMixedSelection;
+    final showEmployeeSelector = !hasAttributes || hasMixedSelection;
+    final showAttributeFilters = !hasEmployees || hasMixedSelection;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -880,52 +885,75 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
               ),
             ],
           ),
-          _EmployeeSelector(
-            title: 'Specific employees',
-            actionLabel: 'Add employee',
-            employees: widget.options.employees,
-            selectedIds: group.employeeIds,
-            onChanged: (ids) =>
-                widget.onChanged(group.copyWith(employeeIds: ids)),
-          ),
-          const SizedBox(height: 16),
-          _MultiSelectDropdown(
-            title: 'Departments',
-            values: widget.options.departments,
-            selected: group.departments,
-            onChanged: (values) =>
-                widget.onChanged(group.copyWith(departments: values)),
-          ),
-          const SizedBox(height: 16),
-          _MultiSelectDropdown(
-            title: 'Mailing lists',
-            values: widget.options.mailingLists,
-            selected: group.mailingLists,
-            onChanged: (values) =>
-                widget.onChanged(group.copyWith(mailingLists: values)),
-          ),
-          if (widget.allowJoinedFilter) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: 280,
-              child: TextField(
-                controller: _joinedController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Joined less than days ago',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                onChanged: (value) => widget.onChanged(
-                  group.copyWith(
-                    joinedLessThanDaysAgo:
-                        value.isEmpty ? null : int.tryParse(value),
-                    clearJoinedLessThanDaysAgo: value.isEmpty,
-                  ),
+          if (hasMixedSelection) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E6),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF5C451)),
+              ),
+              child: const Text(
+                'This saved group mixes specific employees with filters. Clear one side before saving.',
+                style: TextStyle(
+                  color: Color(0xFF7A4F01),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+          ],
+          if (showEmployeeSelector) ...[
+            _EmployeeSelector(
+              title: 'Specific employees',
+              actionLabel: 'Add employee',
+              employees: widget.options.employees,
+              selectedIds: group.employeeIds,
+              onChanged: (ids) =>
+                  widget.onChanged(group.copyWith(employeeIds: ids)),
+            ),
+          ],
+          if (showAttributeFilters) ...[
+            if (showEmployeeSelector) const SizedBox(height: 16),
+            _MultiSelectDropdown(
+              title: 'Departments',
+              values: widget.options.departments,
+              selected: group.departments,
+              onChanged: (values) =>
+                  widget.onChanged(group.copyWith(departments: values)),
+            ),
+            const SizedBox(height: 16),
+            _MultiSelectDropdown(
+              title: 'Mailing lists',
+              values: widget.options.mailingLists,
+              selected: group.mailingLists,
+              onChanged: (values) =>
+                  widget.onChanged(group.copyWith(mailingLists: values)),
+            ),
+            if (widget.allowJoinedFilter) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _joinedController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Joined less than days ago',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (value) => widget.onChanged(
+                    group.copyWith(
+                      joinedLessThanDaysAgo:
+                          value.isEmpty ? null : int.tryParse(value),
+                      clearJoinedLessThanDaysAgo: value.isEmpty,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ],
       ),

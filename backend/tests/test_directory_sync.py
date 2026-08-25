@@ -114,6 +114,47 @@ def test_existing_employee_identity_survives_username_and_email_changes():
     assert groups is None
 
 
+def test_join_date_is_normalized_and_preserved_on_partial_changes():
+    existing = {
+        "employee_id": "emp_hub_321",
+        "join_date": "2026-02-16T09:30:00+00:00",
+    }
+
+    employee, _ = _normalize_employee(
+        {
+            "hub_user_id": 321,
+            "directory_uuid": "dir-321",
+            "name": "Asha Rao",
+            "join_date": "2026-08-01T09:30:00Z",
+        },
+        existing,
+    )
+    partial, _ = _normalize_employee(
+        {
+            "hub_user_id": 321,
+            "directory_uuid": "dir-321",
+            "department": "Risk",
+        },
+        employee,
+    )
+
+    assert employee["join_date"] == "2026-08-01"
+    assert partial["join_date"] == "2026-08-01"
+
+
+def test_directory_account_creation_is_not_used_as_join_date():
+    employee, _ = _normalize_employee(
+        {
+            "hub_user_id": 321,
+            "directory_uuid": "dir-321",
+            "name": "Asha Rao",
+            "whenCreated": "2026-08-01T09:30:00Z",
+        }
+    )
+
+    assert employee["join_date"] is None
+
+
 def test_new_employee_id_uses_stable_hub_or_directory_identifiers_not_email():
     by_hub, _ = _normalize_employee(
         {
@@ -251,3 +292,21 @@ def test_next_directory_sync_run_uses_0910_ist(monkeypatch):
 
     assert directory_scheduler.next_directory_sync_run(before).isoformat() == "2026-08-20T09:10:00+05:30"
     assert directory_scheduler.next_directory_sync_run(after).isoformat() == "2026-08-21T09:10:00+05:30"
+
+
+def test_directory_sync_catch_up_detects_missed_schedule(monkeypatch):
+    monkeypatch.setattr(directory_scheduler.settings, "directory_sync_time", "09:10")
+    monkeypatch.setattr(directory_scheduler.settings, "directory_sync_timezone", "Asia/Kolkata")
+    monkeypatch.setattr(
+        directory_scheduler,
+        "get_sync_state",
+        lambda _: {
+            "status": "success",
+            "last_success_at": "2026-08-24T03:30:00+00:00",
+        },
+    )
+
+    now = datetime.fromisoformat("2026-08-25T10:00:00+05:30")
+
+    assert directory_scheduler.previous_directory_sync_run(now).isoformat() == "2026-08-25T09:10:00+05:30"
+    assert directory_scheduler.directory_sync_catch_up_due(now)

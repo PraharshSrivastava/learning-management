@@ -128,15 +128,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.logout, color: AppTheme.primaryBlue),
-                onPressed: () {
-                  ref.read(selectedFileProvider.notifier).state = null;
-                  ref.read(selectedCourseProvider.notifier).state = null;
-                  ref.read(trainerAuthProvider.notifier).logout();
-                },
-                tooltip: 'Switch trainer',
-              ),
-              IconButton(
                 icon: const Icon(Icons.refresh, color: AppTheme.primaryBlue),
                 onPressed: () {
                   ref.read(fileListProvider.notifier).fetchFiles();

@@ -169,6 +169,18 @@ def assign_published_courses_to_employees(published_courses=None) -> None:
             schedule_employee_broadcast(employee["employee_id"])
 
 
+def reconcile_time_based_assignments(*, notify: bool = True) -> dict[str, int]:
+    totals = {"assigned": 0, "removed": 0, "reactivated": 0}
+    for employee in _employees.list():
+        changes = reconcile_assignments_for_employee(
+            employee["employee_id"],
+            notify=notify,
+        )
+        for key in totals:
+            totals[key] += changes.get(key, 0)
+    return totals
+
+
 def assign_published_course_to_matching_employees(
     course_id: str,
     reset_assignment_dates: bool = False,
@@ -394,5 +406,6 @@ __all__ = [
     "assign_published_course_to_matching_employees",
     "assign_published_courses_to_employees",
     "ensure_assignments_for_employee",
+    "reconcile_time_based_assignments",
     "reconcile_assignments_for_employee",
 ]

@@ -299,6 +299,16 @@ class AssignmentGroup {
       jobTitles.isEmpty &&
       joinedLessThanDaysAgo == null;
 
+  bool get hasEmployeeSelection => employeeIds.isNotEmpty;
+
+  bool get hasAttributeFilters =>
+      departments.isNotEmpty ||
+      mailingLists.isNotEmpty ||
+      jobTitles.isNotEmpty ||
+      joinedLessThanDaysAgo != null;
+
+  bool get hasMixedSelection => hasEmployeeSelection && hasAttributeFilters;
+
   factory AssignmentGroup.fromJson(Map<String, dynamic> json) {
     List<String> strings(String key) =>
         (json[key] as List? ?? []).map((item) => item.toString()).toList();
