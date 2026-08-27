@@ -25,7 +25,7 @@ You must follow this exact logical progression in your `chain_of_thought` field 
 - **ANTI-HALLUCINATION PROTOCOL**: You are a strict copy-editor. You are FORBIDDEN from adding external knowledge, inventing examples, or inferring missing facts. You may paraphrase and expand an input bullet only with supporting facts from the module source above.
 - **Completeness**: NEVER lose information. Ensure all the core facts from the input bullets are represented in the chosen layout.
 - **Grid cards**: Each grid card may contain one or more distinct points. Keep text as concise as the idea allows; it may be shorter or longer than 25 words when that improves clarity and fit. Every point must be supported by the module source. Do not add a point merely to meet a count.
-- **Concept slides**: The definition must contain at least 30 words and must be supported by the module source.
+- **Concept slides**: Use `definition` for the main definition, explanation, or central statement. Use `key_takeaways` only for distinct key points or subpoints that are separate from the definition. `key_takeaways` must contain minimum 0 and maximum 3 items. Return an empty list if there are no separate key points or subpoints.
 - **Comparison slides**: Provide at least two points on each side, use the same number of matched points on both sides, and make every point at least 15 words. The two sides must be visually and conceptually symmetrical.
 - **No padding**: Every word must add a relevant fact, explanation, implication, or mechanism supported by the module source. Do not use filler to reach the required length.
 - You must output the slides in the exact same order as the input.

@@ -33,9 +33,17 @@ class ImageMappingResult(BaseModel):
 
 
 class ConceptLayoutData(BaseModel):
-    core_term: str
-    definition: str
-    key_takeaways: list[str]
+    core_term: str = Field(description="The main term, topic, or concept name for the slide.")
+    definition: str = Field(description="The main definition, explanation, or central statement.")
+    key_takeaways: list[str] = Field(
+        default_factory=list,
+        min_length=0,
+        max_length=3,
+        description=(
+            "Optional distinct key points or subpoints that are separate from the definition. "
+            "Return an empty list if there are no separate key points or subpoints."
+        ),
+    )
 
 
 class StepItem(BaseModel):
