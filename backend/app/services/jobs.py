@@ -74,6 +74,8 @@ class GenerationJobManager:
         def operation() -> None:
             popen_kwargs = {
                 "cwd": str(backend_dir),
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.PIPE,
                 "text": True,
             }
             if sys.platform == "win32":
@@ -87,12 +89,15 @@ class GenerationJobManager:
                 )
                 self._processes[job.id] = process
             try:
-                process.wait()
+                stdout, stderr = process.communicate()
             finally:
                 with self._lock:
                     self._processes.pop(job.id, None)
             if process.returncode:
-                raise RuntimeError(f"Pipeline process exited with code {process.returncode}")
+                detail = (stderr or stdout or "").strip()
+                raise RuntimeError(
+                    detail or f"Pipeline process exited with code {process.returncode}"
+                )
 
         executor.submit(self._run, job.id, operation)
         return job
