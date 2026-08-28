@@ -439,16 +439,11 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                   if (!rule.includeAll) ...[
                     const SizedBox(height: 12),
                     _GroupList(
-                      title: 'Include groups',
-                      helper:
-                          'Employees matching any include group are selected. Conditions inside a group are matched together.',
-                      emptyLabel: 'Add include group',
                       groups: rule.includeGroups,
                       savedGroups: assignment.savedGroups
                           .where((group) => group.groupType == 'include')
                           .toList(),
                       options: assignment.options,
-                      groupType: 'include',
                       onChanged: (groups) =>
                           _update(rule.copyWith(includeGroups: groups)),
                     ),
@@ -460,16 +455,11 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
             _Section(
               title: 'Exclude',
               child: _GroupList(
-                title: 'Exclude groups',
-                helper:
-                    'Employees matching any exclude group are removed from the assignment.',
-                emptyLabel: 'Add exclude group',
                 groups: rule.excludeGroups,
                 savedGroups: assignment.savedGroups
                     .where((group) => group.groupType == 'exclude')
                     .toList(),
                 options: assignment.options,
-                groupType: 'exclude',
                 allowJoinedFilter: false,
                 onChanged: (groups) =>
                     _update(rule.copyWith(excludeGroups: groups)),
@@ -701,24 +691,16 @@ class _MultiSelectDialogState extends State<_MultiSelectDialog> {
 }
 
 class _GroupList extends StatelessWidget {
-  final String title;
-  final String helper;
-  final String emptyLabel;
   final List<AssignmentGroup> groups;
   final List<SavedAssignmentGroup> savedGroups;
   final AssignmentOptions options;
-  final String groupType;
   final bool allowJoinedFilter;
   final ValueChanged<List<AssignmentGroup>> onChanged;
 
   const _GroupList({
-    required this.title,
-    required this.helper,
-    required this.emptyLabel,
     required this.groups,
     required this.savedGroups,
     required this.options,
-    required this.groupType,
     required this.onChanged,
     this.allowJoinedFilter = true,
   });
@@ -728,11 +710,6 @@ class _GroupList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text(helper,
-            style: const TextStyle(color: Color(0xFF667085), fontSize: 13)),
-        const SizedBox(height: 12),
         for (var index = 0; index < groups.length; index++) ...[
           _AssignmentGroupCard(
             index: index,
@@ -759,12 +736,11 @@ class _GroupList extends StatelessWidget {
               onPressed: () => onChanged([
                 ...groups,
                 AssignmentGroup(
-                  name:
-                      '${groupType == 'include' ? 'Include' : 'Exclude'} group ${groups.length + 1}',
+                  name: 'Group ${groups.length + 1}',
                 ),
               ]),
               icon: const Icon(Icons.add),
-              label: Text(emptyLabel),
+              label: const Text('Add group'),
             ),
             if (savedGroups.isNotEmpty)
               OutlinedButton.icon(
@@ -915,7 +891,17 @@ class _AssignmentGroupCardState extends State<_AssignmentGroupCard> {
             ),
           ],
           if (showAttributeFilters) ...[
-            if (showEmployeeSelector) const SizedBox(height: 16),
+            if (showEmployeeSelector) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'or',
+                style: TextStyle(
+                  color: Color(0xFF667085),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             _MultiSelectDropdown(
               title: 'Departments',
               values: widget.options.departments,
