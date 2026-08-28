@@ -53,11 +53,6 @@ class AssignmentPortal extends ConsumerWidget {
         SizedBox(
           width: 380,
           child: Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: AppTheme.lightGray, width: 1),
-              ),
-            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: _AssignableCoursesSidebar(selectedCourse: effectiveCourse),
@@ -65,12 +60,9 @@ class AssignmentPortal extends ConsumerWidget {
           ),
         ),
         Expanded(
-          child: Container(
-            color: AppTheme.lightGray.withAlpha(77),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: AssignmentRuleView(course: effectiveCourse),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: AssignmentRuleView(course: effectiveCourse),
           ),
         ),
       ],
@@ -88,11 +80,7 @@ class _AssignableCoursesSidebar extends ConsumerWidget {
     final courseListState = ref.watch(assignableCourseListProvider);
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppTheme.pShapeRadius,
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -195,8 +183,7 @@ class _AssignableCoursesSidebar extends ConsumerWidget {
 
                               return ListTile(
                                 selected: isSelected,
-                                selectedTileColor:
-                                    AppTheme.primaryBlue.withOpacity(0.05),
+                                selectedTileColor: AppTheme.brandBlue100,
                                 leading: Icon(
                                   Icons.menu_book,
                                   color: isSelected
@@ -309,13 +296,9 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
     _syncNumberControllers(rule);
 
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.transparent,
       child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE6E9EF)),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: AppTheme.cardDecoration(),
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
@@ -354,7 +337,7 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                     backgroundColor: AppTheme.primaryBlue,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(999)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -382,7 +365,7 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                     backgroundColor: const Color(0xFF087443),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(999)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -400,7 +383,7 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                     foregroundColor: AppTheme.accentRed,
                     side: const BorderSide(color: AppTheme.accentRed),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(999)),
                   ),
                 ),
               ],
@@ -520,10 +503,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE6E9EF)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: AppTheme.cardDecoration(shadow: false),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

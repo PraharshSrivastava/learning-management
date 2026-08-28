@@ -35,7 +35,8 @@ class EmployeeHubGate extends ConsumerWidget {
     if (!session.isAuthenticated && !session.isLocalDevMode) {
       return _HubGateScaffold(
         title: 'Employee learning access',
-        message: session.error ?? 'Open this application from the Hub dashboard.',
+        message:
+            session.error ?? 'Open this application from the Hub dashboard.',
         onRefresh: () => ref.read(hubSessionProvider.notifier).refresh(),
       );
     }
@@ -72,54 +73,57 @@ class _HubGateScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF102C77),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'PC',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: AppTheme.pageBackground(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF102C77),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'PC',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Text(title, style: theme.textTheme.headlineSmall),
-                const SizedBox(height: 8),
-                Text(
-                  message ?? 'Checking Hub session...',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF667085),
+                  const SizedBox(height: 20),
+                  Text(title, style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 8),
+                  Text(
+                    message ?? 'Checking Hub session...',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF667085),
+                    ),
                   ),
-                ),
-                if (child != null) ...[
-                  const SizedBox(height: 24),
-                  child!,
+                  if (child != null) ...[
+                    const SizedBox(height: 24),
+                    child!,
+                  ],
+                  if (onRefresh != null) ...[
+                    const SizedBox(height: 24),
+                    IconButton.filledTonal(
+                      tooltip: 'Check again',
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh),
+                    ),
+                  ],
                 ],
-                if (onRefresh != null) ...[
-                  const SizedBox(height: 24),
-                  IconButton.filledTonal(
-                    tooltip: 'Check again',
-                    onPressed: onRefresh,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),

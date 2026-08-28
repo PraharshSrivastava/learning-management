@@ -21,11 +21,7 @@ class UploadCard extends ConsumerWidget {
     final uploadState = ref.watch(uploadProgressProvider);
 
     return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.lightGray,
-        borderRadius: AppTheme.pShapeRadius,
-        border: Border.all(color: AppTheme.gray.withOpacity(0.3), width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,10 +59,10 @@ class UploadCard extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.brandBlue50,
                 borderRadius: AppTheme.pShapeRadiusCustom(8),
                 border: Border.all(
-                  color: AppTheme.primaryBlue.withOpacity(0.3),
+                  color: AppTheme.brandBlueLight.withOpacity(0.35),
                   width: 1.5,
                   style: BorderStyle.solid,
                 ),
@@ -119,7 +115,7 @@ class UploadCard extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: AppTheme.accentGreen.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
@@ -146,7 +142,7 @@ class UploadCard extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: AppTheme.accentRed.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
@@ -183,11 +179,7 @@ class DocumentListCard extends ConsumerWidget {
     final fileListState = ref.watch(fileListProvider);
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppTheme.pShapeRadius,
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -280,8 +272,7 @@ class DocumentListCard extends ConsumerWidget {
                                 color: Colors.transparent,
                                 child: ListTile(
                                   selected: isSelected,
-                                  selectedTileColor:
-                                      AppTheme.primaryBlue.withOpacity(0.05),
+                                  selectedTileColor: AppTheme.brandBlue100,
                                   leading: Icon(
                                     Icons.picture_as_pdf,
                                     color: isSelected
@@ -344,11 +335,7 @@ class PDFViewerCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (selectedFile == null) {
       return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: AppTheme.pShapeRadius,
-          border: Border.all(color: AppTheme.lightGray, width: 1),
-        ),
+        decoration: AppTheme.cardDecoration(),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -398,18 +385,14 @@ class PDFViewerCard extends ConsumerWidget {
       }
 
       return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: AppTheme.pShapeRadius,
-          border: Border.all(color: AppTheme.lightGray, width: 1),
-        ),
+        decoration: AppTheme.cardDecoration(),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: AppTheme.lightGray,
+              color: AppTheme.brandBlue50,
               child: Row(
                 children: [
                   const Icon(Icons.picture_as_pdf, color: AppTheme.primaryBlue),
@@ -433,7 +416,7 @@ class PDFViewerCard extends ConsumerWidget {
                           horizontal: 16, vertical: 8),
                       backgroundColor: AppTheme.primaryBlue,
                       shape: RoundedRectangleBorder(
-                        borderRadius: AppTheme.pShapeRadiusCustom(6.0),
+                        borderRadius: AppTheme.pShapeRadiusCustom(999),
                       ),
                     ),
                     onPressed: () {
@@ -465,11 +448,7 @@ class PDFViewerCard extends ConsumerWidget {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppTheme.pShapeRadius,
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

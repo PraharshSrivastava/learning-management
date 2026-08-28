@@ -16,7 +16,7 @@ class PerformancePortal extends ConsumerWidget {
     final dashboard = state.dashboard;
 
     return Container(
-      color: const Color(0xFFF7F8FA),
+      decoration: AppTheme.pageBackground(),
       child: RefreshIndicator(
         onRefresh: () => ref.read(performanceProvider.notifier).fetch(),
         child: ListView(
@@ -82,8 +82,8 @@ class _Header extends ConsumerWidget {
           style: FilledButton.styleFrom(
             backgroundColor: AppTheme.primaryBlue,
             foregroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999)),
           ),
         ),
       ],
@@ -126,7 +126,8 @@ class _Filters extends ConsumerWidget {
             value: filter.employeeId,
             items: {
               for (final employee in dashboard.options.employees)
-                employee.employeeId: '${employee.name} (${employee.employeeId})',
+                employee.employeeId:
+                    '${employee.name} (${employee.employeeId})',
             },
             onChanged: (value) =>
                 ref.read(performanceProvider.notifier).updateFilter(
@@ -326,7 +327,7 @@ class _SummaryGrid extends StatelessWidget {
           itemCount: cards.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
-            mainAxisExtent: 96,
+            mainAxisExtent: 110,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
           ),
@@ -428,7 +429,7 @@ class _PerformanceRowTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFFE6E9EF)),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -559,7 +560,7 @@ class _StatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
@@ -602,11 +603,7 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE6E9EF)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: AppTheme.cardDecoration(shadow: false),
       child: child,
     );
   }

@@ -54,8 +54,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return Stack(
       children: [
         Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
+            toolbarHeight: 72,
             title: Row(
               children: [
                 Text(
@@ -69,9 +70,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  height: 20,
+                  height: 24,
                   width: 1,
-                  color: AppTheme.gray.withOpacity(0.5),
+                  color: AppTheme.lightGray,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -141,26 +142,26 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
               const SizedBox(width: 16),
             ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1),
-              child: Container(
-                color: AppTheme.lightGray,
-                height: 1,
-              ),
+            bottom: const PreferredSize(
+              preferredSize: Size.fromHeight(1),
+              child: Divider(height: 1),
             ),
           ),
-          body: IndexedStack(
-            index: activeTab,
-            children: [
-              _buildDocumentsPortal(context, ref, selectedFile, isMobile),
-              _buildCoursesPortal(context, ref, selectedCourse, isMobile),
-              _buildTrainingPortal(context, ref, selectedCourse, isMobile),
-              AssignmentPortal(
-                selectedCourse: selectedCourse,
-                isMobile: isMobile,
-              ),
-              const PerformancePortal(),
-            ],
+          body: Container(
+            decoration: AppTheme.pageBackground(),
+            child: IndexedStack(
+              index: activeTab,
+              children: [
+                _buildDocumentsPortal(context, ref, selectedFile, isMobile),
+                _buildCoursesPortal(context, ref, selectedCourse, isMobile),
+                _buildTrainingPortal(context, ref, selectedCourse, isMobile),
+                AssignmentPortal(
+                  selectedCourse: selectedCourse,
+                  isMobile: isMobile,
+                ),
+                const PerformancePortal(),
+              ],
+            ),
           ),
         ),
         if (generationState.status == GenerationStatus.generating)
@@ -245,21 +246,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       children: [
         SizedBox(
           width: 380,
-          child: Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: AppTheme.lightGray, width: 1),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: CoursesSidebar(selectedCourse: selectedCourse),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: CoursesSidebar(selectedCourse: selectedCourse),
           ),
         ),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             child: selectedCourse == null
                 ? const EmptyCourseView()
                 : TrainingView(course: selectedCourse),
@@ -301,36 +295,26 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       children: [
         SizedBox(
           width: 380,
-          child: Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: AppTheme.lightGray, width: 1),
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(20.0),
+                child: UploadCard(),
               ),
-            ),
-            child: Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: UploadCard(),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: DocumentListCard(selectedFile: selectedFile),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: DocumentListCard(selectedFile: selectedFile),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
         Expanded(
-          child: Container(
-            color: AppTheme.lightGray.withOpacity(0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: PDFViewerCard(selectedFile: selectedFile),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: PDFViewerCard(selectedFile: selectedFile),
           ),
         ),
       ],
@@ -365,27 +349,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       children: [
         SizedBox(
           width: 380,
-          child: Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: AppTheme.lightGray, width: 1),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: CoursesSidebar(selectedCourse: selectedCourse),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: CoursesSidebar(selectedCourse: selectedCourse),
           ),
         ),
         Expanded(
-          child: Container(
-            color: AppTheme.lightGray.withOpacity(0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: selectedCourse == null
-                  ? const EmptyCourseView()
-                  : CourseDetailsView(course: selectedCourse),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: selectedCourse == null
+                ? const EmptyCourseView()
+                : CourseDetailsView(course: selectedCourse),
           ),
         ),
       ],
@@ -455,144 +429,150 @@ class _TrainerLoginPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'PC',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Trainer access',
-                          style: GoogleFonts.inter(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textBlack,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Select a synced employee to test trainer access locally.',
-                          style: TextStyle(color: Color(0xFF667085)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                if (auth.isLoading && auth.trainers.isEmpty)
-                  const Center(child: CircularProgressIndicator())
-                else
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: AppTheme.pageBackground(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
                     children: [
-                      for (final trainer in auth.trainers)
-                        SizedBox(
-                          width: 235,
-                          child: Card(
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              side: const BorderSide(color: Color(0xFFE6E9EF)),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'PC',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
                             ),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: auth.isLoading
-                                  ? null
-                                  : () async {
-                                      await ref
-                                          .read(trainerAuthProvider.notifier)
-                                          .login(trainer);
-                                      if (ref
-                                          .read(trainerAuthProvider)
-                                          .isAuthenticated) {
-                                        ref
-                                            .read(fileListProvider.notifier)
-                                            .fetchFiles();
-                                        ref
-                                            .read(courseListProvider.notifier)
-                                            .ensureLoaded();
-                                        ref
-                                            .read(assignableCourseListProvider
-                                                .notifier)
-                                            .ensureLoaded();
-                                        ref
-                                            .read(performanceProvider.notifier)
-                                            .fetch();
-                                      }
-                                    },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      trainer.name,
-                                      style: GoogleFonts.barlow(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Trainer access',
+                            style: GoogleFonts.inter(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.textBlack,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Select a synced employee to test trainer access locally.',
+                            style: TextStyle(color: Color(0xFF667085)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  if (auth.isLoading && auth.trainers.isEmpty)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        for (final trainer in auth.trainers)
+                          SizedBox(
+                            width: 235,
+                            child: Card(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side:
+                                    const BorderSide(color: Color(0xFFE6E9EF)),
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: auth.isLoading
+                                    ? null
+                                    : () async {
+                                        await ref
+                                            .read(trainerAuthProvider.notifier)
+                                            .login(trainer);
+                                        if (ref
+                                            .read(trainerAuthProvider)
+                                            .isAuthenticated) {
+                                          ref
+                                              .read(fileListProvider.notifier)
+                                              .fetchFiles();
+                                          ref
+                                              .read(courseListProvider.notifier)
+                                              .ensureLoaded();
+                                          ref
+                                              .read(assignableCourseListProvider
+                                                  .notifier)
+                                              .ensureLoaded();
+                                          ref
+                                              .read(
+                                                  performanceProvider.notifier)
+                                              .fetch();
+                                        }
+                                      },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        trainer.name,
+                                        style: GoogleFonts.barlow(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.primaryBlue,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      trainer.status,
-                                      style: const TextStyle(
-                                          color: Color(0xFF667085)),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      trainer.trainerId,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFF98A2B3),
-                                        fontSize: 12,
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        trainer.status,
+                                        style: const TextStyle(
+                                            color: Color(0xFF667085)),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        trainer.trainerId,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF98A2B3),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                if (auth.error != null) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    auth.error!,
-                    style: const TextStyle(color: AppTheme.accentRed),
-                  ),
+                      ],
+                    ),
+                  if (auth.error != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      auth.error!,
+                      style: const TextStyle(color: AppTheme.accentRed),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -616,21 +596,23 @@ class _TabHeaderButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive
-              ? AppTheme.primaryBlue.withOpacity(0.08)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isActive ? AppTheme.brandBlue100 : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isActive ? AppTheme.brandBlueLight : Colors.transparent,
+          ),
         ),
         child: Text(
           title,
           style: GoogleFonts.barlow(
             fontSize: 15,
             fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-            color: isActive ? AppTheme.primaryBlue : AppTheme.gray,
+            color: isActive ? AppTheme.primaryBlue : AppTheme.textSecondary,
           ),
         ),
       ),
@@ -660,7 +642,7 @@ class _LoadingOverlay extends StatelessWidget {
               color: Colors.white,
               elevation: 18,
               shadowColor: Colors.black.withOpacity(0.22),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(18),
               child: Padding(
                 padding: const EdgeInsets.all(28),
                 child: Column(
@@ -670,8 +652,8 @@ class _LoadingOverlay extends StatelessWidget {
                       width: 58,
                       height: 58,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE7EFFF),
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppTheme.brandBlue100,
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Stack(
                         alignment: Alignment.center,

@@ -37,162 +37,162 @@ class _EmployeeLoginPageState extends ConsumerState<EmployeeLoginPage> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1180),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        height: 44,
-                        width: 44,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryBlue,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'PC',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
+        child: Container(
+          decoration: AppTheme.pageBackground(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1180),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          height: 44,
+                          width: 44,
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.primaryGradient,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'PC',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Employee learning access',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF101828),
+                                ),
+                              ),
+                              SizedBox(height: 3),
+                              Text(
+                                'Select a synced employee for local testing.',
+                                style: TextStyle(color: Color(0xFF667085)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: auth.isLoading
+                              ? null
+                              : () => ref
+                                  .read(employeeAuthProvider.notifier)
+                                  .fetchEmployees(),
+                          icon: const Icon(Icons.refresh),
+                          tooltip: 'Refresh employees',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Material(
+                      color: Colors.transparent,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: AppTheme.cardDecoration(),
+                        child: Row(
                           children: [
-                            Text(
-                              'Employee learning access',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF101828),
+                            Expanded(
+                              child: TextField(
+                                onChanged: (value) =>
+                                    setState(() => _query = value),
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(Icons.search),
+                                  hintText:
+                                      'Search by name, employee ID, department, or job title',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
                               ),
                             ),
-                            SizedBox(height: 3),
-                            Text(
-                              'Select a synced employee for local testing.',
-                              style: TextStyle(color: Color(0xFF667085)),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 220,
+                              child: DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                value: _department,
+                                decoration: const InputDecoration(
+                                  labelText: 'Department',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                items: departments
+                                    .map((department) => DropdownMenuItem(
+                                          value: department,
+                                          child: Text(department),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => _department = value);
+                                  }
+                                },
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: auth.isLoading
-                            ? null
-                            : () => ref
-                                .read(employeeAuthProvider.notifier)
-                                .fetchEmployees(),
-                        icon: const Icon(Icons.refresh),
-                        tooltip: 'Refresh employees',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE6E9EF)),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              onChanged: (value) =>
-                                  setState(() => _query = value),
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.search),
-                                hintText:
-                                    'Search by name, employee ID, department, or job title',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 220,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              value: _department,
-                              decoration: const InputDecoration(
-                                labelText: 'Department',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                              items: departments
-                                  .map((department) => DropdownMenuItem(
-                                        value: department,
-                                        child: Text(department),
-                                      ))
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _department = value);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
-                  if (auth.error != null) ...[
-                    const SizedBox(height: 14),
-                    _LoginNotice(message: auth.error!),
+                    if (auth.error != null) ...[
+                      const SizedBox(height: 14),
+                      _LoginNotice(message: auth.error!),
+                    ],
+                    const SizedBox(height: 18),
+                    Expanded(
+                      child: auth.isLoading && auth.employees.isEmpty
+                          ? const Center(child: CircularProgressIndicator())
+                          : employees.isEmpty
+                              ? const _EmptyEmployees()
+                              : LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final columns = constraints.maxWidth >= 1040
+                                        ? 3
+                                        : constraints.maxWidth >= 680
+                                            ? 2
+                                            : 1;
+                                    final cardHeight =
+                                        constraints.maxWidth >= 680
+                                            ? 210.0
+                                            : 220.0;
+                                    return GridView.builder(
+                                      itemCount: employees.length,
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: columns,
+                                        mainAxisExtent: cardHeight,
+                                        mainAxisSpacing: 14,
+                                        crossAxisSpacing: 14,
+                                      ),
+                                      itemBuilder: (context, index) =>
+                                          _EmployeeCard(
+                                        employee: employees[index],
+                                        isBusy: auth.isLoading,
+                                        onSelect: () => ref
+                                            .read(employeeAuthProvider.notifier)
+                                            .login(employees[index]),
+                                      ),
+                                    );
+                                  },
+                                ),
+                    ),
                   ],
-                  const SizedBox(height: 18),
-                  Expanded(
-                    child: auth.isLoading && auth.employees.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : employees.isEmpty
-                            ? const _EmptyEmployees()
-                            : LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final columns = constraints.maxWidth >= 1040
-                                      ? 3
-                                      : constraints.maxWidth >= 680
-                                          ? 2
-                                          : 1;
-                                  final cardHeight = constraints.maxWidth >= 680
-                                      ? 210.0
-                                      : 220.0;
-                                  return GridView.builder(
-                                    itemCount: employees.length,
-                                    gridDelegate:
-                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: columns,
-                                      mainAxisExtent: cardHeight,
-                                      mainAxisSpacing: 14,
-                                      crossAxisSpacing: 14,
-                                    ),
-                                    itemBuilder: (context, index) =>
-                                        _EmployeeCard(
-                                      employee: employees[index],
-                                      isBusy: auth.isLoading,
-                                      onSelect: () => ref
-                                          .read(employeeAuthProvider.notifier)
-                                          .login(employees[index]),
-                                    ),
-                                  );
-                                },
-                              ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -221,12 +221,12 @@ class _EmployeeCard extends StatelessWidget {
       color: Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFE6E9EF)),
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppTheme.lightGray),
       ),
       child: InkWell(
         onTap: isBusy ? null : onSelect,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -235,7 +235,7 @@ class _EmployeeCard extends StatelessWidget {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: const Color(0xFFE7EFFF),
+                    backgroundColor: AppTheme.brandBlue100,
                     child: Text(
                       _initials(employee.name),
                       style: const TextStyle(
@@ -292,7 +292,7 @@ class _EmployeeCard extends StatelessWidget {
                     backgroundColor: AppTheme.primaryBlue,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),

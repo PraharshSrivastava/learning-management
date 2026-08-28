@@ -19,11 +19,7 @@ class CoursesSidebar extends ConsumerWidget {
     final courseListState = ref.watch(courseListProvider);
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppTheme.pShapeRadius,
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -121,8 +117,7 @@ class CoursesSidebar extends ConsumerWidget {
 
                               return ListTile(
                                 selected: isSelected,
-                                selectedTileColor:
-                                    AppTheme.primaryBlue.withOpacity(0.05),
+                                selectedTileColor: AppTheme.brandBlue100,
                                 leading: Icon(
                                   Icons.menu_book,
                                   color: isSelected
@@ -218,11 +213,7 @@ class EmptyCourseView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppTheme.pShapeRadius,
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -345,8 +336,9 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     _moduleData = List<CourseModule>.from(widget.course.modules);
     _moduleTitleControllers =
         _moduleData.map((m) => TextEditingController(text: m.title)).toList();
-    _moduleTextControllers =
-        _moduleData.map((m) => TextEditingController(text: m.sourceText)).toList();
+    _moduleTextControllers = _moduleData
+        .map((m) => TextEditingController(text: m.sourceText))
+        .toList();
     _moduleQuestionsControllers = _moduleData
         .map((m) => TextEditingController(text: m.numQuestions.toString()))
         .toList();
@@ -377,11 +369,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
   Widget build(BuildContext context) {
     if (widget.course.modules.isEmpty && widget.course.moduleCount > 0) {
       return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: AppTheme.pShapeRadius,
-          border: Border.all(color: AppTheme.lightGray, width: 1),
-        ),
+        decoration: AppTheme.cardDecoration(),
         child: const Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
@@ -390,11 +378,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
       );
     }
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: AppTheme.pShapeRadius,
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-      ),
+      decoration: AppTheme.cardDecoration(),
       clipBehavior: Clip.antiAlias,
       child: Form(
         key: _formKey,
@@ -403,9 +387,28 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              color: AppTheme.primaryBlue,
+              decoration: const BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+              ),
               child: Theme(
                 data: Theme.of(context).copyWith(
+                  inputDecorationTheme: const InputDecorationTheme(
+                    filled: false,
+                    fillColor: Colors.transparent,
+                    contentPadding: EdgeInsets.zero,
+                    border: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white38),
+                    ),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white38),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white),
+                    ),
+                    disabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white24),
+                    ),
+                  ),
                   textSelectionTheme: const TextSelectionThemeData(
                     cursorColor: Colors.white,
                     selectionColor: Colors.white30,
@@ -498,7 +501,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 8),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(999),
                                     ),
                                   ),
                                   onPressed: (!isGenerating &&
@@ -544,7 +547,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 8),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
                               onPressed: () => _saveCourseModifications(),
@@ -582,31 +585,96 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                       validator: (value) =>
                           value == null || value.isEmpty ? 'Required' : null,
                     ),
-                  const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Difficulty',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 12),
-                            ),
-                            const SizedBox(height: 4),
-                            Theme(
-                              data: Theme.of(context)
-                                  .copyWith(canvasColor: AppTheme.primaryBlue),
-                              child: DropdownButtonFormField<String>(
-                                value: _selectedDifficulty,
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Difficulty',
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 12),
+                              ),
+                              const SizedBox(height: 4),
+                              Theme(
+                                data: Theme.of(context).copyWith(
+                                  canvasColor: AppTheme.primaryBlue,
+                                  inputDecorationTheme:
+                                      const InputDecorationTheme(
+                                    filled: false,
+                                    fillColor: Colors.transparent,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: UnderlineInputBorder(
+                                      borderSide:
+                                          BorderSide(color: Colors.white38),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide:
+                                          BorderSide(color: Colors.white38),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide:
+                                          BorderSide(color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedDifficulty,
+                                  style: GoogleFonts.barlow(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide:
+                                          BorderSide(color: Colors.white38),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide:
+                                          BorderSide(color: Colors.white),
+                                    ),
+                                  ),
+                                  items: ['Easy', 'Medium', 'Hard']
+                                      .map((val) => DropdownMenuItem(
+                                          value: val, child: Text(val)))
+                                      .toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        _selectedDifficulty = value;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Language',
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 12),
+                              ),
+                              const SizedBox(height: 4),
+                              TextFormField(
+                                controller: _langController,
                                 style: GoogleFonts.barlow(
                                     color: Colors.white,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold),
                                 decoration: const InputDecoration(
                                   isDense: true,
-                                  contentPadding: EdgeInsets.zero,
+                                  contentPadding:
+                                      EdgeInsets.symmetric(vertical: 4),
                                   enabledBorder: UnderlineInputBorder(
                                     borderSide:
                                         BorderSide(color: Colors.white38),
@@ -615,56 +683,12 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                     borderSide: BorderSide(color: Colors.white),
                                   ),
                                 ),
-                                items: ['Easy', 'Medium', 'Hard']
-                                    .map((val) => DropdownMenuItem(
-                                        value: val, child: Text(val)))
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _selectedDifficulty = value;
-                                    });
-                                  }
-                                },
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Language',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 12),
-                            ),
-                            const SizedBox(height: 4),
-                            TextFormField(
-                              controller: _langController,
-                              style: GoogleFonts.barlow(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 4),
-                                enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white38),
-                                ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -62,7 +62,7 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Colors.transparent,
       drawer: isCompact
           ? Drawer(
               child: _LmsNavigation(
@@ -73,54 +73,57 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
               ),
             )
           : null,
-      body: Row(
-        children: [
-          if (!isCompact)
-            _LmsNavigation(
-              expanded: _navigationExpanded,
-              selectedIndex: _activeNavigationIndex,
-              onSelect: _handleNavigation,
-              onToggle: () =>
-                  setState(() => _navigationExpanded = !_navigationExpanded),
-            ),
-          Expanded(
-            child: Column(
-              children: [
-                Builder(
-                  builder: (scaffoldContext) => _DashboardAppBar(
-                    isCompact: isCompact,
-                    activeIndex: _activeNavigationIndex,
-                    unreadCount: unreadCourses.length,
-                    employee: authState.employee,
-                    onMenu: () => Scaffold.of(scaffoldContext).openDrawer(),
-                    onNotifications: () => _showNotifications(unreadCourses),
+      body: Container(
+        decoration: AppTheme.pageBackground(),
+        child: Row(
+          children: [
+            if (!isCompact)
+              _LmsNavigation(
+                expanded: _navigationExpanded,
+                selectedIndex: _activeNavigationIndex,
+                onSelect: _handleNavigation,
+                onToggle: () =>
+                    setState(() => _navigationExpanded = !_navigationExpanded),
+              ),
+            Expanded(
+              child: Column(
+                children: [
+                  Builder(
+                    builder: (scaffoldContext) => _DashboardAppBar(
+                      isCompact: isCompact,
+                      activeIndex: _activeNavigationIndex,
+                      unreadCount: unreadCourses.length,
+                      employee: authState.employee,
+                      onMenu: () => Scaffold.of(scaffoldContext).openDrawer(),
+                      onNotifications: () => _showNotifications(unreadCourses),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: openCourse == null
-                      ? _buildActiveView(
-                          courses: courses,
-                          metrics: metrics,
-                          isLoading: courseState.isLoading,
-                          error: courseState.error,
-                          usingPreviewData: usingPreviewData,
-                        )
-                      : CoursePlaybackView(
-                          course: openCourse,
-                          onBack: () async {
-                            await ref
-                                .read(employeeCourseListProvider.notifier)
-                                .fetchCourses();
-                            if (mounted) {
-                              setState(() => _openCourseId = null);
-                            }
-                          },
-                        ),
-                ),
-              ],
+                  Expanded(
+                    child: openCourse == null
+                        ? _buildActiveView(
+                            courses: courses,
+                            metrics: metrics,
+                            isLoading: courseState.isLoading,
+                            error: courseState.error,
+                            usingPreviewData: usingPreviewData,
+                          )
+                        : CoursePlaybackView(
+                            course: openCourse,
+                            onBack: () async {
+                              await ref
+                                  .read(employeeCourseListProvider.notifier)
+                                  .fetchCourses();
+                              if (mounted) {
+                                setState(() => _openCourseId = null);
+                              }
+                            },
+                          ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -174,8 +177,8 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
 
   Future<void> _showNotifications(List<Course> courses) async {
     if (courses.isNotEmpty) {
-      setState(
-          () => _seenNotifications.addAll(courses.map((course) => course.courseId)));
+      setState(() =>
+          _seenNotifications.addAll(courses.map((course) => course.courseId)));
     }
     await showDialog<void>(
       context: context,
@@ -241,12 +244,12 @@ class _DashboardAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: Colors.white.withOpacity(0.94),
       child: Container(
         height: isCompact ? 80 : 72,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFE6E9EF)))),
+            border: Border(bottom: BorderSide(color: AppTheme.lightGray))),
         child: Row(
           children: [
             if (isCompact) ...[
@@ -347,7 +350,18 @@ class _LmsNavigation extends StatelessWidget {
     ];
     return Container(
       width: expanded ? 262 : 76,
-      color: const Color(0xFF06245A),
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryBlue.withOpacity(0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: SafeArea(
         child: Column(
           children: [
@@ -401,7 +415,7 @@ class _LmsNavigation extends StatelessWidget {
                 icon: const Icon(Icons.keyboard_double_arrow_right,
                     color: Colors.white70),
               ),
-            const Divider(height: 1, color: Color(0xFF204276)),
+            const Divider(height: 1, color: Color(0x4DFFFFFF)),
             const SizedBox(height: 14),
             for (var index = 0; index < destinations.length; index++)
               _NavigationItem(
@@ -417,9 +431,9 @@ class _LmsNavigation extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF12356E),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF294A7D)),
+                  color: Colors.white.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white24),
                 ),
                 child: expanded
                     ? const Row(
@@ -465,10 +479,10 @@ class _NavigationItem extends StatelessWidget {
           EdgeInsets.symmetric(horizontal: expanded ? 12 : 10, vertical: 3),
       child: Material(
         color: selected ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(999),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(999),
           child: SizedBox(
             height: 48,
             child: Row(
@@ -526,7 +540,7 @@ class _DashboardBody extends StatelessWidget {
     final isWide = MediaQuery.sizeOf(context).width >= 1220;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1480),
@@ -870,14 +884,14 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = isSelected ? Colors.white : const Color(0xFF101828);
+    final foreground = isSelected ? Colors.white : AppTheme.textBlack;
     return Semantics(
       button: true,
       selected: isSelected,
       label: 'Show $label courses',
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: isSelected
               ? [
                   BoxShadow(
@@ -896,16 +910,16 @@ class _MetricTile extends StatelessWidget {
         ),
         child: Material(
           color: isSelected ? color : Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: isSelected ? color : const Color(0xFFE1E7EF)),
+                borderRadius: BorderRadius.circular(16),
+                border:
+                    Border.all(color: isSelected ? color : AppTheme.lightGray),
               ),
               child: Row(
                 children: [
@@ -916,7 +930,7 @@ class _MetricTile extends StatelessWidget {
                       color: isSelected
                           ? Colors.white.withOpacity(0.18)
                           : color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(icon,
                         color: isSelected ? Colors.white : color, size: 21),
@@ -942,7 +956,7 @@ class _MetricTile extends StatelessWidget {
                                 fontWeight: FontWeight.w500,
                                 color: isSelected
                                     ? Colors.white.withOpacity(0.82)
-                                    : const Color(0xFF667085))),
+                                    : AppTheme.textSecondary)),
                       ],
                     ),
                   ),
@@ -1106,8 +1120,8 @@ class _CourseCard extends StatelessWidget {
       color: Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Color(0xFFE6E9EF))),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppTheme.lightGray)),
       child: InkWell(
         onTap: onAction,
         child: Column(
@@ -1175,7 +1189,7 @@ class _CourseCard extends StatelessWidget {
                           value: progress,
                           minHeight: 5,
                           borderRadius: BorderRadius.circular(3),
-                          backgroundColor: const Color(0xFFE6E9EF),
+                          backgroundColor: AppTheme.lightGray,
                           color: AppTheme.primaryBlue),
                       const SizedBox(height: 13),
                     ],
@@ -1220,7 +1234,7 @@ class _CourseCard extends StatelessWidget {
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 11),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                       ),
@@ -1291,7 +1305,7 @@ class _CourseThumbnail extends StatelessWidget {
               loadingBuilder: (context, child, loadingProgress) =>
                   loadingProgress == null
                       ? child
-                      : Container(color: const Color(0xFFE7EFFF)),
+                      : Container(color: AppTheme.brandBlue100),
             ),
     );
   }
@@ -1303,7 +1317,9 @@ class _ThumbnailFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.primaryBlue,
+      decoration: const BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+      ),
       child: const Icon(
         Icons.image_not_supported_outlined,
         color: Colors.white,
