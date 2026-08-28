@@ -1097,14 +1097,19 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        setState(() {});
-      }).catchError((err) {
-        setState(() {
-          _errorMsg = err.toString();
-        });
-      });
+    _initializeController();
+  }
+
+  void _initializeController() {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _controller = controller;
+    controller.initialize().then((_) {
+      if (mounted && identical(_controller, controller)) setState(() {});
+    }).catchError((err) {
+      if (mounted && identical(_controller, controller)) {
+        setState(() => _errorMsg = err.toString());
+      }
+    });
   }
 
   @override
@@ -1136,6 +1141,23 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
     if (mounted) setState(() => _playbackMultiplier = value);
   }
 
+  Future<void> _seekBy(Duration offset) async {
+    final duration = _controller.value.duration;
+    final requested = _controller.value.position + offset;
+    final milliseconds = requested.inMilliseconds
+        .clamp(0, duration.inMilliseconds)
+        .toInt();
+    await _controller.seekTo(Duration(milliseconds: milliseconds));
+  }
+
+  Future<void> _retryInitialization() async {
+    await _controller.dispose();
+    if (!mounted) return;
+    _errorMsg = null;
+    _initializeController();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_errorMsg != null) {
@@ -1160,6 +1182,12 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                 _errorMsg!,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.barlow(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _retryInitialization,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry video'),
               ),
             ],
           ),
@@ -1188,6 +1216,17 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                   ? const SizedBox.expand()
                   : VideoPlayer(_controller),
             ),
+          ),
+
+          ValueListenableBuilder<VideoPlayerValue>(
+            valueListenable: _controller,
+            builder: (context, value, child) => value.isBuffering
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
 
           // Controls Overlay
@@ -1232,7 +1271,21 @@ class _TrainingVideoPlayerState extends State<TrainingVideoPlayer> {
                               });
                             },
                           ),
-                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Back 10 seconds',
+                            icon: const Icon(Icons.replay_10_rounded,
+                                color: Colors.white),
+                            onPressed: () =>
+                                _seekBy(const Duration(seconds: -10)),
+                          ),
+                          IconButton(
+                            tooltip: 'Forward 10 seconds',
+                            icon: const Icon(Icons.forward_10_rounded,
+                                color: Colors.white),
+                            onPressed: () =>
+                                _seekBy(const Duration(seconds: 10)),
+                          ),
+                          const SizedBox(width: 4),
                           ValueListenableBuilder(
                             valueListenable: _controller,
                             builder: (context, VideoPlayerValue value, child) {
@@ -1331,6 +1384,15 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
     return '$minutes:$seconds';
   }
 
+  Future<void> _seekBy(Duration offset) async {
+    final duration = widget.controller.value.duration;
+    final requested = widget.controller.value.position + offset;
+    final milliseconds = requested.inMilliseconds
+        .clamp(0, duration.inMilliseconds)
+        .toInt();
+    await widget.controller.seekTo(Duration(milliseconds: milliseconds));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1346,6 +1408,15 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                 aspectRatio: widget.controller.value.aspectRatio,
                 child: VideoPlayer(widget.controller),
               ),
+            ),
+
+            ValueListenableBuilder<VideoPlayerValue>(
+              valueListenable: widget.controller,
+              builder: (context, value, child) => value.isBuffering
+                  ? const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    )
+                  : const SizedBox.shrink(),
             ),
 
             // Exit button top-right
@@ -1417,7 +1488,21 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                                   });
                                 },
                               ),
-                              const SizedBox(width: 12),
+                              IconButton(
+                                tooltip: 'Back 10 seconds',
+                                icon: const Icon(Icons.replay_10_rounded,
+                                    color: Colors.white),
+                                onPressed: () =>
+                                    _seekBy(const Duration(seconds: -10)),
+                              ),
+                              IconButton(
+                                tooltip: 'Forward 10 seconds',
+                                icon: const Icon(Icons.forward_10_rounded,
+                                    color: Colors.white),
+                                onPressed: () =>
+                                    _seekBy(const Duration(seconds: 10)),
+                              ),
+                              const SizedBox(width: 8),
                               ValueListenableBuilder(
                                 valueListenable: widget.controller,
                                 builder:

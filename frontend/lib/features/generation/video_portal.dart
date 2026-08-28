@@ -525,14 +525,19 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        setState(() {});
-      }).catchError((err) {
-        setState(() {
-          _errorMsg = err.toString();
-        });
-      });
+    _initializeController();
+  }
+
+  void _initializeController() {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _controller = controller;
+    controller.initialize().then((_) {
+      if (mounted && identical(_controller, controller)) setState(() {});
+    }).catchError((err) {
+      if (mounted && identical(_controller, controller)) {
+        setState(() => _errorMsg = err.toString());
+      }
+    });
   }
 
   @override
@@ -551,6 +556,23 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
     // The rendered narration is already mastered at 0.9x; label that pace 1x.
     await _controller.setPlaybackSpeed(multiplier);
     if (mounted) setState(() => _playbackMultiplier = multiplier);
+  }
+
+  Future<void> _seekBy(Duration offset) async {
+    final duration = _controller.value.duration;
+    final requested = _controller.value.position + offset;
+    final milliseconds = requested.inMilliseconds
+        .clamp(0, duration.inMilliseconds)
+        .toInt();
+    await _controller.seekTo(Duration(milliseconds: milliseconds));
+  }
+
+  Future<void> _retryInitialization() async {
+    await _controller.dispose();
+    if (!mounted) return;
+    _errorMsg = null;
+    _initializeController();
+    setState(() {});
   }
 
   void _toggleFullscreen() {
@@ -586,6 +608,12 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.barlow(color: Colors.white70, fontSize: 13),
               ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _retryInitialization,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry video'),
+              ),
             ],
           ),
         ),
@@ -611,6 +639,17 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
               aspectRatio: _controller.value.aspectRatio,
               child: VideoPlayer(_controller),
             ),
+          ),
+
+          ValueListenableBuilder<VideoPlayerValue>(
+            valueListenable: _controller,
+            builder: (context, value, child) => value.isBuffering
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
 
           // Custom controls bar overlaid on hovering
@@ -657,7 +696,21 @@ class _ModuleVideoPlayerState extends State<ModuleVideoPlayer> {
                               });
                             },
                           ),
-                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Back 10 seconds',
+                            icon: const Icon(Icons.replay_10_rounded,
+                                color: Colors.white),
+                            onPressed: () =>
+                                _seekBy(const Duration(seconds: -10)),
+                          ),
+                          IconButton(
+                            tooltip: 'Forward 10 seconds',
+                            icon: const Icon(Icons.forward_10_rounded,
+                                color: Colors.white),
+                            onPressed: () =>
+                                _seekBy(const Duration(seconds: 10)),
+                          ),
+                          const SizedBox(width: 4),
                           // Text durations
                           ValueListenableBuilder(
                             valueListenable: _controller,

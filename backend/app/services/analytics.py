@@ -124,7 +124,7 @@ def api_trainer_performance(
     course_id: str | None = None,
     employee_id: str | None = None,
     department: str | None = None,
-    job_title: str | None = None,
+    mailing_list: str | None = None,
     status: str | None = None,
     joined_less_than_days_ago: int | None = None,
 ):
@@ -147,7 +147,7 @@ def api_trainer_performance(
     }
     course_groups: dict[str, dict[str, Any]] = {}
     department_groups: dict[str, dict[str, Any]] = {}
-    job_title_groups: dict[str, dict[str, Any]] = {}
+    mailing_list_groups: dict[str, dict[str, Any]] = {}
     total_attempts = 0
     scores = []
 
@@ -168,7 +168,8 @@ def api_trainer_performance(
             continue
         if department and employee.get("department") != department:
             continue
-        if job_title and employee.get("job_title") != job_title:
+        employee_mailing_lists = employee.get("mailing_lists") or []
+        if mailing_list and mailing_list not in employee_mailing_lists:
             continue
         if joined_less_than_days_ago is not None:
             join_date = parse_date_like(employee.get("join_date"))
@@ -191,11 +192,19 @@ def api_trainer_performance(
             employee.get("department") or "Unassigned",
             status_info["key"],
         )
-        _add_breakdown_count(
-            job_title_groups,
-            employee.get("job_title") or "Unassigned",
-            status_info["key"],
-        )
+        if employee_mailing_lists:
+            for employee_mailing_list in employee_mailing_lists:
+                _add_breakdown_count(
+                    mailing_list_groups,
+                    employee_mailing_list,
+                    status_info["key"],
+                )
+        else:
+            _add_breakdown_count(
+                mailing_list_groups,
+                "No mailing list",
+                status_info["key"],
+            )
         rows.append(
             {
                 "employee": employee,
@@ -231,6 +240,7 @@ def api_trainer_performance(
     )
 
     options = _employees.assignment_options()
+    options.pop("job_titles", None)
     options["courses"] = [
         {"course_id": identifier, "course_name": course_title(course)}
         for identifier, course in sorted(
@@ -249,7 +259,7 @@ def api_trainer_performance(
         "breakdowns": {
             "courses": _finalize_breakdowns(course_groups),
             "departments": _finalize_breakdowns(department_groups),
-            "job_titles": _finalize_breakdowns(job_title_groups),
+            "mailing_lists": _finalize_breakdowns(mailing_list_groups),
         },
         "rows": rows,
         "options": options,

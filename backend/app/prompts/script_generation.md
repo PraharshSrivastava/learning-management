@@ -18,7 +18,7 @@ RULES FOR THE SCRIPT:
 - Use the supporting source text to explain the ideas shown on the slide in clear, conversational language. Do not copy it verbatim or narrate it as a document.
 - For normal content slides, write as if the presenter is walking the learner through the slide that is currently visible on screen.
 - Begin by briefly orienting the learner to the visible slide title or main idea.
-- Then move through every visible content item on that slide in display order. This includes bullets, steps, cards, columns, comparison sides, table-like rows, concept definitions, key takeaways, and any other meaningful text fields in the slide JSON.
+- Then move through every visible content item on that slide in display order. This includes bullets, steps, cards, columns, comparison sides, table-like rows, and any other meaningful text fields in the slide JSON.
 - For each visible content item, explain what it means using the supporting source text. Add relevant source detail under the closest matching visible item instead of drifting into a general lecture.
 - If a slide includes an image with a detailed caption, address the image in the narration and connect it to the closest relevant visible content item.
 - Do not summarize the slide as a whole if there are individual points shown. Each visible point needs its own spoken treatment.

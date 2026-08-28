@@ -203,36 +203,9 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
     ModuleResponse.model_validate(module)
     return module
 
-def _convert_single_grid_to_concept(slide: Dict[str, Any]) -> bool:
-    """Replace an invalid one-card grid with a concept built from original grouped content."""
-    grid = slide.get("grid_data") or {}
-    columns = grid.get("columns") or []
-    if str(slide.get("layout_type", "")).lower() != "grid" or len(columns) != 1:
-        return False
-
-    column = columns[0] or {}
-    source_points = [str(point).strip() for point in slide.get("content", []) if str(point).strip()]
-    if not source_points:
-        source_points = [
-            str(point).strip() for point in column.get("points", []) if str(point).strip()
-        ]
-    if not source_points:
-        return False
-
-    slide["layout_type"] = "concept"
-    slide["concept_data"] = {
-        "core_term": column.get("header")
-        or slide.get("slide_title")
-        or slide.get("title", "Key Concept"),
-        "definition": source_points[0],
-        "key_takeaways": source_points[1:],
-    }
-    slide.pop("grid_data", None)
-    return True
-
 def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> dict:
     """
-    Step 6 logic: Assigns layouts (concept, steps, etc.) to the planned slides.
+    Step 6 logic: Assigns layouts to the planned slides.
     """
     planned_slides = module.get("planned_slides", [])
     if not planned_slides:
@@ -280,8 +253,6 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
         )
 
         raw_payload = json.loads(response.choices[0].message.content)
-        for enhanced_slide in raw_payload.get("slides", []):
-            _convert_single_grid_to_concept(enhanced_slide)
         parsed = ArtDirectorResponse.model_validate(raw_payload)
 
         for i, enhanced_slide in enumerate(parsed.slides):
@@ -296,8 +267,6 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
                         if img.get("image_id")
                     ]
 
-                if enhanced_slide.concept_data:
-                    planned_slides[i]["concept_data"] = enhanced_slide.concept_data.model_dump()
                 if enhanced_slide.steps_data:
                     planned_slides[i]["steps_data"] = enhanced_slide.steps_data.model_dump()
                 if enhanced_slide.comparison_data:
@@ -310,9 +279,6 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
                     planned_slides[i]["bullets_data"] = enhanced_slide.bullets
                     planned_slides[i]["content"] = enhanced_slide.bullets
                     planned_slides[i]["bullets"] = enhanced_slide.bullets
-
-                _convert_single_grid_to_concept(planned_slides[i])
-
         module["slides"] = planned_slides
 
     except (
@@ -347,19 +313,6 @@ def _module_slides_are_valid(mod_copy: dict) -> bool:
         if len(content) == 0:
             logger.info(
                 "slide_validation_failed module=%s reason=empty_slide",
-                mod_copy.get("module_number"),
-            )
-            return False
-        if len(content) == 1 and layout not in ["concept", "comparison"]:
-            logger.info(
-                "slide_validation_failed module=%s reason=single_bullet layout=%s",
-                mod_copy.get("module_number"),
-                layout,
-            )
-            return False
-        if layout == "concept" and not slide.get("concept_data"):
-            logger.info(
-                "slide_validation_failed module=%s reason=missing_concept_data",
                 mod_copy.get("module_number"),
             )
             return False
@@ -400,13 +353,6 @@ def _apply_slide_fallbacks(best_module_state: dict) -> dict:
         content = slide.get("content", [])
         layout = slide.get("layout_type", "")
 
-        if _convert_single_grid_to_concept(slide):
-            layout = "concept"
-            logger.info(
-                "slide_layout_forced title=%s reason=one_card_grid layout=concept",
-                slide.get("title"),
-            )
-
         if not slide.get("slide_title"):
             slide["slide_title"] = slide.get("title", "Fallback Title")
             logger.info("slide_title_forced title=%s", slide["slide_title"])
@@ -414,29 +360,7 @@ def _apply_slide_fallbacks(best_module_state: dict) -> dict:
         if len(content) == 0:
             logger.info("empty_slide_dropped title=%s", slide.get("title"))
             continue
-        if len(content) == 1 and layout not in ["concept", "comparison"]:
-            logger.info(
-                "slide_layout_forced title=%s reason=single_bullet previous_layout=%s layout=concept",
-                slide.get("title"),
-                layout,
-            )
-            slide["layout_type"] = "concept"
-            if "concept_data" not in slide or not slide["concept_data"]:
-                slide["concept_data"] = {
-                    "core_term": slide.get("title", "Key Concept"),
-                    "definition": content[0],
-                    "key_takeaways": [],
-                }
-            fixed_slides.append(slide)
-            continue
-
-        if layout == "concept" and not slide.get("concept_data"):
-            slide["layout_type"] = "bullets"
-            logger.info(
-                "slide_layout_forced title=%s reason=missing_concept_data layout=bullets",
-                slide.get("title"),
-            )
-        elif layout == "steps" and not slide.get("steps_data"):
+        if layout == "steps" and not slide.get("steps_data"):
             slide["layout_type"] = "bullets"
             logger.info(
                 "slide_layout_forced title=%s reason=missing_steps_data layout=bullets",

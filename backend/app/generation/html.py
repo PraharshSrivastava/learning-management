@@ -30,8 +30,6 @@ def render_layout(
 ) -> list[str]:
     if is_cover:
         return _render_cover(slide, module_number)
-    if layout == "concept" and slide.get("concept_data"):
-        return _render_concept(slide["concept_data"], slide_index)
     if layout == "steps" and slide.get("steps_data"):
         return _render_steps(slide["steps_data"], is_variant_one)
     if layout == "comparison" and slide.get("comparison_data"):
@@ -81,44 +79,6 @@ def _render_cover(slide: dict[str, Any], module_number: int) -> list[str]:
         f'<div class="module-cover-kicker">Module {escape(current_module)}{suffix}</div>',
         "</div>",
     ]
-
-def _render_concept(data: dict[str, Any], slide_index: int) -> list[str]:
-    takeaways = _concept_takeaways(data)
-    points = (
-        '<div class="point-list">'
-        + "".join(f'<div class="point">{escape(item)}</div>' for item in takeaways)
-        + "</div>"
-        if takeaways
-        else ""
-    )
-    return [
-        f'<section class="silver-panel {"no-points" if not takeaways else ""}" '
-        f'style="--point-cols:{max(len(takeaways), 1)}">'
-        f'<div class="panel-copy"><div class="panel-title">'
-        f"{escape(data.get('core_term', ''))}</div>"
-        f'<div class="panel-definition">{escape(data.get("definition", ""))}</div></div>'
-        f'<div class="icon-tile"><img src="{brand_icon_path(slide_index)}" alt=""></div>'
-        f"{points}</section>"
-    ]
-
-def _concept_takeaways(data: dict[str, Any]) -> list[str]:
-    takeaways = data.get("key_takeaways", [])
-    if not takeaways and data.get("key_takeaway"):
-        takeaways = [data["key_takeaway"]]
-    return [str(item).strip() for item in takeaways if str(item).strip()]
-
-def _concept_density_class(slide: dict[str, Any], has_images: bool) -> str:
-    data = slide.get("concept_data") or {}
-    takeaways = _concept_takeaways(data)
-    definition_words = len(str(data.get("definition", "")).split())
-
-    if has_images:
-        return ""
-    if not takeaways:
-        return " concept-sparse"
-    if len(takeaways) < 3 and definition_words < 30:
-        return " concept-focus"
-    return " concept-balanced"
 
 def _render_steps(data: dict[str, Any], is_variant_one: bool) -> list[str]:
     steps = list(data.get("steps", []))[:5]
@@ -222,10 +182,16 @@ def _render_bullets(slide: dict[str, Any], is_variant_one: bool) -> list[str]:
     bullets = slide.get("bullets_data") or slide.get("bullets") or slide.get("content", [])
     bullets = [item for item in bullets if item and (isinstance(item, str) or item.get("text", ""))]
     count = min(max(len(bullets), 1), 5)
-    list_class = "editorial-list" if is_variant_one else "numbered-list"
-    item_class = "editorial-item" if is_variant_one else "numbered-item"
-    index_class = "editorial-index" if is_variant_one else "numbered-index"
-    text_class = "editorial-text" if is_variant_one else "numbered-text"
+    if is_variant_one:
+        list_class = f"ribbon-list items-{count}"
+        item_class = "ribbon-item"
+        index_class = "ribbon-num"
+        text_class = "ribbon-text"
+    else:
+        list_class = f"spread-grid items-{count}"
+        item_class = "spread-item"
+        index_class = "spread-num"
+        text_class = "spread-text"
     parts = [
         f'<div class="bullet-fit items-{count}"><ol class="{list_class}" style="--items:{count}">'
     ]
@@ -233,7 +199,7 @@ def _render_bullets(slide: dict[str, Any], is_variant_one: bool) -> list[str]:
         text = item if isinstance(item, str) else item.get("text", "")
         if text:
             parts.append(
-                f'<li class="{item_class}"><div class="{index_class}">{index + 1:02d}</div>'
+                f'<li class="{item_class}"><span class="{index_class}">{index + 1:02d}</span>'
                 f'<p class="{text_class}">{escape(text)}</p></li>'
             )
     parts.append("</ol></div>")
@@ -278,7 +244,6 @@ def generate_html_slides_for_module(
     <!-- Use local static CSS which will contain our new variations -->
     <link rel="stylesheet" href="../../slides.css">
     <link rel="stylesheet" href="../../layouts/cover.css">
-    <link rel="stylesheet" href="../../layouts/concept.css">
     <link rel="stylesheet" href="../../layouts/comparison.css">
     <link rel="stylesheet" href="../../layouts/bullets.css">
     <link rel="stylesheet" href="../../layouts/steps.css">
@@ -318,19 +283,12 @@ def generate_html_slides_for_module(
         body_class = f"slide-body n-{img_count}" if has_images else "slide-body no-image"
 
         is_cover = layout_type_str == "cover" or slide.get("is_cover_slide")
-        concept_template_class = (
-            " statement"
-            if layout_type_str == "concept" and is_v1
-            else (" evidence" if layout_type_str == "concept" else "")
-        )
-        if layout_type_str == "concept" and slide.get("concept_data"):
-            concept_template_class += _concept_density_class(slide, has_images)
         # The source-deck header holds the slide title; layouts must not repeat it.
         header_html = ""
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
-        <div class="slide slide--{layout_type_str}{" slide--cover" if is_cover else ""} {variant_class}{concept_template_class}{" slide--with-images has-images" if has_images else " slide--text-only no-images"}" id="slide-{slide_idx}">
+        <div class="slide slide--{layout_type_str}{" slide--cover" if is_cover else ""} {variant_class}{" slide--with-images has-images" if has_images else " slide--text-only no-images"}" id="slide-{slide_idx}">
             <header class="brand-header">
                 <div class="brand-slide-title {title_size_class}">{escape(slide_title)}</div>
                 <div class="brand-lockup" aria-label="PhillipCapital Wealth. Across Chapters.">
@@ -412,7 +370,7 @@ def generate_html_slides_for_module(
                 minSize = slide.classList.contains('has-images') ? 10 : 11;
                 maxSize = slide.classList.contains('has-images') ? 18 : 22;
             } else if (slide.classList.contains('slide--bullets')) {
-                textSelector = '.editorial-text, .numbered-text';
+                textSelector = '.ribbon-text, .spread-text';
                 containerSelector = '.bullet-fit';
                 minSize = slide.classList.contains('has-images') ? 12 : 14;
                 maxSize = slide.classList.contains('has-images') ? 28 : 34;

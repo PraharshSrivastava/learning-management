@@ -26,7 +26,6 @@ def _inject_local_slide_assets(page) -> None:
     css_files = [
         settings.template_dir / "slides.css",
         settings.template_dir / "layouts" / "cover.css",
-        settings.template_dir / "layouts" / "concept.css",
         settings.template_dir / "layouts" / "comparison.css",
         settings.template_dir / "layouts" / "bullets.css",
         settings.template_dir / "layouts" / "steps.css",
@@ -162,6 +161,8 @@ def concatenate_clips(clips: list[str], output_path: str, *, working_dir: str) -
         str(manifest),
         "-c",
         "copy",
+        "-movflags",
+        "+faststart",
         output_path,
     ]
     result = subprocess.run(  # nosec B603

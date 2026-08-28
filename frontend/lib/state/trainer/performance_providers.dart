@@ -4,7 +4,7 @@ class PerformanceFilter {
   final String? courseId;
   final String? employeeId;
   final String? department;
-  final String? jobTitle;
+  final String? mailingList;
   final String? status;
   final int? joinedLessThanDaysAgo;
 
@@ -12,7 +12,7 @@ class PerformanceFilter {
     this.courseId,
     this.employeeId,
     this.department,
-    this.jobTitle,
+    this.mailingList,
     this.status,
     this.joinedLessThanDaysAgo,
   });
@@ -21,13 +21,13 @@ class PerformanceFilter {
     String? courseId,
     String? employeeId,
     String? department,
-    String? jobTitle,
+    String? mailingList,
     String? status,
     int? joinedLessThanDaysAgo,
     bool clearCourse = false,
     bool clearEmployee = false,
     bool clearDepartment = false,
-    bool clearJobTitle = false,
+    bool clearMailingList = false,
     bool clearStatus = false,
     bool clearJoined = false,
   }) {
@@ -35,7 +35,8 @@ class PerformanceFilter {
       courseId: clearCourse ? null : (courseId ?? this.courseId),
       employeeId: clearEmployee ? null : (employeeId ?? this.employeeId),
       department: clearDepartment ? null : (department ?? this.department),
-      jobTitle: clearJobTitle ? null : (jobTitle ?? this.jobTitle),
+      mailingList:
+          clearMailingList ? null : (mailingList ?? this.mailingList),
       status: clearStatus ? null : (status ?? this.status),
       joinedLessThanDaysAgo: clearJoined
           ? null
@@ -87,7 +88,9 @@ class PerformanceNotifier extends StateNotifier<PerformanceState> {
       if (filter.courseId != null) params['course_id'] = filter.courseId!;
       if (filter.employeeId != null) params['employee_id'] = filter.employeeId!;
       if (filter.department != null) params['department'] = filter.department!;
-      if (filter.jobTitle != null) params['job_title'] = filter.jobTitle!;
+      if (filter.mailingList != null) {
+        params['mailing_list'] = filter.mailingList!;
+      }
       if (filter.status != null) params['status'] = filter.status!;
       if (filter.joinedLessThanDaysAgo != null) {
         params['joined_less_than_days_ago'] =

@@ -32,12 +32,6 @@ class ImageMappingResult(BaseModel):
     mappings: list[ImageMapping]
 
 
-class ConceptLayoutData(BaseModel):
-    core_term: str
-    definition: str
-    key_takeaways: list[str]
-
-
 class StepItem(BaseModel):
     title: str
     description: str
@@ -64,8 +58,7 @@ class GridLayoutData(BaseModel):
 
 
 class ArtDirectorSlidePlan(BaseModel):
-    layout_type: Literal["concept", "steps", "comparison", "grid", "bullets"]
-    concept_data: ConceptLayoutData | None = None
+    layout_type: Literal["steps", "comparison", "grid", "bullets"]
     steps_data: StepsLayoutData | None = None
     comparison_data: ComparisonLayoutData | None = None
     grid_data: GridLayoutData | None = None

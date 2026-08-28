@@ -70,7 +70,7 @@ class Settings(BaseModel):
     tts_speed: float = Field(default=0.9, gt=0)
     slide_transition_pause_seconds: float = Field(default=1.0, ge=0)
     thumbnail_endpoint: str = "http://35.238.33.238:4000/v1/images/generations"
-    thumbnail_model: str = "ernie-image"
+    thumbnail_model: str = "z-image-turbo"
     thumbnail_api_key: str | None = None
     thumbnail_connect_timeout: float = Field(default=60, gt=0)
     thumbnail_read_timeout: float = Field(default=500, gt=0)
@@ -204,7 +204,7 @@ class Settings(BaseModel):
                     "COURSE_THUMBNAIL_ENDPOINT",
                     "http://35.238.33.238:4000/v1/images/generations",
                 ),
-                "thumbnail_model": values.get("COURSE_THUMBNAIL_MODEL", "ernie-image"),
+                "thumbnail_model": values.get("COURSE_THUMBNAIL_MODEL", "z-image-turbo"),
                 "thumbnail_api_key": values.get("COURSE_THUMBNAIL_API_KEY")
                 or values.get("LLM_API_KEY")
                 or values.get("LITELLM_API_KEY")

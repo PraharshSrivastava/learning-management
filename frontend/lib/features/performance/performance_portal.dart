@@ -149,16 +149,19 @@ class _Filters extends ConsumerWidget {
                     ),
           ),
           _FilterDropdown(
-            width: 180,
-            label: 'Job title',
-            value: filter.jobTitle,
+            width: 210,
+            label: 'Mailing list',
+            value: filter.mailingList,
             items: {
-              for (final jobTitle in dashboard.options.jobTitles)
-                jobTitle: jobTitle,
+              for (final mailingList in dashboard.options.mailingLists)
+                mailingList: mailingList,
             },
             onChanged: (value) =>
                 ref.read(performanceProvider.notifier).updateFilter(
-                      filter.copyWith(jobTitle: value, clearJobTitle: value == null),
+                      filter.copyWith(
+                        mailingList: value,
+                        clearMailingList: value == null,
+                      ),
                     ),
           ),
           _FilterDropdown(
@@ -439,7 +442,13 @@ class _PerformanceRowTile extends StatelessWidget {
                 width: 220,
                 top: row.employee.name,
                 bottom: row.employee.department),
-            _Cell(width: 260, top: row.courseTitle, bottom: row.employee.jobTitle),
+            _Cell(
+              width: 260,
+              top: row.courseTitle,
+              bottom: row.employee.mailingLists.isEmpty
+                  ? 'No mailing list'
+                  : row.employee.mailingLists.join(', '),
+            ),
             _StatusChip(label: row.statusLabel, statusKey: row.statusKey),
             _Cell(
               width: 130,

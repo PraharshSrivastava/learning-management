@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bullets option C - Magazine spread</title>
+  <link rel="stylesheet" href="slides.css">
+  <link rel="stylesheet" href="layouts/bullets.css">
+  <style>
+    html, body { width: auto; height: auto; min-height: 100%; overflow: auto; display: block; background: #202a35; }
+    body { color: #fff; font-family: Barlow, Arial, sans-serif; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 18px 16px 12px; }
+    .controls span { margin-left: 8px; color: #d4e0e9; font-size: 14px; font-weight: 600; }
+    button { border: 1px solid rgba(255,255,255,.26); border-radius: 99px; padding: 8px 13px; background: rgba(255,255,255,.08); color: #fff; cursor: pointer; font: 600 14px Barlow, Arial, sans-serif; }
+    button.active { border-color: var(--pc-blue-accent); background: var(--pc-blue-accent); color: var(--pc-deep-navy); }
+    .caption { margin: 0 0 14px; color: #d4e0e9; text-align: center; font-size: 14px; }
+    .frame { width: min(1280px, 100vw); margin: 0 auto 28px; box-shadow: 0 14px 42px rgba(0,0,0,.38); }
+    .slide { position: relative; display: flex; flex-direction: column; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; padding: 20px 58px 18px; background: linear-gradient(100deg, var(--pc-blue-wash) 0%, var(--pc-blue-mid) 52%, var(--pc-peach-wash) 100%); color: var(--pc-body); opacity: 1; }
+    .slide.has-images .body { grid-template-columns: minmax(0, 1fr) minmax(340px, .62fr); gap: 24px; }
+    .context { position: relative; max-width: 820px; padding-left: 14px; color: var(--pc-primary); font-size: 24px; line-height: 34px; font-weight: 600; }
+    .context:before { content: ""; position: absolute; top: 2px; bottom: 2px; left: 0; width: 3px; background: var(--pc-primary); }
+    .footer { position: relative; height: 38px; margin: 0 -20px; flex-shrink: 0; }
+    .footer:before { content: ""; position: absolute; top: 12px; left: 20px; right: 22px; height: 1px; background: linear-gradient(90deg, rgba(29,58,120,.64), rgba(245,170,143,.72)); }
+    .page { position: absolute; top: 2px; right: 0; color: var(--pc-primary); font-size: 14px; font-weight: 600; }
+    .sample-image { display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.94); background: linear-gradient(135deg, rgba(255,255,255,.82), rgba(171,225,250,.36)); }
+    .sample-image:before { content: attr(data-label); width: 72%; padding: 18px; border-left: 4px solid var(--pc-primary); color: var(--pc-primary); font-size: 20px; line-height: 1.15; font-weight: 700; background: rgba(255,255,255,.46); }
+
+    .spread-grid { --bullet-size: 19px; --num-size: 44px; display: grid; height: 100%; gap: 24px 34px; }
+    .spread-grid.items-1 { grid-template-columns: 1fr; --bullet-size: 34px; --num-size: 78px; }
+    .spread-grid.items-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); --bullet-size: 26px; --num-size: 62px; }
+    .spread-grid.items-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); --bullet-size: 21px; --num-size: 50px; }
+    .spread-grid.items-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); --bullet-size: 19px; --num-size: 44px; }
+    .spread-grid.items-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); --bullet-size: 16px; --num-size: 36px; gap: 18px 24px; }
+    .has-images .spread-grid { gap: 12px 16px; --bullet-size: 13px; --num-size: 28px; }
+    .has-images .spread-grid.items-1 { --bullet-size: 24px; --num-size: 52px; }
+    .has-images .spread-grid.items-2 { --bullet-size: 18px; --num-size: 38px; }
+    .has-images .spread-grid.items-3, .has-images .spread-grid.items-4, .has-images .spread-grid.items-5 { grid-template-columns: 1fr; }
+    .spread-item { position: relative; min-width: 0; min-height: 0; overflow: hidden; padding: 24px 20px 10px 0; border-top: 3px solid var(--pc-primary); }
+    .spread-item:nth-child(even) { border-top-color: var(--pc-peach-accent); }
+    .spread-num { display: block; margin-bottom: 12px; color: rgba(29,58,120,.28); font-size: var(--num-size); line-height: .82; font-weight: 700; letter-spacing: 0; }
+    .spread-text { margin: 0; color: var(--pc-body); font-size: var(--bullet-size); line-height: 1.24; font-weight: 500; overflow-wrap: anywhere; }
+    .has-images .spread-item { padding: 10px 8px 6px 0; border-top-width: 2px; }
+    .has-images .spread-num { float: left; margin: 0 10px 4px 0; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <span>Option C</span><button class="active">Magazine spread</button>
+    <span>Bullets</span><button data-items="1">1</button><button data-items="2">2</button><button class="active" data-items="3">3</button><button data-items="4">4</button><button data-items="5">5</button>
+    <span>Images</span><button class="active" data-images="0">0</button><button data-images="1">1</button><button data-images="2">2</button><button data-images="3">3</button>
+    <span>Text</span><button data-length="short">Short</button><button class="active" data-length="normal">Normal</button><button data-length="long">Long</button>
+  </div>
+  <p class="caption" id="caption"></p>
+  <div class="frame">
+    <main class="slide no-images" id="slide">
+      <header class="brand-header"><div class="context">Building Better Decision Habits</div><div class="brand-lockup"><div class="brand-name">PhillipCapital</div><div class="brand-tagline">Wealth. Across Chapters.</div></div></header>
+      <div class="body" id="body"></div>
+      <footer class="footer"><span class="page">05</span></footer>
+    </main>
+  </div>
+  <script>
+    const copy = {
+      short: ['Check evidence first.', 'Apply the same standard.', 'Escalate unclear cases.', 'Document the rationale.', 'Review the outcome.'],
+      normal: ['Use the available evidence before acting, especially when the decision affects clients, controls, or long-term outcomes.', 'Apply the same reasoning consistently across similar cases so decisions remain fair, explainable, and easy to review.', 'Escalate early when facts are missing, conflicting, or too uncertain for a reliable decision.', 'Document the rationale clearly so another reviewer can understand what was considered and why the choice was made.', 'Review the result afterward and use the lesson to improve future decisions.'],
+      long: ['Use the available evidence before acting, especially when the decision affects clients, operational controls, regulatory exposure, or long-term business outcomes.', 'Apply the same reasoning consistently across similar cases so decisions remain fair, explainable, reviewable, and aligned with the stated organisational approach.', 'Escalate early when facts are missing, conflicting, time-sensitive, or too uncertain for a reliable decision to be made at the current level.', 'Document the rationale clearly so another reviewer can understand what evidence was considered, what trade-offs were accepted, and why the choice was made.', 'Review the result afterward, compare it with the intended outcome, and use the lesson to improve similar decisions in the future.']
+    };
+    let itemCount = 3, imageCount = 0, textLength = 'normal';
+    const bullets = () => copy[textLength].slice(0, itemCount);
+    const images = () => imageCount ? `<aside class="image-grid count-${imageCount}" aria-label="Course source images">${['Source chart', 'PDF visual', 'Process figure'].slice(0, imageCount).map(label => `<div class="sample-image image" data-label="${label}"></div>`).join('')}</aside>` : '';
+    const fit = () => document.querySelectorAll('.spread-text').forEach(el => { let size = parseFloat(getComputedStyle(el).fontSize); while ((el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) && size > 8) { size -= .25; el.style.fontSize = `${size}px`; el.style.lineHeight = '1.04'; } });
+    function redraw() {
+      const slide = document.querySelector('#slide');
+      slide.className = `slide ${imageCount ? 'has-images' : 'no-images'}`;
+      document.querySelector('#body').innerHTML = `<div class="content-area"><div class="spread-grid items-${itemCount}">${bullets().map((text, index) => `<section class="spread-item"><span class="spread-num">${String(index + 1).padStart(2, '0')}</span><p class="spread-text">${text}</p></section>`).join('')}</div></div>${images()}`;
+      document.querySelector('#caption').textContent = `Option C - magazine spread - ${itemCount} bullet${itemCount === 1 ? '' : 's'} - ${imageCount} image${imageCount === 1 ? '' : 's'} - ${textLength} text`;
+      document.querySelectorAll('[data-items]').forEach(b => b.classList.toggle('active', +b.dataset.items === itemCount));
+      document.querySelectorAll('[data-images]').forEach(b => b.classList.toggle('active', +b.dataset.images === imageCount));
+      document.querySelectorAll('[data-length]').forEach(b => b.classList.toggle('active', b.dataset.length === textLength));
+      requestAnimationFrame(fit);
+    }
+    document.querySelectorAll('[data-items]').forEach(b => b.onclick = () => { itemCount = +b.dataset.items; redraw(); });
+    document.querySelectorAll('[data-images]').forEach(b => b.onclick = () => { imageCount = +b.dataset.images; redraw(); });
+    document.querySelectorAll('[data-length]').forEach(b => b.onclick = () => { textLength = b.dataset.length; redraw(); });
+    redraw();
+  </script>
+</body>
+</html>

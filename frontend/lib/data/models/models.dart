@@ -451,7 +451,6 @@ class PerformanceOptions {
   final List<Employee> employees;
   final List<String> departments;
   final List<String> mailingLists;
-  final List<String> jobTitles;
   final List<PerformanceCourseOption> courses;
   final List<PerformanceStatusOption> statuses;
 
@@ -459,7 +458,6 @@ class PerformanceOptions {
     this.employees = const [],
     this.departments = const [],
     this.mailingLists = const [],
-    this.jobTitles = const [],
     this.courses = const [],
     this.statuses = const [],
   });
@@ -473,9 +471,6 @@ class PerformanceOptions {
           .map((item) => item.toString())
           .toList(),
       mailingLists: (json['mailing_lists'] as List? ?? [])
-          .map((item) => item.toString())
-          .toList(),
-      jobTitles: (json['job_titles'] as List? ?? [])
           .map((item) => item.toString())
           .toList(),
       courses: (json['courses'] as List? ?? [])
@@ -663,7 +658,7 @@ class PerformanceDashboard {
   final PerformanceSummary summary;
   final List<PerformanceBreakdown> courseBreakdowns;
   final List<PerformanceBreakdown> departmentBreakdowns;
-  final List<PerformanceBreakdown> jobTitleBreakdowns;
+  final List<PerformanceBreakdown> mailingListBreakdowns;
   final List<PerformanceRow> rows;
   final PerformanceOptions options;
   final String generatedAt;
@@ -672,7 +667,7 @@ class PerformanceDashboard {
     this.summary = const PerformanceSummary(),
     this.courseBreakdowns = const [],
     this.departmentBreakdowns = const [],
-    this.jobTitleBreakdowns = const [],
+    this.mailingListBreakdowns = const [],
     this.rows = const [],
     this.options = const PerformanceOptions(),
     this.generatedAt = '',
@@ -691,7 +686,7 @@ class PerformanceDashboard {
       ),
       courseBreakdowns: breakdownList('courses'),
       departmentBreakdowns: breakdownList('departments'),
-      jobTitleBreakdowns: breakdownList('job_titles'),
+      mailingListBreakdowns: breakdownList('mailing_lists'),
       rows: (json['rows'] as List? ?? [])
           .map((item) => PerformanceRow.fromJson(item as Map<String, dynamic>))
           .toList(),

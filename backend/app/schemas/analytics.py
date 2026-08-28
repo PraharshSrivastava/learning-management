@@ -86,7 +86,6 @@ class StatusOption(ApiSchema):
 class PerformanceOptions(ApiSchema):
     departments: list[str] = Field(default_factory=list)
     mailing_lists: list[str] = Field(default_factory=list)
-    job_titles: list[str] = Field(default_factory=list)
     employees: list[EmployeeResponse] = Field(default_factory=list)
     courses: list[SelectOption] = Field(default_factory=list)
     statuses: list[StatusOption] = Field(default_factory=list)
@@ -95,7 +94,7 @@ class PerformanceOptions(ApiSchema):
 class PerformanceBreakdowns(ApiSchema):
     courses: list[PerformanceBreakdown] = Field(default_factory=list)
     departments: list[PerformanceBreakdown] = Field(default_factory=list)
-    job_titles: list[PerformanceBreakdown] = Field(default_factory=list)
+    mailing_lists: list[PerformanceBreakdown] = Field(default_factory=list)
 
 
 class TrainerPerformanceResponse(ApiSchema):
