@@ -29,6 +29,29 @@ _employees = EmployeeRepository()
 _progress = ProgressRepository()
 
 
+def _queue_completion_email(saved: dict | None) -> None:
+    if not isinstance(saved, dict):
+        return
+    if saved.get("status") != "completed" or saved.get("previous_status") == "completed":
+        return
+    try:
+        from app.services.email_notifications import (
+            cancel_assignment_notifications,
+            enqueue_assignment_notifications,
+        )
+
+        assignment_id = saved.get("assignment_id")
+        cancel_assignment_notifications(assignment_id)
+        enqueue_assignment_notifications(assignment_id, "completed")
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "course_completion_email_queue_failed assignment_id=%s",
+            saved.get("assignment_id"),
+        )
+
+
 def _learner_modules(modules: list[dict]) -> list[dict]:
     """Expose generated quizzes in the stable learner-facing question shape."""
     learner_modules = []
@@ -93,7 +116,20 @@ def get_enriched_employee_courses(employee_id: str) -> list[dict]:
                 course_progress["status"] = "overdue"
                 changed = True
         if changed:
-            _progress.save(employee_id, course_id, course_progress)
+            saved = _progress.save(employee_id, course_id, course_progress)
+            if course_progress["status"] == "overdue":
+                try:
+                    from app.services.email_notifications import enqueue_assignment_notifications
+
+                    if isinstance(saved, dict):
+                        enqueue_assignment_notifications(saved.get("assignment_id"), "overdue")
+                except Exception:
+                    import logging
+
+                    logging.getLogger(__name__).exception(
+                        "course_overdue_email_queue_failed assignment_id=%s",
+                        saved.get("assignment_id") if isinstance(saved, dict) else None,
+                    )
 
         enriched = dict(course)
         enriched["modules"] = _learner_modules(course.get("modules") or [])
@@ -153,7 +189,8 @@ async def update_course_status(
         course_progress["started_at"] = now
     if payload.status == "completed":
         course_progress["completed_at"] = now
-    _progress.save(employee_id, course_id, course_progress)
+    saved = _progress.save(employee_id, course_id, course_progress)
+    _queue_completion_email(saved)
     await broadcast_employee_courses(employee_id)
     return CourseStatusUpdateResponse(message="Status updated", status=payload.status)
 
@@ -226,7 +263,8 @@ async def update_module_progress(
             course_progress["status"] = "completed"
             course_progress["completed_at"] = now
 
-    _progress.save(employee_id, course_id, course_progress)
+    saved = _progress.save(employee_id, course_id, course_progress)
+    _queue_completion_email(saved)
     await broadcast_employee_courses(employee_id)
     return {"message": "Module progress updated"}
 
