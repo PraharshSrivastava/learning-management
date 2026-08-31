@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:employee_frontend/core/theme/app_theme.dart';
+import 'package:employee_frontend/core/video/hls_video_player.dart';
 import 'package:employee_frontend/data/models/models.dart';
 import 'package:employee_frontend/state/trainer_preview_providers.dart';
 import 'package:employee_frontend/core/config/app_constants.dart';
@@ -370,8 +371,12 @@ class _VideoViewState extends ConsumerState<VideoView> {
                           ],
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: ModuleVideoPlayer(
-                            url: videoUrl, key: ValueKey(videoUrl)),
+                        child: HlsVideoPlayer(
+                          hlsUrl:
+                              AppConstants.hlsVideoAssetUrl(module.videoPath!),
+                          fallbackUrl: videoUrl,
+                          key: ValueKey(videoUrl),
+                        ),
                       ),
                     ),
                   ],

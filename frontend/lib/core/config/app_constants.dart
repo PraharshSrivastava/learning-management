@@ -33,6 +33,20 @@ class AppConstants {
       '$apiBaseUrl/api/files/$filename';
   static String previewFileUrl(String filename) =>
       '$apiBaseUrl/api/files/$filename/preview';
+  static String videoAssetUrl(String videoPath) {
+    if (videoPath.startsWith('http')) return videoPath;
+    final path = videoPath.startsWith('/') ? videoPath : '/$videoPath';
+    return '$apiBaseUrl$path';
+  }
+
+  static String hlsVideoAssetUrl(String videoPath) {
+    final hlsPath = videoPath.replaceFirst(
+      RegExp(r'\.mp4$', caseSensitive: false),
+      '_hls/master.m3u8',
+    );
+    return videoAssetUrl(hlsPath);
+  }
+
   static String updateCourseEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id';
   static String courseDetailEndpoint(String id) =>

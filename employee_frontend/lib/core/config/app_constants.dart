@@ -41,6 +41,14 @@ class AppConstants {
     return '$apiBaseUrl$path';
   }
 
+  static String hlsVideoAssetUrl(String videoPath) {
+    final hlsPath = videoPath.replaceFirst(
+      RegExp(r'\.mp4$', caseSensitive: false),
+      '_hls/master.m3u8',
+    );
+    return videoAssetUrl(hlsPath);
+  }
+
   static String assetUrl(String assetPath) {
     if (assetPath.startsWith('http')) return assetPath;
     final path = assetPath.startsWith('/') ? assetPath : '/$assetPath';

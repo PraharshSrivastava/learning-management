@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess  # nosec B404
 import tempfile
 import time
@@ -175,6 +176,54 @@ def concatenate_clips(clips: list[str], output_path: str, *, working_dir: str) -
     if result.returncode:
         raise RuntimeError(f"FFmpeg concatenation failed: {result.stderr}")
 
+
+def generate_hls_playlist(mp4_path: Path) -> Path:
+    hls_dir = mp4_path.with_name(f"{mp4_path.stem}_hls")
+    temporary_dir = mp4_path.with_name(f".{mp4_path.stem}_hls.tmp")
+    if temporary_dir.exists():
+        shutil.rmtree(temporary_dir)
+    temporary_dir.mkdir(parents=True)
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(),
+        "-y",
+        "-i",
+        str(mp4_path),
+        "-c",
+        "copy",
+        "-hls_time",
+        "6",
+        "-hls_playlist_type",
+        "vod",
+        "-hls_segment_type",
+        "fmp4",
+        "-hls_fmp4_init_filename",
+        "init.mp4",
+        "-hls_segment_filename",
+        "segment_%04d.m4s",
+        "master.m3u8",
+    ]
+    try:
+        result = subprocess.run(  # nosec B603
+            command,
+            cwd=str(temporary_dir),
+            capture_output=True,
+            text=True,
+            errors="ignore",
+            check=False,
+        )
+        if result.returncode:
+            raise RuntimeError(
+                f"FFmpeg HLS packaging failed for {mp4_path}: {result.stderr}"
+            )
+        if hls_dir.exists():
+            shutil.rmtree(hls_dir)
+        temporary_dir.replace(hls_dir)
+        return hls_dir / "master.m3u8"
+    finally:
+        if temporary_dir.exists():
+            shutil.rmtree(temporary_dir)
+
+
 VIDEO_DIR = settings.video_dir
 
 VIDEO_STAGE_WORKERS = 2
@@ -227,6 +276,7 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
             )
             clips.append(clip_path)
         concatenate_clips(clips, str(output_path), working_dir=temporary_dir)
+        generate_hls_playlist(output_path)
 
     video_path = public_asset_url(
         "videos",

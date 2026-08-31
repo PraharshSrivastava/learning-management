@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:employee_frontend/core/theme/app_theme.dart';
+import 'package:employee_frontend/core/video/hls_video_player.dart';
 import 'package:employee_frontend/data/models/models.dart';
 import 'package:employee_frontend/state/employee_providers.dart';
 import 'package:employee_frontend/core/config/app_constants.dart';
@@ -403,12 +404,31 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: EmployeeVideoPlayer(
-        courseId: widget.course.courseId,
-        moduleNumber: module.moduleNumber,
-        videoFilename: module.videoPath,
-        initiallyWatched: initiallyWatched,
-        onVideoCompleted: () => _handleVideoCompleted(module.moduleNumber),
+      child: HlsVideoPlayer(
+        hlsUrl: AppConstants.hlsVideoAssetUrl(module.videoPath),
+        fallbackUrl: AppConstants.videoAssetUrl(module.videoPath),
+        onEnded: initiallyWatched
+            ? null
+            : () async {
+                if (_locallyWatchedModules.contains(module.moduleNumber)) {
+                  return;
+                }
+                _locallyWatchedModules.add(module.moduleNumber);
+                await ref
+                    .read(employeeCourseListProvider.notifier)
+                    .updateModuleProgress(
+                  widget.course.courseId,
+                  module.moduleNumber,
+                  {"video_watched": true},
+                );
+                if (!mounted) return;
+                _handleVideoCompleted(module.moduleNumber);
+                _showLearningSuccessSnackBar(
+                  context,
+                  message: 'Video completed. Quiz unlocked.',
+                  icon: Icons.assignment_turned_in_rounded,
+                );
+              },
         key: ValueKey(
             '${widget.course.courseId}_${module.moduleNumber}_$initiallyWatched'),
       ),
