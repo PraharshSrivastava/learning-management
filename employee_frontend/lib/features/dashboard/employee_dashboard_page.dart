@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -109,13 +111,11 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
                           )
                         : CoursePlaybackView(
                             course: openCourse,
-                            onBack: () async {
-                              await ref
+                            onBack: () {
+                              setState(() => _openCourseId = null);
+                              unawaited(ref
                                   .read(employeeCourseListProvider.notifier)
-                                  .fetchCourses();
-                              if (mounted) {
-                                setState(() => _openCourseId = null);
-                              }
+                                  .fetchCourses(showLoading: false));
                             },
                           ),
                   ),

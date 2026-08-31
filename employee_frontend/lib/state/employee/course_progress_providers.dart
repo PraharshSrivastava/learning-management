@@ -87,8 +87,10 @@ class EmployeeCourseListNotifier
     });
   }
 
-  Future<void> fetchCourses() async {
-    state = EmployeeCourseListState(courses: state.courses, isLoading: true);
+  Future<void> fetchCourses({bool showLoading = true}) async {
+    if (showLoading) {
+      state = EmployeeCourseListState(courses: state.courses, isLoading: true);
+    }
     try {
       final response = await http.get(
         Uri.parse(AppConstants.myCoursesEndpoint),
@@ -122,6 +124,7 @@ class EmployeeCourseListNotifier
     int moduleNumber,
     Map<String, dynamic> payload,
   ) async {
+    _applyModuleProgress(courseId, moduleNumber, payload);
     try {
       final response = await http.put(
         Uri.parse(AppConstants.updateMyModuleProgressEndpoint(
@@ -133,10 +136,82 @@ class EmployeeCourseListNotifier
       if (response.statusCode != 200) {
         throw Exception('Failed to update module progress: ${response.body}');
       }
-      await fetchCourses();
+      unawaited(fetchCourses(showLoading: false));
     } catch (e) {
       debugPrint('Error updating module progress: $e');
+      unawaited(fetchCourses(showLoading: false));
     }
+  }
+
+  void _applyModuleProgress(
+    String courseId,
+    int moduleNumber,
+    Map<String, dynamic> payload,
+  ) {
+    final moduleKey = moduleNumber.toString();
+    final nextCourses = state.courses.map((course) {
+      if (course.courseId != courseId) return course;
+
+      final progress = Map<String, EmployeeModuleProgress>.from(
+        course.moduleProgress,
+      );
+      final existing = progress[moduleKey] ?? EmployeeModuleProgress();
+      final selectedAnswersPayload = payload['selected_answers'];
+      Map<int, String>? selectedAnswers;
+      var clearSelectedAnswers = false;
+
+      if (payload.containsKey('selected_answers')) {
+        if (selectedAnswersPayload is Map) {
+          selectedAnswers = {};
+          selectedAnswersPayload.forEach((key, value) {
+            final parsedKey = int.tryParse(key.toString());
+            if (parsedKey != null) {
+              selectedAnswers![parsedKey] = value.toString();
+            }
+          });
+        } else {
+          clearSelectedAnswers = true;
+        }
+      }
+
+      final quizPayloadPresent = payload.containsKey('quiz_passed') ||
+          payload.containsKey('quiz_score');
+      progress[moduleKey] = existing.copyWith(
+        videoWatched: payload['video_watched'] as bool?,
+        quizPassed: payload['quiz_passed'] as bool?,
+        quizScore: payload['quiz_score'] as num?,
+        selectedAnswers: selectedAnswers,
+        clearSelectedAnswers: clearSelectedAnswers,
+        attemptCount: quizPayloadPresent
+            ? existing.attemptCount + 1
+            : existing.attemptCount,
+      );
+
+      final allComplete = course.publishedModules.isNotEmpty &&
+          course.publishedModules.every((module) {
+            final moduleProgress = progress[module.moduleNumber.toString()];
+            final videoWatched = moduleProgress?.videoWatched == true;
+            final quizPassed = module.quiz.isEmpty
+                ? videoWatched
+                : moduleProgress?.quizPassed == true;
+            return videoWatched && quizPassed;
+          });
+
+      return course.copyWith(
+        assignmentStatus: allComplete
+            ? 'completed'
+            : course.assignmentStatus == 'pending'
+                ? 'started'
+                : null,
+        moduleProgress: progress,
+      );
+    }).toList();
+
+    state = EmployeeCourseListState(
+      courses: nextCourses,
+      isLoading: state.isLoading,
+      error: state.error,
+    );
   }
 
   Future<void> updateCourseStatus(String courseId, String status) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -45,8 +47,6 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         _localQuizScores.clear();
         _loadProgressForCurrentModule();
       });
-    } else {
-      _loadProgressForCurrentModule();
     }
   }
 
@@ -411,25 +411,24 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
           fallbackUrl: AppConstants.videoAssetUrl(module.videoPath),
           onEnded: initiallyWatched
               ? null
-              : () async {
+              : () {
                   if (_locallyWatchedModules.contains(module.moduleNumber)) {
                     return;
                   }
                   _locallyWatchedModules.add(module.moduleNumber);
-                  await ref
-                      .read(employeeCourseListProvider.notifier)
-                      .updateModuleProgress(
-                    widget.course.courseId,
-                    module.moduleNumber,
-                    {"video_watched": true},
-                  );
-                  if (!mounted) return;
                   _handleVideoCompleted(module.moduleNumber);
                   _showLearningSuccessSnackBar(
                     context,
                     message: 'Video completed. Quiz unlocked.',
                     icon: Icons.assignment_turned_in_rounded,
                   );
+                  unawaited(ref
+                      .read(employeeCourseListProvider.notifier)
+                      .updateModuleProgress(
+                    widget.course.courseId,
+                    module.moduleNumber,
+                    {"video_watched": true},
+                  ));
                 },
           key: ValueKey(
               '${widget.course.courseId}_${module.moduleNumber}_$initiallyWatched'),
@@ -824,22 +823,14 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
     final formattedAnswers =
         _selectedAnswers.map((key, value) => MapEntry(key.toString(), value));
 
-    await ref.read(employeeCourseListProvider.notifier).updateModuleProgress(
-      widget.course.courseId,
-      module.moduleNumber,
-      {
-        "quiz_passed": passed,
-        "quiz_score": score,
-        "selected_answers": passed ? formattedAnswers : null,
-        if (!passed)
-          "video_watched": false, // Reset video requirement if failed
-      },
-    );
-
-    if (!mounted) return;
-
     final isFinalModule =
         _activeModuleIndex == widget.course.publishedModules.length - 1;
+    final Map<String, dynamic> progressPayload = {
+      "quiz_passed": passed,
+      "quiz_score": score,
+      "selected_answers": passed ? formattedAnswers : null,
+      if (!passed) "video_watched": false,
+    };
 
     if (passed) {
       setState(() {
@@ -847,6 +838,12 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         _locallyWatchedModules.add(module.moduleNumber);
         _localQuizScores[module.moduleNumber] = score;
       });
+      unawaited(
+          ref.read(employeeCourseListProvider.notifier).updateModuleProgress(
+                widget.course.courseId,
+                module.moduleNumber,
+                progressPayload,
+              ));
 
       if (!isFinalModule) {
         final nextModule =
@@ -863,6 +860,12 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       setState(() {
         _locallyWatchedModules.remove(module.moduleNumber);
       });
+      unawaited(
+          ref.read(employeeCourseListProvider.notifier).updateModuleProgress(
+                widget.course.courseId,
+                module.moduleNumber,
+                progressPayload,
+              ));
     }
 
     showDialog(
@@ -1219,9 +1222,8 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
   Future<void> _seekBy(Duration offset) async {
     final duration = _controller.value.duration;
     final requested = _controller.value.position + offset;
-    final milliseconds = requested.inMilliseconds
-        .clamp(0, duration.inMilliseconds)
-        .toInt();
+    final milliseconds =
+        requested.inMilliseconds.clamp(0, duration.inMilliseconds).toInt();
     await _controller.seekTo(Duration(milliseconds: milliseconds));
   }
 
@@ -1463,9 +1465,8 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
   Future<void> _seekBy(Duration offset) async {
     final duration = widget.controller.value.duration;
     final requested = widget.controller.value.position + offset;
-    final milliseconds = requested.inMilliseconds
-        .clamp(0, duration.inMilliseconds)
-        .toInt();
+    final milliseconds =
+        requested.inMilliseconds.clamp(0, duration.inMilliseconds).toInt();
     await widget.controller.seekTo(Duration(milliseconds: milliseconds));
   }
 

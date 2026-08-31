@@ -229,6 +229,26 @@ class EmployeeModuleProgress {
     this.attemptCount = 0,
   });
 
+  EmployeeModuleProgress copyWith({
+    bool? videoWatched,
+    bool? quizPassed,
+    num? quizScore,
+    bool clearQuizScore = false,
+    Map<int, String>? selectedAnswers,
+    bool clearSelectedAnswers = false,
+    int? attemptCount,
+  }) {
+    return EmployeeModuleProgress(
+      videoWatched: videoWatched ?? this.videoWatched,
+      quizPassed: quizPassed ?? this.quizPassed,
+      quizScore: clearQuizScore ? null : (quizScore ?? this.quizScore),
+      selectedAnswers: clearSelectedAnswers
+          ? null
+          : (selectedAnswers ?? this.selectedAnswers),
+      attemptCount: attemptCount ?? this.attemptCount,
+    );
+  }
+
   factory EmployeeModuleProgress.fromJson(Map<String, dynamic> json) {
     Map<int, String>? parsedAnswers;
     final bool quizPassed = json['quiz_passed'] == true;
@@ -361,6 +381,34 @@ class Course {
     this.moduleProgress = const {},
   });
 
+  Course copyWith({
+    String? assignmentStatus,
+    String? startedAt,
+    String? completedAt,
+    Map<String, EmployeeModuleProgress>? moduleProgress,
+  }) {
+    return Course(
+      courseId: courseId,
+      courseName: courseName,
+      courseDescription: courseDescription,
+      courseObjective: courseObjective,
+      courseDifficulty: courseDifficulty,
+      language: language,
+      targetAudience: targetAudience,
+      modules: modules,
+      images: images,
+      thumbnailPath: thumbnailPath,
+      createdAt: createdAt,
+      assignmentStatus: assignmentStatus ?? this.assignmentStatus,
+      assignedAt: assignedAt,
+      deadline: deadline,
+      startedAt: startedAt ?? this.startedAt,
+      completedAt: completedAt ?? this.completedAt,
+      publishedModules: publishedModules,
+      moduleProgress: moduleProgress ?? this.moduleProgress,
+    );
+  }
+
   factory Course.fromJson(Map<String, dynamic> json) {
     return Course(
       courseId: json['course_id']?.toString() ?? '',
@@ -398,8 +446,7 @@ class Course {
   factory Course.fromPublishedJson(Map<String, dynamic> json) {
     final progressMap = <String, EmployeeModuleProgress>{};
     final progJson = json['module_progress'] as Map<String, dynamic>? ?? {};
-    final attemptsJson =
-        json['quiz_attempts'] as Map<String, dynamic>? ?? {};
+    final attemptsJson = json['quiz_attempts'] as Map<String, dynamic>? ?? {};
     progJson.forEach((key, value) {
       if (value is Map<String, dynamic>) {
         final merged = Map<String, dynamic>.from(value);
