@@ -36,6 +36,7 @@ def _assignment_from_row(row) -> dict:
         "revoked_at": row["revoked_at"],
         "assigned_department": row.get("assigned_department"),
         "revoked_reason": row.get("revoked_reason"),
+        "notification_lifecycle": row.get("notification_lifecycle") or 1,
     }
 
 
@@ -161,22 +162,31 @@ def _assignment_course_id(connection, course_id: str) -> str:
     raise ValueError(f"Course ID '{course_id}' not found in courses database.")
 
 
-def save_employee_course_progress(employee_id: str, course_id: str, data: dict) -> None:
+def save_employee_course_progress(employee_id: str, course_id: str, data: dict) -> dict:
     now = datetime.now().isoformat()
     with get_connection() as connection:
         storage_course_id = _assignment_course_id(connection, course_id)
         existing = connection.execute(
-            "SELECT assignment_id FROM course_assignments WHERE employee_id = ? AND course_id = ?",
+            """
+            SELECT assignment_id, status, notification_lifecycle
+            FROM course_assignments
+            WHERE employee_id = ? AND course_id = ?
+            """,
             (employee_id, storage_course_id),
         ).fetchone()
         assignment_id = existing["assignment_id"] if existing else str(uuid.uuid4())
+        previous_status = existing["status"] if existing else None
+        lifecycle = int(existing["notification_lifecycle"] or 1) if existing else 1
+        next_status = data.get("status", "pending")
+        if previous_status == "revoked" and next_status != "revoked":
+            lifecycle += 1
         connection.execute(
             """
             INSERT INTO course_assignments (
                 assignment_id, course_id, employee_id, status, assigned_at, deadline,
                 started_at, completed_at, last_activity_at, revoked_at,
-                assigned_department, revoked_reason, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                assigned_department, revoked_reason, notification_lifecycle, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(course_id, employee_id) DO UPDATE SET
                 status = excluded.status,
                 assigned_at = excluded.assigned_at,
@@ -187,6 +197,7 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 revoked_at = excluded.revoked_at,
                 assigned_department = excluded.assigned_department,
                 revoked_reason = excluded.revoked_reason,
+                notification_lifecycle = excluded.notification_lifecycle,
                 updated_at = excluded.updated_at
             """,
             (
@@ -202,6 +213,7 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 data.get("revoked_at"),
                 data.get("assigned_department"),
                 data.get("revoked_reason"),
+                lifecycle,
                 now,
             ),
         )
@@ -245,6 +257,12 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 ),
             )
         connection.commit()
+        return {
+            "assignment_id": assignment_id,
+            "notification_lifecycle": lifecycle,
+            "previous_status": previous_status,
+            "status": next_status,
+        }
 
 
 def delete_employee_course_progress(employee_id: str, course_id: str) -> None:
@@ -275,9 +293,9 @@ class ProgressRepository:
     def list(self) -> list[dict]:
         return [self._validated(progress) for progress in list_employee_course_progress()]
 
-    def save(self, employee_id: str, course_id: str, progress: dict) -> None:
+    def save(self, employee_id: str, course_id: str, progress: dict) -> dict:
         self._validated(progress)
-        save_employee_course_progress(employee_id, course_id, progress)
+        return save_employee_course_progress(employee_id, course_id, progress)
 
     def delete(self, employee_id: str, course_id: str) -> None:
         delete_employee_course_progress(employee_id, course_id)

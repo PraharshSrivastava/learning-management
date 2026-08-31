@@ -6,6 +6,7 @@ from app.repositories.database import get_connection
 
 TABLES = (
     "module_progress",
+    "email_notifications",
     "course_generation_status",
     "course_generation_state",
     "course_assignments",
@@ -219,12 +220,47 @@ def _create_tables(cursor) -> None:
             revoked_at TEXT,
             assigned_department TEXT,
             revoked_reason TEXT,
+            notification_lifecycle INTEGER NOT NULL DEFAULT 1 CHECK (notification_lifecycle >= 1),
             created_at TEXT NOT NULL DEFAULT (now()::text),
             updated_at TEXT NOT NULL DEFAULT (now()::text),
             UNIQUE (course_id, employee_id),
             CHECK (status IN ('pending', 'started', 'completed', 'overdue', 'revoked')),
             FOREIGN KEY (course_id) REFERENCES courses(course_id) ON DELETE CASCADE,
             FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE RESTRICT
+        )
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE course_assignments
+        ADD COLUMN IF NOT EXISTS notification_lifecycle INTEGER NOT NULL DEFAULT 1
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS email_notifications (
+            notification_id TEXT PRIMARY KEY,
+            assignment_id TEXT NOT NULL,
+            notification_lifecycle INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            recipient_role TEXT NOT NULL,
+            recipient_email TEXT NOT NULL,
+            recipient_name TEXT,
+            subject TEXT NOT NULL,
+            body_text TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+            next_attempt_at TEXT NOT NULL,
+            locked_at TEXT,
+            sent_at TEXT,
+            last_error TEXT,
+            created_at TEXT NOT NULL DEFAULT (now()::text),
+            updated_at TEXT NOT NULL DEFAULT (now()::text),
+            UNIQUE (assignment_id, notification_lifecycle, event_type, recipient_role),
+            CHECK (event_type IN ('assigned', 'reactivated', 'due_soon', 'completed', 'overdue')),
+            CHECK (recipient_role IN ('employee', 'hod', 'trainer')),
+            CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'cancelled')),
+            FOREIGN KEY (assignment_id) REFERENCES course_assignments(assignment_id) ON DELETE CASCADE
         )
         """
     )
@@ -288,6 +324,10 @@ def _create_indexes(cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_assignments_employee ON course_assignments(employee_id)",
         "CREATE INDEX IF NOT EXISTS idx_assignments_status ON course_assignments(status)",
         "CREATE INDEX IF NOT EXISTS idx_course_assignments_deadline ON course_assignments(deadline)",
+        "CREATE INDEX IF NOT EXISTS idx_email_notifications_status_next "
+        "ON email_notifications(status, next_attempt_at)",
+        "CREATE INDEX IF NOT EXISTS idx_email_notifications_assignment "
+        "ON email_notifications(assignment_id)",
         "CREATE INDEX IF NOT EXISTS idx_module_progress_assignment ON module_progress(assignment_id)",
         "CREATE INDEX IF NOT EXISTS idx_course_generation_status_worker ON course_generation_status(status, locked_until)",
     )
