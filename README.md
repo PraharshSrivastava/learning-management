@@ -63,10 +63,22 @@ still in use.
 The root Compose stack is the deployment shape for the current app:
 
 ```text
-postgres           PostgreSQL database
 backend            FastAPI API and generation pipeline
 frontend           trainer/admin Flutter web app
 employee_frontend  employee Flutter web app
+```
+
+PostgreSQL is controlled by the `COMPOSE_PROFILES` environment setting:
+
+```text
+COMPOSE_PROFILES=bundled-db   run the bundled Postgres container for VM/test
+COMPOSE_PROFILES=             do not run Postgres; use company DATABASE_URL
+```
+
+The command stays the same in both modes:
+
+```bash
+docker compose up -d --build
 ```
 
 Create host persistence directories on the VM:
@@ -85,6 +97,8 @@ nano .env
 Set real secrets and VM/domain origins in `.env`, especially:
 
 ```text
+COMPOSE_PROFILES
+DATABASE_URL
 POSTGRES_PASSWORD
 CORS_ALLOWED_ORIGINS
 LLM_BASE_URL
@@ -94,6 +108,23 @@ COURSE_THUMBNAIL_ENDPOINT
 HUB_LAUNCH_SECRET
 DIRECTORY_EXPORTS_API_KEY
 DIRECTORY_SYNC_ADMIN_KEY
+```
+
+For the current VM/test deployment with bundled Postgres:
+
+```env
+COMPOSE_PROFILES=bundled-db
+DATABASE_URL=postgresql://lms:<password>@postgres:5432/lms
+POSTGRES_DB=lms
+POSTGRES_USER=lms
+POSTGRES_PASSWORD=<password>
+```
+
+For on-prem/company Postgres:
+
+```env
+COMPOSE_PROFILES=
+DATABASE_URL=postgresql://lms_user:<password>@company-postgres-host:5432/lms_db
 ```
 
 Start or update the deployment:
@@ -116,18 +147,23 @@ Port map:
 3060 -> backend container port 8000
 6969 -> trainer frontend container port 80
 6970 -> employee frontend container port 80
-127.0.0.1:5432 -> postgres container port 5432
+127.0.0.1:5432 -> bundled postgres container port 5432, only when COMPOSE_PROFILES=bundled-db
 ```
 
-PostgreSQL is bound to `127.0.0.1` on the VM host, not to the public network
-interface. This keeps the database reachable for host-local maintenance while
-preventing direct external access to the database port. Backend-to-database
-traffic inside Docker uses the private service name `postgres:5432`.
+When bundled Postgres is enabled, it is bound to `127.0.0.1` on the VM host,
+not to the public network interface. This keeps the database reachable for
+host-local maintenance while preventing direct external access to the database
+port. Backend-to-database traffic inside Docker uses the private service name
+`postgres:5432`.
+
+When `COMPOSE_PROFILES` is empty for on-prem/company deployments, this Compose
+stack does not start PostgreSQL. Backend-to-database traffic uses the company
+database endpoint provided in `DATABASE_URL`.
 
 Compose persists data in explicit host folders:
 
 ```text
-/opt/lms/postgres    PostgreSQL rows
+/opt/lms/postgres    bundled PostgreSQL rows, only when COMPOSE_PROFILES=bundled-db
 /opt/lms/storage     uploads and generated audio/images/slides/videos
 /opt/lms/backups     backup output location
 ```
@@ -142,7 +178,7 @@ docker compose ps
 docker compose logs -f backend
 ```
 
-Back up PostgreSQL and storage on the VM:
+Back up PostgreSQL and storage on the VM/test bundled deployment:
 
 ```bash
 stamp=$(date +%Y%m%d_%H%M%S)
@@ -150,14 +186,19 @@ docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "/o
 tar -czf "/opt/lms/backups/storage_${stamp}.tar.gz" -C /opt/lms storage
 ```
 
+For on-prem/company PostgreSQL, use the company database backup process or run
+`pg_dump "$DATABASE_URL"` from an approved admin host.
+
 Stop services without deleting data:
 
 ```bash
 docker compose stop
 ```
 
-Do not remove `/opt/lms/postgres` or `/opt/lms/storage` unless you intentionally
-want to erase production data.
+Do not remove `/opt/lms/storage` unless you intentionally want to erase
+uploaded/generated LMS files. For VM/test deployments using
+`COMPOSE_PROFILES=bundled-db`, also do not remove `/opt/lms/postgres` unless you
+intentionally want to erase the bundled test database.
 
 ## Frontends
 
@@ -284,7 +325,8 @@ outside secret storage.
 
 The new schema is a clean PostgreSQL schema. Existing rows and generated files
 are not changed by normal startup, because startup only creates missing tables.
-For the agreed clean start, take a backup and then run the reset script once:
+For VM/test deployments using `COMPOSE_PROFILES=bundled-db`, take a backup and
+then run the reset script once:
 
 ```bash
 stamp=$(date +%Y%m%d_%H%M%S)
@@ -301,6 +343,10 @@ docker compose up -d --build
 This deletes LMS table rows and clears uploaded/generated LMS files, then
 recreates employees from the Hub directory export. It preserves application
 templates and brand assets.
+
+For on-prem/company PostgreSQL, coordinate database backup/restore or clean
+schema reset through the company database operations process before running the
+LMS reset script against `DATABASE_URL`.
 
 ## Generation Pipeline
 
