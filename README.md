@@ -17,6 +17,356 @@ documents, manages courses, assigns training, and reviews performance. The
 employee frontend lets learners view assigned courses, watch module videos, and
 complete quiz/progress flows.
 
+## Product Flow and Architecture
+
+This system has two user-facing apps that share one backend:
+
+```text
+Trainer app   Used by trainers/admins to create, review, generate, assign, and
+              monitor courses.
+Employee app  Used by employees to see their assigned learning, watch lessons,
+              complete quizzes, and track completion.
+Backend       Owns authentication, course generation, assignment rules,
+              employee directory sync, progress tracking, reporting, and files.
+```
+
+At a high level, trainers turn source documents into published courses. Employees
+only see courses that have been fully generated, published, and assigned to them.
+
+```mermaid
+flowchart LR
+    Hub[Company Hub] --> TrainerApp[Trainer Flutter App]
+    Hub --> EmployeeApp[Employee Flutter App]
+
+    TrainerApp --> API[FastAPI Backend]
+    EmployeeApp --> API
+
+    API --> Services[Service Layer]
+    Services --> Repos[Repository Layer]
+    Repos --> Postgres[(PostgreSQL)]
+
+    Services --> Storage[(LMS Storage)]
+    Storage --> Assets[Public Assets: slides, videos, audio, images]
+    Assets --> TrainerApp
+    Assets --> EmployeeApp
+
+    Services --> LLM[LLM Provider]
+    Services --> TTS[TTS Provider]
+    Services --> FFmpeg[Playwright + FFmpeg]
+    Services --> Directory[Hub Directory Export API]
+```
+
+### Non-Technical System Summary
+
+The LMS is best understood as a shared course factory plus two different
+workspaces:
+
+1. A trainer uploads a PDF training document.
+2. The backend reads that PDF and creates an editable course blueprint.
+3. The trainer reviews the blueprint, adjusts modules/questions if needed, and
+   starts full course generation.
+4. The backend generates supporting learning material: thumbnail, notes, quiz
+   questions, slides, narration scripts, audio, and videos.
+5. When the generated course is complete, the trainer publishes assignment rules.
+6. The backend matches those rules against synced Hub employees and creates
+   employee course assignments.
+7. Employees open the employee app, see only courses assigned to them, watch
+   module videos, complete quizzes, and progress through the course.
+8. Trainers use the performance view to monitor who is pending, started,
+   completed, overdue, and how employees performed on quizzes.
+
+## Trainer App Flow
+
+The trainer app lives in `frontend/`. It is a Flutter web app using Riverpod
+state providers. Its main screen is a tabbed dashboard:
+
+```text
+Documents -> Blueprint -> Courses -> Assign -> Performance
+```
+
+Trainer access is checked first through Hub launch/session endpoints. In local
+development, the app can also show a trainer picker based on synced employees.
+
+```mermaid
+flowchart TD
+    A[Open Trainer App from Hub] --> B{Valid Hub session?}
+    B -- No --> C[Show Trainer Access Message]
+    B -- Yes --> D{Trainer authenticated?}
+    D -- No/local dev --> E[Select Local Trainer]
+    D -- Yes --> F[Trainer Dashboard]
+    E --> F
+
+    F --> G[Documents Tab]
+    G --> H[Upload PDF]
+    H --> I[Backend stores document]
+    I --> J[Create Course Blueprint]
+    J --> K[Blueprint Tab]
+
+    K --> L[Review Course Details]
+    L --> M[Edit title, objective, difficulty, audience, modules, question counts]
+    M --> N[Save Blueprint]
+    N --> O[Generate Full Course]
+
+    O --> P[Course Generation Pipeline]
+    P --> Q[Course becomes Ready]
+    Q --> R[Courses Tab]
+    R --> S[Preview modules, slides, quizzes, videos]
+
+    S --> T[Assign Tab]
+    T --> U[Build include/exclude rule]
+    U --> V[Preview matching employees]
+    V --> W[Publish and Assign]
+    W --> X[Course becomes Published]
+
+    X --> Y[Performance Tab]
+    Y --> Z[Track assigned, pending, started, completed, overdue, attempts, scores]
+```
+
+### Trainer Screens
+
+| Trainer area | Main purpose | Backend data used |
+| --- | --- | --- |
+| Hub gate | Confirms the trainer opened the app through Hub or local dev mode | `/api/hub/session/trainer`, `/api/auth/local/trainers`, `/api/auth/local/trainer-login` |
+| Documents | Upload PDFs and preview stored documents | `/api/upload`, `/api/files`, `/api/files/{file_name}/preview` |
+| Blueprint | Turn an uploaded document into an editable course outline | `/api/courses/generate`, `/api/courses`, `/api/courses/{course_id}` |
+| Courses | Review generated course details, modules, slides, quizzes, and videos | `/api/courses`, `/api/courses/{course_id}`, `/assets/...` |
+| Generation portals | Generate quizzes, slides, narration scripts, and videos manually or as a full job | `/api/courses/{course_id}/generate-*`, `/api/courses/{course_id}/generation-jobs` |
+| Assign | Define who should receive a course and publish assignment rules | `/api/assignment/options`, `/api/assignment/saved-groups`, `/api/courses/{course_id}/assignment`, `/api/courses/{course_id}/publish-assignment` |
+| Performance | Filter and inspect learner status, module completion, quiz attempts, and scores | `/api/trainer/performance` |
+
+### Trainer Architecture
+
+```mermaid
+flowchart LR
+    UI[Trainer Flutter Screens] --> Providers[Riverpod Trainer Providers]
+    Providers --> Constants[AppConstants API URLs]
+    Constants --> HTTP[HTTP Requests]
+    HTTP --> Routes[FastAPI Routes]
+
+    Routes --> CourseService[CourseService]
+    Routes --> GenerationService[GenerationService]
+    Routes --> AssignmentService[Assignment Services]
+    Routes --> AnalyticsService[Analytics Service]
+
+    CourseService --> CourseRepo[Course Repository]
+    GenerationService --> CourseRepo
+    GenerationService --> JobRepo[Generation Job Repository]
+    AssignmentService --> AssignmentRepo[Assignment Repository]
+    AssignmentService --> ProgressRepo[Progress Repository]
+    AnalyticsService --> ProgressRepo
+
+    CourseRepo --> DB[(PostgreSQL)]
+    AssignmentRepo --> DB
+    ProgressRepo --> DB
+    JobRepo --> DB
+
+    GenerationService --> GeneratedFiles[(Generated Files)]
+    GeneratedFiles --> Assets[/assets audio images slides videos/]
+    Assets --> UI
+```
+
+### Trainer Course Creation Pipeline
+
+```mermaid
+flowchart TD
+    A[Trainer uploads PDF] --> B[Document stored under LMS storage]
+    B --> C[Create blueprint from PDF]
+    C --> D[Trainer edits and saves blueprint]
+    D --> E[Start full course generation job]
+
+    E --> F[Wave 1 parallel work]
+    F --> F1[Thumbnail]
+    F --> F2[Quizzes]
+    F --> F3[Notes]
+    F --> F4[Slides]
+
+    F1 --> G[Compile slide HTML]
+    F2 --> G
+    F3 --> G
+    F4 --> G
+
+    G --> H[Generate narration scripts]
+    H --> I[Generate TTS audio]
+    I --> J[Render module videos with Playwright screenshots and FFmpeg]
+    J --> K[Validate generated outputs]
+    K --> L[Mark course ready]
+    L --> M[Trainer publishes assignment]
+    M --> N[Course status becomes published]
+```
+
+Generation is checkpointed. If a stage fails, the backend records the failed
+checkpoint and the trainer can continue generation instead of starting the whole
+course from the beginning.
+
+## Employee App Flow
+
+The employee app lives in `employee_frontend/`. It is a Flutter web app focused
+on learning, not authoring. Employees see a dashboard, their course library,
+notifications, and the course playback workspace.
+
+Employee access also starts through Hub. In local development, the app can show
+an employee picker so the learning flow can be tested without Hub.
+
+```mermaid
+flowchart TD
+    A[Open Employee App from Hub] --> B{Valid Hub session?}
+    B -- No --> C[Show Employee Access Message]
+    B -- Yes --> D{Employee authenticated?}
+    D -- No/local dev --> E[Select Local Employee]
+    D -- Yes --> F[Employee Dashboard]
+    E --> F
+
+    F --> G[Fetch My Courses]
+    G --> H[Show assigned, pending, in progress, completed, overdue]
+    H --> I[Open Course]
+    I --> J[Course Playback]
+
+    J --> K[Watch Module Video]
+    K --> L[Backend marks video watched]
+    L --> M[Quiz unlocks]
+    M --> N[Employee submits quiz]
+    N --> O{Passed?}
+    O -- No --> P[Attempt recorded; retry allowed]
+    O -- Yes --> Q[Module marked complete]
+    Q --> R{More modules?}
+    R -- Yes --> S[Next module unlocks]
+    S --> K
+    R -- No --> T[Course marked completed]
+    T --> U[Trainer performance dashboard updates]
+```
+
+### Employee Screens
+
+| Employee area | Main purpose | Backend data used |
+| --- | --- | --- |
+| Hub gate | Confirms the employee opened the app through Hub or local dev mode | `/api/hub/session/employee`, `/api/auth/local/employee-login` |
+| Employee dashboard | Shows learning metrics, assigned work, due dates, and status filters | `/api/me/courses` |
+| My Courses | Lists all assigned/published courses for the current employee | `/api/me/courses` |
+| Notifications | Highlights newly assigned courses in the current session | `/api/me/courses`, `/api/me/courses/ws` |
+| Course playback | Plays module videos, shows notes, handles quiz answers, and locks/unlocks modules | `/api/me/courses/{course_id}/modules/{module_number}`, `/assets/videos/...` |
+| Progress sync | Updates watched videos, quiz scores, selected answers, attempts, and completion | `/api/me/courses/{course_id}/status`, `/api/me/courses/{course_id}/modules/{module_number}` |
+
+### Employee Architecture
+
+```mermaid
+flowchart LR
+    UI[Employee Flutter Screens] --> Providers[Riverpod Employee Providers]
+    Providers --> HTTP[HTTP + WebSocket]
+    HTTP --> LearningRoutes[FastAPI Learning Routes]
+
+    LearningRoutes --> Auth[Employee Auth]
+    LearningRoutes --> LearningService[Learning Service]
+    LearningService --> AssignmentService[Assignment Matching]
+    LearningService --> ProgressRepo[Progress Repository]
+    LearningService --> CourseRepo[Course Repository]
+    LearningService --> EmployeeRepo[Employee Repository]
+    LearningService --> Notifications[WebSocket Notifications]
+
+    AssignmentService --> Rules[(Assignment Rules)]
+    ProgressRepo --> DB[(PostgreSQL)]
+    CourseRepo --> DB
+    EmployeeRepo --> DB
+    Rules --> DB
+
+    CourseRepo --> Assets[/assets videos slides images audio/]
+    Assets --> UI
+    Notifications --> Providers
+```
+
+### Employee Learning Rules
+
+```text
+1. Employees only receive courses that are published and whose active assignment
+   rule matches their employee record.
+2. Assignment rules can include everyone or selected groups, then exclude
+   employees/groups/departments/mailing lists.
+3. The first module is available immediately.
+4. A module quiz unlocks only after the module video is watched.
+5. The next module unlocks after the previous module is complete.
+6. A module is complete when the video is watched and, if a quiz exists, the
+   quiz is passed.
+7. A course is complete when every published module is complete.
+8. Progress changes are written to PostgreSQL and broadcast back to the employee
+   app over WebSocket so the dashboard stays fresh.
+```
+
+## Shared Backend Data Model
+
+The backend stores structured data in PostgreSQL and generated files in LMS
+storage. The important tables are:
+
+| Table | What it represents |
+| --- | --- |
+| `trainers` | Trainer identities synced from Hub/local development |
+| `employees` | Employee identities, departments, job titles, Hub IDs, and status |
+| `employee_groups` | Mailing-list or AD group membership from Hub directory sync |
+| `directory_sync_state` | Cursor/status for full and incremental Hub directory sync |
+| `documents` | Uploaded PDFs owned by a trainer |
+| `courses` | Course-level metadata, lifecycle status, thumbnail, and trainer owner |
+| `course_modules` | Module text, notes, slide JSON, quiz JSON, generated video path |
+| `course_generation_status` | Checkpoints, stage status, failures, worker lock state |
+| `assignment_rules` | Include/exclude filters, deadlines, active/published flags |
+| `saved_assignment_groups` | Reusable include/exclude filter groups saved by trainers |
+| `course_assignments` | One assigned course per employee, with status and due date |
+| `module_progress` | Per-module watched/quiz state, attempts, scores, selected answers |
+
+```mermaid
+erDiagram
+    TRAINERS ||--o{ DOCUMENTS : uploads
+    TRAINERS ||--o{ COURSES : owns
+    DOCUMENTS ||--o{ COURSES : creates
+    COURSES ||--o{ COURSE_MODULES : contains
+    COURSES ||--|| COURSE_GENERATION_STATUS : tracks
+    COURSES ||--|| ASSIGNMENT_RULES : uses
+    TRAINERS ||--o{ SAVED_ASSIGNMENT_GROUPS : saves
+    EMPLOYEES ||--o{ EMPLOYEE_GROUPS : belongs_to
+    COURSES ||--o{ COURSE_ASSIGNMENTS : assigned_as
+    EMPLOYEES ||--o{ COURSE_ASSIGNMENTS : receives
+    COURSE_ASSIGNMENTS ||--o{ MODULE_PROGRESS : records
+    COURSE_MODULES ||--o{ MODULE_PROGRESS : measured_by
+```
+
+## End-to-End Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant T as Trainer
+    participant TA as Trainer App
+    participant API as FastAPI Backend
+    participant DB as PostgreSQL
+    participant Gen as Generation Providers
+    participant EA as Employee App
+    participant E as Employee
+
+    T->>TA: Upload PDF
+    TA->>API: POST /api/upload
+    API->>DB: Save document metadata
+    T->>TA: Create course
+    TA->>API: POST /api/courses/generate
+    API->>Gen: Extract blueprint from PDF
+    API->>DB: Save draft course and modules
+    T->>TA: Review/edit blueprint
+    TA->>API: PUT /api/courses/{course_id}
+    API->>DB: Save draft updates
+    T->>TA: Generate full course
+    TA->>API: POST /api/courses/{course_id}/generation-jobs
+    API->>Gen: Generate thumbnail, quizzes, notes, slides, scripts, audio, video
+    API->>DB: Mark course ready
+    T->>TA: Publish assignment rule
+    TA->>API: POST /api/courses/{course_id}/publish-assignment
+    API->>DB: Match employees and create assignments
+    E->>EA: Open learning dashboard
+    EA->>API: GET /api/me/courses
+    API->>DB: Read assignments, courses, modules, progress
+    API-->>EA: Assigned learning list
+    E->>EA: Watch video and submit quiz
+    EA->>API: PUT /api/me/courses/{course_id}/modules/{module_number}
+    API->>DB: Save module progress and attempts
+    TA->>API: GET /api/trainer/performance
+    API->>DB: Aggregate learner progress
+    API-->>TA: Performance dashboard
+```
+
 ## Backend
 
 Runtime entrypoint:
