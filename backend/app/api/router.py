@@ -7,6 +7,7 @@ from app.api.assignments import router as assignment_router
 from app.api.auth import router as auth_router
 from app.api.courses import router as course_router
 from app.api.directory import router as directory_router
+from app.api.document_builder import router as document_builder_router
 from app.api.employees import router as employee_router
 from app.api.generation import router as generation_router
 from app.api.hub import router as hub_router
@@ -17,6 +18,7 @@ from app.api.uploads import router as upload_router
 api_router = APIRouter()
 api_router.include_router(hub_router)
 api_router.include_router(upload_router)
+api_router.include_router(document_builder_router)
 api_router.include_router(auth_router)
 api_router.include_router(course_router)
 api_router.include_router(directory_router)

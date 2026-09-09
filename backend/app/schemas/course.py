@@ -18,6 +18,10 @@ class ImageRecord(ApiSchema):
     path: str | None = None
     url: str | None = None
     caption: str | None = None
+    width: int | None = None
+    height: int | None = None
+    aspect_ratio: float | None = None
+    orientation: Literal["landscape", "portrait", "square"] | None = None
 
 
 class SlideRecord(ApiSchema):

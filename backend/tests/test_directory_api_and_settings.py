@@ -4,17 +4,25 @@ from pydantic import ValidationError
 from app.api import directory as directory_api
 from app.core.exceptions import AuthenticationError
 from app.core.settings import Settings
+from security_test_values import (
+    TEST_DATABASE_URL,
+    TEST_DIRECTORY_ADMIN_VALUE,
+    TEST_DIRECTORY_EXPORT_VALUE,
+    TEST_HUB_SIGNING_VALUE,
+    TEST_LLM_VALUE,
+    TEST_TTS_URL,
+)
 
 
 def _production_settings(**overrides):
     values = {
         "app_env": "production",
-        "database_url": "postgresql://lms:password@postgres:5432/lms",
+        "database_url": TEST_DATABASE_URL,
         "cors_allowed_origins": ("https://hub.example.com",),
         "llm_base_url": "https://llm.example.com/v1",
-        "llm_api_key": "llm-key",
-        "tts_endpoint": "https://tts.example.com",
-        "hub_launch_secret": "hub-secret",
+        "llm_api_key": TEST_LLM_VALUE,
+        "tts_endpoint": TEST_TTS_URL,
+        "hub_launch_secret": TEST_HUB_SIGNING_VALUE,
         "directory_sync_enabled": False,
     }
     values.update(overrides)
@@ -38,19 +46,19 @@ def test_production_requires_directory_config_when_scheduler_is_enabled():
 
 
 def test_sync_status_requires_internal_key(monkeypatch):
-    monkeypatch.setattr(directory_api.settings, "directory_sync_admin_key", "sync-secret")
+    monkeypatch.setattr(directory_api.settings, "directory_sync_admin_key", TEST_DIRECTORY_ADMIN_VALUE)
 
     with pytest.raises(AuthenticationError):
         directory_api.sync_status(x_directory_sync_key="wrong")
 
 
 def test_sync_status_returns_config_and_persisted_states(monkeypatch):
-    monkeypatch.setattr(directory_api.settings, "directory_sync_admin_key", "sync-secret")
+    monkeypatch.setattr(directory_api.settings, "directory_sync_admin_key", TEST_DIRECTORY_ADMIN_VALUE)
     monkeypatch.setattr(directory_api.settings, "directory_sync_enabled", True)
     monkeypatch.setattr(directory_api.settings, "directory_sync_interval_hours", 24)
     monkeypatch.setattr(directory_api.settings, "directory_sync_page_limit", 100)
     monkeypatch.setattr(directory_api.settings, "directory_exports_base_url", "http://hub")
-    monkeypatch.setattr(directory_api.settings, "directory_exports_api_key", "api-key")
+    monkeypatch.setattr(directory_api.settings, "directory_exports_api_key", TEST_DIRECTORY_EXPORT_VALUE)
     monkeypatch.setattr(
         directory_api,
         "list_sync_states",
@@ -67,7 +75,7 @@ def test_sync_status_returns_config_and_persisted_states(monkeypatch):
         ],
     )
 
-    response = directory_api.sync_status(x_directory_sync_key="sync-secret")
+    response = directory_api.sync_status(x_directory_sync_key=TEST_DIRECTORY_ADMIN_VALUE)
 
     assert response["enabled"] is True
     assert response["configured"] is True

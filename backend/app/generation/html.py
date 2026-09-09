@@ -5,9 +5,14 @@ from __future__ import annotations
 import html
 import os
 from typing import Any, Dict, List
+from pathlib import Path
+
+from PIL import Image as PILImage
 
 from app.core.logging import generation_logger
 from app.core.providers import SLIDE_DIR
+from app.core.settings import settings
+from app.core.storage import resolve_public_asset_path
 from app.repositories.courses import get_all_courses
 
 logger = generation_logger(__name__)
@@ -46,6 +51,7 @@ def render_images(
         return []
     parts = [
         f'<aside class="image-grid count-{min(len(image_ids), 3)}" '
+        f'style="--image-count:{min(len(image_ids), 3)}" '
         'aria-label="Course source images">'
     ]
     for image_id in image_ids[:3]:
@@ -53,9 +59,47 @@ def render_images(
         if not image:
             continue
         path = str(image.get("file_path", "")).replace("assets/", "../../")
-        parts.append(f'<div class="image"><img src="{escape(path)}"></div>')
+        orientation = _image_orientation(image)
+        parts.append(
+            f'<div class="image image--{orientation}">'
+            f'<img src="{escape(path)}" alt="{escape(image.get("caption", ""))}"></div>'
+        )
     parts.append("</aside>")
     return parts
+
+
+def _image_orientation(image: dict[str, Any]) -> str:
+    """Return a stable orientation for new and legacy image records."""
+    stored = str(image.get("orientation") or "").lower()
+    if stored in {"landscape", "portrait", "square"}:
+        return stored
+    try:
+        width = float(image.get("width") or 0)
+        height = float(image.get("height") or 0)
+        if width > 0 and height > 0:
+            ratio = width / height
+            return "landscape" if ratio >= 1.2 else "portrait" if ratio <= 0.83 else "square"
+    except (TypeError, ValueError, ZeroDivisionError):
+        pass
+
+    # Courses generated before orientation metadata was introduced still get
+    # the correct layout by inspecting their stored asset when available.
+    try:
+        source = resolve_public_asset_path(str(image.get("file_path") or ""), settings)
+        with PILImage.open(Path(source)) as opened:
+            ratio = opened.width / opened.height
+            return "landscape" if ratio >= 1.2 else "portrait" if ratio <= 0.83 else "square"
+    except (OSError, ValueError, TypeError, ZeroDivisionError):
+        return "portrait"
+
+
+def _image_profile(image_ids: list[str], images_by_id: dict[str, dict[str, Any]]) -> str:
+    orientations = [_image_orientation(images_by_id.get(image_id, {})) for image_id in image_ids[:3]]
+    if not orientations or not any(item == "landscape" for item in orientations):
+        return "portrait"
+    if all(item == "landscape" for item in orientations):
+        return "landscape"
+    return "mixed"
 
 def _render_cover(slide: dict[str, Any], module_number: int) -> list[str]:
     total_modules = slide.get("total_modules", "")
@@ -69,8 +113,8 @@ def _render_cover(slide: dict[str, Any], module_number: int) -> list[str]:
     return [
         '<div class="module-cover">',
         f'<div class="module-cover-course">{escape(slide.get("course_name", ""))}</div>',
-        '<div class="module-cover-brand">PhillipCapital'
-        '<div class="module-cover-brand-tagline">Wealth. Across Chapters.</div></div>',
+        '<img class="module-cover-brand" src="../../brand/phillipcapital-new-brand-logo.png" '
+        'alt="PhillipCapital Your Partner In Finance">',
         '<div class="module-cover-orb" aria-hidden="true"></div>',
         '<div class="module-cover-swoosh" aria-hidden="true"></div>',
         f'<div class="module-cover-number" aria-hidden="true">{module_display}</div>',
@@ -280,7 +324,13 @@ def generate_html_slides_for_module(
         # Determine visual wrapper class based on image count
         img_count = len(slide_imgs)
         has_images = img_count > 0
-        body_class = f"slide-body n-{img_count}" if has_images else "slide-body no-image"
+        image_profile = _image_profile(slide_imgs, images_by_id) if has_images else "none"
+        body_class = (
+            f"slide-body n-{img_count} images-{image_profile}"
+            if has_images
+            else "slide-body no-image"
+        )
+        media_side = "media-left" if (has_images and not is_v1) else "media-right"
 
         is_cover = layout_type_str == "cover" or slide.get("is_cover_slide")
         # The source-deck header holds the slide title; layouts must not repeat it.
@@ -288,13 +338,10 @@ def generate_html_slides_for_module(
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
-        <div class="slide slide--{layout_type_str}{" slide--cover" if is_cover else ""} {variant_class}{" slide--with-images has-images" if has_images else " slide--text-only no-images"}" id="slide-{slide_idx}">
+        <div class="slide slide--{layout_type_str}{" slide--cover" if is_cover else ""} {variant_class} {media_side}{" slide--with-images has-images slide-images-" + image_profile if has_images else " slide--text-only no-images"}" id="slide-{slide_idx}">
             <header class="brand-header">
                 <div class="brand-slide-title {title_size_class}">{escape(slide_title)}</div>
-                <div class="brand-lockup" aria-label="PhillipCapital Wealth. Across Chapters.">
-                    <div class="brand-name">PhillipCapital</div>
-                    <div class="brand-tagline">Wealth. Across Chapters.</div>
-                </div>
+                <img class="brand-lockup" src="../../brand/phillipcapital-new-brand-logo.png" alt="PhillipCapital Your Partner In Finance">
             </header>
 {header_html}
             <div class="{body_class} body">

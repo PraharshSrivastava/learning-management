@@ -6,6 +6,7 @@ import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/data/models/models.dart';
 import 'package:frontend/state/trainer_providers.dart';
 import 'package:frontend/features/documents/document_portal.dart';
+import 'package:frontend/features/document_builder/document_builder_portal.dart';
 import 'package:frontend/features/courses/course_portal.dart';
 import 'package:frontend/features/training/training_portal.dart';
 import 'package:frontend/features/assignments/assignment_portal.dart';
@@ -265,6 +266,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Widget _buildDocumentsPortal(BuildContext context, WidgetRef ref,
       PDFFile? selectedFile, bool isMobile) {
+    final showBuilder = ref.watch(documentBuilderVisibleProvider);
+    if (showBuilder) {
+      return Padding(
+        padding: EdgeInsets.all(isMobile ? 12 : 20),
+        child: DocumentBuilderPortal(
+            onClose: () => ref
+                .read(documentBuilderVisibleProvider.notifier)
+                .state = false),
+      );
+    }
     if (isMobile) {
       return SingleChildScrollView(
         child: Column(
@@ -272,6 +283,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: UploadCard(),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: CreateDocumentCard(),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -300,6 +315,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               const Padding(
                 padding: EdgeInsets.all(20.0),
                 child: UploadCard(),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: CreateDocumentCard(),
               ),
               Expanded(
                 child: Padding(
