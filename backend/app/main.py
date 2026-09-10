@@ -46,6 +46,7 @@ async def lifespan(_: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="LMS Document Management System Backend", lifespan=lifespan)
     origins = list(settings.cors_allowed_origins)
+    app.add_middleware(HubLaunchMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -53,7 +54,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(HubLaunchMiddleware)
     app.middleware("http")(request_context_middleware)
     install_exception_handlers(app)
     public_directories = {

@@ -15,7 +15,7 @@ RUN flutter pub get
 COPY . .
 ARG API_BASE_URL=
 RUN printf "API_BASE_URL=%s\n" "$API_BASE_URL" > .env \
-    && flutter build web --release
+    && flutter build web --release --pwa-strategy=none
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
