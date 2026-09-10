@@ -348,6 +348,15 @@ class _SlidesViewState extends ConsumerState<SlidesView> {
                       final slidePlan = module.slides[idx];
                       final isSelected = activeSlideIndex == idx;
                       final layout = slidePlan['layout_type'] ?? 'bullets';
+                      final isImageSlide =
+                          layout.toString().toLowerCase() == 'image' ||
+                              slidePlan['is_image_slide'] == true;
+                      final slideTitle = isImageSlide
+                          ? 'Image walkthrough'
+                          : slidePlan['slide_title'] ?? 'Slide Title';
+                      final layoutLabel = isImageSlide
+                          ? 'IMAGE WALKTHROUGH'
+                          : layout.toString().toUpperCase();
 
                       return InkWell(
                         onTap: () => _navigateToSlide(idx, viewId),
@@ -395,7 +404,7 @@ class _SlidesViewState extends ConsumerState<SlidesView> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      slidePlan['slide_title'] ?? 'Slide Title',
+                                      slideTitle,
                                       style: GoogleFonts.barlow(
                                         fontWeight: isSelected
                                             ? FontWeight.bold
@@ -408,7 +417,7 @@ class _SlidesViewState extends ConsumerState<SlidesView> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      'Layout: ${layout.toString().toUpperCase()}',
+                                      'Layout: $layoutLabel',
                                       style: GoogleFonts.barlow(
                                         fontSize: 10,
                                         color: AppTheme.gray,

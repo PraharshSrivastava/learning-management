@@ -5,9 +5,14 @@ from __future__ import annotations
 import html
 import os
 from typing import Any, Dict, List
+from pathlib import Path
+
+from PIL import Image as PILImage
 
 from app.core.logging import generation_logger
 from app.core.providers import SLIDE_DIR
+from app.core.settings import settings
+from app.core.storage import resolve_public_asset_path
 from app.repositories.courses import get_all_courses
 
 logger = generation_logger(__name__)
@@ -38,24 +43,66 @@ def render_layout(
         return _render_grid(slide["grid_data"], is_variant_one, slide_index)
     return _render_bullets(slide, is_variant_one)
 
-def render_images(
-    image_ids: list[str],
+def render_image_slide(
+    slide: dict[str, Any],
     images_by_id: dict[str, dict[str, Any]],
 ) -> list[str]:
-    if not image_ids:
-        return []
-    parts = [
-        f'<aside class="image-grid count-{min(len(image_ids), 3)}" '
-        'aria-label="Course source images">'
+    slide_images = [
+        image
+        for image in slide.get("images", [])
+        if isinstance(image, dict) and image.get("file_path")
     ]
-    for image_id in image_ids[:3]:
-        image = images_by_id.get(image_id)
-        if not image:
-            continue
+    if not slide_images:
+        slide_images = [
+            images_by_id[image_id]
+            for image_id in slide.get("image_ids", [])
+            if image_id in images_by_id
+        ]
+
+    layout = str(slide.get("image_layout") or "vertical").lower()
+    if layout not in {"landscape", "vertical"}:
+        layout = "landscape" if all(_image_orientation(image) == "landscape" for image in slide_images) else "vertical"
+
+    count = min(len(slide_images), 2 if layout == "landscape" else 3)
+    parts = [
+        f'<div class="image-slide-stage image-slide-stage--{layout} count-{count}" '
+        f'style="--image-count:{count}" aria-label="Source image walkthrough">'
+    ]
+    for image in slide_images[:count]:
         path = str(image.get("file_path", "")).replace("assets/", "../../")
-        parts.append(f'<div class="image"><img src="{escape(path)}"></div>')
-    parts.append("</aside>")
+        parts.append(
+            '<figure class="image-slide-frame">'
+            f'<img src="{escape(path)}" alt="{escape(image.get("caption", ""))}">'
+            "</figure>"
+        )
+    parts.append("</div>")
     return parts
+
+
+def _image_orientation(image: dict[str, Any]) -> str:
+    """Return a stable orientation for new and legacy image records."""
+    stored = str(image.get("orientation") or "").lower()
+    if stored in {"landscape", "portrait", "square"}:
+        return stored
+    try:
+        width = float(image.get("width") or 0)
+        height = float(image.get("height") or 0)
+        if width > 0 and height > 0:
+            ratio = width / height
+            return "landscape" if ratio >= 1.2 else "portrait" if ratio <= 0.83 else "square"
+    except (TypeError, ValueError, ZeroDivisionError):
+        pass
+
+    # Courses generated before orientation metadata was introduced still get
+    # the correct layout by inspecting their stored asset when available.
+    try:
+        source = resolve_public_asset_path(str(image.get("file_path") or ""), settings)
+        with PILImage.open(Path(source)) as opened:
+            ratio = opened.width / opened.height
+            return "landscape" if ratio >= 1.2 else "portrait" if ratio <= 0.83 else "square"
+    except (OSError, ValueError, TypeError, ZeroDivisionError):
+        return "portrait"
+
 
 def _render_cover(slide: dict[str, Any], module_number: int) -> list[str]:
     total_modules = slide.get("total_modules", "")
@@ -69,8 +116,8 @@ def _render_cover(slide: dict[str, Any], module_number: int) -> list[str]:
     return [
         '<div class="module-cover">',
         f'<div class="module-cover-course">{escape(slide.get("course_name", ""))}</div>',
-        '<div class="module-cover-brand">PhillipCapital'
-        '<div class="module-cover-brand-tagline">Wealth. Across Chapters.</div></div>',
+        '<img class="module-cover-brand" src="../../brand/phillipcapital-new-brand-logo.png" '
+        'alt="PhillipCapital Your Partner In Finance">',
         '<div class="module-cover-orb" aria-hidden="true"></div>',
         '<div class="module-cover-swoosh" aria-hidden="true"></div>',
         f'<div class="module-cover-number" aria-hidden="true">{module_display}</div>',
@@ -267,7 +314,6 @@ def generate_html_slides_for_module(
         )
         layout_type = slide.get("layout_type", "bullets")
         layout_type_str = str(layout_type).lower().split(".")[-1]
-        slide_imgs = slide.get("image_ids", [])
 
         # Production decks alternate variants. Template previews may explicitly
         # request one variant without adding filler slides.
@@ -277,42 +323,38 @@ def generate_html_slides_for_module(
         )
         variant_class = "variant-v1" if is_v1 else "variant-v2"
 
-        # Determine visual wrapper class based on image count
-        img_count = len(slide_imgs)
-        has_images = img_count > 0
-        body_class = f"slide-body n-{img_count}" if has_images else "slide-body no-image"
-
         is_cover = layout_type_str == "cover" or slide.get("is_cover_slide")
+        is_image_slide = layout_type_str == "image" or slide.get("is_image_slide")
+        body_class = "slide-body no-image"
         # The source-deck header holds the slide title; layouts must not repeat it.
         header_html = ""
 
         html_content.append(f"""
         <!-- SLIDE {slide_idx + 1} -->
-        <div class="slide slide--{layout_type_str}{" slide--cover" if is_cover else ""} {variant_class}{" slide--with-images has-images" if has_images else " slide--text-only no-images"}" id="slide-{slide_idx}">
+        <div class="slide slide--{layout_type_str}{" slide--cover" if is_cover else ""}{" slide--image" if is_image_slide else ""} {variant_class} slide--text-only no-images" id="slide-{slide_idx}">
             <header class="brand-header">
                 <div class="brand-slide-title {title_size_class}">{escape(slide_title)}</div>
-                <div class="brand-lockup" aria-label="PhillipCapital Wealth. Across Chapters.">
-                    <div class="brand-name">PhillipCapital</div>
-                    <div class="brand-tagline">Wealth. Across Chapters.</div>
-                </div>
+                <img class="brand-lockup" src="../../brand/phillipcapital-new-brand-logo.png" alt="PhillipCapital Your Partner In Finance">
             </header>
 {header_html}
             <div class="{body_class} body">
                 <div class="content-area">
 """)
 
-        html_content.extend(
-            render_layout(
-                slide,
-                layout=layout_type_str,
-                is_cover=bool(is_cover),
-                is_variant_one=is_v1,
-                module_number=module_num,
-                slide_index=slide_idx,
+        if is_image_slide:
+            html_content.extend(render_image_slide(slide, images_by_id))
+        else:
+            html_content.extend(
+                render_layout(
+                    slide,
+                    layout=layout_type_str,
+                    is_cover=bool(is_cover),
+                    is_variant_one=is_v1,
+                    module_number=module_num,
+                    slide_index=slide_idx,
+                )
             )
-        )
         html_content.append("</div>")  # end content-area
-        html_content.extend(render_images(slide_imgs, images_by_id))
 
         html_content.append(f"""
             </div>
@@ -357,23 +399,23 @@ def generate_html_slides_for_module(
             if (slide.classList.contains('slide--grid')) {
                 textSelector = '.grid-points li';
                 containerSelector = '.insight-card, .lane-copy';
-                minSize = slide.classList.contains('has-images') ? 10 : 11;
-                maxSize = slide.classList.contains('has-images') ? 22 : 26;
+                minSize = 11;
+                maxSize = 26;
             } else if (slide.classList.contains('slide--steps')) {
                 textSelector = '.step-desc, .band-desc';
                 containerSelector = '.step-card, .step-band';
-                minSize = slide.classList.contains('has-images') ? 10 : 11;
-                maxSize = slide.classList.contains('has-images') ? 18 : 22;
+                minSize = 11;
+                maxSize = 22;
             } else if (slide.classList.contains('slide--comparison')) {
                 textSelector = '.compare-cell, .lane-point';
                 containerSelector = '.comparison-fit';
-                minSize = slide.classList.contains('has-images') ? 10 : 11;
-                maxSize = slide.classList.contains('has-images') ? 18 : 22;
+                minSize = 11;
+                maxSize = 22;
             } else if (slide.classList.contains('slide--bullets')) {
                 textSelector = '.ribbon-text, .spread-text';
                 containerSelector = '.bullet-fit';
-                minSize = slide.classList.contains('has-images') ? 12 : 14;
-                maxSize = slide.classList.contains('has-images') ? 28 : 34;
+                minSize = 14;
+                maxSize = 34;
             } else {
                 return;
             }

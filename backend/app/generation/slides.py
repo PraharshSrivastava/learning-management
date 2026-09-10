@@ -2,6 +2,7 @@
 
 import copy
 import json
+import re
 import time
 from typing import Any, Dict
 
@@ -32,6 +33,147 @@ from app.schemas.generation.slides import (
 )
 
 logger = generation_logger(__name__)
+
+
+def _slide_image_orientation(image: dict[str, Any]) -> str:
+    stored = str(image.get("orientation") or "").lower()
+    if stored in {"landscape", "portrait", "square"}:
+        return stored
+    try:
+        width = float(image.get("width") or 0)
+        height = float(image.get("height") or 0)
+        if width > 0 and height > 0:
+            ratio = width / height
+            return "landscape" if ratio >= 1.2 else "portrait" if ratio <= 0.83 else "square"
+    except (TypeError, ValueError, ZeroDivisionError):
+        pass
+    return "portrait"
+
+
+def _image_slide_group_key(image: dict[str, Any]) -> str:
+    return "landscape" if _slide_image_orientation(image) == "landscape" else "vertical"
+
+
+def _chunk_images(images: list[dict[str, Any]], size: int) -> list[list[dict[str, Any]]]:
+    return [images[index : index + size] for index in range(0, len(images), size)]
+
+
+def _group_images_for_image_slides(images: list[dict[str, Any]]) -> list[tuple[str, list[dict[str, Any]]]]:
+    """Group mapped images for clean image-only slides while preserving local order."""
+    groups: list[tuple[str, list[dict[str, Any]]]] = []
+    current_key = ""
+    current_images: list[dict[str, Any]] = []
+
+    def flush() -> None:
+        if not current_images:
+            return
+        group_size = 1 if current_key == "landscape" else 3
+        for chunk in _chunk_images(current_images, group_size):
+            groups.append((current_key, chunk))
+
+    for image in images:
+        key = _image_slide_group_key(image)
+        if current_images and key != current_key:
+            flush()
+            current_images = []
+        current_key = key
+        current_images.append(image)
+    flush()
+    return groups
+
+
+def _figure_number_sort_key(image: dict[str, Any]) -> tuple[int, tuple[int, ...], str]:
+    caption = str(image.get("raw_caption") or image.get("caption") or "")
+    match = re.search(
+        r"\b(?:figure|fig|image|img|chart)\s*(\d+(?:[.\-]\d+)*)",
+        caption,
+        re.IGNORECASE,
+    )
+    if not match:
+        return (1, (), caption.lower())
+    parts = tuple(int(part) for part in re.findall(r"\d+", match.group(1)))
+    return (0, parts, caption.lower())
+
+
+def _sort_slide_images_by_mapping(slide: dict[str, Any]) -> None:
+    slide["images"] = sorted(
+        slide.get("images") or [],
+        key=lambda image: (
+            int(image.get("mapped_bullet_index") or 10_000),
+            *_figure_number_sort_key(image),
+        ),
+    )
+
+
+def _append_image_to_slide(
+    slide: dict[str, Any], image: dict[str, Any], mapped_bullet_index: int | None = None
+) -> None:
+    slide.setdefault("images", [])
+    image_id = image.get("image_id")
+    if image_id and any(existing.get("image_id") == image_id for existing in slide["images"]):
+        return
+    mapped_image = dict(image)
+    if mapped_bullet_index is not None:
+        mapped_image["mapped_bullet_index"] = mapped_bullet_index
+    slide["images"].append(mapped_image)
+
+
+def _expand_mapped_image_slides(module: dict) -> dict:
+    expanded_slides: list[dict[str, Any]] = []
+    for source_index, slide in enumerate(module.get("slides", []), start=1):
+        slide_images = list(slide.get("images") or [])
+        mapped_image_ids = [
+            image.get("image_id")
+            for image in slide_images
+            if image.get("image_id")
+        ]
+
+        content_slide = dict(slide)
+        if mapped_image_ids:
+            content_slide["mapped_image_ids"] = mapped_image_ids
+        content_slide["image_ids"] = []
+        content_slide["images"] = []
+        expanded_slides.append(content_slide)
+
+        for group_number, (group_key, image_group) in enumerate(
+            _group_images_for_image_slides(slide_images),
+            start=1,
+        ):
+            group_ids = [
+                image.get("image_id")
+                for image in image_group
+                if image.get("image_id")
+            ]
+            title = content_slide.get("slide_title") or content_slide.get("title", "")
+            expanded_slides.append(
+                {
+                    "title": "",
+                    "slide_title": "",
+                    "layout_type": "image",
+                    "is_image_slide": True,
+                    "source_slide_index": source_index,
+                    "source_slide_title": title,
+                    "image_layout": group_key,
+                    "image_ids": group_ids,
+                    "images": image_group,
+                    "content": [],
+                    "bullets": [],
+                    "bullets_data": [],
+                }
+            )
+
+            logger.info(
+                "image_slide_inserted module=%s source_slide=%s group=%s image_count=%s layout=%s",
+                module.get("module_number"),
+                source_index,
+                group_number,
+                len(group_ids),
+                group_key,
+            )
+
+    module["slides"] = expanded_slides
+    return module
+
 
 def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict:
     """
@@ -166,21 +308,31 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
 
             mapped_ids = set()
             for mapping in mapping_parsed.mappings:
+                img_meta = next(
+                    (img for img in images if img.get("image_id") == mapping.image_id),
+                    None,
+                )
+                if not img_meta:
+                    continue
+
                 s_idx = bullet_to_slide.get(mapping.bullet_index, 0)
                 if 0 <= s_idx < len(planned_slides):
-                    img_meta = next(
-                        (img for img in images if img.get("image_id") == mapping.image_id), None
+                    _append_image_to_slide(
+                        planned_slides[s_idx],
+                        img_meta,
+                        mapped_bullet_index=mapping.bullet_index,
                     )
-                    if img_meta:
-                        planned_slides[s_idx]["images"].append(img_meta)
-                        mapped_ids.add(mapping.image_id)
+                    mapped_ids.add(mapping.image_id)
 
             for img in images:
                 if img.get("image_id") not in mapped_ids:
-                    planned_slides[0]["images"].append(img)
+                    _append_image_to_slide(planned_slides[0], img)
                     logger.info(
                         f"      [FALLBACK] Mapped unassigned image {img.get('image_id')} to Slide 1"
                     )
+
+            for slide in planned_slides:
+                _sort_slide_images_by_mapping(slide)
 
         module["planned_slides"] = planned_slides
 
@@ -422,6 +574,7 @@ def _generate_slides_for_module(
         best_module_state = _apply_slide_fallbacks(best_module_state)
 
     ensure_module_cover_slide(course, best_module_state, index + 1, len(course.get("modules", [])))
+    best_module_state = _expand_mapped_image_slides(best_module_state)
     log_event(
         course["course_id"],
         "slides",

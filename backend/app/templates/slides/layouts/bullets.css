@@ -48,21 +48,6 @@
   font-weight: 500;
   overflow-wrap: anywhere;
 }
-.slide--with-images .ribbon-list {
-  --bullet-size: 13px;
-  --num-size: 18px;
-  gap: 8px;
-}
-.slide--with-images .ribbon-list.items-1 { --bullet-size: 24px; --num-size: 30px; }
-.slide--with-images .ribbon-list.items-2 { --bullet-size: 19px; --num-size: 24px; }
-.slide--with-images .ribbon-list.items-3 { --bullet-size: 16px; --num-size: 20px; }
-.slide--with-images .ribbon-item {
-  grid-template-columns: 42px minmax(0, 1fr);
-  padding-right: 12px;
-  border-left-width: 4px;
-}
-.slide--with-images .ribbon-item:nth-child(even) { margin-left: 14px; }
-
 .spread-grid {
   --bullet-size: 19px;
   --num-size: 44px;
@@ -125,30 +110,4 @@
   line-height: 1.24;
   font-weight: 500;
   overflow-wrap: anywhere;
-}
-.slide--with-images .spread-grid {
-  --bullet-size: 13px;
-  --num-size: 28px;
-  gap: 12px 16px;
-}
-.slide--with-images .spread-grid.items-1 {
-  --bullet-size: 24px;
-  --num-size: 52px;
-}
-.slide--with-images .spread-grid.items-2 {
-  --bullet-size: 18px;
-  --num-size: 38px;
-}
-.slide--with-images .spread-grid.items-3,
-.slide--with-images .spread-grid.items-4,
-.slide--with-images .spread-grid.items-5 {
-  grid-template-columns: 1fr;
-}
-.slide--with-images .spread-item {
-  padding: 10px 8px 6px 0;
-  border-top-width: 2px;
-}
-.slide--with-images .spread-num {
-  float: left;
-  margin: 0 10px 4px 0;
 }

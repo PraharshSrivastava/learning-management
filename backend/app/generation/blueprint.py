@@ -15,6 +15,7 @@ from app.core.providers import IMAGE_DIR, UPLOAD_DIR, get_llm_endpoint, safe_cha
 from app.core.settings import settings
 from app.core.storage import public_asset_url
 from app.documents.conversion import convert_office_to_pdf
+from app.documents.docx import extract_docx_blueprint_source
 from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
@@ -558,8 +559,16 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
     for page_num in range(total_pages):
         page = doc[page_num]
 
-        # Get image positions
-        images_info = page.get_image_info(xrefs=True)
+        # Get image positions in visible reading order. PyMuPDF's internal
+        # image order can differ from the way images appear on the page, which
+        # later makes image-only slides and narration feel mismatched.
+        images_info = sorted(
+            page.get_image_info(xrefs=True),
+            key=lambda item: (
+                round(float(item.get("bbox", (0, 0, 0, 0))[1]), 1),
+                round(float(item.get("bbox", (0, 0, 0, 0))[0]), 1),
+            ),
+        )
         # Get text blocks sorted by coordinate order
         blocks = page.get_text("blocks")
 
@@ -667,15 +676,33 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                 # Relative path to backend (BASE_DIR) directory
                 relative_path = public_asset_url("images", course_id, img_filename)
 
+                image_id = f"img_p{page_num + 1}_{img_idx + 1}_{xref}"
                 extracted.append(
                     {
-                        "image_id": f"img_{xref}",
+                        "image_id": image_id,
                         "caption": caption_content,
                         "raw_caption": best_caption_raw,
                         "file_path": relative_path,
                         "page": page_num + 1,
                         "bbox": bbox,
+                        "source_order": len(extracted) + 1,
+                        # Keep the source dimensions so the slide renderer can
+                        # choose an appropriate composition instead of treating
+                        # every image as a portrait card.
+                        "width": int(img.get("width") or base_image.get("width") or 0),
+                        "height": int(img.get("height") or base_image.get("height") or 0),
                     }
+                )
+                extracted[-1]["aspect_ratio"] = (
+                    extracted[-1]["width"] / extracted[-1]["height"]
+                    if extracted[-1]["width"] > 0 and extracted[-1]["height"] > 0
+                    else None
+                )
+                ratio = extracted[-1]["aspect_ratio"]
+                extracted[-1]["orientation"] = (
+                    "landscape" if ratio is not None and ratio >= 1.2
+                    else "portrait" if ratio is not None and ratio <= 0.83
+                    else "square"
                 )
                 logger.info(
                     f'  Extracted image {xref} on page {page_num + 1} with caption: "{caption_content}"'
@@ -849,6 +876,8 @@ def assign_images_to_modules(
             image_page=img.get("page"),
             raw_caption=img.get("raw_caption"),
         )
+        if line_num != -1:
+            img["line"] = line_num
         assigned = False
 
         if line_num != -1:
@@ -1004,6 +1033,95 @@ def run_pptx_blueprint_extraction(pptx_path: str, course_id: str = "temp_course"
     ).model_dump()
 
 
+def _assign_docx_images_by_line(
+    images: List[Dict[str, Any]], modules: List[Dict[str, Any]], total_lines: int
+) -> List[Dict[str, Any]]:
+    """Attach DOCX images to modules using their nearest text/caption line."""
+    if not images or not modules:
+        return modules
+
+    for idx, module in enumerate(modules):
+        if idx + 1 < len(modules):
+            module["end_line"] = modules[idx + 1]["start_line"] - 1
+        else:
+            module["end_line"] = total_lines
+        module.setdefault("images", [])
+
+    for image_index, image in enumerate(images):
+        line = image.get("line")
+        target_module = None
+        if isinstance(line, int):
+            for module in modules:
+                if module["start_line"] <= line <= module["end_line"]:
+                    target_module = module
+                    break
+
+        if target_module is None:
+            estimated_idx = min(
+                len(modules) - 1,
+                int((image_index / max(1, len(images))) * len(modules)),
+            )
+            target_module = modules[estimated_idx]
+
+        if not any(existing["image_id"] == image["image_id"] for existing in target_module["images"]):
+            target_module["images"].append(image)
+
+    for module in modules:
+        module.pop("end_line", None)
+    return modules
+
+
+def run_docx_blueprint_extraction(docx_path: str, course_id: str = "temp_course") -> dict:
+    """Generate a blueprint from native DOCX structure without converting to PDF first."""
+    metadata, original_lines, images = extract_docx_blueprint_source(docx_path, course_id)
+    if not original_lines:
+        raise ValueError("No text could be extracted from the DOCX.")
+
+    if not metadata:
+        metadata, remaining_text = extract_metadata_programmatically("\n".join(original_lines))
+        if metadata:
+            original_lines = [
+                line.strip()
+                for line in normalise_to_sentence_lines(remaining_text).split("\n")
+                if line.strip()
+            ]
+
+    if not metadata:
+        raise ValueError(
+            "Document format not supported. The DOCX must contain course metadata fields: "
+            "Course Name, Course Description, Course Objective, Course Difficulty, Language, Target Audience."
+        )
+
+    raw_modules = extract_modules_with_llm(original_lines, course_id=course_id)
+    adjust_start_lines_for_headers(raw_modules, original_lines)
+    modules = slice_modules_by_line(original_lines, raw_modules)
+    modules = _assign_docx_images_by_line(images, modules, len(original_lines))
+    caption_lines_to_remove = {
+        image["caption_line"] for image in images if isinstance(image.get("caption_line"), int)
+    }
+    if caption_lines_to_remove:
+        for module in modules:
+            lines = module.get("source_text", "").split("\n")
+            module["source_text"] = "\n".join(
+                line
+                for rel_idx, line in enumerate(lines)
+                if module["start_line"] + rel_idx not in caption_lines_to_remove
+            )
+    good = sum(1 for module in modules if len(module.get("source_text", "")) >= 100)
+    logger.info("docx_module_text_slicing_completed matched=%s total=%s", good, len(modules))
+
+    return BlueprintExtractionResult(
+        course_name=metadata.get("course_name", ""),
+        course_description=metadata.get("course_description", ""),
+        course_objective=metadata.get("course_objective", ""),
+        course_difficulty=metadata.get("course_difficulty", ""),
+        language=metadata.get("language", ""),
+        target_audience=metadata.get("target_audience", ""),
+        modules=modules,
+        images=images,
+    ).model_dump()
+
+
 def generate_course_outline(filename, course_id: str | None = None, trainer_id: str | None = None):
     logger.info("blueprint_generation_started file_name=%s", filename)
     document_path = os.path.join(UPLOAD_DIR, filename)
@@ -1054,11 +1172,25 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
         if suffix == ".pptx":
             outline = run_pptx_blueprint_extraction(document_path, course_id=course_id)
         elif suffix == ".docx":
-            converted_pdf = Path(settings.derived_document_dir) / f"{document['document_id']}.pdf"
-            outline = run_blueprint_extraction(
-                str(convert_office_to_pdf(Path(document_path), converted_pdf)),
-                course_id=course_id,
-            )
+            try:
+                outline = run_docx_blueprint_extraction(document_path, course_id=course_id)
+            except Exception as docx_exc:
+                logger.warning(
+                    "docx_native_extraction_failed_falling_back_to_pdf file_name=%s error=%s",
+                    filename,
+                    docx_exc,
+                )
+                converted_pdf = Path(settings.derived_document_dir) / f"{document['document_id']}.pdf"
+                try:
+                    outline = run_blueprint_extraction(
+                        str(convert_office_to_pdf(Path(document_path), converted_pdf)),
+                        course_id=course_id,
+                    )
+                except Exception as fallback_exc:
+                    raise RuntimeError(
+                        f"DOCX native extraction failed: {docx_exc}. "
+                        f"DOCX PDF fallback also failed: {fallback_exc}"
+                    ) from fallback_exc
         else:
             outline = run_blueprint_extraction(document_path, course_id=course_id)
     except Exception as exc:

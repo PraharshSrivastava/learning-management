@@ -10,6 +10,8 @@ PRONUNCIATION_MAP = {
     "Mazagon's": "Mazgaon's",
     # Indian markets, regulators, and institutions.
     "SEBI": "Sebee",
+    "SELF": "self",
+    "MOM": "M O M",
     "NSE": "N S E",
     "BSE": "B S E",
     "RBI": "R B I",
@@ -37,6 +39,8 @@ PRONUNCIATION_MAP = {
     "REITs": "Reets",
     "InvIT": "Invit",
     "InvITs": "Invits",
+    "BOTECH": "B O Tech",
+    "botech": "B O Tech",
     "SIP": "S I P",
     "SIPs": "S I P's",
     "SWP": "S W P",

@@ -18,6 +18,10 @@ class ImageRecord(ApiSchema):
     path: str | None = None
     url: str | None = None
     caption: str | None = None
+    width: int | None = None
+    height: int | None = None
+    aspect_ratio: float | None = None
+    orientation: Literal["landscape", "portrait", "square"] | None = None
 
 
 class SlideRecord(ApiSchema):
@@ -25,9 +29,13 @@ class SlideRecord(ApiSchema):
     title: str = ""
     slide_title: str = ""
     layout_type: str = "bullets"
+    is_image_slide: bool = False
+    source_slide_index: int | None = None
+    source_slide_title: str | None = None
     content: list[Any] = Field(default_factory=list)
     bullets: list[Any] = Field(default_factory=list)
     image_ids: list[str] = Field(default_factory=list)
+    mapped_image_ids: list[str] = Field(default_factory=list)
     images: list[ImageRecord] = Field(default_factory=list)
     script: str | None = None
     audio_path: str | None = None

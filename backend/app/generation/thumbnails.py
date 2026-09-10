@@ -4,12 +4,14 @@ import base64
 import hashlib
 import json
 import os
+import random
 import re
 import time
 from typing import Optional
 from urllib.parse import urljoin
 
 import requests
+from PIL import Image, ImageDraw
 
 from app.core.logging import generation_logger
 from app.core.providers import get_llm_endpoint, safe_chat_completion
@@ -26,6 +28,14 @@ THUMBNAIL_READ_TIMEOUT = settings.thumbnail_read_timeout
 THUMBNAIL_DIR = os.path.join(str(settings.image_dir), "course_thumbnails")
 THUMBNAIL_PROMPT_VERSION = "single-subject-v2"
 THUMBNAILS_ENABLED = settings.thumbnails_enabled
+
+_PLACEHOLDER_PALETTES = (
+    ("#173F5F", "#20639B", "#3CAEA3", "#F6D55C"),
+    ("#2D1E5F", "#5B3CC4", "#8B5CF6", "#F0ABFC"),
+    ("#12372A", "#436850", "#ADBC9F", "#FBFADA"),
+    ("#4A1942", "#893168", "#C4547D", "#F4B8C5"),
+    ("#102A43", "#336B87", "#90AFC5", "#F2F6F8"),
+)
 
 
 def _safe_filename(value: str) -> str:
@@ -169,6 +179,32 @@ def _thumbnail_request_headers() -> dict:
     return headers
 
 
+def _placeholder_image_bytes() -> bytes:
+    """Create a random, text-free placeholder that is safe for course cards."""
+    from io import BytesIO
+
+    rng = random.SystemRandom()
+    palette = rng.choice(_PLACEHOLDER_PALETTES)
+    size = 1024
+    image = Image.new("RGB", (size, size), palette[0])
+    draw = ImageDraw.Draw(image, "RGBA")
+
+    # Layer oversized translucent shapes so every fallback is visually distinct.
+    for index in range(14):
+        diameter = rng.randint(180, 680)
+        x = rng.randint(-diameter // 2, size - diameter // 2)
+        y = rng.randint(-diameter // 2, size - diameter // 2)
+        color = palette[1 + (index % (len(palette) - 1))]
+        draw.ellipse(
+            (x, y, x + diameter, y + diameter),
+            fill=color + rng.choice(("55", "70", "88", "A0")),
+        )
+
+    buffer = BytesIO()
+    image.save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
+
 def generate_course_thumbnail(
     course: dict, course_id: str, *, attempts: int = 3
 ) -> Optional[str]:
@@ -196,21 +232,21 @@ def generate_course_thumbnail(
         )
         return public_asset_url("images", "course_thumbnails", filename)
 
-    logger.info("thumbnail_prompt_planning_started course_id=%s", course_id)
-    prompt_start = time.perf_counter()
-    prompt = _planned_thumbnail_prompt(str(title), str(description), course_id, attempts=attempts)
-    logger.info(
-        f"[THUMBNAIL] Prompt planned for course {course_id} in {time.perf_counter() - prompt_start:.1f}s"
-    )
-
     os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-    logger.info(
-        f"[THUMBNAIL] Requesting image for course {course_id} "
-        f"(endpoint={THUMBNAIL_ENDPOINT}, timeout={THUMBNAIL_CONNECT_TIMEOUT:.0f}s/{THUMBNAIL_READ_TIMEOUT:.0f}s)..."
-    )
-    image_start = time.perf_counter()
-
-    def request_image_once() -> bytes:
+    try:
+        logger.info("thumbnail_prompt_planning_started course_id=%s", course_id)
+        prompt_start = time.perf_counter()
+        # Thumbnail generation deliberately gets one attempt. Any model, transport,
+        # response, or prompt-planning failure is replaced locally below.
+        prompt = _planned_thumbnail_prompt(str(title), str(description), course_id, attempts=1)
+        logger.info(
+            f"[THUMBNAIL] Prompt planned for course {course_id} in {time.perf_counter() - prompt_start:.1f}s"
+        )
+        logger.info(
+            f"[THUMBNAIL] Requesting image for course {course_id} "
+            f"(endpoint={THUMBNAIL_ENDPOINT}, timeout={THUMBNAIL_CONNECT_TIMEOUT:.0f}s/{THUMBNAIL_READ_TIMEOUT:.0f}s)..."
+        )
+        image_start = time.perf_counter()
         response = requests.post(
             THUMBNAIL_ENDPOINT,
             headers=_thumbnail_request_headers(),
@@ -221,14 +257,16 @@ def generate_course_thumbnail(
         image_bytes = _decode_image_payload(response.json(), THUMBNAIL_ENDPOINT)
         if not image_bytes:
             raise ValueError("Image generation response did not include image data")
-        return image_bytes
-
-    image_bytes = retry(
-        request_image_once, course_id=course_id, stage="thumbnail_image", attempts=attempts
-    )
-    logger.info(
-        f"[THUMBNAIL] Image response received for course {course_id} in {time.perf_counter() - image_start:.1f}s"
-    )
+        logger.info(
+            f"[THUMBNAIL] Image response received for course {course_id} in {time.perf_counter() - image_start:.1f}s"
+        )
+    except Exception as exc:
+        logger.warning(
+            "thumbnail_generation_fallback course_id=%s reason=%s",
+            course_id,
+            str(exc)[:500],
+        )
+        image_bytes = _placeholder_image_bytes()
 
     with open(output_path, "wb") as image_file:
         image_file.write(image_bytes)

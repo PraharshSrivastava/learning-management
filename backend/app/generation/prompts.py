@@ -53,6 +53,7 @@ def load_prompt(filename: str) -> str:
 MODULE_EXTRACTION_PROMPT = PromptTemplate("module_extraction.md")
 QUIZ_GENERATION_PROMPT = PromptTemplate("quiz_generation.md")
 SCRIPT_GENERATION_PROMPT = PromptTemplate("script_generation.md")
+IMAGE_SCRIPT_GENERATION_PROMPT = PromptTemplate("image_script_generation.md")
 
 # --- SLIDE PLANNER PROMPTS ---
 MODULE_SLIDE_PLANNER_PROMPT = PromptTemplate("module_slide_planner.md")

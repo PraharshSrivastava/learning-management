@@ -407,6 +407,16 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
               final slide = module.slides[idx] as Map<String, dynamic>;
               final scriptText = slide['script']?.toString() ?? '';
               final audioPath = slide['audio_path']?.toString() ?? '';
+              final layoutStr = (slide['layout_type'] ?? 'bullets')
+                  .toString()
+                  .toLowerCase()
+                  .split('.')
+                  .last;
+              final isImageSlide =
+                  layoutStr == 'image' || slide['is_image_slide'] == true;
+              final slideTitle = isImageSlide
+                  ? 'Image walkthrough'
+                  : slide['slide_title'] ?? 'Untitled Slide';
               final hasAudio = audioPath.isNotEmpty;
               final isPlayingThis =
                   _playingSlideIndex == idx && _isAudioPlaying;
@@ -455,7 +465,7 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      slide['slide_title'] ?? 'Untitled Slide',
+                                      slideTitle,
                                       style: GoogleFonts.inter(
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold,
@@ -564,7 +574,50 @@ class _ScriptsViewState extends ConsumerState<ScriptsView> {
     final layout = slide['layout_type'] ?? 'bullets';
     final layoutStr = layout.toString().toLowerCase().split('.').last;
 
-    if (layoutStr == 'concept' && slide['concept_data'] != null) {
+    if (layoutStr == 'image' || slide['is_image_slide'] == true) {
+      final List<dynamic> images = slide['images'] ?? [];
+      final sourceTitle = slide['source_slide_title']?.toString() ?? '';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Image walkthrough',
+              style: GoogleFonts.barlow(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.gray)),
+          if (sourceTitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('After: $sourceTitle',
+                style: GoogleFonts.barlow(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryBlue)),
+          ],
+          const SizedBox(height: 6),
+          ...images.asMap().entries.map((entry) {
+            final caption =
+                (entry.value is Map ? entry.value['caption'] : '').toString();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 5.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${entry.key + 1}. ',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue)),
+                  Expanded(
+                      child: Text(
+                    caption.isNotEmpty ? caption : 'Image with no caption',
+                    style: GoogleFonts.barlow(fontSize: 12.5),
+                  )),
+                ],
+              ),
+            );
+          }),
+        ],
+      );
+    } else if (layoutStr == 'concept' && slide['concept_data'] != null) {
       final data = slide['concept_data'];
       final coreTerm = data['core_term'] ?? '';
       final definition = data['definition'] ?? '';

@@ -1,24 +1,24 @@
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
 WORKDIR /app
 
-# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ffmpeg \
-        libreoffice-writer \
-        libreoffice-impress \
-        fonts-dejavu-core \
+        ffmpeg=7:7.1.5-0+deb13u1 \
+        libreoffice-writer=4:25.2.3-2+deb13u6 \
+        libreoffice-impress=4:25.2.3-2+deb13u6 \
+        fonts-dejavu-core=2.37-8 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN python -m pip install --no-cache-dir --upgrade pip==25.3 \
-    && python -m pip install --no-cache-dir -r requirements.txt \
-    && python -m playwright install --with-deps chromium
+COPY requirements.txt requirements.lock ./
+RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes -r requirements.lock \
+    && python -m playwright install chromium
 
 COPY app ./app
 COPY scripts ./scripts

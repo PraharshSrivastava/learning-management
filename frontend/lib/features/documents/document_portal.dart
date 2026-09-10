@@ -10,6 +10,7 @@ import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/config/app_constants.dart';
 import 'package:frontend/data/models/models.dart';
 import 'package:frontend/state/trainer_providers.dart';
+import 'package:frontend/features/document_builder/document_builder_portal.dart';
 
 final Set<String> _registeredPreviewViewIds = <String>{};
 
@@ -34,7 +35,7 @@ class UploadCard extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Support PDF format files',
+            'Supports PDF, DOCX, and PPTX files',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -44,7 +45,7 @@ class UploadCard extends ConsumerWidget {
                 : () async {
                     final result = await FilePicker.platform.pickFiles(
                       type: FileType.custom,
-                      allowedExtensions: ['pdf'],
+                      allowedExtensions: ['pdf', 'docx', 'pptx'],
                       withData: true,
                     );
                     if (result != null && result.files.isNotEmpty) {
@@ -77,7 +78,7 @@ class UploadCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Click to select PDF document',
+                    'Click to select a document',
                     style: GoogleFonts.barlow(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -86,7 +87,7 @@ class UploadCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'PDF file up to 20MB',
+                    'PDF, DOCX, or PPTX file up to 20MB',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -169,6 +170,36 @@ class UploadCard extends ConsumerWidget {
   }
 }
 
+class CreateDocumentCard extends ConsumerWidget {
+  const CreateDocumentCard({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Container(
+        decoration: AppTheme.cardDecoration(),
+        padding: const EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Create Document',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('Build a training PDF with the document builder',
+              style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 16),
+          SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: AppTheme.primaryButtonStyle(),
+                icon: const Icon(Icons.edit_document, size: 18),
+                label: const Text('Open Document Builder'),
+                onPressed: () => ref
+                    .read(documentBuilderVisibleProvider.notifier)
+                    .state = true,
+              )),
+        ]),
+      );
+}
+
 class DocumentListCard extends ConsumerWidget {
   final PDFFile? selectedFile;
 
@@ -189,7 +220,7 @@ class DocumentListCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Uploaded PDFs',
+                  'Uploaded Documents',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryBlue,
@@ -274,7 +305,11 @@ class DocumentListCard extends ConsumerWidget {
                                   selected: isSelected,
                                   selectedTileColor: AppTheme.brandBlue100,
                                   leading: Icon(
-                                    Icons.picture_as_pdf,
+                                    file.isDocx
+                                        ? Icons.description_outlined
+                                        : file.isPptx
+                                            ? Icons.slideshow_outlined
+                                            : Icons.picture_as_pdf,
                                     color: isSelected
                                         ? AppTheme.primaryBlue
                                         : AppTheme.gray,
@@ -356,7 +391,7 @@ class PDFViewerCard extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Upload a PDF document or select one from the list to view it.',
+                'Upload a document or select one from the list to view it.',
                 style: GoogleFonts.barlow(
                   fontSize: 14,
                   color: AppTheme.gray,
@@ -395,7 +430,14 @@ class PDFViewerCard extends ConsumerWidget {
               color: AppTheme.brandBlue50,
               child: Row(
                 children: [
-                  const Icon(Icons.picture_as_pdf, color: AppTheme.primaryBlue),
+                  Icon(
+                    selectedFile!.isDocx
+                        ? Icons.description_outlined
+                        : selectedFile!.isPptx
+                            ? Icons.slideshow_outlined
+                            : Icons.picture_as_pdf,
+                    color: AppTheme.primaryBlue,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -457,7 +499,7 @@ class PDFViewerCard extends ConsumerWidget {
                 size: 64, color: AppTheme.primaryBlue),
             const SizedBox(height: 16),
             Text(
-              'PDF viewer is running in Web mode.',
+              'Document preview is running in Web mode.',
               style: GoogleFonts.barlow(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

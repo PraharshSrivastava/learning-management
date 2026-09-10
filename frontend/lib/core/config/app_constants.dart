@@ -11,6 +11,12 @@ class AppConstants {
 
   static String get uploadEndpoint => '$apiBaseUrl/api/upload';
   static String get listFilesEndpoint => '$apiBaseUrl/api/files';
+  static String get documentBuilderBuildEndpoint =>
+      '$apiBaseUrl/api/document-builder/build-document';
+  static String get documentBuilderRenderEndpoint =>
+      '$apiBaseUrl/api/document-builder/render-pdf';
+  static String get documentBuilderSaveEndpoint =>
+      '$apiBaseUrl/api/document-builder/save-pdf';
   static String get generateCourseEndpoint =>
       '$apiBaseUrl/api/courses/generate';
   static String get listCoursesEndpoint => '$apiBaseUrl/api/courses';

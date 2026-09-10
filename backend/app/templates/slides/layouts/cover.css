@@ -2,7 +2,7 @@
   isolation: isolate;
   padding: 56px 78px 52px;
   color: var(--pc-deep-navy);
-  background: linear-gradient(118deg, var(--pc-blue-wash) 0%, var(--pc-blue-mid) 53%, var(--pc-peach-wash) 100%);
+  background: var(--pc-slide-bg);
 }
 
 .slide--cover .brand-header,
@@ -45,24 +45,10 @@
 .module-cover-brand {
   position: absolute;
   z-index: 3;
-  top: 49px;
-  right: 78px;
-  width: 220px;
-  color: var(--pc-navy);
-  text-align: center;
-  font-size: 27px;
-  font-weight: 700;
-  letter-spacing: -.045em;
-}
-
-.module-cover-brand-tagline {
-  margin-top: 5px;
-  padding: 5px 10px 6px;
-  background: var(--pc-navy);
-  color: var(--pc-white);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: .03em;
+  top: 29px;
+  right: 26px;
+  width: 184px;
+  height: auto;
 }
 
 .module-cover-kicker {

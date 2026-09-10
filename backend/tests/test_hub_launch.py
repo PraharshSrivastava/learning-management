@@ -13,6 +13,7 @@ from starlette.requests import Request
 from app.core.settings import Settings
 from app.security import hub_launch
 from app.security.hub_launch import HubLaunchVerifier
+from security_test_values import TEST_HUB_SIGNING_VALUE
 
 
 def _b64url(value: bytes) -> str:
@@ -29,7 +30,7 @@ def _token(secret: str, payload: dict) -> str:
     return f"{payload_b64}.{_b64url(signature)}"
 
 
-def _verifier(secret: str = "test-secret") -> HubLaunchVerifier:
+def _verifier(secret: str = TEST_HUB_SIGNING_VALUE) -> HubLaunchVerifier:
     return HubLaunchVerifier(
         Settings(
             hub_launch_secret=secret,
@@ -42,7 +43,7 @@ def _verifier(secret: str = "test-secret") -> HubLaunchVerifier:
 
 def test_accepts_valid_token_for_expected_app() -> None:
     token = _token(
-        "test-secret",
+        TEST_HUB_SIGNING_VALUE,
         {
             "app_key": "lms-trainer",
             "app_id": 10,
@@ -61,7 +62,7 @@ def test_accepts_valid_token_for_expected_app() -> None:
 
 def test_rejects_token_for_wrong_app() -> None:
     token = _token(
-        "test-secret",
+        TEST_HUB_SIGNING_VALUE,
         {
             "app_key": "lms-employee",
             "sub": 42,
@@ -75,7 +76,7 @@ def test_rejects_token_for_wrong_app() -> None:
 
 def test_rejects_expired_token() -> None:
     token = _token(
-        "test-secret",
+        TEST_HUB_SIGNING_VALUE,
         {
             "app_key": "lms-trainer",
             "sub": 42,
@@ -91,7 +92,7 @@ def test_launch_token_is_exchanged_for_independent_session_cookie(monkeypatch) -
     now = int(time.time())
     verifier = _verifier()
     launch_token = _token(
-        "test-secret",
+        TEST_HUB_SIGNING_VALUE,
         {
             "app_key": "lms-trainer",
             "sub": 42,
