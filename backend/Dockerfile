@@ -18,7 +18,7 @@ RUN apt-get update \
 
 COPY requirements.txt requirements.lock ./
 RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes -r requirements.lock \
-    && python -m playwright install chromium
+    && python -m playwright install --with-deps chromium
 
 COPY app ./app
 COPY scripts ./scripts
