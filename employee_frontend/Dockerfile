@@ -18,6 +18,8 @@ RUN printf "API_BASE_URL=%s\n" "$API_BASE_URL" > .env \
     && flutter build web --release --pwa-strategy=none
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
+USER root
+RUN apk upgrade --no-cache
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
 
