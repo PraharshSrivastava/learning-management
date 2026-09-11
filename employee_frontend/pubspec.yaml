@@ -69,6 +69,7 @@ flutter:
   assets:
     - .env
     - assets/logos/
+    - assets/google_fonts/
     - assets/thumbnails/
 
   # An image asset can refer to one or more resolution-specific "variants", see
