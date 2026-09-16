@@ -8,7 +8,7 @@ from datetime import datetime
 from psycopg import IntegrityError
 from psycopg.types.json import Jsonb
 
-from app.repositories.database import get_connection
+from app.repositories.database import advisory_xact_lock, get_connection
 from app.schemas.generation import GenerationJobResponse
 
 
@@ -113,6 +113,7 @@ class GenerationJobRepository:
         now = self._now()
         try:
             with get_connection() as connection:
+                advisory_xact_lock(connection, f"course_generation:{job.course_id}")
                 self._ensure_course(connection, job.course_id)
                 active = connection.execute(
                     """
