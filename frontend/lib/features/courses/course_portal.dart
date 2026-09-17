@@ -401,10 +401,10 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentRed.withValues(alpha: 0.08),
+                    color: AppTheme.accentRed.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(8),
                     border:
-                        Border.all(color: AppTheme.accentRed.withValues(alpha: 0.35)),
+                        Border.all(color: AppTheme.accentRed.withOpacity(0.35)),
                   ),
                   child: Text(
                     'This course is published. Employee assignments and learning progress for it will also be permanently deleted.',
