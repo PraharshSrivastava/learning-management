@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Header, Request, Response
 
+from app.schemas.common import MessageResponse
 from app.schemas.course import (
     CourseResponse,
     CourseSummaryResponse,
@@ -58,6 +59,17 @@ def update_course(
 ):
     trainer = current_trainer_from_request(request, authorization)
     return service.update_course(course_id, payload, trainer["trainer_id"])
+
+
+@router.delete("/{course_id}", response_model=MessageResponse)
+def delete_course(
+    course_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
+    service.delete_course(course_id, trainer["trainer_id"])
+    return MessageResponse(message="Course deleted successfully")
 
 
 @router.put("/{course_id}/modules/{module_number}/quiz", response_model=CourseResponse)

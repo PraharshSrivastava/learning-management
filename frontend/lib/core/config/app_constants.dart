@@ -57,6 +57,8 @@ class AppConstants {
       '$apiBaseUrl/api/courses/$id';
   static String courseDetailEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id';
+  static String deleteCourseEndpoint(String id) =>
+      '$apiBaseUrl/api/courses/$id';
   static String courseAssignmentEndpoint(String id) =>
       '$apiBaseUrl/api/courses/$id/assignment';
   static String publishCourseAssignmentEndpoint(String id) =>

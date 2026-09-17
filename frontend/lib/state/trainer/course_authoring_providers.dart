@@ -29,7 +29,9 @@ class CourseGenerationNotifier extends StateNotifier<CourseGenerationState> {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         final newCourse = Course.fromJson(decoded);
-        ref.read(courseListProvider.notifier).upsertCourse(newCourse, select: true);
+        ref
+            .read(courseListProvider.notifier)
+            .upsertCourse(newCourse, select: true);
         state = CourseGenerationState(status: GenerationStatus.success);
       } else {
         final errorMsg = _responseErrorDetail(
@@ -82,7 +84,9 @@ class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         final updatedCourse = Course.fromJson(decoded);
-        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(courseListProvider.notifier)
+            .upsertCourse(updatedCourse, select: true);
         ref
             .read(assignableCourseListProvider.notifier)
             .syncFromCourseList(ref.read(courseListProvider).courses);
@@ -122,7 +126,9 @@ class CourseUpdateNotifier extends StateNotifier<CourseUpdateState> {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         final updatedCourse = Course.fromJson(decoded);
-        ref.read(courseListProvider.notifier).upsertCourse(updatedCourse, select: true);
+        ref
+            .read(courseListProvider.notifier)
+            .upsertCourse(updatedCourse, select: true);
         ref
             .read(assignableCourseListProvider.notifier)
             .syncFromCourseList(ref.read(courseListProvider).courses);
@@ -149,7 +155,59 @@ final courseUpdateProvider =
   return CourseUpdateNotifier();
 });
 
-String _responseErrorDetail(http.Response response, {required String fallback}) {
+class CourseDeletionState {
+  final String? deletingCourseId;
+  final String? error;
+
+  const CourseDeletionState({this.deletingCourseId, this.error});
+
+  bool isDeleting(String courseId) => deletingCourseId == courseId;
+}
+
+class CourseDeletionNotifier extends StateNotifier<CourseDeletionState> {
+  CourseDeletionNotifier() : super(const CourseDeletionState());
+
+  Future<bool> deleteCourse(String courseId, WidgetRef ref) async {
+    if (state.deletingCourseId != null) return false;
+    state = CourseDeletionState(deletingCourseId: courseId);
+    try {
+      final response = await http.delete(
+        Uri.parse(AppConstants.deleteCourseEndpoint(courseId)),
+        headers: ref.read(trainerAuthHeadersProvider),
+      );
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        ref.read(courseListProvider.notifier).removeCourse(courseId);
+        ref
+            .read(assignableCourseListProvider.notifier)
+            .syncFromCourseList(ref.read(courseListProvider).courses);
+        state = const CourseDeletionState();
+        return true;
+      }
+      state = CourseDeletionState(
+        error: _responseErrorDetail(
+          response,
+          fallback: 'Failed to delete course.',
+        ),
+      );
+      return false;
+    } catch (error) {
+      state = CourseDeletionState(error: error.toString());
+      return false;
+    }
+  }
+
+  void clearError() {
+    if (state.error != null) state = const CourseDeletionState();
+  }
+}
+
+final courseDeletionProvider =
+    StateNotifierProvider<CourseDeletionNotifier, CourseDeletionState>((ref) {
+  return CourseDeletionNotifier();
+});
+
+String _responseErrorDetail(http.Response response,
+    {required String fallback}) {
   try {
     final decoded = jsonDecode(response.body);
     if (decoded is Map<String, dynamic>) {

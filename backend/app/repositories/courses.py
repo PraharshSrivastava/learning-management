@@ -632,6 +632,48 @@ def delete_course(course_id: str) -> None:
         connection.commit()
 
 
+def delete_course_for_trainer(course_id: str, trainer_id: str) -> dict | None:
+    """Atomically remove a trainer-owned course and return cleanup context.
+
+    The generation lock prevents a pipeline write and a trainer deletion from
+    modifying the same course concurrently. A pending/running worker is left
+    untouched so the caller can reject the deletion with a conflict response.
+    """
+    with get_connection() as connection:
+        advisory_xact_lock(connection, f"course_generation:{course_id}")
+        course = connection.execute(
+            """
+            SELECT c.course_id, c.course_name, c.status, c.thumbnail_path,
+                   g.status AS generation_status
+            FROM courses c
+            LEFT JOIN course_generation_status g ON g.course_id = c.course_id
+            WHERE c.course_id = ? AND c.trainer_id = ?
+            FOR UPDATE OF c
+            """,
+            (course_id, trainer_id),
+        ).fetchone()
+        if course is None:
+            return None
+
+        result = dict(course)
+        if result.get("generation_status") in {"pending", "running"}:
+            result["deleted"] = False
+            return result
+
+        employee_rows = connection.execute(
+            "SELECT employee_id FROM course_assignments WHERE course_id = ?",
+            (course_id,),
+        ).fetchall()
+        result["affected_employee_ids"] = [row["employee_id"] for row in employee_rows]
+        connection.execute(
+            "DELETE FROM courses WHERE course_id = ? AND trainer_id = ?",
+            (course_id, trainer_id),
+        )
+        connection.commit()
+        result["deleted"] = True
+        return result
+
+
 class CourseRepository:
     @staticmethod
     def _validated(course: dict) -> dict:
@@ -666,3 +708,6 @@ class CourseRepository:
     def save_draft(self, course: dict) -> None:
         self._validated(course)
         save_course(course, "draft")
+
+    def delete_for_trainer(self, course_id: str, trainer_id: str) -> dict | None:
+        return delete_course_for_trainer(course_id, trainer_id)

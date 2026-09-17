@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-from app.core.exceptions import NotFoundError
+import logging
+
+from app.core.exceptions import ConflictError, NotFoundError
 from app.generation.blueprint import generate_course_outline
 from app.generation.quiz import ModuleQuiz
 from app.generation.runtime import now_iso
 from app.repositories.courses import CourseRepository
 from app.schemas.course import CourseUpdateRequest
 from app.schemas.quiz import ManualQuizRequest
+from app.services.course_artifacts import delete_course_artifacts
 from app.services.generation_queue import generation_queue
+from app.services.notifications import schedule_employee_broadcast
+
+logger = logging.getLogger(__name__)
 
 
 class CourseService:
@@ -112,6 +118,32 @@ class CourseService:
         module.pop("quiz_generation_error", None)
         self.repository.save_draft(course)
         return course
+
+    def delete_course(self, course_id: str, trainer_id: str) -> None:
+        result = self.repository.delete_for_trainer(course_id, trainer_id)
+        if result is None:
+            raise NotFoundError("Course not found")
+        if not result.get("deleted"):
+            raise ConflictError("Course cannot be deleted while generation is pending or running")
+
+        cleanup_failures = delete_course_artifacts(
+            course_id,
+            thumbnail_path=result.get("thumbnail_path"),
+        )
+        if cleanup_failures:
+            logger.warning(
+                "course_deleted_with_artifact_cleanup_failures course_id=%s paths=%s",
+                course_id,
+                cleanup_failures,
+            )
+        for employee_id in result.get("affected_employee_ids", []):
+            schedule_employee_broadcast(employee_id)
+        logger.info(
+            "course_deleted course_id=%s trainer_id=%s affected_employees=%s",
+            course_id,
+            trainer_id,
+            len(result.get("affected_employee_ids", [])),
+        )
 
     @staticmethod
     def _merge_modules(existing_modules: list[dict], incoming_modules: list[object]) -> list[dict]:

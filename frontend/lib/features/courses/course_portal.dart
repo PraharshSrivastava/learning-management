@@ -359,6 +359,103 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     _moduleData.clear();
   }
 
+  Future<void> _confirmAndDeleteCourse() async {
+    final course = widget.course;
+    final isPublished = course.status.toLowerCase() == 'published';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppTheme.accentRed),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Delete course?',
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '“${course.courseName}” will be permanently deleted.',
+                style: GoogleFonts.barlow(fontSize: 15),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Its modules, quizzes, generated slides, audio, videos and images will also be removed. The uploaded source document will remain available.',
+                style: GoogleFonts.barlow(
+                  fontSize: 14,
+                  color: AppTheme.gray,
+                  height: 1.4,
+                ),
+              ),
+              if (isPublished) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentRed.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: AppTheme.accentRed.withOpacity(0.35)),
+                  ),
+                  child: Text(
+                    'This course is published. Employee assignments and learning progress for it will also be permanently deleted.',
+                    style: GoogleFonts.barlow(
+                      fontSize: 13,
+                      color: AppTheme.accentRed,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Delete Course'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final deleted = await ref
+        .read(courseDeletionProvider.notifier)
+        .deleteCourse(course.courseId, ref);
+    if (!mounted) return;
+    final deletionState = ref.read(courseDeletionProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          deleted
+              ? 'Course deleted successfully'
+              : deletionState.error ?? 'Failed to delete course.',
+        ),
+        backgroundColor: deleted ? AppTheme.accentGreen : AppTheme.accentRed,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _disposeControllers();
@@ -419,7 +516,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'COURSE BLUEPRINT',
@@ -430,129 +527,174 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                             letterSpacing: 2,
                           ),
                         ),
-                        Row(
-                          children: [
-                            TextButton(
-                              style: TextButton.styleFrom(
-                                  foregroundColor: Colors.white),
-                              onPressed: () {
-                                setState(() {
-                                  _disposeControllers();
-                                  _initControllers();
-                                });
-                              },
-                              child: const Text('Reset'),
-                            ),
-                            const SizedBox(width: 8),
-                            Consumer(
-                              builder: (context, ref, _) {
-                                final fullGeneration =
-                                    ref.watch(fullCourseGenerationProvider);
-                                final hasModules =
-                                    _moduleTitleControllers.isNotEmpty;
-                                final hasThumbnail =
-                                    widget.course.thumbnailPath.isNotEmpty;
-                                final checkpoint =
-                                    widget.course.failedCheckpoint.isNotEmpty
-                                        ? widget.course.failedCheckpoint
-                                        : widget.course.currentCheckpoint;
-                                final hasFailedCheckpoint =
-                                    widget.course.generationStatus ==
-                                            'failed' &&
-                                        checkpoint.isNotEmpty;
-                                final isGenerating = fullGeneration.status ==
-                                        FullCourseGenStatus.generating ||
-                                    (widget.course.generationStatus ==
-                                            'running' &&
-                                        !hasFailedCheckpoint);
-                                final isFullyGenerated = hasModules &&
-                                    hasThumbnail &&
-                                    widget.course.modules.every((m) =>
-                                        m.videoPath != null &&
-                                        m.videoPath!.isNotEmpty &&
-                                        m.quiz != null &&
-                                        ((m.quiz!['questions'] as List?)
-                                                    ?.isNotEmpty ==
-                                                true ||
-                                            m.numQuestions <= 0));
-                                final label = isGenerating
-                                    ? 'Generating...'
-                                    : hasFailedCheckpoint
-                                        ? checkpoint == 'wave_1'
-                                            ? 'Continue generation'
-                                            : 'Continue from $checkpoint'
-                                        : isFullyGenerated
-                                            ? 'Already Generated'
-                                            : 'Generate Course';
-                                final button = ElevatedButton.icon(
-                                  icon: Icon(
-                                    hasFailedCheckpoint
-                                        ? Icons.play_arrow
-                                        : Icons.auto_awesome,
-                                    size: 14,
-                                  ),
-                                  label: Text(label),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        isFullyGenerated && !hasFailedCheckpoint
-                                            ? Colors.grey[700]
-                                            : AppTheme.accentOrange,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(999),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            runAlignment: WrapAlignment.end,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final deletion =
+                                      ref.watch(courseDeletionProvider);
+                                  final isDeleting = deletion
+                                      .isDeleting(widget.course.courseId);
+                                  return ElevatedButton.icon(
+                                    icon: isDeleting
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                      Colors.white),
+                                            ),
+                                          )
+                                        : const Icon(Icons.delete_outline,
+                                            size: 14),
+                                    label: Text(isDeleting
+                                        ? 'Deleting...'
+                                        : 'Delete Course'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.accentRed,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
                                     ),
-                                  ),
-                                  onPressed: (!isGenerating &&
-                                          (hasFailedCheckpoint ||
-                                              (hasModules &&
-                                                  !isFullyGenerated)))
-                                      ? () async {
-                                          final notifier = ref.read(
-                                              fullCourseGenerationProvider
-                                                  .notifier);
-                                          if (hasFailedCheckpoint) {
-                                            notifier.continueFromCheckpoint(
-                                                widget.course.courseId, ref);
-                                          } else {
-                                            final saved =
-                                                await _saveCourseModifications(
-                                              showSuccessMessage: false,
-                                            );
-                                            if (!saved) return;
-                                            notifier.generateFullCourse(
-                                                widget.course.courseId, ref);
-                                          }
-                                        }
-                                      : null,
-                                );
-                                if (!hasFailedCheckpoint ||
-                                    widget.course.generationError.isEmpty) {
-                                  return button;
-                                }
-                                return Tooltip(
-                                  message: widget.course.generationError,
-                                  child: button,
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.save, size: 14),
-                              label: const Text('Save Changes'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.accentGreen,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
+                                    onPressed: isDeleting
+                                        ? null
+                                        : _confirmAndDeleteCourse,
+                                  );
+                                },
                               ),
-                              onPressed: () => _saveCourseModifications(),
-                            ),
-                          ],
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white),
+                                onPressed: () {
+                                  setState(() {
+                                    _disposeControllers();
+                                    _initControllers();
+                                  });
+                                },
+                                child: const Text('Reset'),
+                              ),
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final fullGeneration =
+                                      ref.watch(fullCourseGenerationProvider);
+                                  final hasModules =
+                                      _moduleTitleControllers.isNotEmpty;
+                                  final hasThumbnail =
+                                      widget.course.thumbnailPath.isNotEmpty;
+                                  final checkpoint =
+                                      widget.course.failedCheckpoint.isNotEmpty
+                                          ? widget.course.failedCheckpoint
+                                          : widget.course.currentCheckpoint;
+                                  final hasFailedCheckpoint =
+                                      widget.course.generationStatus ==
+                                              'failed' &&
+                                          checkpoint.isNotEmpty;
+                                  final isGenerating = fullGeneration.status ==
+                                          FullCourseGenStatus.generating ||
+                                      (widget.course.generationStatus ==
+                                              'running' &&
+                                          !hasFailedCheckpoint);
+                                  final isFullyGenerated = hasModules &&
+                                      hasThumbnail &&
+                                      widget.course.modules.every((m) =>
+                                          m.videoPath != null &&
+                                          m.videoPath!.isNotEmpty &&
+                                          m.quiz != null &&
+                                          ((m.quiz!['questions'] as List?)
+                                                      ?.isNotEmpty ==
+                                                  true ||
+                                              m.numQuestions <= 0));
+                                  final label = isGenerating
+                                      ? 'Generating...'
+                                      : hasFailedCheckpoint
+                                          ? checkpoint == 'wave_1'
+                                              ? 'Continue generation'
+                                              : 'Continue from $checkpoint'
+                                          : isFullyGenerated
+                                              ? 'Already Generated'
+                                              : 'Generate Course';
+                                  final button = ElevatedButton.icon(
+                                    icon: Icon(
+                                      hasFailedCheckpoint
+                                          ? Icons.play_arrow
+                                          : Icons.auto_awesome,
+                                      size: 14,
+                                    ),
+                                    label: Text(label),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isFullyGenerated &&
+                                              !hasFailedCheckpoint
+                                          ? Colors.grey[700]
+                                          : AppTheme.accentOrange,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                    ),
+                                    onPressed: (!isGenerating &&
+                                            (hasFailedCheckpoint ||
+                                                (hasModules &&
+                                                    !isFullyGenerated)))
+                                        ? () async {
+                                            final notifier = ref.read(
+                                                fullCourseGenerationProvider
+                                                    .notifier);
+                                            if (hasFailedCheckpoint) {
+                                              notifier.continueFromCheckpoint(
+                                                  widget.course.courseId, ref);
+                                            } else {
+                                              final saved =
+                                                  await _saveCourseModifications(
+                                                showSuccessMessage: false,
+                                              );
+                                              if (!saved) return;
+                                              notifier.generateFullCourse(
+                                                  widget.course.courseId, ref);
+                                            }
+                                          }
+                                        : null,
+                                  );
+                                  if (!hasFailedCheckpoint ||
+                                      widget.course.generationError.isEmpty) {
+                                    return button;
+                                  }
+                                  return Tooltip(
+                                    message: widget.course.generationError,
+                                    child: button,
+                                  );
+                                },
+                              ),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.save, size: 14),
+                                label: const Text('Save Changes'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accentGreen,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                ),
+                                onPressed: () => _saveCourseModifications(),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
