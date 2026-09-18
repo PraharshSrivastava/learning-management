@@ -537,7 +537,6 @@ class _DashboardBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final filteredCourses = _coursesForSelectedMetric(courses, selectedFilter);
     final attempted = CourseDashboardData.orderedAttempted(courses);
-    final isWide = MediaQuery.sizeOf(context).width >= 1220;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
@@ -587,32 +586,13 @@ class _DashboardBody extends StatelessWidget {
                     title: 'No courses assigned yet',
                     subtitle:
                         'New assigned courses will appear here when they are ready.')
-              else if (isWide)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _CourseContent(
-                        courses: filteredCourses,
-                        attempted: attempted,
-                        selectedFilter: selectedFilter,
-                        onCourseAction: onCourseAction,
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    const SizedBox(width: 312, child: _LeaderboardPanel()),
-                  ],
-                )
-              else ...[
+              else
                 _CourseContent(
                   courses: filteredCourses,
                   attempted: attempted,
                   selectedFilter: selectedFilter,
                   onCourseAction: onCourseAction,
                 ),
-                const SizedBox(height: 24),
-                const _LeaderboardPanel(),
-              ],
             ],
           ),
         ),
@@ -1377,81 +1357,6 @@ class _StatusChip extends StatelessWidget {
             style: TextStyle(
                 fontSize: 11, color: color, fontWeight: FontWeight.w700))
       ]),
-    );
-  }
-}
-
-class _LeaderboardPanel extends StatelessWidget {
-  const _LeaderboardPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    const entries = [
-      ('Ananya Mehta', 18),
-      ('Rohit Khanna', 16),
-      ('Sneha Iyer', 14),
-      ('Vikram Shah', 12),
-      ('Neha Kapoor', 11),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE6E9EF))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(children: [
-            Icon(Icons.leaderboard_outlined, color: AppTheme.primaryBlue),
-            SizedBox(width: 9),
-            Text('Leaderboard',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))
-          ]),
-          const SizedBox(height: 5),
-          const Text('Most courses passed',
-              style: TextStyle(fontSize: 13, color: Color(0xFF667085))),
-          const SizedBox(height: 14),
-          for (var index = 0; index < entries.length; index++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                      width: 24,
-                      child: Text('${index + 1}',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: index < 3
-                                  ? AppTheme.primaryBlue
-                                  : const Color(0xFF667085)))),
-                  CircleAvatar(
-                      radius: 15,
-                      backgroundColor: const Color(0xFFE7EFFF),
-                      child: Text(
-                          entries[index]
-                              .$1
-                              .split(' ')
-                              .map((part) => part[0])
-                              .join(),
-                          style: const TextStyle(
-                              fontSize: 10,
-                              color: AppTheme.primaryBlue,
-                              fontWeight: FontWeight.w700))),
-                  const SizedBox(width: 9),
-                  Expanded(
-                      child: Text(entries[index].$1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600))),
-                  Text('${entries[index].$2}',
-                      style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF667085))),
-                ],
-              ),
-            ),
-        ],
-      ),
     );
   }
 }
