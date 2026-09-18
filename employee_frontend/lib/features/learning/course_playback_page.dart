@@ -27,6 +27,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   final Set<int> _locallyWatchedModules = <int>{};
   final Set<int> _locallyPassedModules = <int>{};
   final Map<int, double> _localQuizScores = {};
+  final Map<int, String> _gradedCorrectAnswers = {};
+  final Map<int, String> _gradedExplanations = {};
   final GlobalKey _quizSectionKey = GlobalKey();
   bool _isQuizSubmitted = false;
 
@@ -59,6 +61,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
   void _loadProgressForCurrentModule() {
     _selectedAnswers.clear();
+    _gradedCorrectAnswers.clear();
+    _gradedExplanations.clear();
     _isQuizSubmitted = false;
 
     if (widget.course.publishedModules.isEmpty) return;
@@ -695,7 +699,10 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
               final optKey = String.fromCharCode(65 + optIndex); // A, B, C, D
               final isOptSelected = selectedAnswer == optKey;
 
-              final isCorrectOpt = question.correct == optKey;
+              final correctAnswer = question.correct.isNotEmpty
+                  ? question.correct
+                  : _gradedCorrectAnswers[questionIndex] ?? '';
+              final isCorrectOpt = correctAnswer == optKey;
 
               Color cardBorderColor = AppTheme.lightGray;
               Color cardBgColor = Colors.white;
@@ -732,8 +739,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                           : 1),
                 ),
                 child: RadioListTile<String>(
-                  groupValue:
-                      isAlreadyPassed ? question.correct : selectedAnswer,
+                  groupValue: isAlreadyPassed && correctAnswer.isNotEmpty
+                      ? correctAnswer
+                      : selectedAnswer,
                   onChanged: isSubmitted
                       ? null
                       : (val) {
@@ -764,7 +772,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
               );
             }).toList(),
           ),
-          if (isSubmitted && question.explanation.isNotEmpty)
+          if (isSubmitted &&
+              (question.explanation.isNotEmpty ||
+                  (_gradedExplanations[questionIndex]?.isNotEmpty ?? false)))
             Padding(
               padding: const EdgeInsets.only(top: 12.0),
               child: Container(
@@ -781,7 +791,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        question.explanation,
+                        question.explanation.isNotEmpty
+                            ? question.explanation
+                            : _gradedExplanations[questionIndex]!,
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontStyle: FontStyle.italic,
@@ -798,7 +810,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
     );
   }
 
-  void _submitQuiz(PublishedCourseModule module) async {
+  Future<void> _submitQuiz(PublishedCourseModule module) async {
     if (_selectedAnswers.length < module.quiz.length) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -811,28 +823,37 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       _isQuizSubmitted = true;
     });
 
-    int correctCount = 0;
-    for (int i = 0; i < module.quiz.length; i++) {
-      if (_selectedAnswers[i] == module.quiz[i].correct) {
-        correctCount++;
-      }
+    late final QuizSubmissionResult result;
+    try {
+      result = await ref.read(employeeCourseListProvider.notifier).submitQuiz(
+            widget.course.courseId,
+            module.moduleNumber,
+            Map<int, String>.from(_selectedAnswers),
+          );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isQuizSubmitted = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+      return;
     }
+    if (!mounted) return;
 
-    final double score =
-        module.quiz.isEmpty ? 1.0 : correctCount / module.quiz.length;
-    final bool passed = score >= module.passMark;
-
-    final formattedAnswers =
-        _selectedAnswers.map((key, value) => MapEntry(key.toString(), value));
+    final passed = result.passed;
+    final score = result.score;
+    setState(() {
+      _gradedCorrectAnswers
+        ..clear()
+        ..addAll(result.correctAnswers);
+      _gradedExplanations
+        ..clear()
+        ..addAll(result.explanations);
+    });
 
     final isFinalModule =
         _activeModuleIndex == widget.course.publishedModules.length - 1;
-    final Map<String, dynamic> progressPayload = {
-      "quiz_passed": passed,
-      "quiz_score": score,
-      "selected_answers": passed ? formattedAnswers : null,
-      if (!passed) "video_watched": false,
-    };
 
     if (passed) {
       setState(() {
@@ -840,13 +861,6 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         _locallyWatchedModules.add(module.moduleNumber);
         _localQuizScores[module.moduleNumber] = score;
       });
-      unawaited(
-          ref.read(employeeCourseListProvider.notifier).updateModuleProgress(
-                widget.course.courseId,
-                module.moduleNumber,
-                progressPayload,
-              ));
-
       if (!isFinalModule) {
         final nextModule =
             widget.course.publishedModules[_activeModuleIndex + 1];
@@ -862,12 +876,6 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       setState(() {
         _locallyWatchedModules.remove(module.moduleNumber);
       });
-      unawaited(
-          ref.read(employeeCourseListProvider.notifier).updateModuleProgress(
-                widget.course.courseId,
-                module.moduleNumber,
-                progressPayload,
-              ));
     }
 
     showDialog(
@@ -883,7 +891,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         content: Text(
           passed
               ? 'You scored ${(score * 100).toStringAsFixed(1)}%. ${isFinalModule ? "You have successfully finished the course." : "The next module is now unlocked!"}'
-              : 'You scored ${(score * 100).toStringAsFixed(1)}%. You need ${(module.passMark * 100).toStringAsFixed(1)}% to pass.\n\nYou must re-watch the video lesson to try the quiz again.',
+              : 'You scored ${(score * 100).toStringAsFixed(1)}%. You need at least two-thirds (${(result.passMark * 100).toStringAsFixed(1)}%) to pass.\n\nYou must re-watch the video lesson to try the quiz again.',
         ),
         actions: [
           TextButton(
@@ -894,6 +902,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                 setState(() {
                   _isQuizSubmitted = false;
                   _selectedAnswers.clear();
+                  _gradedCorrectAnswers.clear();
+                  _gradedExplanations.clear();
                 });
               }
             },

@@ -15,9 +15,7 @@ class CourseStatusUpdateRequest(RequestSchema):
 
 class ModuleProgressUpdateRequest(RequestSchema):
     video_watched: bool | None = None
-    quiz_passed: bool | None = None
-    quiz_score: float | None = Field(default=None, ge=0, le=100)
-    selected_answers: dict[str, Any] | list[Any] | None = None
+    selected_answers: dict[str, str] | None = None
 
     @model_validator(mode="after")
     def require_progress_change(self) -> "ModuleProgressUpdateRequest":
