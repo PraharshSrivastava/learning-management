@@ -35,11 +35,6 @@ class LinearPlaybackGuard {
     return requestedSeconds < 0 ? 0 : requestedSeconds;
   }
 
-  double constrainPlaybackRate(double requestedRate) {
-    if (isRestricted && requestedRate > 1) return 1;
-    return requestedRate;
-  }
-
   bool tryMarkCompleted(double durationSeconds) {
     if (isRestricted && durationSeconds.isFinite && durationSeconds > 0) {
       final requiredPosition = durationSeconds > _completionToleranceSeconds

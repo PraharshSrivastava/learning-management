@@ -35,7 +35,6 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   StreamSubscription<html.Event>? _endedSubscription;
   StreamSubscription<html.Event>? _timeUpdateSubscription;
   StreamSubscription<html.Event>? _seekingSubscription;
-  StreamSubscription<html.Event>? _rateChangeSubscription;
   late final LinearPlaybackGuard _playbackGuard;
   Object? _hls;
   bool _disposed = false;
@@ -59,7 +58,6 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
     _endedSubscription = _video.onEnded.listen(_handleEnded);
     _timeUpdateSubscription = _video.onTimeUpdate.listen(_handleTimeUpdate);
     _seekingSubscription = _video.onSeeking.listen(_handleSeeking);
-    _rateChangeSubscription = _video.onRateChange.listen(_handleRateChange);
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) => _video);
     _attachSource();
   }
@@ -78,14 +76,6 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
     _correctingSeek = true;
     _video.currentTime = allowed;
     scheduleMicrotask(() => _correctingSeek = false);
-  }
-
-  void _handleRateChange(html.Event _) {
-    final requested = _video.playbackRate.toDouble();
-    final allowed = _playbackGuard.constrainPlaybackRate(requested);
-    if ((requested - allowed).abs() >= 0.01) {
-      _video.playbackRate = allowed;
-    }
   }
 
   void _handleEnded(html.Event _) {
@@ -191,7 +181,6 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
     _endedSubscription?.cancel();
     _timeUpdateSubscription?.cancel();
     _seekingSubscription?.cancel();
-    _rateChangeSubscription?.cancel();
     _destroyHls();
     super.dispose();
   }

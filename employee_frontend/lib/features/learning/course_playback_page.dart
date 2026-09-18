@@ -1220,9 +1220,8 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
   }
 
   Future<void> _setPlaybackMultiplier(double value) async {
-    final allowedValue = !_markedWatched && value > 1 ? 1.0 : value;
-    await _controller.setPlaybackSpeed(allowedValue);
-    if (mounted) setState(() => _playbackMultiplier = allowedValue);
+    await _controller.setPlaybackSpeed(value);
+    if (mounted) setState(() => _playbackMultiplier = value);
   }
 
   Future<void> _seekBy(Duration offset) async {

@@ -24,21 +24,13 @@ void main() {
     expect(guard.furthestWatchedSeconds, 1);
   });
 
-  test('blocks accelerated playback until completion', () {
-    final guard = LinearPlaybackGuard(enabled: true);
-
-    expect(guard.constrainPlaybackRate(2), 1);
-    expect(guard.constrainPlaybackRate(0.75), 0.75);
-  });
-
-  test('unlocks seeking and playback speed after completion', () {
+  test('unlocks seeking after completion', () {
     final guard = LinearPlaybackGuard(enabled: true);
     guard.observePosition(59);
 
     expect(guard.tryMarkCompleted(60), isTrue);
     expect(guard.isRestricted, isFalse);
     expect(guard.constrainSeek(55), 55);
-    expect(guard.constrainPlaybackRate(2), 2);
   });
 
   test('does not restrict videos that were already completed', () {
@@ -49,6 +41,5 @@ void main() {
 
     expect(guard.isRestricted, isFalse);
     expect(guard.constrainSeek(30), 30);
-    expect(guard.constrainPlaybackRate(1.5), 1.5);
   });
 }
