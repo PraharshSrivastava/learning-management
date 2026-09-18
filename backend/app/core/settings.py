@@ -94,6 +94,24 @@ class Settings(BaseModel):
     directory_sync_initial_delay_seconds: float = Field(default=0, ge=0)
     directory_sync_time: str = "09:10"
     directory_sync_timezone: str = "Asia/Kolkata"
+    email_delivery_mode: str = "disabled"
+    email_scheduler_enabled: bool = True
+    email_scheduler_interval_seconds: float = Field(default=300, gt=0)
+    email_worker_batch_size: int = Field(default=25, ge=1, le=200)
+    email_max_attempts: int = Field(default=5, ge=1, le=20)
+    email_retry_delay_seconds: float = Field(default=300, gt=0)
+    email_lock_timeout_seconds: float = Field(default=600, gt=0)
+    email_due_soon_days: int = Field(default=2, ge=1, le=30)
+    email_from_email: str | None = None
+    email_from_name: str = "Learning Management System"
+    smtp_host: str | None = None
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_starttls: bool = True
+    smtp_use_ssl: bool = False
+    smtp_timeout_seconds: float = Field(default=30, gt=0)
+    lms_public_url: str | None = None
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -110,6 +128,25 @@ class Settings(BaseModel):
 
     @model_validator(mode="after")
     def validate_production_contract(self) -> "Settings":
+        email_errors = []
+        if self.email_delivery_mode not in {"log", "smtp", "disabled"}:
+            email_errors.append("EMAIL_DELIVERY_MODE must be log, smtp, or disabled")
+        if self.smtp_use_ssl and self.smtp_use_starttls:
+            email_errors.append("SMTP_USE_SSL and SMTP_USE_STARTTLS cannot both be true")
+        if bool(self.smtp_username) != bool(self.smtp_password):
+            email_errors.append("SMTP_USERNAME and SMTP_PASSWORD must be configured together")
+        if self.email_from_email and (
+            "@" not in self.email_from_email or " " in self.email_from_email
+        ):
+            email_errors.append("EMAIL_FROM_EMAIL must be a valid email address")
+        if self.email_delivery_mode == "smtp":
+            if not self.smtp_host:
+                email_errors.append("SMTP_HOST is required in smtp mode")
+            if not self.email_from_email:
+                email_errors.append("EMAIL_FROM_EMAIL is required in smtp mode")
+        if email_errors:
+            raise ValueError("Invalid email configuration: " + ", ".join(email_errors))
+
         if self.app_env.lower() != "production":
             return self
         missing = []
@@ -255,6 +292,27 @@ class Settings(BaseModel):
                 ),
                 "directory_sync_time": values.get("DIRECTORY_SYNC_TIME", "09:10"),
                 "directory_sync_timezone": values.get("DIRECTORY_SYNC_TIMEZONE", "Asia/Kolkata"),
+                "email_delivery_mode": values.get("EMAIL_DELIVERY_MODE", "disabled"),
+                "email_scheduler_enabled": values.get("EMAIL_SCHEDULER_ENABLED", "true"),
+                "email_scheduler_interval_seconds": values.get(
+                    "EMAIL_SCHEDULER_INTERVAL_SECONDS",
+                    "300",
+                ),
+                "email_worker_batch_size": values.get("EMAIL_WORKER_BATCH_SIZE", "25"),
+                "email_max_attempts": values.get("EMAIL_MAX_ATTEMPTS", "5"),
+                "email_retry_delay_seconds": values.get("EMAIL_RETRY_DELAY_SECONDS", "300"),
+                "email_lock_timeout_seconds": values.get("EMAIL_LOCK_TIMEOUT_SECONDS", "600"),
+                "email_due_soon_days": values.get("EMAIL_DUE_SOON_DAYS", "2"),
+                "email_from_email": values.get("EMAIL_FROM_EMAIL") or None,
+                "email_from_name": values.get("EMAIL_FROM_NAME", "Learning Management System"),
+                "smtp_host": values.get("SMTP_HOST") or None,
+                "smtp_port": values.get("SMTP_PORT", "587"),
+                "smtp_username": values.get("SMTP_USERNAME") or None,
+                "smtp_password": values.get("SMTP_PASSWORD") or None,
+                "smtp_use_starttls": values.get("SMTP_USE_STARTTLS", "true"),
+                "smtp_use_ssl": values.get("SMTP_USE_SSL", "false"),
+                "smtp_timeout_seconds": values.get("SMTP_TIMEOUT_SECONDS", "30"),
+                "lms_public_url": values.get("LMS_PUBLIC_URL") or None,
             }
         )
 
