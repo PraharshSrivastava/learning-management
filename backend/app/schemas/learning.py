@@ -27,4 +27,10 @@ class LearnerCourseResponse(ApiSchema):
 
 
 class ModuleProgressUpdateResponse(MessageResponse):
-    pass
+    quiz_passed: bool | None = None
+    quiz_score: float | None = None
+    correct_count: int | None = None
+    total_questions: int | None = None
+    pass_mark: float | None = None
+    correct_answers: dict[str, str] | None = None
+    explanations: dict[str, str] | None = None

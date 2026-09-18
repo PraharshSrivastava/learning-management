@@ -6,7 +6,7 @@ from datetime import datetime
 
 from fastapi import Request
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import DomainValidationError, NotFoundError
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
 from app.repositories.employees import EmployeeRepository
@@ -28,32 +28,125 @@ _courses = CourseRepository()
 _employees = EmployeeRepository()
 _progress = ProgressRepository()
 
+QUIZ_PASS_NUMERATOR = 2
+QUIZ_PASS_DENOMINATOR = 3
+QUIZ_PASS_MARK = QUIZ_PASS_NUMERATOR / QUIZ_PASS_DENOMINATOR
 
-def _learner_modules(modules: list[dict]) -> list[dict]:
+
+def _quiz_questions(module: dict) -> list[dict]:
+    quiz = module.get("quiz")
+    if isinstance(quiz, dict):
+        return [question for question in quiz.get("questions") or [] if isinstance(question, dict)]
+    if isinstance(quiz, list):
+        return [question for question in quiz if isinstance(question, dict)]
+    return []
+
+
+def _question_options(question: dict) -> tuple[list[str], list[str]]:
+    raw_options = question.get("options") or []
+    if raw_options and all(isinstance(option, dict) for option in raw_options):
+        ordered = sorted(
+            raw_options,
+            key=lambda option: str(option.get("key") or "").strip().upper(),
+        )
+        return (
+            [str(option.get("key") or "").strip().upper() for option in ordered],
+            [str(option.get("text") or "") for option in ordered],
+        )
+    texts = [str(option) for option in raw_options]
+    return ([chr(65 + index) for index in range(len(texts))], texts)
+
+
+def _question_correct_answer(question: dict) -> str:
+    return str(question.get("correct_option") or question.get("correct") or "").strip().upper()
+
+
+def _question_text(question: dict) -> str:
+    return str(question.get("question_text") or question.get("question") or "")
+
+
+def _quiz_feedback(questions: list[dict]) -> tuple[dict[str, str], dict[str, str]]:
+    correct_answers = {
+        str(index): _question_correct_answer(question) for index, question in enumerate(questions)
+    }
+    explanations = {
+        str(index): str(question.get("explanation") or "")
+        for index, question in enumerate(questions)
+    }
+    return correct_answers, explanations
+
+
+def _grade_quiz(module: dict, selected_answers: dict[str, str]) -> dict:
+    questions = _quiz_questions(module)
+    if not questions:
+        raise DomainValidationError("This module does not have a quiz")
+
+    expected_keys = {str(index) for index in range(len(questions))}
+    submitted_keys = {str(key) for key in selected_answers}
+    if submitted_keys != expected_keys:
+        raise DomainValidationError("Every quiz question must be answered exactly once")
+
+    normalized_answers: dict[str, str] = {}
+    correct_count = 0
+    for index, question in enumerate(questions):
+        key = str(index)
+        answer = str(selected_answers[key]).strip().upper()
+        option_keys, _ = _question_options(question)
+        correct_answer = _question_correct_answer(question)
+        if correct_answer not in option_keys:
+            raise DomainValidationError(f"Question {index + 1} has an invalid answer key")
+        if answer not in option_keys:
+            raise DomainValidationError(f"Question {index + 1} has an invalid selected answer")
+        normalized_answers[key] = answer
+        if answer == correct_answer:
+            correct_count += 1
+
+    total_questions = len(questions)
+    passed = correct_count * QUIZ_PASS_DENOMINATOR >= total_questions * QUIZ_PASS_NUMERATOR
+    correct_answers, explanations = _quiz_feedback(questions)
+    return {
+        "quiz_passed": passed,
+        "quiz_score": correct_count / total_questions,
+        "correct_count": correct_count,
+        "total_questions": total_questions,
+        "pass_mark": QUIZ_PASS_MARK,
+        "selected_answers": normalized_answers,
+        "correct_answers": correct_answers,
+        "explanations": explanations,
+    }
+
+
+def _learner_modules(
+    modules: list[dict], module_progress: dict[str, dict] | None = None
+) -> list[dict]:
     """Expose generated quizzes in the stable learner-facing question shape."""
     learner_modules = []
     for module in modules:
         learner_module = dict(module)
         quiz = module.get("quiz")
-        if isinstance(quiz, dict):
+        questions_source = _quiz_questions(module)
+        if isinstance(quiz, (dict, list)):
             questions = []
             module_id = str(module.get("module_id") or module.get("module_number") or "module")
-            for index, question in enumerate(quiz.get("questions") or [], start=1):
-                options = sorted(
-                    question.get("options") or [],
-                    key=lambda option: str(option.get("key") or "").strip().upper(),
-                )
-                questions.append(
-                    {
-                        "question_id": question.get("question_id")
-                        or f"{module_id}:question:{index}",
-                        "question": question.get("question_text", ""),
-                        "options": [option.get("text", "") for option in options],
-                        "correct": question.get("correct_option", "A"),
-                        "explanation": question.get("explanation", ""),
-                    }
-                )
+            module_key = str(module.get("module_number") or "")
+            reveal_answers = bool((module_progress or {}).get(module_key, {}).get("quiz_passed"))
+            for index, question in enumerate(questions_source, start=1):
+                _, option_texts = _question_options(question)
+                learner_question = {
+                    "question_id": question.get("question_id") or f"{module_id}:question:{index}",
+                    "question": _question_text(question),
+                    "options": option_texts,
+                }
+                if reveal_answers:
+                    learner_question.update(
+                        {
+                            "correct": _question_correct_answer(question),
+                            "explanation": question.get("explanation", ""),
+                        }
+                    )
+                questions.append(learner_question)
             learner_module["quiz"] = questions
+        learner_module["pass_mark"] = QUIZ_PASS_MARK
         learner_modules.append(learner_module)
     return learner_modules
 
@@ -96,7 +189,9 @@ def get_enriched_employee_courses(employee_id: str) -> list[dict]:
             _progress.save(employee_id, course_id, course_progress)
 
         enriched = dict(course)
-        enriched["modules"] = _learner_modules(course.get("modules") or [])
+        enriched["modules"] = _learner_modules(
+            course.get("modules") or [], course_progress.get("modules", {})
+        )
         enriched.update(
             {
                 "assignment_id": course_progress["assignment_id"],
@@ -190,17 +285,44 @@ async def update_module_progress(
     if "video_watched" in updates:
         module_progress["video_watched"] = updates["video_watched"]
         module_progress["video_watched_at"] = now if updates["video_watched"] else None
-    for field in ("quiz_passed", "quiz_score", "selected_answers"):
-        if field in updates:
-            module_progress[field] = updates[field]
-    if "quiz_passed" in updates or "quiz_score" in updates:
+    grading_result = None
+    if "selected_answers" in updates:
+        if updates["selected_answers"] is None:
+            raise DomainValidationError("Selected answers are required for quiz submission")
+        published_course = next(
+            (course for course in _courses.list("published") if course["course_id"] == course_id),
+            None,
+        )
+        published_module = next(
+            (
+                module
+                for module in (published_course or {}).get("modules", [])
+                if str(module.get("module_number")) == str(module_number)
+            ),
+            None,
+        )
+        if published_module is None:
+            raise NotFoundError("Course module not found")
+        if not module_progress.get("video_watched"):
+            raise DomainValidationError("Complete the video lesson before submitting the quiz")
+
+        grading_result = _grade_quiz(published_module, updates["selected_answers"])
+        module_progress["quiz_passed"] = grading_result["quiz_passed"]
+        module_progress["quiz_score"] = grading_result["quiz_score"]
+        module_progress["selected_answers"] = (
+            grading_result["selected_answers"] if grading_result["quiz_passed"] else None
+        )
+        if not grading_result["quiz_passed"]:
+            module_progress["video_watched"] = False
+            module_progress["video_watched_at"] = None
+
         attempt = course_progress["attempts"].get(module_number, {"count": 0})
         attempt.update(
             {
                 "count": int(attempt.get("count", 0)) + 1,
                 "last_attempt_at": now,
-                "last_score": updates.get("quiz_score"),
-                "last_passed": updates.get("quiz_passed"),
+                "last_score": grading_result["quiz_score"],
+                "last_passed": grading_result["quiz_passed"],
             }
         )
         course_progress["attempts"][module_number] = attempt
@@ -228,7 +350,23 @@ async def update_module_progress(
 
     _progress.save(employee_id, course_id, course_progress)
     await broadcast_employee_courses(employee_id)
-    return {"message": "Module progress updated"}
+    response = {"message": "Module progress updated"}
+    if grading_result is not None:
+        response.update(
+            {
+                key: grading_result[key]
+                for key in (
+                    "quiz_passed",
+                    "quiz_score",
+                    "correct_count",
+                    "total_questions",
+                    "pass_mark",
+                    "correct_answers",
+                    "explanations",
+                )
+            }
+        )
+    return response
 
 
 __all__ = [

@@ -45,7 +45,7 @@ class PublishedQuizQuestion(ApiSchema):
     question_id: str | None = None
     question: str
     options: list[str] = Field(default_factory=list)
-    correct: str
+    correct: str | None = None
     explanation: str = ""
 
 

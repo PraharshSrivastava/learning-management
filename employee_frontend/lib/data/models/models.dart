@@ -332,7 +332,7 @@ class PublishedCourseModule {
       quiz: (json['quiz'] as List? ?? [])
           .map((q) => PublishedQuizQuestion.fromJson(q as Map<String, dynamic>))
           .toList(),
-      passMark: (json['pass_mark'] as num?)?.toDouble() ?? 0.67,
+      passMark: (json['pass_mark'] as num?)?.toDouble() ?? (2 / 3),
       captions: json['captions'] as List? ?? [],
     );
   }

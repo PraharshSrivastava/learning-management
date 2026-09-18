@@ -12,6 +12,49 @@ class EmployeeCourseListState {
   });
 }
 
+class QuizSubmissionResult {
+  final bool passed;
+  final double score;
+  final int correctCount;
+  final int totalQuestions;
+  final double passMark;
+  final Map<int, String> correctAnswers;
+  final Map<int, String> explanations;
+
+  const QuizSubmissionResult({
+    required this.passed,
+    required this.score,
+    required this.correctCount,
+    required this.totalQuestions,
+    required this.passMark,
+    required this.correctAnswers,
+    required this.explanations,
+  });
+
+  factory QuizSubmissionResult.fromJson(Map<String, dynamic> json) {
+    Map<int, String> parseIndexedMap(dynamic value) {
+      final result = <int, String>{};
+      if (value is Map) {
+        value.forEach((key, item) {
+          final index = int.tryParse(key.toString());
+          if (index != null) result[index] = item?.toString() ?? '';
+        });
+      }
+      return result;
+    }
+
+    return QuizSubmissionResult(
+      passed: json['quiz_passed'] == true,
+      score: (json['quiz_score'] as num).toDouble(),
+      correctCount: (json['correct_count'] as num).toInt(),
+      totalQuestions: (json['total_questions'] as num).toInt(),
+      passMark: (json['pass_mark'] as num).toDouble(),
+      correctAnswers: parseIndexedMap(json['correct_answers']),
+      explanations: parseIndexedMap(json['explanations']),
+    );
+  }
+}
+
 class EmployeeCourseListNotifier
     extends StateNotifier<EmployeeCourseListState> {
   final String? token;
@@ -141,6 +184,43 @@ class EmployeeCourseListNotifier
       debugPrint('Error updating module progress: $e');
       unawaited(fetchCourses(showLoading: false));
     }
+  }
+
+  Future<QuizSubmissionResult> submitQuiz(
+    String courseId,
+    int moduleNumber,
+    Map<int, String> selectedAnswers,
+  ) async {
+    final formattedAnswers = selectedAnswers.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+    final response = await http.put(
+      Uri.parse(
+        AppConstants.updateMyModuleProgressEndpoint(courseId, moduleNumber),
+      ),
+      headers: _authHeaders(token),
+      body: jsonEncode({'selected_answers': formattedAnswers}),
+    );
+
+    if (response.statusCode != 200) {
+      var message = 'Failed to submit quiz';
+      try {
+        final error = jsonDecode(response.body) as Map<String, dynamic>;
+        message = error['detail']?.toString() ?? message;
+      } catch (_) {}
+      throw Exception(message);
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final result = QuizSubmissionResult.fromJson(decoded);
+    _applyModuleProgress(courseId, moduleNumber, {
+      'quiz_passed': result.passed,
+      'quiz_score': result.score,
+      'selected_answers': result.passed ? formattedAnswers : null,
+      if (!result.passed) 'video_watched': false,
+    });
+    unawaited(fetchCourses(showLoading: false));
+    return result;
   }
 
   void _applyModuleProgress(

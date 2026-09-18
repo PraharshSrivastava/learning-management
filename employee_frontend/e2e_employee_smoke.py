@@ -37,7 +37,7 @@ PUBLISHED_COURSE = {
                     "explanation": "It checks the browser flow.",
                 }
             ],
-            "pass_mark": 0.67,
+            "pass_mark": 2 / 3,
         }
     ],
     "images": [],
