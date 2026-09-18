@@ -409,6 +409,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         child: HlsVideoPlayer(
           hlsUrl: AppConstants.hlsVideoAssetUrl(module.videoPath),
           fallbackUrl: AppConstants.videoAssetUrl(module.videoPath),
+          enforceLinearPlayback: true,
+          initiallyCompleted: initiallyWatched,
           onEnded: initiallyWatched
               ? null
               : () {
@@ -1209,17 +1211,22 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
     await Future<void>.delayed(const Duration(milliseconds: 16));
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => FullscreenVideoPlayer(controller: _controller),
+      builder: (context) => FullscreenVideoPlayer(
+        controller: _controller,
+        allowForwardSeeking: _markedWatched,
+      ),
     ));
     if (mounted) setState(() => _showingFullscreen = false);
   }
 
   Future<void> _setPlaybackMultiplier(double value) async {
-    await _controller.setPlaybackSpeed(value);
-    if (mounted) setState(() => _playbackMultiplier = value);
+    final allowedValue = !_markedWatched && value > 1 ? 1.0 : value;
+    await _controller.setPlaybackSpeed(allowedValue);
+    if (mounted) setState(() => _playbackMultiplier = allowedValue);
   }
 
   Future<void> _seekBy(Duration offset) async {
+    if (!_markedWatched && !offset.isNegative) return;
     final duration = _controller.value.duration;
     final requested = _controller.value.position + offset;
     final milliseconds =
@@ -1319,7 +1326,7 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                 children: [
                   VideoProgressIndicator(
                     _controller,
-                    allowScrubbing: true,
+                    allowScrubbing: _markedWatched,
                     colors: const VideoProgressColors(
                       playedColor: AppTheme.accentCyan,
                       bufferedColor: Colors.white24,
@@ -1358,10 +1365,15 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
                           ),
                           IconButton(
                             tooltip: 'Forward 10 seconds',
-                            icon: const Icon(Icons.forward_10_rounded,
-                                color: Colors.white),
-                            onPressed: () =>
-                                _seekBy(const Duration(seconds: 10)),
+                            icon: Icon(
+                              Icons.forward_10_rounded,
+                              color: _markedWatched
+                                  ? Colors.white
+                                  : Colors.white38,
+                            ),
+                            onPressed: _markedWatched
+                                ? () => _seekBy(const Duration(seconds: 10))
+                                : null,
                           ),
                           const SizedBox(width: 4),
                           ValueListenableBuilder(
@@ -1446,8 +1458,13 @@ class _EmployeeVideoPlayerState extends ConsumerState<EmployeeVideoPlayer> {
 
 class FullscreenVideoPlayer extends StatefulWidget {
   final VideoPlayerController controller;
+  final bool allowForwardSeeking;
 
-  const FullscreenVideoPlayer({super.key, required this.controller});
+  const FullscreenVideoPlayer({
+    super.key,
+    required this.controller,
+    this.allowForwardSeeking = true,
+  });
 
   @override
   State<FullscreenVideoPlayer> createState() => _FullscreenVideoPlayerState();
@@ -1463,6 +1480,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
   }
 
   Future<void> _seekBy(Duration offset) async {
+    if (!widget.allowForwardSeeking && !offset.isNegative) return;
     final duration = widget.controller.value.duration;
     final requested = widget.controller.value.position + offset;
     final milliseconds =
@@ -1534,7 +1552,7 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                     children: [
                       VideoProgressIndicator(
                         widget.controller,
-                        allowScrubbing: true,
+                        allowScrubbing: widget.allowForwardSeeking,
                         colors: const VideoProgressColors(
                           playedColor: AppTheme.accentCyan,
                           bufferedColor: Colors.white30,
@@ -1574,10 +1592,15 @@ class _FullscreenVideoPlayerState extends State<FullscreenVideoPlayer> {
                               ),
                               IconButton(
                                 tooltip: 'Forward 10 seconds',
-                                icon: const Icon(Icons.forward_10_rounded,
-                                    color: Colors.white),
-                                onPressed: () =>
-                                    _seekBy(const Duration(seconds: 10)),
+                                icon: Icon(
+                                  Icons.forward_10_rounded,
+                                  color: widget.allowForwardSeeking
+                                      ? Colors.white
+                                      : Colors.white38,
+                                ),
+                                onPressed: widget.allowForwardSeeking
+                                    ? () => _seekBy(const Duration(seconds: 10))
+                                    : null,
                               ),
                               const SizedBox(width: 8),
                               ValueListenableBuilder(

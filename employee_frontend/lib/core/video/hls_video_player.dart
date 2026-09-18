@@ -5,16 +5,22 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 
+import 'linear_playback_guard.dart';
+
 class HlsVideoPlayer extends StatefulWidget {
   final String hlsUrl;
   final String fallbackUrl;
   final VoidCallback? onEnded;
+  final bool enforceLinearPlayback;
+  final bool initiallyCompleted;
 
   const HlsVideoPlayer({
     super.key,
     required this.hlsUrl,
     required this.fallbackUrl,
     this.onEnded,
+    this.enforceLinearPlayback = false,
+    this.initiallyCompleted = false,
   });
 
   @override
@@ -27,12 +33,21 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   late final html.VideoElement _video;
   late final String _viewType;
   StreamSubscription<html.Event>? _endedSubscription;
+  StreamSubscription<html.Event>? _timeUpdateSubscription;
+  StreamSubscription<html.Event>? _seekingSubscription;
+  StreamSubscription<html.Event>? _rateChangeSubscription;
+  late final LinearPlaybackGuard _playbackGuard;
   Object? _hls;
   bool _disposed = false;
+  bool _correctingSeek = false;
 
   @override
   void initState() {
     super.initState();
+    _playbackGuard = LinearPlaybackGuard(
+      enabled: widget.enforceLinearPlayback,
+      initiallyCompleted: widget.initiallyCompleted,
+    );
     _viewType = 'hls-video-${identityHashCode(this)}';
     _video = html.VideoElement()
       ..controls = true
@@ -41,9 +56,44 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
       ..style.height = '100%'
       ..style.backgroundColor = '#000'
       ..style.objectFit = 'contain';
-    _endedSubscription = _video.onEnded.listen((_) => widget.onEnded?.call());
+    _endedSubscription = _video.onEnded.listen(_handleEnded);
+    _timeUpdateSubscription = _video.onTimeUpdate.listen(_handleTimeUpdate);
+    _seekingSubscription = _video.onSeeking.listen(_handleSeeking);
+    _rateChangeSubscription = _video.onRateChange.listen(_handleRateChange);
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) => _video);
     _attachSource();
+  }
+
+  void _handleTimeUpdate(html.Event _) {
+    if (_correctingSeek || _video.seeking == true) return;
+    _playbackGuard.observePosition(_video.currentTime.toDouble());
+  }
+
+  void _handleSeeking(html.Event _) {
+    if (_correctingSeek) return;
+    final requested = _video.currentTime.toDouble();
+    final allowed = _playbackGuard.constrainSeek(requested);
+    if ((requested - allowed).abs() < 0.01) return;
+
+    _correctingSeek = true;
+    _video.currentTime = allowed;
+    scheduleMicrotask(() => _correctingSeek = false);
+  }
+
+  void _handleRateChange(html.Event _) {
+    final requested = _video.playbackRate.toDouble();
+    final allowed = _playbackGuard.constrainPlaybackRate(requested);
+    if ((requested - allowed).abs() >= 0.01) {
+      _video.playbackRate = allowed;
+    }
+  }
+
+  void _handleEnded(html.Event _) {
+    if (!_playbackGuard.tryMarkCompleted(_video.duration.toDouble())) {
+      _video.currentTime = _playbackGuard.furthestWatchedSeconds;
+      return;
+    }
+    widget.onEnded?.call();
   }
 
   @override
@@ -139,6 +189,9 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   void dispose() {
     _disposed = true;
     _endedSubscription?.cancel();
+    _timeUpdateSubscription?.cancel();
+    _seekingSubscription?.cancel();
+    _rateChangeSubscription?.cancel();
     _destroyHls();
     super.dispose();
   }
