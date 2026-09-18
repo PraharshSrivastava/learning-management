@@ -24,6 +24,10 @@ from app.services.directory_scheduler import (
     start_directory_sync_scheduler,
     stop_directory_sync_scheduler,
 )
+from app.services.email_notifications import (
+    start_email_notification_scheduler,
+    stop_email_notification_scheduler,
+)
 from app.services.generation_queue import generation_queue
 
 
@@ -34,10 +38,12 @@ async def lifespan(_: FastAPI):
     generation_queue.start()
     init_db()
     start_directory_sync_scheduler()
+    start_email_notification_scheduler()
     recover_interrupted_generations()
     try:
         yield
     finally:
+        await stop_email_notification_scheduler()
         await stop_directory_sync_scheduler()
         generation_jobs.shutdown()
         close_pool()
