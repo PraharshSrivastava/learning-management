@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 
+from app.core.langfuse_tracing import timed_span
 from app.core.settings import settings
 from app.core.storage import resolve_public_asset_path
 from app.repositories.courses import (
@@ -39,6 +41,7 @@ PIPELINE_STAGES = (
     "publish",
 )
 
+
 class PipelineStageError(RuntimeError):
     def __init__(
         self,
@@ -52,8 +55,10 @@ class PipelineStageError(RuntimeError):
         self.module_number = module_number
         self.slide_number = slide_number
 
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 def log_event(course_id: str, stage: str, event: str, **details: Any) -> None:
     suffix = " ".join(f"{key}={value}" for key, value in details.items() if value is not None)
@@ -64,6 +69,7 @@ def log_event(course_id: str, stage: str, event: str, **details: Any) -> None:
         event,
         f" {suffix}" if suffix else "",
     )
+
 
 def retry(
     operation: Callable[[], T],
@@ -114,6 +120,7 @@ def retry(
         stage, str(last_error or "Unknown generation error"), module_number, slide_number
     )
 
+
 def generation_state(course: dict) -> dict:
     state = course.setdefault("generation", {})
     state.setdefault("status", "pending")
@@ -122,6 +129,7 @@ def generation_state(course: dict) -> dict:
     state.setdefault("started_at", now_iso())
     GenerationState.model_validate(state)
     return state
+
 
 def mark_stage(
     course: dict,
@@ -171,6 +179,7 @@ def mark_stage(
         if state.get("current_checkpoint") == stage:
             state["current_checkpoint"] = None
 
+
 def complete_generation(course: dict, elapsed_seconds: float) -> None:
     state = generation_state(course)
     previous_total = float(state.get("total_duration_seconds") or 0)
@@ -187,11 +196,13 @@ def complete_generation(course: dict, elapsed_seconds: float) -> None:
     for key in ("failed_checkpoint", "error", "module_number", "slide_number"):
         state.pop(key, None)
 
+
 def load_course_for_generation(course_id: str) -> dict:
     course = get_course(course_id)
     if course is None:
         raise ValueError(f"Course '{course_id}' not found in courses database.")
     return course
+
 
 def save_generated_course(
     course_id: str,
@@ -221,6 +232,7 @@ def save_generated_course(
 def update_generation_state(course_id: str, update: Callable[[dict], None]) -> dict:
     """Apply one coordinator-owned checkpoint transition to the latest course state."""
     return patch_generation_state(course_id, update)
+
 
 def ensure_module_cover_slide(
     course: dict, module: dict, module_number: int, total_modules: int
@@ -253,6 +265,7 @@ def ensure_module_cover_slide(
         return
 
     slides.insert(0, cover_slide)
+
 
 def _asset_is_nonempty(path: object) -> bool:
     value = str(path or "").strip()
@@ -349,10 +362,12 @@ def is_course_generation_complete(course: dict) -> bool:
 
     return True
 
+
 def sync_clean_database(course_id: str | None = None):
     """Prepare complete courses while serializing lifecycle transitions."""
     with advisory_lock("publish_sync"):
         return _sync_clean_database(course_id)
+
 
 def _sync_clean_database(target_course_id: str | None = None):
     """
@@ -410,6 +425,7 @@ def _sync_clean_database(target_course_id: str | None = None):
         time.perf_counter() - start,
     )
 
+
 def recover_interrupted_generations() -> None:
     """Mark work left running by a process restart as recoverable failure."""
     try:
@@ -420,6 +436,7 @@ def recover_interrupted_generations() -> None:
         )
     except Exception:
         logger.exception("Could not recover interrupted course generations")
+
 
 def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) -> dict:
     """Run the course pipeline with a barrier and recovery queue for Wave 1."""
@@ -546,6 +563,10 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         "slides": lambda: generate_slides_for_course(course_id),
     }
 
+    def run_wave_operation(stage: str):
+        with timed_span(stage, metadata={"course_id": course_id, "wave": 1}):
+            return wave_operations[stage]()
+
     if restart_from_blueprint:
         fresh_course = load_course()
         CourseService._invalidate_generated_content(fresh_course)
@@ -576,8 +597,13 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         start_wave(wave_stages)
         wave_started = time.perf_counter()
         failures: dict[str, Exception] = {}
-        with ThreadPoolExecutor(max_workers=len(wave_stages), thread_name_prefix="wave-1") as executor:
-            futures = {executor.submit(wave_operations[stage]): stage for stage in wave_stages}
+        with ThreadPoolExecutor(
+            max_workers=len(wave_stages), thread_name_prefix="wave-1"
+        ) as executor:
+            futures = {
+                executor.submit(copy_context().run, run_wave_operation, stage): stage
+                for stage in wave_stages
+            }
             for future in as_completed(futures):
                 stage = futures[future]
                 try:
@@ -603,7 +629,15 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
                         retry_number,
                     )
                     try:
-                        wave_operations[stage]()
+                        with timed_span(
+                            f"{stage}_recovery",
+                            metadata={
+                                "course_id": course_id,
+                                "stage": stage,
+                                "attempt": retry_number,
+                            },
+                        ):
+                            wave_operations[stage]()
                     except Exception as exc:
                         failures[stage] = exc
                         update_wave_stage(stage, "failed", str(exc))
@@ -633,18 +667,23 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
             if output_is_valid is None or output_is_valid(load_course()):
                 logger.info("Generation | %s already completed", stage)
                 return None
-            logger.warning("Generation | %s marked completed but output is missing; rerunning", stage)
+            logger.warning(
+                "Generation | %s marked completed but output is missing; rerunning", stage
+            )
         started = time.perf_counter()
         update_generation_state(course_id, lambda course: mark_stage(course, stage, "running"))
         logger.info("Generation | %s started", stage)
         try:
-            result = (
-                retry(operation, course_id=course_id, stage=stage, attempts=attempts)
-                if attempts > 1
-                else operation()
-            )
+            with timed_span(stage, metadata={"course_id": course_id}):
+                result = (
+                    retry(operation, course_id=course_id, stage=stage, attempts=attempts)
+                    if attempts > 1
+                    else operation()
+                )
         except Exception as exc:
-            failure = exc if isinstance(exc, PipelineStageError) else PipelineStageError(stage, str(exc))
+            failure = (
+                exc if isinstance(exc, PipelineStageError) else PipelineStageError(stage, str(exc))
+            )
 
             def fail_stage(course: dict) -> None:
                 mark_stage(
@@ -658,7 +697,9 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
                 )
 
             update_generation_state(course_id, fail_stage)
-            logger.error("Generation | %s failed | %.1fs | %s", stage, time.perf_counter() - started, failure)
+            logger.error(
+                "Generation | %s failed | %.1fs | %s", stage, time.perf_counter() - started, failure
+            )
             raise failure
 
         update_generation_state(

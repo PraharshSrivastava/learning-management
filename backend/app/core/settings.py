@@ -64,6 +64,16 @@ class Settings(BaseModel):
     llm_max_input_tokens: int = Field(default=87000, ge=256)
     llm_max_output_tokens: int = Field(default=12000, ge=256)
 
+    langfuse_enabled: bool = False
+    langfuse_host: str | None = None
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_environment: str = "development"
+    langfuse_release: str | None = None
+    langfuse_capture_content: bool = False
+    langfuse_capture_max_chars: int = Field(default=12000, ge=100, le=100000)
+    langfuse_timeout_seconds: int = Field(default=5, ge=1, le=60)
+
     tts_endpoint: str = "http://35.238.33.238:8081"
     tts_voice: str = "priyanka"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
@@ -220,13 +230,25 @@ class Settings(BaseModel):
                     "http://localhost:3000,http://localhost:8080",
                 ),
                 "llm_base_url": values.get("LLM_BASE_URL", "http://35.238.33.238:4000/v1"),
-                "llm_api_key": values.get("LLM_API_KEY")
-                or values.get("LITELLM_API_KEY")
-                or None,
+                "llm_api_key": values.get("LLM_API_KEY") or values.get("LITELLM_API_KEY") or None,
                 "llm_model_name": values.get("LLM_MODEL_NAME", "gemma-4-e4b"),
                 "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "100000"),
                 "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "87000"),
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),
+                "langfuse_enabled": values.get("LANGFUSE_ENABLED", "false"),
+                "langfuse_host": values.get("LANGFUSE_BASE_URL")
+                or values.get("LANGFUSE_HOST")
+                or None,
+                "langfuse_public_key": values.get("LANGFUSE_PUBLIC_KEY") or None,
+                "langfuse_secret_key": values.get("LANGFUSE_SECRET_KEY") or None,
+                "langfuse_environment": values.get("LANGFUSE_ENVIRONMENT", "development"),
+                "langfuse_release": values.get("LANGFUSE_RELEASE") or None,
+                "langfuse_capture_content": values.get("LANGFUSE_CAPTURE_CONTENT", "false"),
+                "langfuse_capture_max_chars": values.get(
+                    "LANGFUSE_CAPTURE_MAX_CHARS",
+                    "12000",
+                ),
+                "langfuse_timeout_seconds": values.get("LANGFUSE_TIMEOUT_SECONDS", "5"),
                 "tts_endpoint": values.get(
                     "TTS_ENDPOINT",
                     "http://35.238.33.238:8081",

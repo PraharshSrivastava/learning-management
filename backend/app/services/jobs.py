@@ -57,19 +57,21 @@ class GenerationJobManager:
         backend_dir: Path,
         restart_from_blueprint: bool,
     ) -> GenerationJobResponse:
+        with self._lock:
+            job = self._create_job(course_id)
+            executor = self._executor_for_submit()
+
         command = [
             sys.executable,
             "-m",
             "scripts.run_pipeline",
             "--course-id",
             course_id,
+            "--job-id",
+            job.id,
         ]
         if restart_from_blueprint:
             command.append("--restart-from-blueprint")
-
-        with self._lock:
-            job = self._create_job(course_id)
-            executor = self._executor_for_submit()
 
         def operation() -> None:
             popen_kwargs = {

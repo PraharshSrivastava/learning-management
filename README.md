@@ -616,11 +616,52 @@ DIRECTORY_SYNC_ENABLED
 DIRECTORY_SYNC_INTERVAL_HOURS
 DIRECTORY_SYNC_TIME
 DIRECTORY_SYNC_TIMEZONE
+LANGFUSE_ENABLED
+LANGFUSE_BASE_URL
+LANGFUSE_HOST
+LANGFUSE_PUBLIC_KEY
+LANGFUSE_SECRET_KEY
+LANGFUSE_ENVIRONMENT
+LANGFUSE_RELEASE
+LANGFUSE_CAPTURE_CONTENT
 ```
 
 Generated uploads, audio, images, slides, and videos live under `/app/storage`
 inside the backend container and `/opt/lms/storage` on the VM host. Structured
 application data lives in PostgreSQL. SQLite is no longer supported.
+
+## Langfuse LLM Observability
+
+The backend can send course-generation traces directly to an existing
+Langfuse server. Tracing is disabled by default and is fail-open: missing
+credentials, SDK initialization problems, or delivery failures never stop LMS
+course generation.
+
+`LANGFUSE_BASE_URL` is the preferred Langfuse v4 setting. The older
+`LANGFUSE_HOST` name remains supported as a backward-compatible alias.
+
+```env
+LANGFUSE_ENABLED=true
+LANGFUSE_BASE_URL=http://<langfuse-host>:3100
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_ENVIRONMENT=uat
+LANGFUSE_RELEASE=<deployed-git-commit>
+LANGFUSE_CAPTURE_CONTENT=false
+LANGFUSE_CAPTURE_MAX_CHARS=12000
+LANGFUSE_TIMEOUT_SECONDS=5
+```
+
+Keep `LANGFUSE_CAPTURE_CONTENT=false` unless storage of LMS prompts and model
+outputs has been approved. With content capture disabled, traces still include
+course/job identifiers, stage and module metadata, model name, duration,
+finish reason, status, and token usage returned by the LLM gateway.
+
+Before enabling direct app-side tracing, confirm that the configured LiteLLM
+gateway does not already send the same calls to Langfuse. Otherwise each LLM
+request will appear twice. After deployment, generate one UAT course and verify
+that it produces one top-level LMS trace with nested stage spans and one
+generation for each real LLM HTTP attempt.
 
 ## Hub Directory Sync
 

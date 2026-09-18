@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
 import requests
 
 from app.core.exceptions import ProviderError
+from app.core.langfuse_tracing import record_generation
 from app.core.logging import generation_logger
 from app.core.settings import settings
 from app.generation.runtime import retry
@@ -38,6 +40,13 @@ TTS_SPEED = settings.tts_speed
 SLIDE_TRANSITION_PAUSE_SECONDS = settings.slide_transition_pause_seconds
 
 
+def _optional_int(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 @dataclass(frozen=True)
 class ChatCompletionMessage:
     content: str
@@ -50,8 +59,25 @@ class ChatCompletionChoice:
 
 
 @dataclass(frozen=True)
+class ChatCompletionUsage:
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+
+    def as_langfuse_usage(self) -> dict[str, int] | None:
+        usage = {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+        }
+        present = {key: value for key, value in usage.items() if value is not None}
+        return present or None
+
+
+@dataclass(frozen=True)
 class ChatCompletionResponse:
     choices: list[ChatCompletionChoice]
+    usage: ChatCompletionUsage | None = None
 
 
 class LLMClient:
@@ -114,9 +140,19 @@ class LLMClient:
 
         def request_once() -> ChatCompletionResponse:
             nonlocal max_tokens
+            started = time.perf_counter()
             try:
-                return self._post(messages, response_format, temperature, max_tokens)
+                result = self._post(messages, response_format, temperature, max_tokens)
             except ProviderError as exc:
+                self._record_attempt(
+                    messages=messages,
+                    response=None,
+                    course_id=course_id,
+                    stage=stage,
+                    module_number=module_number,
+                    duration_ms=(time.perf_counter() - started) * 1000,
+                    error=exc,
+                )
                 detail = str(exc).lower()
                 if not any(
                     marker in detail for marker in ("max_tokens", "context length", "token")
@@ -141,6 +177,26 @@ class LLMClient:
                     max_tokens,
                 )
                 raise
+            except Exception as exc:
+                self._record_attempt(
+                    messages=messages,
+                    response=None,
+                    course_id=course_id,
+                    stage=stage,
+                    module_number=module_number,
+                    duration_ms=(time.perf_counter() - started) * 1000,
+                    error=exc,
+                )
+                raise
+            self._record_attempt(
+                messages=messages,
+                response=result,
+                course_id=course_id,
+                stage=stage,
+                module_number=module_number,
+                duration_ms=(time.perf_counter() - started) * 1000,
+            )
+            return result
 
         return retry(
             request_once,
@@ -206,7 +262,56 @@ class LLMClient:
             )
         if not choices:
             raise ProviderError("LLM response contained no choices")
-        return ChatCompletionResponse(choices=choices)
+        usage_data = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+        usage = ChatCompletionUsage(
+            prompt_tokens=_optional_int(usage_data.get("prompt_tokens")),
+            completion_tokens=_optional_int(usage_data.get("completion_tokens")),
+            total_tokens=_optional_int(usage_data.get("total_tokens")),
+        )
+        return ChatCompletionResponse(
+            choices=choices,
+            usage=usage if usage.as_langfuse_usage() else None,
+        )
+
+    def _record_attempt(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        response: ChatCompletionResponse | None,
+        course_id: str,
+        stage: str,
+        module_number: int | None,
+        duration_ms: float,
+        error: Exception | None = None,
+    ) -> None:
+        output = None
+        finish_reason = None
+        if response and response.choices:
+            output = response.choices[0].message.content
+            finish_reason = response.choices[0].finish_reason
+        metadata: dict[str, Any] = {
+            "course_id": course_id,
+            "stage": stage,
+            "duration_ms": round(duration_ms, 1),
+            "status": "failed" if error else "completed",
+        }
+        if module_number is not None:
+            metadata["module_number"] = module_number
+        if finish_reason:
+            metadata["finish_reason"] = finish_reason
+        if error:
+            metadata["error_type"] = type(error).__name__
+            if settings.langfuse_capture_content:
+                metadata["error"] = str(error)[:300]
+        record_generation(
+            name=stage,
+            model=self.model,
+            input_value=messages,
+            output_value=output,
+            metadata=metadata,
+            usage=response.usage.as_langfuse_usage() if response and response.usage else None,
+            level="ERROR" if error else "DEFAULT",
+        )
 
 
 _default_llm_client = LLMClient(

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from uuid import uuid4
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.core.langfuse_tracing import trace_scope
 from app.generation.blueprint import generate_course_outline
 from app.generation.quiz import ModuleQuiz
 from app.generation.runtime import now_iso
@@ -37,8 +39,18 @@ class CourseService:
         return course
 
     def generate_outline(self, filename: str, trainer_id: str) -> dict:
-        with generation_queue.run(course_id=f"blueprint:{trainer_id}:{filename}", operation="blueprint"):
-            course = generate_course_outline(filename, trainer_id=trainer_id)
+        with trace_scope(
+            "lms.blueprint",
+            session_id=str(uuid4()),
+            user_id=trainer_id,
+            metadata={"operation": "blueprint"},
+            tags=["course-generation", "blueprint"],
+        ):
+            with generation_queue.run(
+                course_id=f"blueprint:{trainer_id}:{filename}",
+                operation="blueprint",
+            ):
+                course = generate_course_outline(filename, trainer_id=trainer_id)
         course["trainer_id"] = trainer_id
         self.repository.save_draft(course)
         return course
