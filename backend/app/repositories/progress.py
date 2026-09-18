@@ -162,13 +162,40 @@ def _assignment_course_id(connection, course_id: str) -> str:
     raise ValueError(f"Course ID '{course_id}' not found in courses database.")
 
 
+def _notification_transition(existing: dict | None, data: dict) -> tuple[int, str | None]:
+    """Return the notification version and event for an assignment write."""
+    previous_status = existing.get("status") if existing else None
+    next_status = data.get("status", "pending")
+    version = int(existing.get("notification_lifecycle") or 1) if existing else 1
+    deadline_changed = bool(existing) and existing.get("deadline") != data.get("deadline")
+    terminal_transition = (
+        bool(existing)
+        and previous_status != next_status
+        and next_status in {"completed", "revoked"}
+    )
+    reactivated = previous_status == "revoked" and next_status != "revoked"
+
+    if deadline_changed or terminal_transition or reactivated:
+        version += 1
+
+    if not existing and next_status != "revoked":
+        return version, "assigned"
+    if reactivated and next_status in {"pending", "started", "overdue"}:
+        return version, "reactivated"
+    if previous_status != "completed" and next_status == "completed":
+        return version, "completed"
+    if previous_status != "overdue" and next_status == "overdue":
+        return version, "overdue"
+    return version, None
+
+
 def save_employee_course_progress(employee_id: str, course_id: str, data: dict) -> dict:
     now = datetime.now().isoformat()
     with get_connection() as connection:
         storage_course_id = _assignment_course_id(connection, course_id)
         existing = connection.execute(
             """
-            SELECT assignment_id, status, notification_lifecycle
+            SELECT assignment_id, status, deadline, notification_lifecycle
             FROM course_assignments
             WHERE employee_id = ? AND course_id = ?
             """,
@@ -176,10 +203,9 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
         ).fetchone()
         assignment_id = existing["assignment_id"] if existing else str(uuid.uuid4())
         previous_status = existing["status"] if existing else None
-        lifecycle = int(existing["notification_lifecycle"] or 1) if existing else 1
+        existing_data = dict(existing) if existing else None
+        lifecycle, email_event = _notification_transition(existing_data, data)
         next_status = data.get("status", "pending")
-        if previous_status == "revoked" and next_status != "revoked":
-            lifecycle += 1
         connection.execute(
             """
             INSERT INTO course_assignments (
@@ -255,6 +281,22 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                     module_progress.get("video_watched_at"),
                     now,
                 ),
+            )
+        from app.services.email_notifications import (
+            cancel_assignment_notifications,
+            enqueue_assignment_notifications,
+        )
+
+        if existing and (
+            existing["deadline"] != data.get("deadline")
+            or previous_status != next_status
+        ):
+            cancel_assignment_notifications(assignment_id, connection=connection)
+        if email_event:
+            enqueue_assignment_notifications(
+                assignment_id,
+                email_event,
+                connection=connection,
             )
         connection.commit()
         return {

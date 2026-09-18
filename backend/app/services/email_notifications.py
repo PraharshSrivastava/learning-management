@@ -6,6 +6,7 @@ import asyncio
 import logging
 import smtplib
 import uuid
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr
@@ -18,7 +19,13 @@ logger = logging.getLogger(__name__)
 _task: asyncio.Task | None = None
 
 COURSE_EVENTS = {"assigned", "reactivated", "due_soon", "completed", "overdue"}
-ACTIVE_STATUSES = {"pending", "started", "overdue"}
+EVENT_RECIPIENT_ROLES = {
+    "assigned": {"employee"},
+    "reactivated": {"employee"},
+    "due_soon": {"employee"},
+    "completed": {"employee", "hod", "trainer"},
+    "overdue": {"employee", "hod"},
+}
 
 
 def _now() -> datetime:
@@ -55,7 +62,9 @@ def _assignment_context(connection, assignment_id: str) -> dict | None:
             ca.revoked_at,
             ca.notification_lifecycle,
             c.course_name,
+            c.status AS course_status,
             c.trainer_id,
+            ar.is_active AS assignment_rule_active,
             e.name AS employee_name,
             e.email AS employee_email,
             e.manager_employee_id,
@@ -65,6 +74,7 @@ def _assignment_context(connection, assignment_id: str) -> dict | None:
             t.email AS trainer_email
         FROM course_assignments ca
         JOIN courses c ON c.course_id = ca.course_id
+        LEFT JOIN assignment_rules ar ON ar.course_id = ca.course_id
         JOIN employees e ON e.employee_id = ca.employee_id
         LEFT JOIN employees hod ON hod.employee_id = e.manager_employee_id
         LEFT JOIN trainers t ON t.trainer_id = c.trainer_id
@@ -75,7 +85,7 @@ def _assignment_context(connection, assignment_id: str) -> dict | None:
     return dict(row) if row else None
 
 
-def _recipient_rows(context: dict) -> list[dict]:
+def _recipient_rows(context: dict, event_type: str) -> list[dict]:
     recipients = [
         {
             "role": "employee",
@@ -95,6 +105,8 @@ def _recipient_rows(context: dict) -> list[dict]:
     ]
     resolved = []
     for recipient in recipients:
+        if recipient["role"] not in EVENT_RECIPIENT_ROLES[event_type]:
+            continue
         email = str(recipient.get("email") or "").strip()
         if not email or "@" not in email:
             logger.info(
@@ -163,31 +175,51 @@ def _event_is_current(context: dict, event_type: str, lifecycle: int) -> bool:
     if int(context.get("notification_lifecycle") or 1) != lifecycle:
         return False
     status = context.get("assignment_status")
+    if context.get("course_status") not in {None, "published"}:
+        return False
+    if context.get("assignment_rule_active") is False:
+        return False
     if event_type == "completed":
         return status == "completed" and bool(context.get("completed_at"))
-    if event_type in {"assigned", "reactivated", "due_soon"}:
+    if event_type in {"assigned", "reactivated"}:
         return status in {"pending", "started"}
+    deadline = _parse_datetime(context.get("deadline"))
+    now = _now()
+    if deadline and deadline.tzinfo and not now.tzinfo:
+        now = now.astimezone(deadline.tzinfo)
+    if event_type == "due_soon":
+        return bool(
+            status in {"pending", "started"}
+            and deadline
+            and now < deadline <= now + timedelta(days=settings.email_due_soon_days)
+        )
     if event_type == "overdue":
-        return status == "overdue"
+        return bool(status == "overdue" and deadline and deadline < now)
     return False
 
 
-def enqueue_assignment_notifications(assignment_id: str | None, event_type: str) -> int:
+def enqueue_assignment_notifications(
+    assignment_id: str | None,
+    event_type: str,
+    *,
+    connection=None,
+) -> int:
     """Queue event emails for learner, HOD/superior, and trainer."""
     if not assignment_id or event_type not in COURSE_EVENTS or settings.email_delivery_mode == "disabled":
         return 0
     now = _now().isoformat()
     created = 0
-    with get_connection() as connection:
-        context = _assignment_context(connection, assignment_id)
+    connection_context = nullcontext(connection) if connection is not None else get_connection()
+    with connection_context as active_connection:
+        context = _assignment_context(active_connection, assignment_id)
         if not context:
             return 0
         lifecycle = int(context.get("notification_lifecycle") or 1)
         if not _event_is_current(context, event_type, lifecycle):
             return 0
-        for recipient in _recipient_rows(context):
+        for recipient in _recipient_rows(context, event_type):
             subject, body_text = _message_for(context, event_type, recipient["role"])
-            row = connection.execute(
+            row = active_connection.execute(
                 """
                 INSERT INTO email_notifications (
                     notification_id, assignment_id, notification_lifecycle, event_type,
@@ -215,13 +247,16 @@ def enqueue_assignment_notifications(assignment_id: str | None, event_type: str)
             ).fetchone()
             if row:
                 created += 1
-        connection.commit()
+        if connection is None:
+            active_connection.commit()
     return created
 
 
 def cancel_assignment_notifications(
     assignment_id: str | None,
     event_types: Iterable[str] = ("due_soon", "overdue"),
+    *,
+    connection=None,
 ) -> int:
     if not assignment_id:
         return 0
@@ -230,8 +265,9 @@ def cancel_assignment_notifications(
         return 0
     placeholders = ", ".join("?" for _ in event_types)
     now = _now().isoformat()
-    with get_connection() as connection:
-        row = connection.execute(
+    connection_context = nullcontext(connection) if connection is not None else get_connection()
+    with connection_context as active_connection:
+        row = active_connection.execute(
             f"""
             UPDATE email_notifications
             SET status = 'cancelled', updated_at = ?
@@ -242,7 +278,8 @@ def cancel_assignment_notifications(
             """,  # nosec B608
             (now, assignment_id, *event_types),
         ).fetchall()
-        connection.commit()
+        if connection is None:
+            active_connection.commit()
     return len(row)
 
 
@@ -294,6 +331,17 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
             """,
             (now.isoformat(), now.isoformat()),
         ).fetchall()
+        for row in rows:
+            queued += enqueue_assignment_notifications(
+                row["assignment_id"],
+                "overdue",
+                connection=connection,
+            )
+        connection.commit()
+
+    # Reconciliation makes the scheduler self-healing if an older deployment
+    # changed an assignment to overdue without creating its outbox rows.
+    with get_connection() as connection:
         existing = connection.execute(
             """
             SELECT ca.assignment_id
@@ -307,8 +355,7 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
             """,
             (now.isoformat(),),
         ).fetchall()
-        connection.commit()
-    for row in [*rows, *existing]:
+    for row in existing:
         queued += enqueue_assignment_notifications(row["assignment_id"], "overdue")
     return queued
 
@@ -324,6 +371,8 @@ def _send_smtp(notification: dict) -> None:
     message["From"] = formataddr((settings.email_from_name, from_email))
     message["To"] = formataddr((notification.get("recipient_name") or "", notification["recipient_email"]))
     message["Subject"] = notification["subject"]
+    sender_domain = from_email.rsplit("@", 1)[-1]
+    message["Message-ID"] = f"<{notification['notification_id']}@{sender_domain}>"
     message.set_content(notification["body_text"])
 
     if settings.smtp_use_ssl:
@@ -356,14 +405,19 @@ def _send_notification(notification: dict) -> None:
 
 
 def _claim_pending_notifications(limit: int) -> list[dict]:
-    now = _now().isoformat()
+    now_dt = _now()
+    now = now_dt.isoformat()
+    stale_before = (now_dt - timedelta(seconds=settings.email_lock_timeout_seconds)).isoformat()
     with get_connection() as connection:
         rows = connection.execute(
             """
             WITH picked AS (
                 SELECT notification_id
                 FROM email_notifications
-                WHERE status IN ('pending', 'failed')
+                WHERE (
+                    status IN ('pending', 'failed')
+                    OR (status = 'sending' AND locked_at <= ?)
+                  )
                   AND next_attempt_at <= ?
                   AND attempts < ?
                 ORDER BY next_attempt_at, created_at
@@ -379,7 +433,7 @@ def _claim_pending_notifications(limit: int) -> list[dict]:
             WHERE en.notification_id = picked.notification_id
             RETURNING en.*
             """,
-            (now, settings.email_max_attempts, limit, now, now),
+            (stale_before, now, settings.email_max_attempts, limit, now, now),
         ).fetchall()
         connection.commit()
     return [dict(row) for row in rows]

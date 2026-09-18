@@ -24,32 +24,8 @@ def _save_progress(
     employee_id: str,
     course_id: str,
     progress: dict,
-    *,
-    email_event: str | None = None,
-    cancel_pending: bool = False,
 ) -> None:
-    saved = _progress.save(employee_id, course_id, progress)
-    if not isinstance(saved, dict):
-        return
-    assignment_id = saved.get("assignment_id")
-    try:
-        from app.services.email_notifications import (
-            cancel_assignment_notifications,
-            enqueue_assignment_notifications,
-        )
-
-        if cancel_pending:
-            cancel_assignment_notifications(assignment_id)
-        if email_event:
-            enqueue_assignment_notifications(assignment_id, email_event)
-    except Exception:
-        import logging
-
-        logging.getLogger(__name__).exception(
-            "course_assignment_email_queue_failed assignment_id=%s event=%s",
-            assignment_id,
-            email_event,
-        )
+    _progress.save(employee_id, course_id, progress)
 
 
 def _new_progress(now: datetime, deadline_days: int) -> dict:
@@ -149,7 +125,6 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
                 employee_id,
                 course_id,
                 _revoked_progress(course_progress, now, reason),
-                cancel_pending=True,
             )
             removed += 1
             if notify:
@@ -174,7 +149,6 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
                     employee_id,
                     course_id,
                     _reactivated_progress(course_progress, employee, now, rule["deadline_days"]),
-                    email_event="reactivated",
                 )
                 reactivated += 1
                 if notify:
@@ -187,7 +161,6 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
                 **_new_progress(now, rule["deadline_days"]),
                 "assigned_department": employee.get("department"),
             },
-            email_event="assigned",
         )
         assigned += 1
         if notify:
@@ -249,7 +222,6 @@ def assign_published_course_to_matching_employees(
                 employee_id,
                 course_id,
                 _revoked_progress(course_progress, now, "assignment_rule_no_longer_matches"),
-                cancel_pending=True,
             )
             removed += 1
             schedule_employee_broadcast(employee_id)
@@ -263,7 +235,6 @@ def assign_published_course_to_matching_employees(
                     employee_id,
                     course_id,
                     _reactivated_progress(course_progress, employee, now, rule["deadline_days"]),
-                    email_event="reactivated",
                 )
                 reactivated += 1
                 schedule_employee_broadcast(employee_id)
@@ -275,7 +246,7 @@ def assign_published_course_to_matching_employees(
                     now + timedelta(days=rule["deadline_days"])
                 ).isoformat()
                 course_progress["last_activity_at"] = now.isoformat()
-                _save_progress(employee_id, course_id, course_progress, cancel_pending=True)
+                _save_progress(employee_id, course_id, course_progress)
                 deadline_updates += 1
                 schedule_employee_broadcast(employee_id)
             continue
@@ -286,7 +257,6 @@ def assign_published_course_to_matching_employees(
                 **_new_progress(now, rule["deadline_days"]),
                 "assigned_department": employee.get("department"),
             },
-            email_event="assigned",
         )
         assigned += 1
         schedule_employee_broadcast(employee_id)
@@ -427,7 +397,6 @@ def api_disable_course_assignment(course_id: str, trainer_id: str):
                 employee_id,
                 course_id,
                 _revoked_progress(course_progress, now, "assignment_rule_disabled"),
-                cancel_pending=True,
             )
         schedule_employee_broadcast(employee_id)
     response = _assignment_response(rule)
