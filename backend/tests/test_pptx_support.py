@@ -8,7 +8,7 @@ import pytest
 
 from app.core.exceptions import ProviderError
 from app.core.providers import LLMClient
-from app.generation import blueprint
+from app.generation import blueprint, slides
 from app.generation.runtime import PipelineStageError
 from app.services.uploads import UploadService
 
@@ -346,7 +346,10 @@ def test_llm_client_does_not_send_qwen_thinking_flag(monkeypatch) -> None:
 
 
 def test_llm_client_records_provider_usage(monkeypatch) -> None:
-    recorded: list[dict] = []
+    events: list[str] = []
+    started: list[dict] = []
+    ended: list[dict] = []
+    generation = object()
 
     class Response:
         status_code = 200
@@ -371,11 +374,18 @@ def test_llm_client_records_provider_usage(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "app.core.providers.requests.post",
-        lambda *args, **kwargs: Response(),
+        lambda *args, **kwargs: events.append("request") or Response(),
     )
     monkeypatch.setattr(
-        "app.core.providers.record_generation",
-        lambda **kwargs: recorded.append(kwargs),
+        "app.core.providers.start_generation",
+        lambda **kwargs: (events.append("start"), started.append(kwargs), generation)[-1],
+    )
+    monkeypatch.setattr(
+        "app.core.providers.end_generation",
+        lambda observation, **kwargs: (
+            events.append("end"),
+            ended.append({"observation": observation, **kwargs}),
+        ),
     )
     client = LLMClient(
         base_url="http://llm",
@@ -395,16 +405,91 @@ def test_llm_client_records_provider_usage(monkeypatch) -> None:
 
     assert response.usage is not None
     assert response.usage.total_tokens == 16
-    assert recorded[0]["usage"] == {
+    assert events == ["start", "request", "end"]
+    assert started[0]["name"] == "quiz"
+    assert started[0]["metadata"] == {
+        "course_id": "course-1",
+        "stage": "quiz",
+        "module_number": 2,
+    }
+    assert ended[0]["observation"] is generation
+    assert ended[0]["usage"] == {
         "prompt_tokens": 12,
         "completion_tokens": 4,
         "total_tokens": 16,
     }
-    assert recorded[0]["metadata"]["course_id"] == "course-1"
-    assert recorded[0]["metadata"]["module_number"] == 2
+    assert ended[0]["metadata"]["course_id"] == "course-1"
+    assert ended[0]["metadata"]["module_number"] == 2
+
+
+def test_slide_generation_uses_descriptive_observation_names(monkeypatch) -> None:
+    calls: list[dict] = []
+
+    def fake_safe_chat_completion(**kwargs):
+        calls.append(kwargs)
+        payloads = {
+            "slide_planning": {
+                "chain_of_thought": "Plan the source material.",
+                "slides": [{"title": "Draft", "content": ["Point one", "Point two"]}],
+            },
+            "slide_titles": {"titles": [{"title": "Final title"}]},
+            "slide_image_mapping": {
+                "mappings": [{"image_id": "image-1", "bullet_index": 1}]
+            },
+            "slide_art_direction": {
+                "chain_of_thought": "Use a concise bullets layout.",
+                "slides": [
+                    {
+                        "layout_type": "bullets",
+                        "bullets": ["Point one", "Point two"],
+                    }
+                ],
+            },
+        }
+        return _llm_response(payloads[kwargs["stage"]])
+
+    monkeypatch.setattr(slides, "safe_chat_completion", fake_safe_chat_completion)
+    module = {
+        "module_number": 3,
+        "title": "Test module",
+        "source_text": "Point one. Point two.",
+        "num_questions": 0,
+        "images": [
+            {
+                "image_id": "image-1",
+                "caption": "Example image",
+                "path": "images/example.png",
+            }
+        ],
+    }
+
+    planned = slides.plan_slides_for_module(
+        module,
+        "http://llm",
+        "model",
+        course_id="course-1",
+    )
+    slides.assign_layouts_to_module(
+        planned,
+        "http://llm",
+        "model",
+        course_id="course-1",
+    )
+
+    assert [call["stage"] for call in calls] == [
+        "slide_planning",
+        "slide_titles",
+        "slide_image_mapping",
+        "slide_art_direction",
+    ]
+    assert all(call["course_id"] == "course-1" for call in calls)
+    assert all(call["module_number"] == 3 for call in calls)
 
 
 def test_llm_client_rejects_null_message_content(monkeypatch) -> None:
+    generation = object()
+    ended: list[dict] = []
+
     class Response:
         status_code = 200
 
@@ -426,6 +511,16 @@ def test_llm_client_rejects_null_message_content(monkeypatch) -> None:
         return Response()
 
     monkeypatch.setattr("app.core.providers.requests.post", fake_post)
+    monkeypatch.setattr(
+        "app.core.providers.start_generation",
+        lambda **kwargs: generation,
+    )
+    monkeypatch.setattr(
+        "app.core.providers.end_generation",
+        lambda observation, **kwargs: ended.append(
+            {"observation": observation, **kwargs}
+        ),
+    )
     client = LLMClient(
         base_url="http://llm",
         model="model",
@@ -437,6 +532,11 @@ def test_llm_client_rejects_null_message_content(monkeypatch) -> None:
 
     with pytest.raises(PipelineStageError, match="message.content was null.*finish_reason=length"):
         client.complete([{"role": "user", "content": "Return JSON."}], attempts=1)
+
+    assert ended[0]["observation"] is generation
+    assert ended[0]["level"] == "ERROR"
+    assert ended[0]["status_message"] == "ProviderError"
+    assert ended[0]["metadata"]["status"] == "failed"
 
 
 def test_pptx_text_extraction_reads_text_frames_and_tables(tmp_path) -> None:

@@ -189,29 +189,79 @@ def record_generation(
     level: str = "DEFAULT",
     trace: Any | None = None,
 ) -> Any | None:
+    generation = start_generation(
+        name=name,
+        model=model,
+        input_value=input_value,
+        metadata=metadata,
+        level=level,
+        trace=trace,
+    )
+    end_generation(
+        generation,
+        output_value=output_value,
+        metadata=metadata,
+        usage=usage,
+        level=level,
+        name=name,
+    )
+    return generation
+
+
+def start_generation(
+    *,
+    name: str,
+    model: str,
+    input_value: Any = None,
+    metadata: dict[str, Any] | None = None,
+    level: str = "DEFAULT",
+    trace: Any | None = None,
+) -> Any | None:
+    """Start a generation before the provider request so latency is accurate."""
     parent = trace if trace is not None else current_trace()
     if parent is None:
         return None
-    generation = None
     try:
-        generation = parent.start_observation(
+        return parent.start_observation(
             name=name,
             as_type="generation",
             model=model,
             input=_content_value(input_value),
-            output=_content_value(output_value),
             metadata=metadata or {},
-            usage_details=usage,
             level=level,
         )
     except Exception as exc:
         logger.warning("langfuse_generation_create_failed name=%s error=%s", name, _safe_error(exc))
         return None
+
+
+def end_generation(
+    generation: Any | None,
+    *,
+    output_value: Any = None,
+    metadata: dict[str, Any] | None = None,
+    usage: dict[str, Any] | None = None,
+    level: str = "DEFAULT",
+    status_message: str | None = None,
+    name: str = "generation",
+) -> None:
+    """Update and end a generation without affecting the business operation."""
+    if generation is None:
+        return
+    try:
+        generation.update(
+            output=_content_value(output_value),
+            metadata=metadata or {},
+            usage_details=usage,
+            level=level,
+            status_message=status_message,
+        )
+    except Exception as exc:
+        logger.warning("langfuse_generation_update_failed name=%s error=%s", name, _safe_error(exc))
     try:
         generation.end()
     except Exception as exc:
         logger.warning("langfuse_generation_end_failed name=%s error=%s", name, _safe_error(exc))
-    return generation
 
 
 def score_trace(

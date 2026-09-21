@@ -24,6 +24,10 @@ class FakeGeneration:
         self.values = values
         self.ended = False
 
+    def update(self, **kwargs):
+        self.values.update(kwargs)
+        return self
+
     def end(self):
         self.ended = True
 
