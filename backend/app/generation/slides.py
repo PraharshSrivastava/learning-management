@@ -175,7 +175,13 @@ def _expand_mapped_image_slides(module: dict) -> dict:
     return module
 
 
-def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict:
+def plan_slides_for_module(
+    module: dict,
+    base_url: str,
+    model_name: str,
+    *,
+    course_id: str = "unknown",
+) -> dict:
     """
     Step 5 logic: Groups bullets into slides, maps images, and generates titles.
     """
@@ -206,6 +212,9 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
             },
             temperature=0.2,
             default_max_tokens=4096,
+            course_id=course_id,
+            stage="slide_planning",
+            module_number=module.get("module_number"),
         )
 
         raw_content = response.choices[0].message.content
@@ -241,6 +250,9 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
                 },
                 temperature=0.2,
                 default_max_tokens=2048,
+                course_id=course_id,
+                stage="slide_titles",
+                module_number=module.get("module_number"),
             )
 
             titles_raw = titles_response.choices[0].message.content
@@ -301,6 +313,9 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
                 },
                 temperature=0.1,
                 default_max_tokens=1024,
+                course_id=course_id,
+                stage="slide_image_mapping",
+                module_number=module.get("module_number"),
             )
 
             mapping_raw = mapping_response.choices[0].message.content
@@ -355,7 +370,13 @@ def plan_slides_for_module(module: dict, base_url: str, model_name: str) -> dict
     ModuleResponse.model_validate(module)
     return module
 
-def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> dict:
+def assign_layouts_to_module(
+    module: dict,
+    base_url: str,
+    model_name: str,
+    *,
+    course_id: str = "unknown",
+) -> dict:
     """
     Step 6 logic: Assigns layouts to the planned slides.
     """
@@ -402,6 +423,9 @@ def assign_layouts_to_module(module: dict, base_url: str, model_name: str) -> di
             },
             temperature=0.2,
             default_max_tokens=3072,
+            course_id=course_id,
+            stage="slide_art_direction",
+            module_number=module.get("module_number"),
         )
 
         raw_payload = json.loads(response.choices[0].message.content)
@@ -559,8 +583,18 @@ def _generate_slides_for_module(
             attempt + 1,
             max_retries,
         )
-        mod_copy = plan_slides_for_module(mod_copy, base_url, model_name)
-        mod_copy = assign_layouts_to_module(mod_copy, base_url, model_name)
+        mod_copy = plan_slides_for_module(
+            mod_copy,
+            base_url,
+            model_name,
+            course_id=course["course_id"],
+        )
+        mod_copy = assign_layouts_to_module(
+            mod_copy,
+            base_url,
+            model_name,
+            course_id=course["course_id"],
+        )
 
         is_valid = _module_slides_are_valid(mod_copy)
         best_module_state = mod_copy

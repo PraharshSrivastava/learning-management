@@ -10,7 +10,7 @@ from typing import Any
 import requests
 
 from app.core.exceptions import ProviderError
-from app.core.langfuse_tracing import record_generation
+from app.core.langfuse_tracing import end_generation, start_generation
 from app.core.logging import generation_logger
 from app.core.settings import settings
 from app.generation.runtime import retry
@@ -141,11 +141,23 @@ class LLMClient:
         def request_once() -> ChatCompletionResponse:
             nonlocal max_tokens
             started = time.perf_counter()
+            initial_metadata: dict[str, Any] = {
+                "course_id": course_id,
+                "stage": stage,
+            }
+            if module_number is not None:
+                initial_metadata["module_number"] = module_number
+            generation = start_generation(
+                name=stage,
+                model=self.model,
+                input_value=messages,
+                metadata=initial_metadata,
+            )
             try:
                 result = self._post(messages, response_format, temperature, max_tokens)
             except ProviderError as exc:
-                self._record_attempt(
-                    messages=messages,
+                self._finish_attempt(
+                    generation=generation,
                     response=None,
                     course_id=course_id,
                     stage=stage,
@@ -178,8 +190,8 @@ class LLMClient:
                 )
                 raise
             except Exception as exc:
-                self._record_attempt(
-                    messages=messages,
+                self._finish_attempt(
+                    generation=generation,
                     response=None,
                     course_id=course_id,
                     stage=stage,
@@ -188,8 +200,8 @@ class LLMClient:
                     error=exc,
                 )
                 raise
-            self._record_attempt(
-                messages=messages,
+            self._finish_attempt(
+                generation=generation,
                 response=result,
                 course_id=course_id,
                 stage=stage,
@@ -273,10 +285,10 @@ class LLMClient:
             usage=usage if usage.as_langfuse_usage() else None,
         )
 
-    def _record_attempt(
+    def _finish_attempt(
         self,
         *,
-        messages: list[dict[str, Any]],
+        generation: Any | None,
         response: ChatCompletionResponse | None,
         course_id: str,
         stage: str,
@@ -303,14 +315,14 @@ class LLMClient:
             metadata["error_type"] = type(error).__name__
             if settings.langfuse_capture_content:
                 metadata["error"] = str(error)[:300]
-        record_generation(
-            name=stage,
-            model=self.model,
-            input_value=messages,
+        end_generation(
+            generation,
             output_value=output,
             metadata=metadata,
             usage=response.usage.as_langfuse_usage() if response and response.usage else None,
             level="ERROR" if error else "DEFAULT",
+            status_message=type(error).__name__ if error else None,
+            name=stage,
         )
 
 
