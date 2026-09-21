@@ -69,7 +69,7 @@ def test_event_is_stale_when_assignment_lifecycle_changes():
     assert email_notifications._event_is_current(context, "assigned", 3)
 
 
-def test_recipient_matrix_limits_routine_email_noise():
+def test_recipient_matrix_matches_course_notification_policy():
     context = {
         "assignment_id": "assignment-1",
         "employee_email": "learner@example.com",
@@ -78,12 +78,85 @@ def test_recipient_matrix_limits_routine_email_noise():
     }
 
     assert [item["role"] for item in email_notifications._recipient_rows(context, "assigned")] == [
-        "employee"
-    ]
-    assert [item["role"] for item in email_notifications._recipient_rows(context, "overdue")] == [
         "employee",
         "hod",
     ]
+    assert [
+        item["role"] for item in email_notifications._recipient_rows(context, "assignment_reminder")
+    ] == ["employee"]
+    for event_type in ("due_soon", "completed", "overdue"):
+        assert [
+            item["role"] for item in email_notifications._recipient_rows(context, event_type)
+        ] == ["employee", "hod", "trainer"]
+
+
+def test_assignment_reminder_becomes_current_after_five_days(monkeypatch):
+    assigned_at = datetime(2026, 9, 1, 10, 0, 0)
+    context = {
+        "assignment_status": "pending",
+        "notification_lifecycle": 1,
+        "assigned_at": assigned_at.isoformat(),
+        "deadline": (assigned_at + timedelta(days=10)).isoformat(),
+        "course_status": "published",
+        "assignment_rule_active": True,
+    }
+    monkeypatch.setattr(email_notifications.settings, "email_assignment_reminder_days", 5)
+
+    monkeypatch.setattr(
+        email_notifications,
+        "_now",
+        lambda: assigned_at + timedelta(days=5) - timedelta(seconds=1),
+    )
+    assert not email_notifications._event_is_current(context, "assignment_reminder", 1)
+
+    monkeypatch.setattr(
+        email_notifications,
+        "_now",
+        lambda: assigned_at + timedelta(days=5),
+    )
+    assert email_notifications._event_is_current(context, "assignment_reminder", 1)
+
+    context["assignment_status"] = "completed"
+    assert not email_notifications._event_is_current(context, "assignment_reminder", 1)
+
+
+def test_overdue_occurrence_changes_every_two_days(monkeypatch):
+    deadline = datetime(2026, 9, 10, 9, 0, 0)
+    monkeypatch.setattr(email_notifications.settings, "email_overdue_repeat_days", 2)
+
+    assert email_notifications._overdue_occurrence_key(
+        deadline,
+        deadline + timedelta(minutes=1),
+    ) == "period-1"
+    assert email_notifications._overdue_occurrence_key(
+        deadline,
+        deadline + timedelta(days=1, hours=23),
+    ) == "period-1"
+    assert email_notifications._overdue_occurrence_key(
+        deadline,
+        deadline + timedelta(days=2),
+    ) == "period-2"
+    assert email_notifications._overdue_occurrence_key(
+        deadline,
+        deadline + timedelta(days=4),
+    ) == "period-3"
+
+
+def test_only_current_overdue_occurrence_can_be_sent(monkeypatch):
+    deadline = datetime(2026, 9, 10, 9, 0, 0)
+    now = deadline + timedelta(days=2, minutes=1)
+    monkeypatch.setattr(email_notifications.settings, "email_overdue_repeat_days", 2)
+    monkeypatch.setattr(email_notifications, "_now", lambda: now)
+    context = {
+        "assignment_status": "overdue",
+        "notification_lifecycle": 2,
+        "deadline": deadline.isoformat(),
+        "course_status": "published",
+        "assignment_rule_active": True,
+    }
+
+    assert not email_notifications._event_is_current(context, "overdue", 2, "period-1")
+    assert email_notifications._event_is_current(context, "overdue", 2, "period-2")
 
 
 def test_due_soon_event_must_still_be_inside_current_window(monkeypatch):

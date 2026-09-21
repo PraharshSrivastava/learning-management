@@ -112,6 +112,8 @@ class Settings(BaseModel):
     email_retry_delay_seconds: float = Field(default=300, gt=0)
     email_lock_timeout_seconds: float = Field(default=600, gt=0)
     email_due_soon_days: int = Field(default=2, ge=1, le=30)
+    email_assignment_reminder_days: int = Field(default=5, ge=1, le=90)
+    email_overdue_repeat_days: int = Field(default=2, ge=1, le=30)
     email_from_email: str | None = None
     email_from_name: str = "Learning Management System"
     smtp_host: str | None = None
@@ -325,6 +327,14 @@ class Settings(BaseModel):
                 "email_retry_delay_seconds": values.get("EMAIL_RETRY_DELAY_SECONDS", "300"),
                 "email_lock_timeout_seconds": values.get("EMAIL_LOCK_TIMEOUT_SECONDS", "600"),
                 "email_due_soon_days": values.get("EMAIL_DUE_SOON_DAYS", "2"),
+                "email_assignment_reminder_days": values.get(
+                    "EMAIL_ASSIGNMENT_REMINDER_DAYS",
+                    "5",
+                ),
+                "email_overdue_repeat_days": values.get(
+                    "EMAIL_OVERDUE_REPEAT_DAYS",
+                    "2",
+                ),
                 "email_from_email": values.get("EMAIL_FROM_EMAIL") or None,
                 "email_from_name": values.get("EMAIL_FROM_NAME", "Learning Management System"),
                 "smtp_host": values.get("SMTP_HOST") or None,

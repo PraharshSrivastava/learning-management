@@ -243,6 +243,7 @@ def _create_tables(cursor) -> None:
             assignment_id TEXT NOT NULL,
             notification_lifecycle INTEGER NOT NULL,
             event_type TEXT NOT NULL,
+            occurrence_key TEXT NOT NULL DEFAULT 'once',
             recipient_role TEXT NOT NULL,
             recipient_email TEXT NOT NULL,
             recipient_name TEXT,
@@ -256,12 +257,75 @@ def _create_tables(cursor) -> None:
             last_error TEXT,
             created_at TEXT NOT NULL DEFAULT (now()::text),
             updated_at TEXT NOT NULL DEFAULT (now()::text),
-            UNIQUE (assignment_id, notification_lifecycle, event_type, recipient_role),
-            CHECK (event_type IN ('assigned', 'reactivated', 'due_soon', 'completed', 'overdue')),
+            CONSTRAINT uq_email_notification_occurrence UNIQUE (
+                assignment_id, notification_lifecycle, event_type, occurrence_key, recipient_role
+            ),
+            CONSTRAINT ck_email_notifications_event_type CHECK (
+                event_type IN (
+                    'assigned', 'reactivated', 'assignment_reminder',
+                    'due_soon', 'completed', 'overdue'
+                )
+            ),
             CHECK (recipient_role IN ('employee', 'hod', 'trainer')),
             CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'cancelled')),
             FOREIGN KEY (assignment_id) REFERENCES course_assignments(assignment_id) ON DELETE CASCADE
         )
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        ADD COLUMN IF NOT EXISTS occurrence_key TEXT NOT NULL DEFAULT 'once'
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        DROP CONSTRAINT IF EXISTS email_notifications_assignment_id_notification_lifecycle_ev_key
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        DROP CONSTRAINT IF EXISTS email_notifications_event_type_check
+        """
+    )
+    cursor.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'uq_email_notification_occurrence'
+                  AND conrelid = 'email_notifications'::regclass
+            ) THEN
+                ALTER TABLE email_notifications
+                ADD CONSTRAINT uq_email_notification_occurrence UNIQUE (
+                    assignment_id, notification_lifecycle, event_type,
+                    occurrence_key, recipient_role
+                );
+            END IF;
+        END $$
+        """
+    )
+    cursor.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'ck_email_notifications_event_type'
+                  AND conrelid = 'email_notifications'::regclass
+            ) THEN
+                ALTER TABLE email_notifications
+                ADD CONSTRAINT ck_email_notifications_event_type CHECK (
+                    event_type IN (
+                        'assigned', 'reactivated', 'assignment_reminder',
+                        'due_soon', 'completed', 'overdue'
+                    )
+                );
+            END IF;
+        END $$
         """
     )
     cursor.execute(
