@@ -13,6 +13,7 @@ python-pptx==1.0.2
 
 # HTTP & Utils
 requests==2.34.2
+langfuse==4.15.4
 
 # Video & Image Generation (Playwright requires: playwright install chromium)
 playwright==1.61.0

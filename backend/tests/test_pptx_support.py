@@ -271,7 +271,9 @@ def test_generate_course_outline_removes_new_checkpoint_when_blueprint_fails(
         lambda filename, trainer_id=None: document,
     )
     monkeypatch.setattr(blueprint, "get_all_courses", lambda status: [])
-    monkeypatch.setattr(blueprint, "get_course", lambda course_id, status=None: saved_courses.get(course_id))
+    monkeypatch.setattr(
+        blueprint, "get_course", lambda course_id, status=None: saved_courses.get(course_id)
+    )
     monkeypatch.setattr(blueprint, "save_course", fake_save_course)
     monkeypatch.setattr(blueprint, "delete_course", fake_delete_course)
     monkeypatch.setattr(blueprint, "log_event", lambda *args, **kwargs: None)
@@ -341,6 +343,65 @@ def test_llm_client_does_not_send_qwen_thinking_flag(monkeypatch) -> None:
     client.complete([{"role": "user", "content": "Return JSON."}])
 
     assert "chat_template_kwargs" not in captured_payload
+
+
+def test_llm_client_records_provider_usage(monkeypatch) -> None:
+    recorded: list[dict] = []
+
+    class Response:
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "choices": [
+                    {
+                        "message": {"content": "result"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 12,
+                    "completion_tokens": 4,
+                    "total_tokens": 16,
+                },
+            }
+
+    monkeypatch.setattr(
+        "app.core.providers.requests.post",
+        lambda *args, **kwargs: Response(),
+    )
+    monkeypatch.setattr(
+        "app.core.providers.record_generation",
+        lambda **kwargs: recorded.append(kwargs),
+    )
+    client = LLMClient(
+        base_url="http://llm",
+        model="model",
+        api_key=None,
+        context_window=100_000,
+        max_input_tokens=87_000,
+        max_output_tokens=12_000,
+    )
+
+    response = client.complete(
+        [{"role": "user", "content": "Return JSON."}],
+        course_id="course-1",
+        stage="quiz",
+        module_number=2,
+    )
+
+    assert response.usage is not None
+    assert response.usage.total_tokens == 16
+    assert recorded[0]["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 4,
+        "total_tokens": 16,
+    }
+    assert recorded[0]["metadata"]["course_id"] == "course-1"
+    assert recorded[0]["metadata"]["module_number"] == 2
 
 
 def test_llm_client_rejects_null_message_content(monkeypatch) -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from typing import Callable, Iterable, TypeVar
 
 from app.generation.runtime import PipelineStageError, log_event
@@ -53,7 +54,7 @@ def run_parallel_stage_items(
         max_workers=max(1, min(worker_count, len(item_list))),
         thread_name_prefix=f"{stage}-worker",
     ) as executor:
-        futures = {executor.submit(operation, item): item for item in item_list}
+        futures = {executor.submit(copy_context().run, operation, item): item for item in item_list}
         for future in as_completed(futures):
             item = futures[future]
             labels = item_label(item)

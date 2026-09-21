@@ -6,9 +6,11 @@ import argparse
 import logging
 import sys
 
+from app.core.langfuse_tracing import trace_scope
 from app.core.logging import configure_logging
 from app.core.settings import settings
 from app.generation.runtime import run_full_course_generation
+from app.repositories.courses import CourseRepository
 from app.repositories.schema import init_db
 
 logger = logging.getLogger(__name__)
@@ -17,16 +19,29 @@ logger = logging.getLogger(__name__)
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--course-id", required=True)
+    parser.add_argument("--job-id")
     parser.add_argument("--restart-from-blueprint", action="store_true")
     arguments = parser.parse_args()
 
     configure_logging(settings.log_level)
     init_db()
     try:
-        run_full_course_generation(
-            arguments.course_id,
-            restart_from_blueprint=arguments.restart_from_blueprint,
-        )
+        course = CourseRepository().get_draft(arguments.course_id) or {}
+        with trace_scope(
+            "lms.course_generation",
+            session_id=arguments.job_id,
+            user_id=course.get("trainer_id"),
+            metadata={
+                "course_id": arguments.course_id,
+                "job_id": arguments.job_id,
+                "operation": "background_full_course",
+            },
+            tags=["course-generation", "background"],
+        ):
+            run_full_course_generation(
+                arguments.course_id,
+                restart_from_blueprint=arguments.restart_from_blueprint,
+            )
     except Exception as exc:
         logger.exception("pipeline_worker_failed course_id=%s", arguments.course_id)
         print(str(exc), file=sys.stderr)
