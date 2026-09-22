@@ -120,6 +120,87 @@ def test_assignment_reminder_becomes_current_after_five_days(monkeypatch):
     assert not email_notifications._event_is_current(context, "assignment_reminder", 1)
 
 
+def test_employee_completing_on_day_two_never_gets_day_five_reminder(monkeypatch):
+    assigned_at = datetime(2026, 9, 1, 10, 0, 0)
+    completed_at = assigned_at + timedelta(days=2)
+    day_five = assigned_at + timedelta(days=5)
+    monkeypatch.setattr(email_notifications.settings, "email_assignment_reminder_days", 5)
+    monkeypatch.setattr(email_notifications, "_now", lambda: day_five)
+    context = {
+        "assignment_status": "completed",
+        "notification_lifecycle": 2,
+        "assigned_at": assigned_at.isoformat(),
+        "completed_at": completed_at.isoformat(),
+        "deadline": (assigned_at + timedelta(days=10)).isoformat(),
+        "course_status": "published",
+        "assignment_rule_active": True,
+    }
+
+    assert not email_notifications._event_is_current(context, "assignment_reminder", 2)
+
+
+def test_due_soon_email_replaces_day_five_reminder_when_windows_overlap(monkeypatch):
+    assigned_at = datetime(2026, 9, 1, 10, 0, 0)
+    day_five = assigned_at + timedelta(days=5)
+    monkeypatch.setattr(email_notifications.settings, "email_assignment_reminder_days", 5)
+    monkeypatch.setattr(email_notifications.settings, "email_due_soon_days", 2)
+    monkeypatch.setattr(email_notifications, "_now", lambda: day_five)
+    context = {
+        "assignment_status": "pending",
+        "notification_lifecycle": 1,
+        "assigned_at": assigned_at.isoformat(),
+        "deadline": (assigned_at + timedelta(days=7)).isoformat(),
+        "course_status": "published",
+        "assignment_rule_active": True,
+    }
+
+    assert not email_notifications._event_is_current(context, "assignment_reminder", 1)
+    assert email_notifications._event_is_current(context, "due_soon", 1)
+
+
+@pytest.mark.parametrize(
+    ("status", "course_status", "rule_active"),
+    [
+        ("revoked", "published", True),
+        ("pending", "draft", True),
+        ("pending", "published", False),
+    ],
+)
+def test_day_five_reminder_requires_an_active_assignment(
+    monkeypatch,
+    status,
+    course_status,
+    rule_active,
+):
+    assigned_at = datetime(2026, 9, 1, 10, 0, 0)
+    monkeypatch.setattr(email_notifications.settings, "email_assignment_reminder_days", 5)
+    monkeypatch.setattr(email_notifications, "_now", lambda: assigned_at + timedelta(days=5))
+    context = {
+        "assignment_status": status,
+        "notification_lifecycle": 1,
+        "assigned_at": assigned_at.isoformat(),
+        "deadline": (assigned_at + timedelta(days=10)).isoformat(),
+        "course_status": course_status,
+        "assignment_rule_active": rule_active,
+    }
+
+    assert not email_notifications._event_is_current(context, "assignment_reminder", 1)
+
+
+def test_reactivation_changes_lifecycle_without_sending_reassigned_email():
+    existing = {
+        "status": "revoked",
+        "deadline": "2026-09-20T12:00:00",
+        "notification_lifecycle": 4,
+    }
+    reactivated = {
+        "status": "pending",
+        "deadline": "2026-09-25T12:00:00",
+    }
+
+    assert _notification_transition(existing, reactivated) == (5, None)
+
+
 def test_overdue_occurrence_changes_every_two_days(monkeypatch):
     deadline = datetime(2026, 9, 10, 9, 0, 0)
     monkeypatch.setattr(email_notifications.settings, "email_overdue_repeat_days", 2)

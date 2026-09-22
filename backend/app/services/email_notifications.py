@@ -20,7 +20,6 @@ _task: asyncio.Task | None = None
 
 COURSE_EVENTS = {
     "assigned",
-    "reactivated",
     "assignment_reminder",
     "due_soon",
     "completed",
@@ -28,7 +27,6 @@ COURSE_EVENTS = {
 }
 EVENT_RECIPIENT_ROLES = {
     "assigned": {"employee", "hod"},
-    "reactivated": {"employee"},
     "assignment_reminder": {"employee"},
     "due_soon": {"employee", "hod", "trainer"},
     "completed": {"employee", "hod", "trainer"},
@@ -148,7 +146,6 @@ def _recipient_rows(context: dict, event_type: str) -> list[dict]:
 def _event_title(event_type: str) -> str:
     return {
         "assigned": "Course assigned",
-        "reactivated": "Course reassigned",
         "assignment_reminder": "Course assignment reminder",
         "due_soon": "Course due soon",
         "completed": "Course completed",
@@ -174,8 +171,6 @@ def _message_for(context: dict, event_type: str, role: str) -> tuple[str, str]:
             f"This is a reminder that {course_name} is assigned to {employee_name}. "
             f"The deadline is {deadline}."
         )
-    elif event_type == "reactivated":
-        action_line = f"{course_name} has been reassigned to {employee_name}. The deadline is {deadline}."
     else:
         action_line = f"{course_name} has been assigned to {employee_name}. The deadline is {deadline}."
 
@@ -217,7 +212,7 @@ def _event_is_current(
         return False
     if event_type == "completed":
         return status == "completed" and bool(context.get("completed_at"))
-    if event_type in {"assigned", "reactivated"}:
+    if event_type == "assigned":
         return status in {"pending", "started"}
     deadline = _parse_datetime(context.get("deadline"))
     now = _now()
@@ -232,7 +227,10 @@ def _event_is_current(
         return bool(
             status in {"pending", "started"}
             and reminder_now >= reminder_at
-            and (not deadline or deadline >= now)
+            and (
+                not deadline
+                or deadline > now + timedelta(days=settings.email_due_soon_days)
+            )
         )
     if event_type == "due_soon":
         return bool(
@@ -364,7 +362,7 @@ def enqueue_assignment_reminders(as_of: datetime | None = None) -> int:
               AND c.status = 'published'
               AND ar.is_active = TRUE
               AND ca.assigned_at <= ?
-              AND ca.deadline >= ?
+              AND ca.deadline > ?
               AND NOT EXISTS (
                   SELECT 1
                   FROM email_notifications en
@@ -373,7 +371,10 @@ def enqueue_assignment_reminders(as_of: datetime | None = None) -> int:
                     AND en.status = 'sent'
               )
             """,
-            (assigned_before.isoformat(), now.isoformat()),
+            (
+                assigned_before.isoformat(),
+                (now + timedelta(days=settings.email_due_soon_days)).isoformat(),
+            ),
         ).fetchall()
     for row in rows:
         queued += enqueue_assignment_notifications(
