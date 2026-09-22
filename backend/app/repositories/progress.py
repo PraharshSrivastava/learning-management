@@ -180,8 +180,6 @@ def _notification_transition(existing: dict | None, data: dict) -> tuple[int, st
 
     if not existing and next_status != "revoked":
         return version, "assigned"
-    if reactivated and next_status in {"pending", "started", "overdue"}:
-        return version, "reactivated"
     if previous_status != "completed" and next_status == "completed":
         return version, "completed"
     if previous_status != "overdue" and next_status == "overdue":

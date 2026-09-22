@@ -663,6 +663,31 @@ request will appear twice. After deployment, generate one UAT course and verify
 that it produces one top-level LMS trace with nested stage spans and one
 generation for each real LLM HTTP attempt.
 
+## Course Email Notifications
+
+Course email is generated and delivered by the backend. Employee messages are
+individual. HOD and trainer messages for due-soon, completed, and overdue
+events are consolidated into authenticated, role-scoped digests. Assigned
+course messages remain individual for the employee and HOD; the five-day
+reminder is employee-only.
+
+Set `LMS_EMPLOYEE_PUBLIC_URL` and `LMS_TRAINER_PUBLIC_URL` to the externally
+reachable UAT URLs so course and report links open the correct application.
+`LMS_PUBLIC_URL` remains a fallback for older deployments. Digest times use
+`EMAIL_NOTIFICATION_TIMEZONE` and `EMAIL_DIGEST_SEND_TIME`. Due-soon and
+completion digests default to every 24 hours; overdue employee messages and
+HOD/trainer digests default to every 48 hours.
+
+The outbox revalidates every assignment immediately before delivery. Completed,
+revoked, unpublished, reassigned, or otherwise stale items are removed and an
+empty digest is cancelled. On first startup after this migration, unsent legacy
+HOD/trainer individual rows are converted to digest items; sent history is not
+modified.
+
+For safe UAT verification, begin with `EMAIL_DELIVERY_MODE=log`, inspect the
+outbox and backend logs, then switch to `smtp` only after SMTP connectivity and
+recipient data have been validated.
+
 ## Hub Directory Sync
 
 The app imports real employees from the Hub directory export API. Department is

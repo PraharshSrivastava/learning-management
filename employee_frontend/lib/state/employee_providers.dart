@@ -12,3 +12,4 @@ import 'package:employee_frontend/data/models/models.dart';
 part 'employee/auth_providers.dart';
 part 'employee/hub_providers.dart';
 part 'employee/course_progress_providers.dart';
+part 'employee/team_performance_provider.dart';

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.core.dates import parse_date_like
+from app.core.settings import settings
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
 from app.repositories.employees import EmployeeRepository
@@ -127,12 +128,20 @@ def api_trainer_performance(
     mailing_list: str | None = None,
     status: str | None = None,
     joined_less_than_days_ago: int | None = None,
+    trainer_id: str | None = None,
+    manager_employee_id: str | None = None,
 ):
     now = datetime.now()
-    employees = {employee["employee_id"]: employee for employee in _employees.list(include_inactive=True)}
+    employees = {
+        employee["employee_id"]: employee
+        for employee in _employees.list(include_inactive=True)
+        if manager_employee_id is None
+        or employee.get("manager_employee_id") == manager_employee_id
+    }
     courses = {
         course["course_id"]: course
         for course in _courses.list("published")
+        if trainer_id is None or course.get("trainer_id") == trainer_id
     }
     rows = []
     summary = {
@@ -177,7 +186,11 @@ def api_trainer_performance(
                 continue
             if (now.date() - join_date).days >= joined_less_than_days_ago:
                 continue
-        if status and status_info["key"] != status:
+        if status == "due_soon":
+            deadline = parse_datetime(progress.get("deadline"))
+            if not deadline or not (now < deadline <= now + timedelta(days=settings.email_due_soon_days)):
+                continue
+        elif status and status not in {"assigned"} and status_info["key"] != status:
             continue
 
         metrics = _module_performance(course, progress)
@@ -239,8 +252,26 @@ def api_trainer_performance(
         )
     )
 
-    options = _employees.assignment_options()
-    options.pop("job_titles", None)
+    if manager_employee_id is None:
+        options = _employees.assignment_options()
+        options.pop("job_titles", None)
+    else:
+        options = {
+            "departments": sorted(
+                {employee.get("department") for employee in employees.values() if employee.get("department")}
+            ),
+            "mailing_lists": sorted(
+                {
+                    value
+                    for employee in employees.values()
+                    for value in (employee.get("mailing_lists") or [])
+                }
+            ),
+            "employees": sorted(
+                employees.values(),
+                key=lambda employee: str(employee.get("name") or ""),
+            ),
+        }
     options["courses"] = [
         {"course_id": identifier, "course_name": course_title(course)}
         for identifier, course in sorted(
@@ -251,6 +282,7 @@ def api_trainer_performance(
     options["statuses"] = [
         {"key": "pending", "label": "Pending"},
         {"key": "started", "label": "Started"},
+        {"key": "due_soon", "label": "Due soon"},
         {"key": "completed", "label": "Completed"},
         {"key": "overdue", "label": "Overdue"},
     ]

@@ -7,24 +7,37 @@ import logging
 import smtplib
 import uuid
 from contextlib import nullcontext
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 from app.core.settings import settings
-from app.repositories.database import get_connection
+from app.repositories.database import advisory_lock, get_connection
+from app.services.email_templates import render_digest, render_individual
 
 logger = logging.getLogger(__name__)
 _task: asyncio.Task | None = None
 
-COURSE_EVENTS = {"assigned", "reactivated", "due_soon", "completed", "overdue"}
+COURSE_EVENTS = {
+    "assigned",
+    "assignment_reminder",
+    "due_soon",
+    "completed",
+    "overdue",
+}
 EVENT_RECIPIENT_ROLES = {
-    "assigned": {"employee"},
-    "reactivated": {"employee"},
+    "assigned": {"employee", "hod"},
+    "assignment_reminder": {"employee"},
     "due_soon": {"employee"},
-    "completed": {"employee", "hod", "trainer"},
-    "overdue": {"employee", "hod"},
+    "completed": {"employee"},
+    "overdue": {"employee"},
+}
+DIGEST_RECIPIENT_ROLES = {
+    "due_soon": {"hod", "trainer"},
+    "completed": {"hod", "trainer"},
+    "overdue": {"hod", "trainer"},
 }
 
 
@@ -41,11 +54,21 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def _format_datetime(value: str | None) -> str:
-    parsed = _parse_datetime(value)
-    if not parsed:
-        return "not set"
-    return parsed.strftime("%d %b %Y, %I:%M %p")
+def _compatible_now(reference: datetime, now: datetime | None = None) -> datetime:
+    current = now or _now()
+    if reference.tzinfo and not current.tzinfo:
+        return current.astimezone(reference.tzinfo)
+    if not reference.tzinfo and current.tzinfo:
+        return current.replace(tzinfo=None)
+    return current
+
+
+def _overdue_occurrence_key(deadline: datetime, now: datetime | None = None) -> str:
+    current = _compatible_now(deadline, now)
+    elapsed_seconds = max(0.0, (current - deadline).total_seconds())
+    repeat_seconds = settings.email_overdue_repeat_days * 24 * 60 * 60
+    occurrence = int(elapsed_seconds // repeat_seconds) + 1
+    return f"period-{occurrence}"
 
 
 def _assignment_context(connection, assignment_id: str) -> dict | None:
@@ -68,10 +91,31 @@ def _assignment_context(connection, assignment_id: str) -> dict | None:
             e.name AS employee_name,
             e.email AS employee_email,
             e.manager_employee_id,
+            hod.employee_id AS hod_employee_id,
             hod.name AS hod_name,
             hod.email AS hod_email,
             t.name AS trainer_name,
             t.email AS trainer_email
+            ,(
+                SELECT COUNT(*)
+                FROM course_modules cm
+                WHERE cm.course_id = ca.course_id
+            ) AS total_modules
+            ,(
+                SELECT COUNT(*)
+                FROM course_modules cm
+                LEFT JOIN module_progress mp
+                  ON mp.assignment_id = ca.assignment_id
+                 AND mp.module_id = cm.module_id
+                WHERE cm.course_id = ca.course_id
+                  AND COALESCE(mp.video_watched, FALSE) = TRUE
+                  AND (
+                      cm.quiz_json = 'null'::jsonb
+                      OR cm.quiz_json = '{}'::jsonb
+                      OR cm.quiz_json = '[]'::jsonb
+                      OR COALESCE(mp.quiz_passed, FALSE) = TRUE
+                  )
+            ) AS completed_modules
         FROM course_assignments ca
         JOIN courses c ON c.course_id = ca.course_id
         LEFT JOIN assignment_rules ar ON ar.course_id = ca.course_id
@@ -82,7 +126,13 @@ def _assignment_context(connection, assignment_id: str) -> dict | None:
         """,
         (assignment_id,),
     ).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    context = dict(row)
+    total = int(context.get("total_modules") or 0)
+    completed = int(context.get("completed_modules") or 0)
+    context["completion_percent"] = round((completed / total) * 100) if total else 0
+    return context
 
 
 def _recipient_rows(context: dict, event_type: str) -> list[dict]:
@@ -120,58 +170,16 @@ def _recipient_rows(context: dict, event_type: str) -> list[dict]:
     return resolved
 
 
-def _event_title(event_type: str) -> str:
-    return {
-        "assigned": "Course assigned",
-        "reactivated": "Course reassigned",
-        "due_soon": "Course due soon",
-        "completed": "Course completed",
-        "overdue": "Course overdue",
-    }[event_type]
+def _message_for(context: dict, event_type: str, role: str) -> tuple[str, str, str]:
+    return render_individual(context, event_type, role)
 
 
-def _message_for(context: dict, event_type: str, role: str) -> tuple[str, str]:
-    course_name = context.get("course_name") or "Course"
-    employee_name = context.get("employee_name") or context.get("employee_id") or "Employee"
-    deadline = _format_datetime(context.get("deadline"))
-    completed_at = _format_datetime(context.get("completed_at"))
-    subject = f"{_event_title(event_type)}: {course_name}"
-
-    if event_type == "completed":
-        action_line = f"{employee_name} completed {course_name} on {completed_at}."
-    elif event_type == "overdue":
-        action_line = f"{course_name} is overdue for {employee_name}. The deadline was {deadline}."
-    elif event_type == "due_soon":
-        action_line = f"{course_name} is due soon for {employee_name}. The deadline is {deadline}."
-    elif event_type == "reactivated":
-        action_line = f"{course_name} has been reassigned to {employee_name}. The deadline is {deadline}."
-    else:
-        action_line = f"{course_name} has been assigned to {employee_name}. The deadline is {deadline}."
-
-    greeting = "Hello,"
-    if role == "employee":
-        greeting = f"Hello {employee_name},"
-    elif role == "hod":
-        greeting = f"Hello {context.get('hod_name') or 'HOD'},"
-    elif role == "trainer":
-        greeting = f"Hello {context.get('trainer_name') or 'Trainer'},"
-
-    lines = [
-        greeting,
-        "",
-        action_line,
-        "",
-        f"Employee: {employee_name}",
-        f"Course: {course_name}",
-        f"Deadline: {deadline}",
-    ]
-    if settings.lms_public_url:
-        lines.extend(["", f"Open LMS: {settings.lms_public_url}"])
-    lines.extend(["", "This is an automated LMS notification."])
-    return subject, "\n".join(lines)
-
-
-def _event_is_current(context: dict, event_type: str, lifecycle: int) -> bool:
+def _event_is_current(
+    context: dict,
+    event_type: str,
+    lifecycle: int,
+    occurrence_key: str = "once",
+) -> bool:
     if int(context.get("notification_lifecycle") or 1) != lifecycle:
         return False
     status = context.get("assignment_status")
@@ -181,12 +189,26 @@ def _event_is_current(context: dict, event_type: str, lifecycle: int) -> bool:
         return False
     if event_type == "completed":
         return status == "completed" and bool(context.get("completed_at"))
-    if event_type in {"assigned", "reactivated"}:
+    if event_type == "assigned":
         return status in {"pending", "started"}
     deadline = _parse_datetime(context.get("deadline"))
     now = _now()
-    if deadline and deadline.tzinfo and not now.tzinfo:
-        now = now.astimezone(deadline.tzinfo)
+    if deadline:
+        now = _compatible_now(deadline, now)
+    if event_type == "assignment_reminder":
+        assigned_at = _parse_datetime(context.get("assigned_at"))
+        if not assigned_at:
+            return False
+        reminder_now = _compatible_now(assigned_at)
+        reminder_at = assigned_at + timedelta(days=settings.email_assignment_reminder_days)
+        return bool(
+            status in {"pending", "started"}
+            and reminder_now >= reminder_at
+            and (
+                not deadline
+                or deadline > now + timedelta(days=settings.email_due_soon_days)
+            )
+        )
     if event_type == "due_soon":
         return bool(
             status in {"pending", "started"}
@@ -194,7 +216,12 @@ def _event_is_current(context: dict, event_type: str, lifecycle: int) -> bool:
             and now < deadline <= now + timedelta(days=settings.email_due_soon_days)
         )
     if event_type == "overdue":
-        return bool(status == "overdue" and deadline and deadline < now)
+        return bool(
+            status == "overdue"
+            and deadline
+            and deadline < now
+            and occurrence_key == _overdue_occurrence_key(deadline, now)
+        )
     return False
 
 
@@ -202,6 +229,7 @@ def enqueue_assignment_notifications(
     assignment_id: str | None,
     event_type: str,
     *,
+    occurrence_key: str | None = None,
     connection=None,
 ) -> int:
     """Queue event emails for learner, HOD/superior, and trainer."""
@@ -215,18 +243,28 @@ def enqueue_assignment_notifications(
         if not context:
             return 0
         lifecycle = int(context.get("notification_lifecycle") or 1)
-        if not _event_is_current(context, event_type, lifecycle):
+        if occurrence_key is None:
+            deadline = _parse_datetime(context.get("deadline"))
+            if event_type == "overdue" and deadline:
+                occurrence_key = _overdue_occurrence_key(deadline)
+            else:
+                occurrence_key = "once"
+        if not _event_is_current(context, event_type, lifecycle, occurrence_key):
             return 0
         for recipient in _recipient_rows(context, event_type):
-            subject, body_text = _message_for(context, event_type, recipient["role"])
+            subject, body_text, body_html = _message_for(context, event_type, recipient["role"])
             row = active_connection.execute(
                 """
                 INSERT INTO email_notifications (
                     notification_id, assignment_id, notification_lifecycle, event_type,
-                    recipient_role, recipient_email, recipient_name, subject, body_text,
+                    occurrence_key,
+                    recipient_role, recipient_email, recipient_name, subject, body_text, body_html,
                     status, next_attempt_at, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
-                ON CONFLICT (assignment_id, notification_lifecycle, event_type, recipient_role)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                ON CONFLICT (
+                    assignment_id, notification_lifecycle, event_type,
+                    occurrence_key, recipient_role
+                )
                 DO NOTHING
                 RETURNING notification_id
                 """,
@@ -235,11 +273,13 @@ def enqueue_assignment_notifications(
                     assignment_id,
                     lifecycle,
                     event_type,
+                    occurrence_key,
                     recipient["role"],
                     recipient["email"],
                     recipient.get("name"),
                     subject,
                     body_text,
+                    body_html,
                     now,
                     now,
                     now,
@@ -247,6 +287,234 @@ def enqueue_assignment_notifications(
             ).fetchone()
             if row:
                 created += 1
+        if event_type in DIGEST_RECIPIENT_ROLES:
+            created += enqueue_digest_notifications(
+                assignment_id,
+                event_type,
+                occurrence_key,
+                connection=active_connection,
+            )
+        if connection is None:
+            active_connection.commit()
+    return created
+
+
+def _digest_send_at(now: datetime, interval_hours: int, last_sent_at: str | None = None) -> datetime:
+    """Return the next configured local digest time, respecting the delivery interval."""
+    try:
+        hour, minute = (int(part) for part in settings.email_digest_send_time.split(":", 1))
+    except (TypeError, ValueError):
+        hour, minute = 9, 0
+    timezone = ZoneInfo(settings.email_notification_timezone)
+    local_now = (
+        now.replace(tzinfo=UTC).astimezone(timezone)
+        if now.tzinfo is None
+        else now.astimezone(timezone)
+    )
+    candidate = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if candidate <= local_now:
+        candidate += timedelta(days=1)
+    last_sent = _parse_datetime(last_sent_at)
+    if last_sent is not None:
+        if last_sent.tzinfo is None:
+            last_sent = last_sent.replace(tzinfo=UTC)
+        eligible = last_sent.astimezone(timezone) + timedelta(hours=interval_hours)
+        if candidate < eligible:
+            candidate = eligible
+    return candidate.astimezone(UTC).replace(tzinfo=None)
+
+
+def _digest_recipient(context: dict, role: str, event_type: str) -> dict | None:
+    if role == "hod":
+        scope_id = context.get("hod_employee_id")
+        scope_type = "hod"
+        email = context.get("hod_email")
+        name = context.get("hod_name")
+    else:
+        trainer_id = context.get("trainer_id")
+        scope_type = "trainer_course" if event_type == "overdue" else "trainer"
+        scope_id = (
+            f"{trainer_id}:{context.get('course_id')}"
+            if scope_type == "trainer_course"
+            else trainer_id
+        )
+        email = context.get("trainer_email")
+        name = context.get("trainer_name")
+    email = str(email or "").strip()
+    if not scope_id or not email or "@" not in email:
+        logger.info(
+            "course_email_digest_recipient_skipped assignment_id=%s role=%s reason=missing_recipient",
+            context.get("assignment_id"),
+            role,
+        )
+        return None
+    return {
+        "role": role,
+        "scope_type": scope_type,
+        "scope_id": str(scope_id),
+        "email": email,
+        "name": name,
+    }
+
+
+def _enqueue_digest_item(
+    connection,
+    context: dict,
+    event_type: str,
+    role: str,
+    occurrence_key: str,
+) -> int:
+    recipient = _digest_recipient(context, role, event_type)
+    if recipient is None:
+        return 0
+    lifecycle = int(context.get("notification_lifecycle") or 1)
+    prior = connection.execute(
+        """
+        SELECT 1
+        FROM email_notification_items eni
+        JOIN email_notifications en ON en.notification_id = eni.notification_id
+        WHERE eni.assignment_id = ?
+          AND eni.notification_lifecycle = ?
+          AND eni.occurrence_key = ?
+          AND en.event_type = ?
+          AND en.recipient_role = ?
+          AND en.digest_scope_type = ?
+          AND en.digest_scope_id = ?
+          AND en.status <> 'cancelled'
+        LIMIT 1
+        """,
+        (
+            context["assignment_id"],
+            lifecycle,
+            occurrence_key,
+            event_type,
+            role,
+            recipient["scope_type"],
+            recipient["scope_id"],
+        ),
+    ).fetchone()
+    if prior:
+        return 0
+
+    now = _now()
+    interval_hours = (
+        settings.email_overdue_repeat_days * 24
+        if event_type == "overdue"
+        else settings.email_completion_digest_interval_hours
+        if event_type == "completed"
+        else settings.email_due_soon_digest_interval_hours
+    )
+    last_sent = connection.execute(
+        """
+        SELECT MAX(sent_at) AS sent_at
+        FROM email_notifications
+        WHERE message_kind = 'digest'
+          AND event_type = ?
+          AND recipient_role = ?
+          AND digest_scope_type = ?
+          AND digest_scope_id = ?
+          AND status = 'sent'
+        """,
+        (event_type, role, recipient["scope_type"], recipient["scope_id"]),
+    ).fetchone()
+    send_at = _digest_send_at(
+        now,
+        interval_hours,
+        last_sent["sent_at"] if last_sent else None,
+    )
+    created_at = now.isoformat()
+    row = None
+    for _attempt in range(2):
+        digest_key = ":".join(
+            (
+                event_type,
+                role,
+                recipient["scope_type"],
+                recipient["scope_id"],
+                send_at.isoformat(),
+            )
+        )
+        row = connection.execute(
+            """
+            INSERT INTO email_notifications (
+                notification_id, assignment_id, notification_lifecycle, event_type,
+                occurrence_key, recipient_role, recipient_email, recipient_name,
+                subject, body_text, body_html, message_kind, digest_key,
+                digest_scope_type, digest_scope_id, status, next_attempt_at,
+                created_at, updated_at
+            ) VALUES (
+                ?, NULL, 1, ?, ?, ?, ?, ?, '', '', NULL, 'digest', ?, ?, ?,
+                'pending', ?, ?, ?
+            )
+            ON CONFLICT (digest_key) WHERE digest_key IS NOT NULL DO UPDATE
+            SET recipient_email = excluded.recipient_email,
+                recipient_name = excluded.recipient_name,
+                updated_at = excluded.updated_at
+            WHERE email_notifications.status IN ('pending', 'failed')
+            RETURNING notification_id
+            """,
+            (
+                str(uuid.uuid4()),
+                event_type,
+                send_at.date().isoformat(),
+                role,
+                recipient["email"],
+                recipient.get("name"),
+                digest_key,
+                recipient["scope_type"],
+                recipient["scope_id"],
+                send_at.isoformat(),
+                created_at,
+                created_at,
+            ),
+        ).fetchone()
+        if row:
+            break
+        send_at += timedelta(hours=interval_hours)
+    if not row:
+        return 0
+    inserted = connection.execute(
+        """
+        INSERT INTO email_notification_items (
+            notification_id, assignment_id, notification_lifecycle,
+            occurrence_key, created_at
+        ) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT DO NOTHING
+        RETURNING assignment_id
+        """,
+        (row["notification_id"], context["assignment_id"], lifecycle, occurrence_key, created_at),
+    ).fetchone()
+    return 1 if inserted else 0
+
+
+def enqueue_digest_notifications(
+    assignment_id: str,
+    event_type: str,
+    occurrence_key: str = "once",
+    *,
+    connection=None,
+) -> int:
+    if event_type not in DIGEST_RECIPIENT_ROLES or settings.email_delivery_mode == "disabled":
+        return 0
+    connection_context = nullcontext(connection) if connection is not None else get_connection()
+    created = 0
+    with connection_context as active_connection:
+        context = _assignment_context(active_connection, assignment_id)
+        if not context or not _event_is_current(
+            context,
+            event_type,
+            int(context.get("notification_lifecycle") or 1),
+            occurrence_key,
+        ):
+            return 0
+        for role in sorted(DIGEST_RECIPIENT_ROLES[event_type]):
+            created += _enqueue_digest_item(
+                active_connection,
+                context,
+                event_type,
+                role,
+                occurrence_key,
+            )
         if connection is None:
             active_connection.commit()
     return created
@@ -254,7 +522,7 @@ def enqueue_assignment_notifications(
 
 def cancel_assignment_notifications(
     assignment_id: str | None,
-    event_types: Iterable[str] = ("due_soon", "overdue"),
+    event_types: Iterable[str] = ("assignment_reminder", "due_soon", "overdue"),
     *,
     connection=None,
 ) -> int:
@@ -281,6 +549,84 @@ def cancel_assignment_notifications(
         if connection is None:
             active_connection.commit()
     return len(row)
+
+
+def migrate_pending_digest_notifications() -> int:
+    """Convert pre-digest HOD/trainer outbox rows without resending history."""
+    if settings.email_delivery_mode == "disabled":
+        return 0
+    migrated = 0
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT DISTINCT assignment_id, event_type, occurrence_key
+            FROM email_notifications
+            WHERE message_kind = 'individual'
+              AND recipient_role IN ('hod', 'trainer')
+              AND event_type IN ('due_soon', 'completed', 'overdue')
+              AND status IN ('pending', 'failed')
+              AND assignment_id IS NOT NULL
+            """
+        ).fetchall()
+        for row in rows:
+            migrated += enqueue_digest_notifications(
+                row["assignment_id"],
+                row["event_type"],
+                row["occurrence_key"] or "once",
+                connection=connection,
+            )
+        connection.execute(
+            """
+            UPDATE email_notifications
+            SET status = 'cancelled', updated_at = ?
+            WHERE message_kind = 'individual'
+              AND recipient_role IN ('hod', 'trainer')
+              AND event_type IN ('due_soon', 'completed', 'overdue')
+              AND status IN ('pending', 'failed')
+            """,
+            (_now().isoformat(),),
+        )
+        connection.commit()
+    return migrated
+
+
+def enqueue_assignment_reminders(as_of: datetime | None = None) -> int:
+    if settings.email_delivery_mode == "disabled":
+        return 0
+    now = as_of or _now()
+    assigned_before = now - timedelta(days=settings.email_assignment_reminder_days)
+    queued = 0
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT ca.assignment_id
+            FROM course_assignments ca
+            JOIN courses c ON c.course_id = ca.course_id
+            JOIN assignment_rules ar ON ar.course_id = ca.course_id
+            WHERE ca.status IN ('pending', 'started')
+              AND c.status = 'published'
+              AND ar.is_active = TRUE
+              AND ca.assigned_at <= ?
+              AND ca.deadline > ?
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM email_notifications en
+                  WHERE en.assignment_id = ca.assignment_id
+                    AND en.event_type = 'assignment_reminder'
+                    AND en.status = 'sent'
+              )
+            """,
+            (
+                assigned_before.isoformat(),
+                (now + timedelta(days=settings.email_due_soon_days)).isoformat(),
+            ),
+        ).fetchall()
+    for row in rows:
+        queued += enqueue_assignment_notifications(
+            row["assignment_id"],
+            "assignment_reminder",
+        )
+    return queued
 
 
 def enqueue_due_soon_notifications(as_of: datetime | None = None) -> int:
@@ -327,7 +673,7 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
               AND c.status = 'published'
               AND ar.is_active = TRUE
               AND ca.deadline < ?
-            RETURNING ca.assignment_id
+            RETURNING ca.assignment_id, ca.deadline
             """,
             (now.isoformat(), now.isoformat()),
         ).fetchall()
@@ -335,6 +681,10 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
             queued += enqueue_assignment_notifications(
                 row["assignment_id"],
                 "overdue",
+                occurrence_key=_overdue_occurrence_key(
+                    _parse_datetime(row["deadline"]) or now,
+                    now,
+                ),
                 connection=connection,
             )
         connection.commit()
@@ -344,7 +694,7 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
     with get_connection() as connection:
         existing = connection.execute(
             """
-            SELECT ca.assignment_id
+            SELECT ca.assignment_id, ca.deadline
             FROM course_assignments ca
             JOIN courses c ON c.course_id = ca.course_id
             JOIN assignment_rules ar ON ar.course_id = ca.course_id
@@ -356,7 +706,13 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
             (now.isoformat(),),
         ).fetchall()
     for row in existing:
-        queued += enqueue_assignment_notifications(row["assignment_id"], "overdue")
+        deadline = _parse_datetime(row["deadline"])
+        if deadline:
+            queued += enqueue_assignment_notifications(
+                row["assignment_id"],
+                "overdue",
+                occurrence_key=_overdue_occurrence_key(deadline, now),
+            )
     return queued
 
 
@@ -374,6 +730,8 @@ def _send_smtp(notification: dict) -> None:
     sender_domain = from_email.rsplit("@", 1)[-1]
     message["Message-ID"] = f"<{notification['notification_id']}@{sender_domain}>"
     message.set_content(notification["body_text"])
+    if notification.get("body_html"):
+        message.add_alternative(notification["body_html"], subtype="html")
 
     if settings.smtp_use_ssl:
         client_factory = smtplib.SMTP_SSL
@@ -500,17 +858,170 @@ def _cancel_stale(notification_id: str) -> None:
         connection.commit()
 
 
+def _digest_contexts(connection, notification: dict) -> list[dict]:
+    items = connection.execute(
+        """
+        SELECT assignment_id, notification_lifecycle, occurrence_key
+        FROM email_notification_items
+        WHERE notification_id = ?
+        ORDER BY created_at, assignment_id
+        """,
+        (notification["notification_id"],),
+    ).fetchall()
+    contexts = []
+    for item in items:
+        context = _assignment_context(connection, item["assignment_id"])
+        if not context or not _event_is_current(
+            context,
+            notification["event_type"],
+            int(item["notification_lifecycle"]),
+            item["occurrence_key"],
+        ):
+            continue
+        recipient = _digest_recipient(
+            context,
+            notification["recipient_role"],
+            notification["event_type"],
+        )
+        if not recipient:
+            continue
+        if (
+            recipient["email"].lower() != str(notification["recipient_email"]).lower()
+            or recipient["scope_type"] != notification.get("digest_scope_type")
+            or recipient["scope_id"] != notification.get("digest_scope_id")
+        ):
+            continue
+        contexts.append(context)
+    if notification["event_type"] == "overdue":
+        contexts.sort(key=lambda item: (item.get("deadline") or "", item.get("employee_name") or ""))
+    elif notification["event_type"] == "due_soon":
+        contexts.sort(key=lambda item: (item.get("deadline") or "", item.get("employee_name") or ""))
+    else:
+        contexts.sort(key=lambda item: (item.get("completed_at") or "", item.get("employee_name") or ""))
+    return contexts
+
+
+def _digest_summary(connection, notification: dict) -> dict[str, int]:
+    scope_type = notification.get("digest_scope_type")
+    scope_id = notification.get("digest_scope_id")
+    scope_sql = ""
+    params: list[object] = []
+    if scope_type == "hod":
+        scope_sql = "AND e.manager_employee_id = ?"
+        params.append(scope_id)
+    elif scope_type == "trainer_course":
+        trainer_id, _, course_id = str(scope_id or "").partition(":")
+        scope_sql = "AND c.trainer_id = ? AND ca.course_id = ?"
+        params.extend((trainer_id, course_id))
+    else:
+        scope_sql = "AND c.trainer_id = ?"
+        params.append(scope_id)
+    now = _now().isoformat()
+    count_expression = "COUNT(DISTINCT e.employee_id)" if notification.get("recipient_role") == "trainer" else "COUNT(*)"
+    completed_expression = (
+        "COUNT(DISTINCT e.employee_id) FILTER (WHERE ca.status = 'completed')"
+        if notification.get("recipient_role") == "trainer"
+        else "COUNT(*) FILTER (WHERE ca.status = 'completed')"
+    )
+    overdue_expression = (
+        "COUNT(DISTINCT e.employee_id) FILTER (WHERE ca.status = 'overdue' OR (ca.status IN ('pending', 'started') AND ca.deadline < ?))"
+        if notification.get("recipient_role") == "trainer"
+        else "COUNT(*) FILTER (WHERE ca.status = 'overdue' OR (ca.status IN ('pending', 'started') AND ca.deadline < ?))"
+    )
+    row = connection.execute(
+        f"""
+        SELECT
+            {count_expression} AS assigned_count,
+            {completed_expression} AS completed_count,
+            {overdue_expression} AS overdue_count
+        FROM course_assignments ca
+        JOIN courses c ON c.course_id = ca.course_id
+        JOIN assignment_rules ar ON ar.course_id = ca.course_id
+        JOIN employees e ON e.employee_id = ca.employee_id
+        WHERE ca.status <> 'revoked'
+          AND c.status = 'published'
+          AND ar.is_active = TRUE
+          {scope_sql}
+        """,  # nosec B608 -- scope_sql is selected only from constants above
+        (now, *params),
+    ).fetchone()
+    assigned = int(row["assigned_count"] or 0) if row else 0
+    completed = int(row["completed_count"] or 0) if row else 0
+    overdue = int(row["overdue_count"] or 0) if row else 0
+    return {
+        "assigned_count": assigned,
+        "completed_count": completed,
+        "overdue_count": overdue,
+        "completion_rate": round((completed / assigned) * 100) if assigned else 0,
+        "overdue_rate": round((overdue / assigned) * 100) if assigned else 0,
+    }
+
+
 def process_pending_notifications(limit: int | None = None) -> int:
     if settings.email_delivery_mode == "disabled":
         return 0
     processed = 0
     for notification in _claim_pending_notifications(limit or settings.email_worker_batch_size):
+        if notification.get("message_kind") == "digest":
+            with get_connection() as connection:
+                contexts = _digest_contexts(connection, notification)
+                summary = _digest_summary(connection, notification)
+            if not contexts:
+                logger.info(
+                    "course_email_digest_cancelled_empty notification_id=%s event=%s role=%s",
+                    notification["notification_id"],
+                    notification["event_type"],
+                    notification["recipient_role"],
+                )
+                _cancel_stale(notification["notification_id"])
+                continue
+            subject, body_text, body_html = render_digest(
+                notification["event_type"],
+                notification["recipient_role"],
+                contexts,
+                summary,
+            )
+            notification.update(
+                subject=subject,
+                body_text=body_text,
+                body_html=body_html,
+            )
+            try:
+                _send_notification(notification)
+            except Exception as exc:
+                logger.warning(
+                    "course_email_send_failed notification_id=%s event=%s role=%s to=%s error=%s",
+                    notification["notification_id"],
+                    notification["event_type"],
+                    notification["recipient_role"],
+                    notification["recipient_email"],
+                    exc,
+                )
+                _mark_failed(notification, exc)
+                continue
+            _mark_sent(notification["notification_id"])
+            logger.info(
+                "course_email_sent notification_id=%s event=%s role=%s to=%s items=%s",
+                notification["notification_id"],
+                notification["event_type"],
+                notification["recipient_role"],
+                notification["recipient_email"],
+                len(contexts),
+            )
+            processed += 1
+            continue
         with get_connection() as connection:
             context = _assignment_context(connection, notification["assignment_id"])
-        if not context or not _event_is_current(
+        if (
+            notification["recipient_role"]
+            not in EVENT_RECIPIENT_ROLES.get(notification["event_type"], set())
+            or not context
+            or not _event_is_current(
             context,
             notification["event_type"],
             int(notification["notification_lifecycle"]),
+            notification.get("occurrence_key") or "once",
+            )
         ):
             logger.info(
                 "course_email_cancelled_stale notification_id=%s event=%s role=%s to=%s",
@@ -547,10 +1058,19 @@ def process_pending_notifications(limit: int | None = None) -> int:
 
 
 def run_notification_cycle() -> dict[str, int]:
-    due_soon = enqueue_due_soon_notifications()
-    overdue = enqueue_overdue_notifications()
-    sent = process_pending_notifications()
-    return {"due_soon": due_soon, "overdue": overdue, "sent": sent}
+    with advisory_lock("email-notification-cycle"):
+        migrated = migrate_pending_digest_notifications()
+        overdue = enqueue_overdue_notifications()
+        assignment_reminder = enqueue_assignment_reminders()
+        due_soon = enqueue_due_soon_notifications()
+        sent = process_pending_notifications()
+        return {
+            "assignment_reminder": assignment_reminder,
+            "due_soon": due_soon,
+            "overdue": overdue,
+            "migrated": migrated,
+            "sent": sent,
+        }
 
 
 async def _run_loop() -> None:

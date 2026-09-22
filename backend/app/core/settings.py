@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -112,6 +113,12 @@ class Settings(BaseModel):
     email_retry_delay_seconds: float = Field(default=300, gt=0)
     email_lock_timeout_seconds: float = Field(default=600, gt=0)
     email_due_soon_days: int = Field(default=2, ge=1, le=30)
+    email_assignment_reminder_days: int = Field(default=5, ge=1, le=90)
+    email_overdue_repeat_days: int = Field(default=2, ge=1, le=30)
+    email_notification_timezone: str = "Asia/Kolkata"
+    email_digest_send_time: str = "09:00"
+    email_due_soon_digest_interval_hours: int = Field(default=24, ge=1, le=168)
+    email_completion_digest_interval_hours: int = Field(default=24, ge=1, le=168)
     email_from_email: str | None = None
     email_from_name: str = "Learning Management System"
     smtp_host: str | None = None
@@ -122,6 +129,8 @@ class Settings(BaseModel):
     smtp_use_ssl: bool = False
     smtp_timeout_seconds: float = Field(default=30, gt=0)
     lms_public_url: str | None = None
+    lms_employee_public_url: str | None = None
+    lms_trainer_public_url: str | None = None
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -154,6 +163,18 @@ class Settings(BaseModel):
                 email_errors.append("SMTP_HOST is required in smtp mode")
             if not self.email_from_email:
                 email_errors.append("EMAIL_FROM_EMAIL is required in smtp mode")
+        try:
+            ZoneInfo(self.email_notification_timezone)
+        except ZoneInfoNotFoundError:
+            email_errors.append("EMAIL_NOTIFICATION_TIMEZONE must be a valid IANA timezone")
+        try:
+            digest_hour, digest_minute = (
+                int(part) for part in self.email_digest_send_time.split(":", 1)
+            )
+            if not (0 <= digest_hour <= 23 and 0 <= digest_minute <= 59):
+                raise ValueError
+        except (AttributeError, TypeError, ValueError):
+            email_errors.append("EMAIL_DIGEST_SEND_TIME must use 24-hour HH:MM format")
         if email_errors:
             raise ValueError("Invalid email configuration: " + ", ".join(email_errors))
 
@@ -325,6 +346,24 @@ class Settings(BaseModel):
                 "email_retry_delay_seconds": values.get("EMAIL_RETRY_DELAY_SECONDS", "300"),
                 "email_lock_timeout_seconds": values.get("EMAIL_LOCK_TIMEOUT_SECONDS", "600"),
                 "email_due_soon_days": values.get("EMAIL_DUE_SOON_DAYS", "2"),
+                "email_assignment_reminder_days": values.get(
+                    "EMAIL_ASSIGNMENT_REMINDER_DAYS",
+                    "5",
+                ),
+                "email_overdue_repeat_days": values.get(
+                    "EMAIL_OVERDUE_REPEAT_DAYS",
+                    "2",
+                ),
+                "email_notification_timezone": values.get(
+                    "EMAIL_NOTIFICATION_TIMEZONE", "Asia/Kolkata"
+                ),
+                "email_digest_send_time": values.get("EMAIL_DIGEST_SEND_TIME", "09:00"),
+                "email_due_soon_digest_interval_hours": values.get(
+                    "EMAIL_DUE_SOON_DIGEST_INTERVAL_HOURS", "24"
+                ),
+                "email_completion_digest_interval_hours": values.get(
+                    "EMAIL_COMPLETION_DIGEST_INTERVAL_HOURS", "24"
+                ),
                 "email_from_email": values.get("EMAIL_FROM_EMAIL") or None,
                 "email_from_name": values.get("EMAIL_FROM_NAME", "Learning Management System"),
                 "smtp_host": values.get("SMTP_HOST") or None,
@@ -335,6 +374,8 @@ class Settings(BaseModel):
                 "smtp_use_ssl": values.get("SMTP_USE_SSL", "false"),
                 "smtp_timeout_seconds": values.get("SMTP_TIMEOUT_SECONDS", "30"),
                 "lms_public_url": values.get("LMS_PUBLIC_URL") or None,
+                "lms_employee_public_url": values.get("LMS_EMPLOYEE_PUBLIC_URL") or None,
+                "lms_trainer_public_url": values.get("LMS_TRAINER_PUBLIC_URL") or None,
             }
         )
 
