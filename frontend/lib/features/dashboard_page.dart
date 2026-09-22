@@ -21,13 +21,33 @@ class DashboardPage extends ConsumerStatefulWidget {
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
   String? _bootstrappedTrainerId;
+  bool _deepLinkApplied = false;
 
   @override
   Widget build(BuildContext context) {
     final trainerAuth = ref.watch(trainerAuthProvider);
     if (!trainerAuth.isAuthenticated) {
       _bootstrappedTrainerId = null;
+      _deepLinkApplied = false;
       return _TrainerLoginPage(auth: trainerAuth);
+    }
+    if (!_deepLinkApplied) {
+      _deepLinkApplied = true;
+      final query = Uri.base.queryParameters;
+      if (query['view'] == 'performance') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(currentTabProvider.notifier).state = 4;
+          ref.read(performanceProvider.notifier).updateFilter(
+                PerformanceFilter(
+                  courseId: query['course_id'],
+                  status: query['status'] == 'due_soon'
+                      ? 'due_soon'
+                      : query['status'],
+                ),
+              );
+        });
+      }
     }
     final trainerId = trainerAuth.trainer?.trainerId;
     if (trainerId != null && _bootstrappedTrainerId != trainerId) {

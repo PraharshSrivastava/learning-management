@@ -6,6 +6,7 @@ import pytest
 from app.core.settings import Settings
 from app.repositories.progress import _notification_transition
 from app.services import email_notifications
+from app.services.email_templates import completion_timing, render_digest, render_individual
 
 
 def _production_settings(**overrides):
@@ -41,21 +42,23 @@ def test_production_requires_smtp_host_and_from_email_for_smtp_mode():
     assert "EMAIL_FROM_EMAIL" in message
 
 
-def test_recipient_rows_use_employee_manager_as_hod():
+def test_digest_recipient_uses_employee_manager_as_hod():
     context = {
         "assignment_id": "assignment-1",
         "employee_email": "learner@example.com",
         "employee_name": "Learner",
         "hod_email": "manager@example.com",
         "hod_name": "Manager",
+        "hod_employee_id": "manager-1",
         "trainer_email": "trainer@example.com",
         "trainer_name": "Trainer",
     }
 
-    recipients = email_notifications._recipient_rows(context, "completed")
+    recipient = email_notifications._digest_recipient(context, "hod", "completed")
 
-    assert [recipient["role"] for recipient in recipients] == ["employee", "hod", "trainer"]
-    assert recipients[1]["email"] == "manager@example.com"
+    assert recipient is not None
+    assert recipient["role"] == "hod"
+    assert recipient["email"] == "manager@example.com"
 
 
 def test_event_is_stale_when_assignment_lifecycle_changes():
@@ -87,7 +90,131 @@ def test_recipient_matrix_matches_course_notification_policy():
     for event_type in ("due_soon", "completed", "overdue"):
         assert [
             item["role"] for item in email_notifications._recipient_rows(context, event_type)
-        ] == ["employee", "hod", "trainer"]
+        ] == ["employee"]
+        assert email_notifications.DIGEST_RECIPIENT_ROLES[event_type] == {"hod", "trainer"}
+
+
+def test_approved_assignment_template_contains_details_and_no_reply_footer(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings,
+        "lms_employee_public_url",
+        "https://employee.example.com",
+    )
+    context = {
+        "course_id": "course-1",
+        "course_name": "AML Essentials",
+        "employee_name": "Ananya Mehta",
+        "assigned_at": "2026-09-01T09:00:00",
+        "deadline": "2026-09-08T09:00:00",
+        "trainer_name": "Kiran Shah",
+    }
+
+    subject, body_text, body_html = render_individual(context, "assigned", "employee")
+
+    assert subject == "New course assigned: AML Essentials"
+    assert "Hello Ananya," in body_text
+    assert "Assigned on: 01 Sep 2026" in body_text
+    assert "Please do not reply to this email." in body_text
+    assert "course_id=course-1" in body_html
+
+
+def test_completion_timing_uses_full_twenty_four_hour_periods():
+    assert completion_timing(
+        {
+            "completed_at": "2026-09-08T08:00:00",
+            "deadline": "2026-09-10T09:00:00",
+        }
+    )[1] == "Completed 2 days before the deadline"
+    assert completion_timing(
+        {
+            "completed_at": "2026-09-10T08:30:00",
+            "deadline": "2026-09-10T09:00:00",
+        }
+    )[1] == "Completed before the deadline"
+    assert completion_timing(
+        {
+            "completed_at": "2026-09-10T09:01:00",
+            "deadline": "2026-09-10T09:00:00",
+        }
+    )[1] == "Completed after the deadline"
+
+
+def test_hod_overdue_digest_has_one_summary_and_all_employee_rows(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings,
+        "lms_employee_public_url",
+        "https://employee.example.com",
+    )
+    rows = [
+        {
+            "assignment_id": "a-1",
+            "employee_id": "e-1",
+            "employee_name": "Ananya Mehta",
+            "course_name": "AML Essentials",
+            "deadline": "2026-09-10T09:00:00",
+            "completion_percent": 60,
+        },
+        {
+            "assignment_id": "a-2",
+            "employee_id": "e-2",
+            "employee_name": "Rohit Khanna",
+            "course_name": "AML Essentials",
+            "deadline": "2026-09-10T09:00:00",
+            "completion_percent": 20,
+        },
+    ]
+
+    subject, body_text, body_html = render_digest(
+        "overdue",
+        "hod",
+        rows,
+        {
+            "assigned_count": 4,
+            "completed_count": 2,
+            "completion_rate": 50,
+            "overdue_rate": 50,
+        },
+    )
+
+    assert subject == "Overdue learning summary: 2 employees require attention"
+    assert body_text.count("Ananya Mehta") == 1
+    assert body_text.count("Rohit Khanna") == 1
+    assert "Completion rate: 50%" in body_text
+    assert "<table" in body_html
+
+
+def test_email_html_escapes_directory_and_course_values():
+    _, _, body_html = render_individual(
+        {
+            "course_id": "course-1",
+            "course_name": "AML <script>alert(1)</script>",
+            "employee_name": "Ananya & Team",
+            "deadline": "2026-09-10T09:00:00",
+        },
+        "due_soon",
+        "employee",
+    )
+
+    assert "<script>" not in body_html
+    assert "&lt;script&gt;" in body_html
+    assert "Ananya &amp; Team" not in body_html  # Greeting deliberately uses the first name only.
+
+
+def test_digest_send_time_respects_overdue_interval(monkeypatch):
+    monkeypatch.setattr(email_notifications.settings, "email_digest_send_time", "09:00")
+    monkeypatch.setattr(
+        email_notifications.settings,
+        "email_notification_timezone",
+        "Asia/Kolkata",
+    )
+    now = datetime(2026, 9, 20, 10, 0, 0)
+
+    assert email_notifications._digest_send_at(now, 24) == datetime(2026, 9, 21, 3, 30, 0)
+    assert email_notifications._digest_send_at(
+        now,
+        48,
+        "2026-09-20T09:00:00",
+    ) == datetime(2026, 9, 22, 9, 0, 0)
 
 
 def test_assignment_reminder_becomes_current_after_five_days(monkeypatch):
@@ -289,6 +416,8 @@ def test_completion_increments_version_and_emits_once():
         {"email_delivery_mode": "invalid"},
         {"smtp_use_ssl": True, "smtp_use_starttls": True},
         {"smtp_username": "user", "smtp_password": None},
+        {"email_digest_send_time": "25:00"},
+        {"email_notification_timezone": "Not/AZone"},
     ],
 )
 def test_email_configuration_is_validated_in_every_environment(overrides):
@@ -334,6 +463,7 @@ def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch
             "recipient_email": "learner@example.com",
             "subject": "Course assigned",
             "body_text": "Example body",
+            "body_html": "<p>Example body</p>",
         }
     )
 
@@ -341,6 +471,8 @@ def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch
     assert ("starttls",) in sent
     assert ("login", "mailer", "secret") in sent
     assert message["Message-ID"] == "<notice-1@example.com>"
+    assert message.is_multipart()
+    assert message.get_body(preferencelist=("html",)).get_content_type() == "text/html"
 
 
 def test_claim_recovers_notifications_left_sending_after_worker_crash(monkeypatch):

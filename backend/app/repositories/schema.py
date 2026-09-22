@@ -6,6 +6,7 @@ from app.repositories.database import get_connection
 
 TABLES = (
     "module_progress",
+    "email_notification_items",
     "email_notifications",
     "course_generation_status",
     "course_generation_state",
@@ -249,6 +250,11 @@ def _create_tables(cursor) -> None:
             recipient_name TEXT,
             subject TEXT NOT NULL,
             body_text TEXT NOT NULL,
+            body_html TEXT,
+            message_kind TEXT NOT NULL DEFAULT 'individual',
+            digest_key TEXT,
+            digest_scope_type TEXT,
+            digest_scope_id TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
             attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
             next_attempt_at TEXT NOT NULL,
@@ -267,9 +273,62 @@ def _create_tables(cursor) -> None:
                 )
             ),
             CHECK (recipient_role IN ('employee', 'hod', 'trainer')),
+            CHECK (message_kind IN ('individual', 'digest')),
             CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'cancelled')),
             FOREIGN KEY (assignment_id) REFERENCES course_assignments(assignment_id) ON DELETE CASCADE
         )
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        ADD COLUMN IF NOT EXISTS body_html TEXT
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        ADD COLUMN IF NOT EXISTS message_kind TEXT NOT NULL DEFAULT 'individual'
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        ADD COLUMN IF NOT EXISTS digest_key TEXT
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        ADD COLUMN IF NOT EXISTS digest_scope_type TEXT
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        ADD COLUMN IF NOT EXISTS digest_scope_id TEXT
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE email_notifications
+        ALTER COLUMN assignment_id DROP NOT NULL
+        """
+    )
+    cursor.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'ck_email_notifications_message_kind'
+                  AND conrelid = 'email_notifications'::regclass
+            ) THEN
+                ALTER TABLE email_notifications
+                ADD CONSTRAINT ck_email_notifications_message_kind
+                CHECK (message_kind IN ('individual', 'digest'));
+            END IF;
+        END $$
         """
     )
     cursor.execute(
@@ -306,6 +365,20 @@ def _create_tables(cursor) -> None:
                 );
             END IF;
         END $$
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS email_notification_items (
+            notification_id TEXT NOT NULL,
+            assignment_id TEXT NOT NULL,
+            notification_lifecycle INTEGER NOT NULL,
+            occurrence_key TEXT NOT NULL DEFAULT 'once',
+            created_at TEXT NOT NULL DEFAULT (now()::text),
+            PRIMARY KEY (notification_id, assignment_id, notification_lifecycle, occurrence_key),
+            FOREIGN KEY (notification_id) REFERENCES email_notifications(notification_id) ON DELETE CASCADE,
+            FOREIGN KEY (assignment_id) REFERENCES course_assignments(assignment_id) ON DELETE CASCADE
+        )
         """
     )
     cursor.execute(
@@ -392,6 +465,10 @@ def _create_indexes(cursor) -> None:
         "ON email_notifications(status, next_attempt_at)",
         "CREATE INDEX IF NOT EXISTS idx_email_notifications_assignment "
         "ON email_notifications(assignment_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_email_notifications_digest_key "
+        "ON email_notifications(digest_key) WHERE digest_key IS NOT NULL",
+        "CREATE INDEX IF NOT EXISTS idx_email_notification_items_assignment "
+        "ON email_notification_items(assignment_id)",
         "CREATE INDEX IF NOT EXISTS idx_module_progress_assignment ON module_progress(assignment_id)",
         "CREATE INDEX IF NOT EXISTS idx_course_generation_status_worker ON course_generation_status(status, locked_until)",
     )
