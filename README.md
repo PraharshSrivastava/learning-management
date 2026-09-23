@@ -138,7 +138,7 @@ flowchart TD
 
 The trainer Performance tab has Overview, Courses, and Learners views. New
 reporting endpoints under `/api/trainer/performance/` serve the overview,
-filter options, course summaries and detail, paginated assignments and detail,
+filter options, course summaries and detail, database-paginated assignments and detail,
 and CSV export. The older `/api/trainer/performance` response remains available
 for existing consumers, and `/api/employee/team-performance` remains scoped to
 an employee's direct reports.
@@ -159,6 +159,24 @@ are recorded in `learning_events` from the reporting upgrade onward. Earlier
 individual attempts cannot be reconstructed; the assignment detail labels this
 limit. The completion trend uses assignment completion dates, including dates
 recorded before the upgrade.
+
+#### Local Performance demo
+
+Use a separate PostgreSQL database named `lms_performance_demo`; do not point
+the seed script at the normal `lms` database. Set `DATABASE_URL` to that demo
+database and `HUB_LAUNCH_DEV_MODE=true`, then run from `backend`:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.seed_performance_demo
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 3061
+```
+
+The seed is synthetic and guarded to run only against the named demo database.
+It creates one local trainer identity, 100 learners, four courses, and 400
+assignments with varied completion, overdue, quiz, and activity states. It
+will not overwrite an existing demo. For the trainer frontend, set its
+ignored `.env` to `API_BASE_URL=http://127.0.0.1:3061`, allow the frontend
+origin in `CORS_ALLOWED_ORIGINS`, and open the app as *Performance Demo Trainer*.
 
 ### Trainer Architecture
 

@@ -240,18 +240,6 @@ def course_detail(trainer_id: str, course_id: str, **filters: Any) -> dict | Non
     }
 
 
-def _status_match(row: dict, status: str | None) -> bool:
-    if status is None or status == "assigned":
-        return True
-    if status == "due_soon":
-        return row["due_soon"]
-    if status == "inactive":
-        return row["inactive"]
-    if status == "repeated_failures":
-        return row["repeated_failures"]
-    return row["status"] == status
-
-
 def assignment_list(
     trainer_id: str,
     *,
@@ -263,36 +251,24 @@ def assignment_list(
     page_size: int = 25,
     **filters: Any,
 ) -> dict:
-    rows = scoped_rows(trainer_id, **filters)
-    query = (search or "").strip().casefold()
-    rows = [
-        row
-        for row in rows
-        if _status_match(row, status)
-        and (
-            not query
-            or query in row["employee_name"].casefold()
-            or query in row["course_name"].casefold()
-            or query in row["employee_id"].casefold()
-        )
-    ]
-    keys = {
-        "employee": lambda row: row["employee_name"].casefold(),
-        "course": lambda row: row["course_name"].casefold(),
-        "deadline": lambda row: row["deadline"] or "9999",
-        "progress": lambda row: row["completion_percent"],
-        "score": lambda row: row["average_score"] if row["average_score"] is not None else -1,
-        "last_activity": lambda row: row["last_learner_activity_at"] or "",
-        "status": lambda row: row["status"],
-    }
-    rows.sort(key=lambda row: (keys[sort](row), row["assignment_id"]), reverse=descending)
-    start = (page - 1) * page_size
+    now = datetime.now()
+    total, rows = reports.assignment_page(
+        trainer_id,
+        status=status,
+        search=search,
+        sort=sort,
+        descending=descending,
+        page=page,
+        page_size=page_size,
+        now=now,
+        **filters,
+    )
     return {
-        "rows": rows[start : start + page_size],
-        "total": len(rows),
+        "rows": [_decorate(row, now) for row in rows],
+        "total": total,
         "page": page,
         "page_size": page_size,
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": now.isoformat(),
     }
 
 
