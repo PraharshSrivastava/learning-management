@@ -242,8 +242,25 @@ async def update_course_status(
 
     now = datetime.now().isoformat()
     course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
+    if course_progress.get("status") == "completed" and payload.status != "completed":
+        raise DomainValidationError("A completed course cannot be reset through this endpoint")
+    if payload.status == "completed":
+        published_course = next(
+            (course for course in _courses.list("published") if course["course_id"] == course_id),
+            None,
+        )
+        modules = (published_course or {}).get("modules") or []
+        if not modules or not all(
+            _module_is_complete(
+                module,
+                (course_progress.get("modules") or {}).get(str(module.get("module_number")), {}),
+            )
+            for module in modules
+        ):
+            raise DomainValidationError("Complete all modules before marking the course completed")
     course_progress["status"] = payload.status
     course_progress["last_activity_at"] = now
+    course_progress["last_learner_activity_at"] = now
     if payload.status == "started" and not course_progress.get("started_at"):
         course_progress["started_at"] = now
     if payload.status == "completed":
@@ -276,6 +293,7 @@ async def update_module_progress(
     course_progress.setdefault("modules", {})
     course_progress.setdefault("attempts", {})
     course_progress["last_activity_at"] = now
+    course_progress["last_learner_activity_at"] = now
     if course_progress["status"] == "pending":
         course_progress["status"] = "started"
         course_progress["started_at"] = now

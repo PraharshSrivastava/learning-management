@@ -134,6 +134,32 @@ flowchart TD
 | Assign | Define who should receive a course and publish assignment rules | `/api/assignment/options`, `/api/assignment/saved-groups`, `/api/courses/{course_id}/assignment`, `/api/courses/{course_id}/publish-assignment` |
 | Performance | Filter and inspect learner status, module completion, quiz attempts, and scores | `/api/trainer/performance` |
 
+### Performance reporting
+
+The trainer Performance tab has Overview, Courses, and Learners views. New
+reporting endpoints under `/api/trainer/performance/` serve the overview,
+filter options, course summaries and detail, paginated assignments and detail,
+and CSV export. The older `/api/trainer/performance` response remains available
+for existing consumers, and `/api/employee/team-performance` remains scoped to
+an employee's direct reports.
+
+The reporting unit is an active employee-course assignment. Completion rate is
+completed assignments divided by active assignments. Due soon means an
+incomplete assignment due within `EMAIL_DUE_SOON_DAYS`; overdue means an
+incomplete assignment past its deadline. On-time compliance divides assignments
+completed by their deadline by assignments whose deadlines have passed.
+Average score uses the latest scored result for each attempted module and
+includes the scored-module count; reports display quiz scores as percentages.
+Mailing-list groups can overlap because an
+employee may belong to more than one list.
+
+`last_learner_activity_at` is updated by learner progress requests, separately
+from administrative assignment changes. Quiz attempts and video-watched events
+are recorded in `learning_events` from the reporting upgrade onward. Earlier
+individual attempts cannot be reconstructed; the assignment detail labels this
+limit. The completion trend uses assignment completion dates, including dates
+recorded before the upgrade.
+
 ### Trainer Architecture
 
 ```mermaid

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ part 'trainer/file_providers.dart';
 part 'trainer/course_providers.dart';
 part 'trainer/assignment_providers.dart';
 part 'trainer/performance_providers.dart';
+part 'trainer/performance_report_providers.dart';
 part 'trainer/upload_providers.dart';
 part 'trainer/course_authoring_providers.dart';
 part 'trainer/generation_providers.dart';

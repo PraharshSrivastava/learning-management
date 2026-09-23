@@ -227,7 +227,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
           assignedCount: (decoded['assigned_count'] as num?)?.toInt(),
         );
         await ref.read(assignableCourseListProvider.notifier).fetchCourses();
-        await ref.read(performanceProvider.notifier).fetch();
+        await ref.read(performanceReportProvider.notifier).refresh();
         await fetchSavedGroups();
       } else {
         final decoded = jsonDecode(response.body);
@@ -326,7 +326,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
           message: 'Course disabled for employees. Progress is preserved.',
         );
         await ref.read(assignableCourseListProvider.notifier).fetchCourses();
-        await ref.read(performanceProvider.notifier).fetch();
+        await ref.read(performanceReportProvider.notifier).refresh();
       } else {
         final decoded = jsonDecode(response.body);
         state = state.copyWith(

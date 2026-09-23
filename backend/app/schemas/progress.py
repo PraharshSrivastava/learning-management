@@ -57,3 +57,4 @@ class EmployeeCourseProgressRecord(ApiSchema):
     modules: dict[str, ModuleProgressRecord] = Field(default_factory=dict)
     attempts: dict[str, QuizAttemptRecord] = Field(default_factory=dict)
     last_activity_at: str | None = None
+    last_learner_activity_at: str | None = None
