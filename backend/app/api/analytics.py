@@ -96,8 +96,10 @@ def performance_overview(
     department: str | None = None,
     mailing_list: str | None = None,
     joined_less_than_days_ago: int | None = Query(default=None, ge=1),
-    trend_days: Literal[30, 90] = 30,
+    trend_days: int = Query(default=30),
 ):
+    if trend_days not in (30, 90):
+        raise HTTPException(status_code=422, detail="trend_days must be 30 or 90")
     return reports.overview(
         _trainer_id(request, authorization),
         trend_days=trend_days,

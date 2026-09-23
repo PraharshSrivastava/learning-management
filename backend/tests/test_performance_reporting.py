@@ -1,6 +1,11 @@
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
+from fastapi.testclient import TestClient
+
+from app.api import analytics
+from app.core.settings import settings
+from app.main import app
 from app.repositories import performance_reporting as repository
 from app.schemas.performance_reporting import AssignmentListReport, PerformanceOverview
 from app.services import performance_reporting
@@ -95,3 +100,19 @@ def test_assignment_query_enforces_trainer_scope(monkeypatch):
     assert "ca.course_id = ?" in query
     assert "eg.group_cn = ?" in query
     assert params == ["trainer-1", "course-1", "Risk"]
+
+
+def test_overview_accepts_trend_days_from_browser_query(monkeypatch):
+    monkeypatch.setattr(settings, "hub_launch_dev_mode", True)
+    monkeypatch.setattr(analytics, "_trainer_id", lambda *_: "trainer-1")
+    monkeypatch.setattr(
+        performance_reporting.reports,
+        "list_assignment_summaries",
+        lambda *args, **kwargs: [],
+    )
+    client = TestClient(app)
+    for days in (30, 90):
+        response = client.get("/api/trainer/performance/overview", params={"trend_days": str(days)})
+        assert response.status_code == 200
+        assert len(response.json()["completion_trend"]) == days
+    assert client.get("/api/trainer/performance/overview?trend_days=31").status_code == 422
