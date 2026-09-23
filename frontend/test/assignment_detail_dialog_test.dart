@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/performance/assignment_detail_dialog.dart';
 
 Map<String, dynamic> _detail({bool completed = true}) => {
@@ -71,6 +72,18 @@ void main() {
     expect(find.text('Key dates'), findsOneWidget);
     expect(find.text('Completed'), findsWidgets);
     expect(find.text('70.0%'), findsWidgets);
+    expect(find.byKey(const ValueKey('key-dates-horizontal-connector')),
+        findsOneWidget);
+    expect(
+        tester
+            .widgetList<Icon>(find.byIcon(Icons.play_circle_outline))
+            .where((icon) => icon.color == AppTheme.primaryBlue),
+        isNotEmpty);
+    expect(
+        tester
+            .widgetList<Icon>(find.byIcon(Icons.quiz_outlined))
+            .where((icon) => icon.color == const Color(0xFF087F68)),
+        isNotEmpty);
     expect(tester.takeException(), isNull);
   });
 
@@ -91,6 +104,8 @@ void main() {
     expect(find.text('Overdue'), findsOneWidget);
     expect(find.text('33%'), findsOneWidget);
     expect(find.text('No quiz'), findsOneWidget);
+    expect(find.byKey(const ValueKey('key-dates-vertical-connector')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

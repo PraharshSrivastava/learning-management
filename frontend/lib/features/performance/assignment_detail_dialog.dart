@@ -269,26 +269,11 @@ class _AssignmentContent extends StatelessWidget {
                     const SizedBox(height: 14),
                     _Panel(
                       title: 'Key dates',
-                      child: LayoutBuilder(builder: (context, constraints) {
-                        final dates = [
-                          ('Assigned', row['assigned_at']),
-                          ('Started', row['started_at']),
-                          ('Completed', row['completed_at']),
-                        ];
-                        if (constraints.maxWidth < 520) {
-                          return Column(children: [
-                            for (final date in dates)
-                              Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 5),
-                                  child: _DateStep(date.$1, date.$2)),
-                          ]);
-                        }
-                        return Row(children: [
-                          for (final date in dates)
-                            Expanded(child: _DateStep(date.$1, date.$2)),
-                        ]);
-                      }),
+                      child: _KeyDatesTimeline(dates: [
+                        ('Assigned', row['assigned_at']),
+                        ('Started', row['started_at']),
+                        ('Completed', row['completed_at']),
+                      ]),
                     ),
                   ]),
             ),
@@ -412,14 +397,21 @@ class _ModuleStep extends StatelessWidget {
             const SizedBox(height: 7),
             Wrap(spacing: 8, runSpacing: 5, children: [
               _Meta(Icons.play_circle_outline,
-                  watched ? 'Video watched' : 'Video pending'),
+                  watched ? 'Video watched' : 'Video pending',
+                  iconColor:
+                      watched ? AppTheme.primaryBlue : AppTheme.accentOrange),
               _Meta(
                   Icons.quiz_outlined,
                   !hasQuiz
                       ? 'No quiz'
                       : passed
                           ? 'Quiz passed'
-                          : 'Quiz pending'),
+                          : 'Quiz pending',
+                  iconColor: !hasQuiz
+                      ? AppTheme.textSecondary
+                      : passed
+                          ? const Color(0xFF087F68)
+                          : AppTheme.accentOrange),
               if (hasQuiz)
                 _Meta(Icons.replay_outlined,
                     '${_int(module['attempt_count'])} attempts'),
@@ -496,13 +488,7 @@ class _DateStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final available = date != null;
     return Column(children: [
-      CircleAvatar(
-        radius: 16,
-        backgroundColor:
-            available ? AppTheme.brandBlue100 : AppTheme.surfaceSecondary,
-        child: Icon(available ? Icons.check : Icons.more_horiz,
-            size: 18, color: available ? AppTheme.primaryBlue : AppTheme.gray),
-      ),
+      _DateMarker(available: available),
       const SizedBox(height: 5),
       Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
       Text(available ? _date(date) : 'Not yet',
@@ -511,16 +497,88 @@ class _DateStep extends StatelessWidget {
   }
 }
 
+class _KeyDatesTimeline extends StatelessWidget {
+  final List<(String, Object?)> dates;
+
+  const _KeyDatesTimeline({required this.dates});
+
+  @override
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Stack(children: [
+            Positioned(
+              key: const ValueKey('key-dates-vertical-connector'),
+              top: 33,
+              bottom: 33,
+              left: 15,
+              child: Container(width: 2, color: AppTheme.brandBlue100),
+            ),
+            Column(children: [
+              for (final date in dates)
+                SizedBox(
+                  height: 66,
+                  child: Row(children: [
+                    _DateMarker(available: date.$2 != null),
+                    const SizedBox(width: 12),
+                    Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(date.$1,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          Text(date.$2 == null ? 'Not yet' : _date(date.$2),
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppTheme.textSecondary)),
+                        ]),
+                  ]),
+                ),
+            ]),
+          ]);
+        }
+        return Stack(children: [
+          Positioned(
+            key: const ValueKey('key-dates-horizontal-connector'),
+            top: 15,
+            left: constraints.maxWidth / 6,
+            right: constraints.maxWidth / 6,
+            child: Container(height: 2, color: AppTheme.brandBlue100),
+          ),
+          Row(children: [
+            for (final date in dates)
+              Expanded(child: _DateStep(date.$1, date.$2)),
+          ]),
+        ]);
+      });
+}
+
+class _DateMarker extends StatelessWidget {
+  final bool available;
+
+  const _DateMarker({required this.available});
+
+  @override
+  Widget build(BuildContext context) => CircleAvatar(
+        radius: 16,
+        backgroundColor:
+            available ? AppTheme.brandBlue100 : AppTheme.surfaceSecondary,
+        child: Icon(available ? Icons.check : Icons.more_horiz,
+            size: 18, color: available ? AppTheme.primaryBlue : AppTheme.gray),
+      );
+}
+
 class _Meta extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color? iconColor;
 
-  const _Meta(this.icon, this.label);
+  const _Meta(this.icon, this.label, {this.iconColor});
 
   @override
   Widget build(BuildContext context) =>
       Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 15, color: AppTheme.textSecondary),
+        Icon(icon, size: 15, color: iconColor ?? AppTheme.textSecondary),
         const SizedBox(width: 3),
         Text(label,
             style:
