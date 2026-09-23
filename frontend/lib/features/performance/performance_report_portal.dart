@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:frontend/core/theme/app_theme.dart';
+import 'package:frontend/features/performance/assignment_detail_dialog.dart';
 import 'package:frontend/state/trainer_providers.dart';
 
 class PerformanceReportPortal extends ConsumerStatefulWidget {
@@ -473,75 +474,10 @@ class _PerformanceReportPortalState
 
   Future<void> _showAssignment(String id) async {
     final report = ref.read(performanceReportProvider.notifier);
+    final detail = report.assignmentDetail(id);
     await showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-              title: const Text('Assignment detail'),
-              content: SizedBox(
-                  width: 650,
-                  child: FutureBuilder<Map<String, dynamic>>(
-                      future: report.assignmentDetail(id),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return Text(snapshot.hasError
-                              ? snapshot.error.toString()
-                              : 'Loading…');
-                        }
-                        final data = snapshot.data!;
-                        final row = _map(data['assignment']);
-                        final modules = _list(data['modules']);
-                        final moduleTitles = {
-                          for (final value in modules)
-                            _map(value)['module_id']?.toString():
-                                _map(value)['title']?.toString() ?? 'Module'
-                        };
-                        return SingleChildScrollView(
-                            child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                              Text(
-                                  '${row['employee_name']} · ${row['course_name']}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700)),
-                              Text(
-                                  'Due ${_date(row['deadline'])}  •  ${row['completed_modules']}/${row['total_modules']} modules'),
-                              Text(
-                                  'Assigned ${_date(row['assigned_at'])}  •  Last learner activity ${_date(row['last_learner_activity_at'])}'),
-                              Text(
-                                  'Started ${_date(row['started_at'])}  •  Completed ${_date(row['completed_at'])}'),
-                              const SizedBox(height: 14),
-                              const Text('Modules',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.w700)),
-                              for (final value in modules)
-                                Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 6),
-                                    child: Text(
-                                        '${_map(value)['module_number']}. ${_map(value)['title']}  •  ${_map(value)['video_watched'] == true ? 'Video watched' : 'Video pending'}  •  ${_int(_map(value)['num_questions']) == 0 ? 'No quiz' : _map(value)['quiz_passed'] == true ? 'Quiz passed' : 'Quiz pending'}  •  ${_map(value)['attempt_count']} attempts  •  ${_score(_map(value)['latest_score'])}')),
-                              const SizedBox(height: 14),
-                              Text(
-                                  'Recorded quiz attempts (${_list(data['attempts']).length})',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700)),
-                              const Text(
-                                  'History is available from the reporting upgrade onward.',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondary)),
-                              for (final value
-                                  in _list(data['attempts']).take(20))
-                                Text(
-                                    '${moduleTitles[_map(value)['module_id']?.toString()] ?? 'Module'}  •  ${_dateTime(_map(value)['occurred_at'])}  •  ${_score(_map(value)['score'])}  •  ${_map(value)['passed'] == true ? 'Passed' : 'Failed'}'),
-                            ]));
-                      })),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'))
-              ],
-            ));
+        builder: (context) => AssignmentDetailDialog(detail: detail));
   }
 
   Future<void> _showCourse(String id) async {
