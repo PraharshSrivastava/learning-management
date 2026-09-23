@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/performance/assignment_detail_dialog.dart';
+import 'package:frontend/features/performance/course_detail_dialog.dart';
 import 'package:frontend/state/trainer_providers.dart';
 
 class PerformanceReportPortal extends ConsumerStatefulWidget {
@@ -269,7 +270,7 @@ class _PerformanceReportPortalState
             _SectionHeader(
               title: 'Needs attention',
               subtitle: 'Start with the learners who need a follow-up.',
-                  onViewAll: () => report.setStatus(null),
+              onViewAll: () => report.setStatus(null),
             ),
             LayoutBuilder(builder: (context, inner) {
               final cardWidth = inner.maxWidth >= 600
@@ -320,7 +321,7 @@ class _PerformanceReportPortalState
             _SectionHeader(
               title: 'Assignment watchlist',
               subtitle: 'The most urgent assignments in this scope.',
-                  onViewAll: () => report.setStatus(null),
+              onViewAll: () => report.setStatus(null),
             ),
             if (watchlist.isEmpty)
               const Padding(
@@ -440,25 +441,33 @@ class _PerformanceReportPortalState
 
   Widget _courses(PerformanceReportState state) {
     final courses = _list(state.courses['courses']);
-    return _Box(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const _Heading(
           'Course performance', 'Open a course to inspect module results.'),
       if (courses.isEmpty)
-        const Padding(
-            padding: EdgeInsets.all(30),
-            child:
-                Center(child: Text('No courses match the selected filters.'))),
-      for (final value in courses)
-        ListTile(
-            contentPadding: EdgeInsets.zero,
-            onTap: () => _showCourse(_map(value)['course_id'].toString()),
-            title: Text(_map(value)['course_name']?.toString() ?? '',
-                style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(
-                '${_map(value)['assigned']} assigned  •  ${_map(value)['completed']} completed  •  ${_map(value)['overdue']} overdue'),
-            trailing: Text('${_map(value)['completion_rate']}% complete')),
-    ]));
+        const _Box(
+            child: Padding(
+                padding: EdgeInsets.all(30),
+                child: Center(
+                    child: Text('No courses match the selected filters.')))),
+      if (courses.isNotEmpty)
+        LayoutBuilder(builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 850 ? 2 : 1;
+          final width = columns == 1
+              ? constraints.maxWidth
+              : (constraints.maxWidth - 12) / 2;
+          return Wrap(spacing: 12, runSpacing: 12, children: [
+            for (final value in courses)
+              SizedBox(
+                width: width,
+                child: _CourseCard(
+                  course: _map(value),
+                  onTap: () => _showCourse(_map(value)['course_id'].toString()),
+                ),
+              ),
+          ]);
+        }),
+    ]);
   }
 
   Widget _learners(PerformanceReportState state) {
@@ -564,64 +573,17 @@ class _PerformanceReportPortalState
 
   Future<void> _showCourse(String id) async {
     final report = ref.read(performanceReportProvider.notifier);
+    final detail = report.courseDetail(id);
     await showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-              title: const Text('Course detail'),
-              content: SizedBox(
-                  width: 650,
-                  child: FutureBuilder<Map<String, dynamic>>(
-                      future: report.courseDetail(id),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return Text(snapshot.hasError
-                              ? snapshot.error.toString()
-                              : 'Loading…');
-                        }
-                        final data = snapshot.data!;
-                        final course = _map(data['course']);
-                        return SingleChildScrollView(
-                            child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                              Text(course['course_name']?.toString() ?? '',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700)),
-                              Text(
-                                  '${course['assigned']} assigned  •  ${course['completed']} completed  •  ${course['overdue']} overdue'),
-                              const SizedBox(height: 14),
-                              for (final value in _list(data['modules']))
-                                Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 7),
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                              '${_map(value)['module_number']}. ${_map(value)['title']}',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w700)),
-                                          Text(
-                                              '${_map(value)['watched']}/${_map(value)['assigned']} watched  •  ${_int(_map(value)['num_questions']) == 0 ? 'No quiz' : '${_map(value)['passed']} passed'}  •  ${_map(value)['attempts']} attempts  •  Average ${_score(_map(value)['average_score'])}'),
-                                        ])),
-                            ]));
-                      })),
-              actions: [
-                TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      final current =
-                          ref.read(performanceReportProvider).filter;
-                      report.setFilter(current.copyWith(courseId: id));
-                      report.setView(2);
-                    },
-                    child: const Text('View learners')),
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'))
-              ],
+        builder: (dialogContext) => CourseDetailDialog(
+              detail: detail,
+              onViewLearners: () {
+                Navigator.pop(dialogContext);
+                final current = ref.read(performanceReportProvider).filter;
+                report.setFilter(current.copyWith(courseId: id));
+                report.setView(2);
+              },
             ));
   }
 
@@ -643,6 +605,114 @@ class _PerformanceReportPortalState
       }
     }
   }
+}
+
+class _CourseCard extends StatelessWidget {
+  final Map<String, dynamic> course;
+  final VoidCallback onTap;
+
+  const _CourseCard({required this.course, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = course['course_name']?.toString() ?? 'Course';
+    final rate = _int(course['completion_rate']).clamp(0, 100);
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFDDE6F1)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.brandBlue100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(_courseIcon(name),
+                    color: AppTheme.primaryBlue, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Text(name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w800))),
+              const Icon(Icons.chevron_right,
+                  size: 21, color: AppTheme.textSecondary),
+            ]),
+            const SizedBox(height: 17),
+            Row(children: [
+              Expanded(
+                  child: LinearProgressIndicator(
+                value: rate / 100,
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.accentBlue,
+                backgroundColor: AppTheme.brandBlue100,
+              )),
+              const SizedBox(width: 12),
+              Text('$rate%',
+                  style: const TextStyle(
+                      color: AppTheme.primaryBlue,
+                      fontWeight: FontWeight.w800)),
+            ]),
+            const SizedBox(height: 18),
+            Row(children: [
+              _CourseStat(
+                  value: '${_int(course['assigned'])}', label: 'assigned'),
+              _CourseStat(
+                  value: '${_int(course['completed'])}', label: 'completed'),
+              _CourseStat(
+                  value: '${_int(course['overdue'])}',
+                  label: 'overdue',
+                  color: AppTheme.accentRed),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _CourseStat extends StatelessWidget {
+  final String value, label;
+  final Color? color;
+
+  const _CourseStat({required this.value, required this.label, this.color});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value,
+              style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: color ?? AppTheme.textBlack)),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        ]),
+      );
+}
+
+IconData _courseIcon(String name) {
+  final normalized = name.toLowerCase();
+  if (normalized.contains('risk')) return Icons.shield_outlined;
+  if (normalized.contains('compliance')) return Icons.verified_user_outlined;
+  if (normalized.contains('product')) return Icons.lightbulb_outline;
+  if (normalized.contains('conversation')) return Icons.forum_outlined;
+  return Icons.menu_book_outlined;
 }
 
 class _ViewTabs extends StatelessWidget {
