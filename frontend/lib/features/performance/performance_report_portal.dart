@@ -34,7 +34,7 @@ class _PerformanceReportPortalState
     final state = ref.watch(performanceReportProvider);
     final report = ref.read(performanceReportProvider.notifier);
     return Container(
-      decoration: AppTheme.pageBackground(),
+      color: const Color(0xFFF5F8FC),
       child: RefreshIndicator(
         onRefresh: report.refresh,
         child: ListView(padding: const EdgeInsets.all(24), children: [
@@ -68,13 +68,7 @@ class _PerformanceReportPortalState
                 ]),
               ]),
           const SizedBox(height: 16),
-          SegmentedButton<int>(segments: const [
-            ButtonSegment(value: 0, label: Text('Overview')),
-            ButtonSegment(value: 1, label: Text('Courses')),
-            ButtonSegment(value: 2, label: Text('Learners')),
-          ], selected: {
-            state.view
-          }, onSelectionChanged: (values) => report.setView(values.first)),
+          _ViewTabs(selected: state.view, onSelected: report.setView),
           const SizedBox(height: 16),
           _filters(state),
           if (state.isLoading)
@@ -188,28 +182,32 @@ class _PerformanceReportPortalState
         '${summary['assigned'] ?? 0}',
         '${summary['unique_learners'] ?? 0} unique learners',
         null,
-        AppTheme.primaryBlue
+        AppTheme.primaryBlue,
+        Icons.assignment_outlined
       ),
       (
         'Completed',
         '${summary['completion_rate'] ?? 0}%',
         '${summary['completed'] ?? 0} assignments',
         'completed',
-        AppTheme.accentGreen
+        AppTheme.accentGreen,
+        Icons.task_alt_rounded
       ),
       (
         'Due soon',
         '${summary['due_soon'] ?? 0}',
         'Within ${data['due_soon_days'] ?? 2} days',
         'due_soon',
-        AppTheme.accentOrange
+        AppTheme.accentOrange,
+        Icons.schedule_rounded
       ),
       (
         'Overdue',
         '${summary['overdue'] ?? 0}',
         'Incomplete assignments',
         'overdue',
-        AppTheme.accentRed
+        AppTheme.accentRed,
+        Icons.error_outline_rounded
       ),
       (
         'On-time compliance',
@@ -218,141 +216,225 @@ class _PerformanceReportPortalState
             : '${summary['on_time_compliance']}%',
         '${summary['on_time_denominator'] ?? 0} deadlines passed',
         null,
-        AppTheme.accentBlue
+        AppTheme.accentBlue,
+        Icons.verified_outlined
       ),
       (
         'Average quiz score',
         summary['average_score'] == null ? '—' : '${summary['average_score']}%',
         '${summary['scored_modules'] ?? 0} scored modules',
         null,
-        const Color(0xFF7047EB)
+        const Color(0xFF7047EB),
+        Icons.bar_chart_rounded
       ),
     ];
+    final watchlist = _list(data['watchlist']);
+    final courses = _list(breakdowns['courses']);
+    final departments = _list(breakdowns['departments']);
+    final mailingLists = _list(breakdowns['mailing_lists']);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       LayoutBuilder(builder: (context, constraints) {
-        final width = constraints.maxWidth >= 1000
-            ? (constraints.maxWidth - 24) / 3
-            : constraints.maxWidth >= 650
-                ? (constraints.maxWidth - 12) / 2
-                : constraints.maxWidth;
+        final columns = constraints.maxWidth >= 1260
+            ? 6
+            : constraints.maxWidth >= 850
+                ? 3
+                : constraints.maxWidth >= 350
+                    ? 2
+                    : 1;
+        final cardWidth = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - 12 * (columns - 1)) / columns;
         return Wrap(spacing: 12, runSpacing: 12, children: [
           for (final item in metrics)
             SizedBox(
-                width: width,
-                child: InkWell(
-                    onTap: item.$4 == null
-                        ? null
-                        : () => report.setStatus(item.$4),
-                    child: _Box(
-                        child: Row(children: [
-                      Container(width: 5, height: 54, color: item.$5),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Text(item.$1,
-                                style: const TextStyle(
-                                    color: AppTheme.textSecondary)),
-                            Text(item.$2,
-                                style: const TextStyle(
-                                    fontSize: 26, fontWeight: FontWeight.w800)),
-                            Text(item.$3,
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondary))
-                          ])),
-                      if (item.$4 != null)
-                        const Icon(Icons.chevron_right, size: 18)
-                    ]))))
+                width: cardWidth,
+                child: _KpiCard(
+                  label: item.$1,
+                  value: item.$2,
+                  caption: item.$3,
+                  color: item.$5,
+                  icon: item.$6,
+                  compact: cardWidth < 220,
+                  onTap:
+                      item.$4 == null ? null : () => report.setStatus(item.$4),
+                )),
         ]);
       }),
       const SizedBox(height: 16),
       LayoutBuilder(builder: (context, constraints) {
         final attention = _Box(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const _Heading('Needs attention',
-              'Select a count to see the affected learners.'),
-          _Attention('Overdue', summary['overdue'], 'overdue'),
-          _Attention('Due soon', summary['due_soon'], 'due_soon'),
-          _Attention(
-              'No learner activity for ${data['inactive_days'] ?? 14} days',
-              summary['inactive'],
-              'inactive'),
-          _Attention('Repeated quiz failures', summary['repeated_failures'],
-              'repeated_failures'),
-        ]));
-        final comparison = _Box(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const _Heading(
-              'Completion by course', 'Open Courses for module results.'),
-          for (final value in _list(breakdowns['courses']).take(6))
-            _Bar(item: _map(value)),
-          if (_list(breakdowns['courses']).isEmpty)
-            const Text('No assigned courses yet.'),
-        ]));
-        return constraints.maxWidth < 800
-            ? Column(
-                children: [attention, const SizedBox(height: 12), comparison])
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(
+              title: 'Needs attention',
+              subtitle: 'Start with the learners who need a follow-up.',
+                  onViewAll: () => report.setStatus(null),
+            ),
+            LayoutBuilder(builder: (context, inner) {
+              final cardWidth = inner.maxWidth >= 600
+                  ? (inner.maxWidth - 16) / 3
+                  : inner.maxWidth;
+              return Wrap(spacing: 8, runSpacing: 8, children: [
+                _AttentionCard(
+                  width: cardWidth,
+                  label: 'Overdue',
+                  count: summary['overdue'],
+                  detail: 'Incomplete past due date',
+                  icon: Icons.error_outline_rounded,
+                  color: AppTheme.accentRed,
+                  onTap: () => report.setStatus('overdue'),
+                ),
+                _AttentionCard(
+                  width: cardWidth,
+                  label: 'Due soon',
+                  count: summary['due_soon'],
+                  detail: 'Within ${data['due_soon_days'] ?? 2} days',
+                  icon: Icons.schedule_rounded,
+                  color: AppTheme.accentOrange,
+                  onTap: () => report.setStatus('due_soon'),
+                ),
+                _AttentionCard(
+                  width: cardWidth,
+                  label: 'No learner activity',
+                  count: summary['inactive'],
+                  detail: 'For ${data['inactive_days'] ?? 14} days',
+                  icon: Icons.person_off_outlined,
+                  color: AppTheme.accentBlue,
+                  onTap: () => report.setStatus('inactive'),
+                ),
+              ]);
+            }),
+            const SizedBox(height: 8),
+            _AttentionLink(
+              label: 'Repeated quiz failures',
+              count: summary['repeated_failures'],
+              onTap: () => report.setStatus('repeated_failures'),
+            ),
+          ],
+        ));
+        final watchlistPanel = _Box(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(
+              title: 'Assignment watchlist',
+              subtitle: 'The most urgent assignments in this scope.',
+                  onViewAll: () => report.setStatus(null),
+            ),
+            if (watchlist.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                    child: Text('No assignments currently need attention.')),
+              ),
+            if (watchlist.isNotEmpty) const _WatchlistHeader(),
+            for (final value in watchlist.take(5))
+              _WatchlistRow(
+                row: _map(value),
+                onTap: () =>
+                    _showAssignment(_map(value)['assignment_id'].toString()),
+              ),
+            if (watchlist.length > 5)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('${watchlist.length - 5} more in this watchlist',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+          ],
+        ));
+        return constraints.maxWidth < 1080
+            ? Column(children: [
+                attention,
+                const SizedBox(height: 12),
+                watchlistPanel
+              ])
             : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: attention),
+                Expanded(flex: 5, child: attention),
                 const SizedBox(width: 12),
-                Expanded(child: comparison)
+                Expanded(flex: 6, child: watchlistPanel),
               ]);
       }),
       const SizedBox(height: 16),
-      _Box(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Expanded(
-              child: _Heading(
-                  'Completions over time', 'Completed assignments per day.')),
-          DropdownButton<int>(
-              value: state.trendDays,
-              items: const [
-                DropdownMenuItem(value: 30, child: Text('30 days')),
-                DropdownMenuItem(value: 90, child: Text('90 days'))
-              ],
-              onChanged: (days) {
-                if (days != null) report.setTrendDays(days);
-              })
-        ]),
-        _Trend(points: _list(data['completion_trend'])),
-      ])),
+      LayoutBuilder(builder: (context, constraints) {
+        final trend = _Box(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Expanded(
+                  child: _Heading('Completions over time',
+                      'Completed assignments per day.')),
+              DropdownButton<int>(
+                value: state.trendDays,
+                items: const [
+                  DropdownMenuItem(value: 30, child: Text('30 days')),
+                  DropdownMenuItem(value: 90, child: Text('90 days')),
+                ],
+                onChanged: (days) {
+                  if (days != null) report.setTrendDays(days);
+                },
+              ),
+            ]),
+            _Trend(points: _list(data['completion_trend'])),
+          ],
+        ));
+        final coursePanel = _Box(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(
+              title: 'Completion by course',
+              subtitle: 'Compare completion across courses.',
+              onViewAll: () => report.setView(1),
+            ),
+            for (final value in courses.take(5)) _Bar(item: _map(value)),
+            if (courses.isEmpty) const Text('No assigned courses yet.'),
+          ],
+        ));
+        return constraints.maxWidth < 900
+            ? Column(children: [trend, const SizedBox(height: 12), coursePanel])
+            : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(flex: 3, child: trend),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: coursePanel),
+              ]);
+      }),
       const SizedBox(height: 16),
-      _Box(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const _Heading('Assignment watchlist',
-            'The most urgent assignments in this scope.'),
-        if (_list(data['watchlist']).isEmpty)
-          const Text('No assignments currently need attention.'),
-        for (final value in _list(data['watchlist']))
-          _AssignmentTile(
-              row: _map(value),
-              onTap: () =>
-                  _showAssignment(_map(value)['assignment_id'].toString())),
-      ])),
-      const SizedBox(height: 16),
-      _Box(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const _Heading('Department comparison', 'Completion by department.'),
-        for (final value in _list(breakdowns['departments']))
-          _Bar(item: _map(value)),
-      ])),
-      const SizedBox(height: 16),
-      _Box(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const _Heading('Mailing list comparison',
-            'Employees may belong to multiple lists.'),
-        for (final value in _list(breakdowns['mailing_lists']))
-          _Bar(item: _map(value)),
-      ])),
+      LayoutBuilder(builder: (context, constraints) {
+        final departmentPanel = _Box(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _Heading(
+                'Department comparison', 'Completion by department.'),
+            for (final value in departments) _Bar(item: _map(value)),
+            if (departments.isEmpty) const Text('No department data yet.'),
+          ],
+        ));
+        final mailingPanel = _Box(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _Heading('Mailing list comparison',
+                'Employees may belong to multiple lists.'),
+            for (final value in mailingLists) _Bar(item: _map(value)),
+            if (mailingLists.isEmpty) const Text('No mailing list data yet.'),
+          ],
+        ));
+        return constraints.maxWidth < 760
+            ? Column(children: [
+                departmentPanel,
+                const SizedBox(height: 12),
+                mailingPanel
+              ])
+            : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: departmentPanel),
+                const SizedBox(width: 12),
+                Expanded(child: mailingPanel),
+              ]);
+      }),
     ]);
   }
 
@@ -563,6 +645,414 @@ class _PerformanceReportPortalState
   }
 }
 
+class _ViewTabs extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  const _ViewTabs({required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (index, label) in const [
+            (0, 'Overview'),
+            (1, 'Courses'),
+            (2, 'Learners'),
+          ])
+            InkWell(
+              onTap: () => onSelected(index),
+              child: Container(
+                width: 106,
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                decoration: BoxDecoration(
+                  border: Border(
+                      bottom: BorderSide(
+                    width: selected == index ? 3 : 1,
+                    color: selected == index
+                        ? AppTheme.primaryBlue
+                        : AppTheme.lightGray,
+                  )),
+                ),
+                child: Text(label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: selected == index
+                          ? AppTheme.primaryBlue
+                          : AppTheme.textSecondary,
+                      fontWeight:
+                          selected == index ? FontWeight.w800 : FontWeight.w600,
+                    )),
+              ),
+            ),
+        ],
+      );
+}
+
+class _KpiCard extends StatelessWidget {
+  final String label, value, caption;
+  final Color color;
+  final IconData icon;
+  final bool compact;
+  final VoidCallback? onTap;
+
+  const _KpiCard({
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.color,
+    required this.icon,
+    required this.compact,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFDDE6F1)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 112,
+            child: Padding(
+              padding: EdgeInsets.all(compact ? 10 : 13),
+              child: compact
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Icon(icon, color: color, size: 19),
+                          const SizedBox(width: 6),
+                          Expanded(
+                              child: Text(label,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary))),
+                        ]),
+                        const Spacer(),
+                        Text(value,
+                            style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textBlack)),
+                        Text(caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 10, color: AppTheme.textSecondary)),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Color.lerp(Colors.white, color, 0.11),
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: Icon(icon, color: color, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                              child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary)),
+                              const SizedBox(height: 3),
+                              Text(value,
+                                  style: const TextStyle(
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.textBlack)),
+                              Text(caption,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary)),
+                            ],
+                          )),
+                        ]),
+            ),
+          ),
+        ),
+      );
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title, subtitle;
+  final VoidCallback onViewAll;
+
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+    required this.onViewAll,
+  });
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w800)),
+              Text(subtitle,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary)),
+            ],
+          )),
+          TextButton(onPressed: onViewAll, child: const Text('View all')),
+        ]),
+      );
+}
+
+class _AttentionCard extends StatelessWidget {
+  final double width;
+  final String label, detail;
+  final Object? count;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AttentionCard({
+    required this.width,
+    required this.label,
+    required this.count,
+    required this.detail,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Color.lerp(Colors.white, color, 0.055),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Color.lerp(Colors.white, color, 0.2)!),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: width,
+            height: 148,
+            child: Padding(
+              padding: const EdgeInsets.all(13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(icon, color: color, size: 21),
+                    const SizedBox(width: 6),
+                    Expanded(
+                        child: Text(label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700))),
+                  ]),
+                  const SizedBox(height: 9),
+                  Text('${count ?? 0}',
+                      style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          color: color)),
+                  const Spacer(),
+                  Row(children: [
+                    Expanded(
+                        child: Text(detail,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: AppTheme.textSecondary))),
+                    Icon(Icons.arrow_forward, size: 17, color: color),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+class _AttentionLink extends StatelessWidget {
+  final String label;
+  final Object? count;
+  final VoidCallback onTap;
+
+  const _AttentionLink({
+    required this.label,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+          child: Row(children: [
+            const Icon(Icons.quiz_outlined,
+                size: 18, color: AppTheme.accentBlue),
+            const SizedBox(width: 9),
+            Expanded(
+                child: Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.w600))),
+            Text('${count ?? 0}',
+                style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 18),
+          ]),
+        ),
+      );
+}
+
+class _WatchlistHeader extends StatelessWidget {
+  const _WatchlistHeader();
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 620) return const SizedBox.shrink();
+          return const Padding(
+            padding: EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: Row(children: [
+              Expanded(flex: 3, child: Text('LEARNER')),
+              Expanded(flex: 3, child: Text('COURSE')),
+              Expanded(flex: 2, child: Text('DUE')),
+              Expanded(flex: 2, child: Text('PROGRESS')),
+              Expanded(flex: 2, child: Text('STATUS')),
+              SizedBox(width: 18),
+            ]),
+          );
+        },
+      );
+}
+
+class _WatchlistRow extends StatelessWidget {
+  final Map<String, dynamic> row;
+  final VoidCallback onTap;
+
+  const _WatchlistRow({required this.row, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final completed = _int(row['completed_modules']);
+          final total = _int(row['total_modules']);
+          final progress =
+              total == 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
+          final status = _statusLabel(row);
+          if (constraints.maxWidth < 620) {
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              onTap: onTap,
+              title: Text(row['employee_name']?.toString() ?? 'Learner',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(
+                  '${row['course_name'] ?? 'Course'} • $completed/$total modules • Due ${_date(row['deadline'])}'),
+              trailing: _StatusBadge(status),
+            );
+          }
+          return InkWell(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Color(0xFFE6EDF5))),
+              ),
+              child: Row(children: [
+                Expanded(
+                    flex: 3,
+                    child: Text(row['employee_name']?.toString() ?? 'Learner',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700))),
+                Expanded(
+                    flex: 3,
+                    child: Text(row['course_name']?.toString() ?? 'Course',
+                        maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(
+                    flex: 2,
+                    child: Text(_date(row['deadline']),
+                        maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(
+                    flex: 2,
+                    child: Row(children: [
+                      Expanded(
+                          child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 5,
+                        borderRadius: BorderRadius.circular(4),
+                        color: AppTheme.accentBlue,
+                        backgroundColor: AppTheme.brandBlue100,
+                      )),
+                      const SizedBox(width: 5),
+                      Text('$completed/$total',
+                          style: const TextStyle(fontSize: 11)),
+                      const SizedBox(width: 6),
+                    ])),
+                Expanded(
+                    flex: 2,
+                    child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _StatusBadge(status))),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: AppTheme.textSecondary),
+              ]),
+            ),
+          );
+        },
+      );
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+  const _StatusBadge(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = label == 'Overdue'
+        ? AppTheme.accentRed
+        : label == 'Due soon'
+            ? AppTheme.accentOrange
+            : label == 'Completed'
+                ? AppTheme.accentGreen
+                : AppTheme.accentBlue;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: Color.lerp(Colors.white, color, 0.11),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+}
+
 class _Box extends StatelessWidget {
   final Widget child;
   const _Box({required this.child});
@@ -617,23 +1107,6 @@ class _Drop extends StatelessWidget {
                   child: Text(item.value, overflow: TextOverflow.ellipsis))
           ],
           onChanged: (next) => onChanged(next == '' ? null : next)));
-}
-
-class _Attention extends ConsumerWidget {
-  final String label, status;
-  final Object? count;
-  const _Attention(this.label, this.count, this.status);
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('${count ?? 0}',
-            style: const TextStyle(fontWeight: FontWeight.w800)),
-        const Icon(Icons.chevron_right)
-      ]),
-      onTap: () =>
-          ref.read(performanceReportProvider.notifier).setStatus(status));
 }
 
 class _Bar extends StatelessWidget {
