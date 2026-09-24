@@ -132,11 +132,11 @@ flowchart TD
 | Courses | Review generated course details, modules, slides, quizzes, and videos | `/api/courses`, `/api/courses/{course_id}`, `/assets/...` |
 | Generation portals | Generate quizzes, slides, narration scripts, and videos manually or as a full job | `/api/courses/{course_id}/generate-*`, `/api/courses/{course_id}/generation-jobs` |
 | Assign | Define who should receive a course and publish assignment rules | `/api/assignment/options`, `/api/assignment/saved-groups`, `/api/courses/{course_id}/assignment`, `/api/courses/{course_id}/publish-assignment` |
-| Performance | Filter and inspect learner status, module completion, quiz attempts, and scores | `/api/trainer/performance` |
+| Performance | Filter and inspect employee assignment status, module completion, quiz attempts, and scores | `/api/trainer/performance` |
 
 ### Performance reporting
 
-The trainer Performance tab has Overview, Courses, and Learners views. New
+The trainer Performance tab has Overview, Courses, and Employees views. New
 reporting endpoints under `/api/trainer/performance/` serve the overview,
 filter options, course summaries and detail, database-paginated assignments and detail,
 and CSV export. The older `/api/trainer/performance` response remains available
@@ -153,12 +153,38 @@ includes the scored-module count; reports display quiz scores as percentages.
 Mailing-list groups can overlap because an
 employee may belong to more than one list.
 
-`last_learner_activity_at` is updated by learner progress requests, separately
+`last_learner_activity_at` is updated by employee learning-progress requests, separately
 from administrative assignment changes. Quiz attempts and video-watched events
 are recorded in `learning_events` from the reporting upgrade onward. Earlier
 individual attempts cannot be reconstructed; the assignment detail labels this
-limit. The completion trend uses assignment completion dates, including dates
-recorded before the upgrade.
+limit. The reporting API still returns a completion trend based on assignment
+completion dates, but the Overview UI does not display a timeline panel.
+
+#### Performance rollout on the coding VM
+
+Deploy the backend and trainer frontend from the **same commit** using the normal
+Compose workflow below, against the VM's existing `DATABASE_URL`. Do not run
+`scripts.seed_performance_demo` there: it is only for the isolated local demo
+database. Keep `HUB_LAUNCH_DEV_MODE=false` and use the normal Hub trainer
+session; no demo trainer identity or separate Performance database is needed.
+The backend startup creates the reporting event table and adds the learner-
+activity column/indexes if upgrading an existing PostgreSQL database. Take the
+normal database backup before updating the stack.
+
+Performance reads the VM's existing published courses, active published
+assignment rules, non-revoked employee-course assignments, employee directory
+records, and module progress. A course with no published assignment or no
+matching employees will not appear in the report. Existing completion and
+latest quiz scores are reported immediately; per-attempt quiz history starts
+when the new backend begins recording `learning_events` and cannot be recovered
+for past attempts.
+
+After deployment, open Performance from a real trainer account and check one
+assigned course in Courses, one employee in Employees, a module detail, and a
+small filtered CSV export. If the report is empty, first confirm that the
+course is published, its assignment rule is active and published, and its
+matching employees have non-revoked assignments. The local demo URL and
+synthetic counts are not expected on the VM.
 
 #### Local Performance demo
 
@@ -172,7 +198,7 @@ database and `HUB_LAUNCH_DEV_MODE=true`, then run from `backend`:
 ```
 
 The seed is synthetic and guarded to run only against the named demo database.
-It creates one local trainer identity, 100 learners, four courses, and 400
+It creates one local trainer identity, 100 employees, four courses, and 400
 assignments with varied completion, overdue, quiz, and activity states. It
 will not overwrite an existing demo. For the trainer frontend, set its
 ignored `.env` to `API_BASE_URL=http://127.0.0.1:3061`, allow the frontend

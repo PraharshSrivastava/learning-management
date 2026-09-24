@@ -69,13 +69,13 @@ def _assignment_summary_query(where: str) -> str:
         JOIN courses c ON c.course_id = ca.course_id
         JOIN employees e ON e.employee_id = ca.employee_id
         JOIN assignment_rules ar ON ar.course_id = ca.course_id
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*) FILTER (WHERE passed = FALSE) AS failed_attempts
+            FROM learning_events
+            WHERE assignment_id = ca.assignment_id AND event_type = 'quiz_attempt'
+        ) ev ON TRUE
         LEFT JOIN course_modules cm ON cm.course_id = c.course_id
         LEFT JOIN module_progress mp ON mp.assignment_id = ca.assignment_id AND mp.module_id = cm.module_id
-        LEFT JOIN (
-            SELECT assignment_id, COUNT(*) FILTER (WHERE passed = FALSE) AS failed_attempts
-            FROM learning_events WHERE event_type = 'quiz_attempt'
-            GROUP BY assignment_id
-        ) ev ON ev.assignment_id = ca.assignment_id
         WHERE {where}
         GROUP BY ca.assignment_id, e.employee_id, c.course_id, ev.failed_attempts
     """  # nosec B608
@@ -228,16 +228,17 @@ def list_scope_options(trainer_id: str) -> dict:
             """,
             (trainer_id,),
         ).fetchall()
-        employees = connection.execute(
+        departments = connection.execute(
             """
-            SELECT DISTINCT e.employee_id, e.name, e.department
+            SELECT DISTINCT e.department
             FROM employees e
             JOIN course_assignments ca ON ca.employee_id = e.employee_id
             JOIN courses c ON c.course_id = ca.course_id
             JOIN assignment_rules ar ON ar.course_id = c.course_id
             WHERE c.trainer_id = ? AND c.status = 'published' AND ca.status <> 'revoked'
               AND ar.published_at IS NOT NULL AND ar.is_active = TRUE
-            ORDER BY e.name
+              AND e.department IS NOT NULL AND e.department <> ''
+            ORDER BY e.department
             """,
             (trainer_id,),
         ).fetchall()
@@ -257,8 +258,7 @@ def list_scope_options(trainer_id: str) -> dict:
         ).fetchall()
     return {
         "courses": [dict(row) for row in courses],
-        "employees": [dict(row) for row in employees],
-        "departments": sorted({row["department"] for row in employees if row["department"]}),
+        "departments": [row["department"] for row in departments],
         "mailing_lists": [row["group_cn"] for row in groups],
     }
 

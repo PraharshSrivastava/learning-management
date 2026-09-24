@@ -148,14 +148,7 @@ class ReportCourseOption(ApiSchema):
     course_name: str
 
 
-class ReportEmployeeOption(ApiSchema):
-    employee_id: str
-    name: str
-    department: str | None = None
-
-
 class PerformanceReportOptions(ApiSchema):
     courses: list[ReportCourseOption]
-    employees: list[ReportEmployeeOption]
     departments: list[str]
     mailing_lists: list[str]

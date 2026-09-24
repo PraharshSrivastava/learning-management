@@ -1,4 +1,6 @@
 from contextlib import contextmanager
+import csv
+import io
 from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
@@ -161,3 +163,55 @@ def test_overview_accepts_trend_days_from_browser_query(monkeypatch):
         assert response.status_code == 200
         assert len(response.json()["completion_trend"]) == days
     assert client.get("/api/trainer/performance/overview?trend_days=31").status_code == 422
+
+
+def test_options_query_does_not_load_every_employee(monkeypatch):
+    queries = []
+
+    class Connection:
+        def execute(self, query, params):
+            queries.append((query, params))
+            return self
+
+        def fetchall(self):
+            return []
+
+    @contextmanager
+    def connection():
+        yield Connection()
+
+    monkeypatch.setattr(repository, "get_connection", connection)
+    options = repository.list_scope_options("trainer-1")
+    assert options == {"courses": [], "departments": [], "mailing_lists": []}
+    assert len(queries) == 3
+    assert all(params == ("trainer-1",) for _, params in queries)
+    assert "SELECT DISTINCT e.department" in queries[1][0]
+    assert "e.name" not in queries[1][0]
+
+
+def test_export_streams_bounded_pages_for_large_report(monkeypatch):
+    monkeypatch.setattr(settings, "hub_launch_dev_mode", True)
+    monkeypatch.setattr(analytics, "_trainer_id", lambda *_: "trainer-1")
+    calls = []
+
+    def assignment_list(trainer_id, **kwargs):
+        assert trainer_id == "trainer-1"
+        calls.append((kwargs.get("page", 1), kwargs["page_size"]))
+        start = (kwargs.get("page", 1) - 1) * kwargs["page_size"]
+        return {
+            "rows": [
+                {"employee_id": str(index), "employee_name": "=unsafe" if index == 0 else "A"}
+                for index in range(start, min(start + kwargs["page_size"], 205))
+            ],
+            "total": 205,
+            "generated_at": "2026-09-24T12:00:00",
+        }
+
+    monkeypatch.setattr(analytics.reports, "assignment_list", assignment_list)
+    response = TestClient(app).get("/api/trainer/performance/export")
+    assert response.status_code == 200
+    assert response.headers["X-Report-Assignment-Count"] == "205"
+    records = list(csv.reader(io.StringIO(response.text)))
+    assert len(records) == 206
+    assert records[1][1] == "'=unsafe"
+    assert calls == [(1, 100), (2, 100), (3, 100)]

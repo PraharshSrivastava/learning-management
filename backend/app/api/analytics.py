@@ -235,76 +235,85 @@ def performance_export(
 ):
     trainer_id = _trainer_id(request, authorization)
     scope = _scope(course_id, employee_id, department, mailing_list, joined_less_than_days_ago)
-    # Export every matching row while reusing exactly the list's filter rules.
+    # Keep each database read and CSV chunk bounded for large VM datasets.
+    batch_size = 100
     first = reports.assignment_list(
         trainer_id,
         status=status,
         search=search,
         sort=sort,
         descending=descending,
-        page_size=1,
+        page_size=batch_size,
         **scope,
     )
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(
-        [
-            "employee_id",
-            "employee_name",
-            "department",
-            "course_id",
-            "course_name",
-            "status",
-            "progress_percent",
-            "average_score",
-            "scored_modules",
-            "total_attempts",
-            "assigned_at",
-            "deadline",
-            "completed_at",
-            "last_learner_activity_at",
-        ]
+    columns = [
+        "employee_id",
+        "employee_name",
+        "department",
+        "course_id",
+        "course_name",
+        "status",
+        "progress_percent",
+        "average_score",
+        "scored_modules",
+        "total_attempts",
+        "assigned_at",
+        "deadline",
+        "completed_at",
+        "last_learner_activity_at",
+    ]
+    fields = (
+        "employee_id",
+        "employee_name",
+        "department",
+        "course_id",
+        "course_name",
+        "status",
+        "completion_percent",
+        "average_score",
+        "scored_modules",
+        "total_attempts",
+        "assigned_at",
+        "deadline",
+        "completed_at",
+        "last_learner_activity_at",
     )
-    batch = reports.assignment_list(
-        trainer_id,
-        status=status,
-        search=search,
-        sort=sort,
-        descending=descending,
-        page_size=max(first["total"], 1),
-        **scope,
-    )
-    for row in batch["rows"]:
-        values = [
-            row.get(key)
-            for key in (
-                "employee_id",
-                "employee_name",
-                "department",
-                "course_id",
-                "course_name",
-                "status",
-                "completion_percent",
-                "average_score",
-                "scored_modules",
-                "total_attempts",
-                "assigned_at",
-                "deadline",
-                "completed_at",
-                "last_learner_activity_at",
+
+    def chunks():
+        page = 1
+        batch = first
+        while True:
+            output = io.StringIO()
+            writer = csv.writer(output)
+            if page == 1:
+                writer.writerow(columns)
+            for row in batch["rows"]:
+                writer.writerow(
+                    [
+                        "'" + value
+                        if isinstance(value := row.get(key), str)
+                        and value.lstrip().startswith(("=", "+", "-", "@"))
+                        else value
+                        for key in fields
+                    ]
+                )
+            yield output.getvalue()
+            if page * batch_size >= first["total"]:
+                break
+            page += 1
+            batch = reports.assignment_list(
+                trainer_id,
+                status=status,
+                search=search,
+                sort=sort,
+                descending=descending,
+                page=page,
+                page_size=batch_size,
+                **scope,
             )
-        ]
-        writer.writerow(
-            [
-                "'" + value
-                if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@"))
-                else value
-                for value in values
-            ]
-        )
-    output.seek(0)
+
     return StreamingResponse(
-        iter([output.getvalue()]),
+        chunks(),
         media_type="text/csv",
         headers={
             "Content-Disposition": 'attachment; filename="performance-assignments.csv"',
