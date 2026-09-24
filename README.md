@@ -688,6 +688,27 @@ For safe UAT verification, begin with `EMAIL_DELIVERY_MODE=log`, inspect the
 outbox and backend logs, then switch to `smtp` only after SMTP connectivity and
 recipient data have been validated.
 
+Accelerated SMTP verification is explicitly guarded by `EMAIL_TEST_MODE`.
+When enabled, assignment reminders, due-soon windows, overdue repeats, and
+digest delivery can be reduced to minutes. Test mode refuses to start unless
+both `EMAIL_RECIPIENT_ALLOWLIST` and `EMAIL_SUBJECT_PREFIX` are configured.
+The allowlist is enforced when notifications are queued and again immediately
+before SMTP delivery, so changing configuration cannot release an older queued
+message to an unintended recipient.
+
+```env
+EMAIL_TEST_MODE=true
+EMAIL_TEST_ASSIGNMENT_REMINDER_MINUTES=5
+EMAIL_TEST_DUE_SOON_WINDOW_MINUTES=7
+EMAIL_TEST_OVERDUE_REPEAT_MINUTES=5
+EMAIL_TEST_DIGEST_DELAY_MINUTES=1
+EMAIL_SUBJECT_PREFIX=[LMS UAT TEST]
+EMAIL_RECIPIENT_ALLOWLIST=first.tester@example.com,second.tester@example.com
+```
+
+Leave `EMAIL_TEST_MODE=false` outside a controlled UAT exercise. The existing
+day/hour settings remain authoritative whenever test mode is disabled.
+
 ## Hub Directory Sync
 
 The app imports real employees from the Hub directory export API. Department is
