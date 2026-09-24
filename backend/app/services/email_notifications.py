@@ -45,6 +45,36 @@ def _now() -> datetime:
     return datetime.now()
 
 
+def _assignment_reminder_delay() -> timedelta:
+    if settings.email_test_mode:
+        return timedelta(minutes=settings.email_test_assignment_reminder_minutes)
+    return timedelta(days=settings.email_assignment_reminder_days)
+
+
+def _due_soon_window() -> timedelta:
+    if settings.email_test_mode:
+        return timedelta(minutes=settings.email_test_due_soon_window_minutes)
+    return timedelta(days=settings.email_due_soon_days)
+
+
+def _overdue_repeat_interval() -> timedelta:
+    if settings.email_test_mode:
+        return timedelta(minutes=settings.email_test_overdue_repeat_minutes)
+    return timedelta(days=settings.email_overdue_repeat_days)
+
+
+def _recipient_allowed(email: str | None) -> bool:
+    allowlist = {item.lower() for item in settings.email_recipient_allowlist}
+    return not allowlist or str(email or "").strip().lower() in allowlist
+
+
+def _email_subject(subject: str) -> str:
+    prefix = settings.email_subject_prefix.strip()
+    if not prefix or subject.startswith(prefix):
+        return subject
+    return f"{prefix} {subject}"
+
+
 def _parse_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -66,7 +96,7 @@ def _compatible_now(reference: datetime, now: datetime | None = None) -> datetim
 def _overdue_occurrence_key(deadline: datetime, now: datetime | None = None) -> str:
     current = _compatible_now(deadline, now)
     elapsed_seconds = max(0.0, (current - deadline).total_seconds())
-    repeat_seconds = settings.email_overdue_repeat_days * 24 * 60 * 60
+    repeat_seconds = _overdue_repeat_interval().total_seconds()
     occurrence = int(elapsed_seconds // repeat_seconds) + 1
     return f"period-{occurrence}"
 
@@ -165,13 +195,21 @@ def _recipient_rows(context: dict, event_type: str) -> list[dict]:
                 recipient["role"],
             )
             continue
+        if not _recipient_allowed(email):
+            logger.info(
+                "course_email_recipient_skipped assignment_id=%s role=%s reason=not_allowlisted",
+                context.get("assignment_id"),
+                recipient["role"],
+            )
+            continue
         recipient["email"] = email
         resolved.append(recipient)
     return resolved
 
 
 def _message_for(context: dict, event_type: str, role: str) -> tuple[str, str, str]:
-    return render_individual(context, event_type, role)
+    subject, body_text, body_html = render_individual(context, event_type, role)
+    return _email_subject(subject), body_text, body_html
 
 
 def _event_is_current(
@@ -200,20 +238,17 @@ def _event_is_current(
         if not assigned_at:
             return False
         reminder_now = _compatible_now(assigned_at)
-        reminder_at = assigned_at + timedelta(days=settings.email_assignment_reminder_days)
+        reminder_at = assigned_at + _assignment_reminder_delay()
         return bool(
             status in {"pending", "started"}
             and reminder_now >= reminder_at
-            and (
-                not deadline
-                or deadline > now + timedelta(days=settings.email_due_soon_days)
-            )
+            and (not deadline or deadline > now + _due_soon_window())
         )
     if event_type == "due_soon":
         return bool(
             status in {"pending", "started"}
             and deadline
-            and now < deadline <= now + timedelta(days=settings.email_due_soon_days)
+            and now < deadline <= now + _due_soon_window()
         )
     if event_type == "overdue":
         return bool(
@@ -233,7 +268,11 @@ def enqueue_assignment_notifications(
     connection=None,
 ) -> int:
     """Queue event emails for learner, HOD/superior, and trainer."""
-    if not assignment_id or event_type not in COURSE_EVENTS or settings.email_delivery_mode == "disabled":
+    if (
+        not assignment_id
+        or event_type not in COURSE_EVENTS
+        or settings.email_delivery_mode == "disabled"
+    ):
         return 0
     now = _now().isoformat()
     created = 0
@@ -299,7 +338,9 @@ def enqueue_assignment_notifications(
     return created
 
 
-def _digest_send_at(now: datetime, interval_hours: int, last_sent_at: str | None = None) -> datetime:
+def _digest_send_at(
+    now: datetime, interval_hours: float, last_sent_at: str | None = None
+) -> datetime:
     """Return the next configured local digest time, respecting the delivery interval."""
     try:
         hour, minute = (int(part) for part in settings.email_digest_send_time.split(":", 1))
@@ -311,9 +352,12 @@ def _digest_send_at(now: datetime, interval_hours: int, last_sent_at: str | None
         if now.tzinfo is None
         else now.astimezone(timezone)
     )
-    candidate = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if candidate <= local_now:
-        candidate += timedelta(days=1)
+    if settings.email_test_mode:
+        candidate = local_now + timedelta(minutes=settings.email_test_digest_delay_minutes)
+    else:
+        candidate = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if candidate <= local_now:
+            candidate += timedelta(days=1)
     last_sent = _parse_datetime(last_sent_at)
     if last_sent is not None:
         if last_sent.tzinfo is None:
@@ -341,7 +385,7 @@ def _digest_recipient(context: dict, role: str, event_type: str) -> dict | None:
         email = context.get("trainer_email")
         name = context.get("trainer_name")
     email = str(email or "").strip()
-    if not scope_id or not email or "@" not in email:
+    if not scope_id or not email or "@" not in email or not _recipient_allowed(email):
         logger.info(
             "course_email_digest_recipient_skipped assignment_id=%s role=%s reason=missing_recipient",
             context.get("assignment_id"),
@@ -398,7 +442,7 @@ def _enqueue_digest_item(
 
     now = _now()
     interval_hours = (
-        settings.email_overdue_repeat_days * 24
+        _overdue_repeat_interval().total_seconds() / 3600
         if event_type == "overdue"
         else settings.email_completion_digest_interval_hours
         if event_type == "completed"
@@ -594,7 +638,7 @@ def enqueue_assignment_reminders(as_of: datetime | None = None) -> int:
     if settings.email_delivery_mode == "disabled":
         return 0
     now = as_of or _now()
-    assigned_before = now - timedelta(days=settings.email_assignment_reminder_days)
+    assigned_before = now - _assignment_reminder_delay()
     queued = 0
     with get_connection() as connection:
         rows = connection.execute(
@@ -618,7 +662,7 @@ def enqueue_assignment_reminders(as_of: datetime | None = None) -> int:
             """,
             (
                 assigned_before.isoformat(),
-                (now + timedelta(days=settings.email_due_soon_days)).isoformat(),
+                (now + _due_soon_window()).isoformat(),
             ),
         ).fetchall()
     for row in rows:
@@ -633,7 +677,7 @@ def enqueue_due_soon_notifications(as_of: datetime | None = None) -> int:
     if settings.email_delivery_mode == "disabled":
         return 0
     now = as_of or _now()
-    threshold = now + timedelta(days=settings.email_due_soon_days)
+    threshold = now + _due_soon_window()
     queued = 0
     with get_connection() as connection:
         rows = connection.execute(
@@ -717,6 +761,8 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
 
 
 def _send_smtp(notification: dict) -> None:
+    if not _recipient_allowed(notification.get("recipient_email")):
+        raise RuntimeError("Recipient is not included in EMAIL_RECIPIENT_ALLOWLIST")
     if not settings.smtp_host:
         raise RuntimeError("SMTP_HOST is not configured")
     from_email = settings.email_from_email or settings.smtp_username
@@ -725,7 +771,9 @@ def _send_smtp(notification: dict) -> None:
 
     message = EmailMessage()
     message["From"] = formataddr((settings.email_from_name, from_email))
-    message["To"] = formataddr((notification.get("recipient_name") or "", notification["recipient_email"]))
+    message["To"] = formataddr(
+        (notification.get("recipient_name") or "", notification["recipient_email"])
+    )
     message["Subject"] = notification["subject"]
     sender_domain = from_email.rsplit("@", 1)[-1]
     message["Message-ID"] = f"<{notification['notification_id']}@{sender_domain}>"
@@ -737,7 +785,9 @@ def _send_smtp(notification: dict) -> None:
         client_factory = smtplib.SMTP_SSL
     else:
         client_factory = smtplib.SMTP
-    with client_factory(settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds) as smtp:
+    with client_factory(
+        settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds
+    ) as smtp:
         if settings.smtp_use_starttls and not settings.smtp_use_ssl:
             smtp.starttls()
         if settings.smtp_username and settings.smtp_password:
@@ -893,11 +943,17 @@ def _digest_contexts(connection, notification: dict) -> list[dict]:
             continue
         contexts.append(context)
     if notification["event_type"] == "overdue":
-        contexts.sort(key=lambda item: (item.get("deadline") or "", item.get("employee_name") or ""))
+        contexts.sort(
+            key=lambda item: (item.get("deadline") or "", item.get("employee_name") or "")
+        )
     elif notification["event_type"] == "due_soon":
-        contexts.sort(key=lambda item: (item.get("deadline") or "", item.get("employee_name") or ""))
+        contexts.sort(
+            key=lambda item: (item.get("deadline") or "", item.get("employee_name") or "")
+        )
     else:
-        contexts.sort(key=lambda item: (item.get("completed_at") or "", item.get("employee_name") or ""))
+        contexts.sort(
+            key=lambda item: (item.get("completed_at") or "", item.get("employee_name") or "")
+        )
     return contexts
 
 
@@ -917,7 +973,11 @@ def _digest_summary(connection, notification: dict) -> dict[str, int]:
         scope_sql = "AND c.trainer_id = ?"
         params.append(scope_id)
     now = _now().isoformat()
-    count_expression = "COUNT(DISTINCT e.employee_id)" if notification.get("recipient_role") == "trainer" else "COUNT(*)"
+    count_expression = (
+        "COUNT(DISTINCT e.employee_id)"
+        if notification.get("recipient_role") == "trainer"
+        else "COUNT(*)"
+    )
     completed_expression = (
         "COUNT(DISTINCT e.employee_id) FILTER (WHERE ca.status = 'completed')"
         if notification.get("recipient_role") == "trainer"
@@ -962,6 +1022,16 @@ def process_pending_notifications(limit: int | None = None) -> int:
         return 0
     processed = 0
     for notification in _claim_pending_notifications(limit or settings.email_worker_batch_size):
+        if not _recipient_allowed(notification.get("recipient_email")):
+            logger.warning(
+                "course_email_cancelled_not_allowlisted notification_id=%s role=%s to=%s",
+                notification["notification_id"],
+                notification["recipient_role"],
+                notification["recipient_email"],
+            )
+            _cancel_stale(notification["notification_id"])
+            continue
+        notification["subject"] = _email_subject(notification["subject"])
         if notification.get("message_kind") == "digest":
             with get_connection() as connection:
                 contexts = _digest_contexts(connection, notification)
@@ -982,7 +1052,7 @@ def process_pending_notifications(limit: int | None = None) -> int:
                 summary,
             )
             notification.update(
-                subject=subject,
+                subject=_email_subject(subject),
                 body_text=body_text,
                 body_html=body_html,
             )
@@ -1017,10 +1087,10 @@ def process_pending_notifications(limit: int | None = None) -> int:
             not in EVENT_RECIPIENT_ROLES.get(notification["event_type"], set())
             or not context
             or not _event_is_current(
-            context,
-            notification["event_type"],
-            int(notification["notification_lifecycle"]),
-            notification.get("occurrence_key") or "once",
+                context,
+                notification["event_type"],
+                int(notification["notification_lifecycle"]),
+                notification.get("occurrence_key") or "once",
             )
         ):
             logger.info(
@@ -1092,6 +1162,16 @@ def start_email_notification_scheduler() -> None:
         or _task is not None
     ):
         return
+    if settings.email_test_mode:
+        logger.warning(
+            "course_email_test_mode_enabled reminder_minutes=%s due_soon_minutes=%s "
+            "overdue_repeat_minutes=%s digest_delay_minutes=%s allowlisted_recipients=%s",
+            settings.email_test_assignment_reminder_minutes,
+            settings.email_test_due_soon_window_minutes,
+            settings.email_test_overdue_repeat_minutes,
+            settings.email_test_digest_delay_minutes,
+            len(settings.email_recipient_allowlist),
+        )
     _task = asyncio.create_task(_run_loop(), name="email-notification-scheduler")
 
 

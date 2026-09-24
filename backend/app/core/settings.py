@@ -119,6 +119,13 @@ class Settings(BaseModel):
     email_digest_send_time: str = "09:00"
     email_due_soon_digest_interval_hours: int = Field(default=24, ge=1, le=168)
     email_completion_digest_interval_hours: int = Field(default=24, ge=1, le=168)
+    email_test_mode: bool = False
+    email_test_assignment_reminder_minutes: int = Field(default=5, ge=1, le=1440)
+    email_test_due_soon_window_minutes: int = Field(default=7, ge=1, le=1440)
+    email_test_overdue_repeat_minutes: int = Field(default=5, ge=1, le=1440)
+    email_test_digest_delay_minutes: int = Field(default=1, ge=1, le=60)
+    email_subject_prefix: str = ""
+    email_recipient_allowlist: tuple[str, ...] = ()
     email_from_email: str | None = None
     email_from_name: str = "Learning Management System"
     smtp_host: str | None = None
@@ -145,6 +152,17 @@ class Settings(BaseModel):
             )
         return ("http://localhost:3000", "http://localhost:8080")
 
+    @field_validator("email_recipient_allowlist", mode="before")
+    @classmethod
+    def split_email_allowlist(cls, value: object) -> tuple[str, ...]:
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            return tuple(email.strip().lower() for email in value.split(",") if email.strip())
+        if isinstance(value, (list, tuple, set)):
+            return tuple(str(email).strip().lower() for email in value if str(email).strip())
+        return ()
+
     @model_validator(mode="after")
     def validate_production_contract(self) -> "Settings":
         email_errors = []
@@ -163,6 +181,16 @@ class Settings(BaseModel):
                 email_errors.append("SMTP_HOST is required in smtp mode")
             if not self.email_from_email:
                 email_errors.append("EMAIL_FROM_EMAIL is required in smtp mode")
+        invalid_allowlist = [
+            email for email in self.email_recipient_allowlist if "@" not in email or " " in email
+        ]
+        if invalid_allowlist:
+            email_errors.append("EMAIL_RECIPIENT_ALLOWLIST contains an invalid email address")
+        if self.email_test_mode:
+            if not self.email_recipient_allowlist:
+                email_errors.append("EMAIL_RECIPIENT_ALLOWLIST is required in test mode")
+            if not self.email_subject_prefix.strip():
+                email_errors.append("EMAIL_SUBJECT_PREFIX is required in test mode")
         try:
             ZoneInfo(self.email_notification_timezone)
         except ZoneInfoNotFoundError:
@@ -364,6 +392,21 @@ class Settings(BaseModel):
                 "email_completion_digest_interval_hours": values.get(
                     "EMAIL_COMPLETION_DIGEST_INTERVAL_HOURS", "24"
                 ),
+                "email_test_mode": values.get("EMAIL_TEST_MODE", "false"),
+                "email_test_assignment_reminder_minutes": values.get(
+                    "EMAIL_TEST_ASSIGNMENT_REMINDER_MINUTES", "5"
+                ),
+                "email_test_due_soon_window_minutes": values.get(
+                    "EMAIL_TEST_DUE_SOON_WINDOW_MINUTES", "7"
+                ),
+                "email_test_overdue_repeat_minutes": values.get(
+                    "EMAIL_TEST_OVERDUE_REPEAT_MINUTES", "5"
+                ),
+                "email_test_digest_delay_minutes": values.get(
+                    "EMAIL_TEST_DIGEST_DELAY_MINUTES", "1"
+                ),
+                "email_subject_prefix": values.get("EMAIL_SUBJECT_PREFIX", ""),
+                "email_recipient_allowlist": values.get("EMAIL_RECIPIENT_ALLOWLIST", ""),
                 "email_from_email": values.get("EMAIL_FROM_EMAIL") or None,
                 "email_from_name": values.get("EMAIL_FROM_NAME", "Learning Management System"),
                 "smtp_host": values.get("SMTP_HOST") or None,

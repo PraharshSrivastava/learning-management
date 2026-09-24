@@ -42,6 +42,111 @@ def test_production_requires_smtp_host_and_from_email_for_smtp_mode():
     assert "EMAIL_FROM_EMAIL" in message
 
 
+def test_email_test_mode_requires_allowlist_and_subject_prefix():
+    with pytest.raises(ValueError, match="EMAIL_RECIPIENT_ALLOWLIST"):
+        Settings(email_test_mode=True)
+
+    settings = Settings(
+        email_test_mode=True,
+        email_subject_prefix="[LMS UAT TEST]",
+        email_recipient_allowlist="learner@example.com, MANAGER@example.com",
+    )
+
+    assert settings.email_recipient_allowlist == (
+        "learner@example.com",
+        "manager@example.com",
+    )
+
+
+def test_test_mode_accelerates_notification_windows(monkeypatch):
+    assigned_at = datetime(2026, 9, 1, 10, 0, 0)
+    monkeypatch.setattr(email_notifications.settings, "email_test_mode", True)
+    monkeypatch.setattr(
+        email_notifications.settings,
+        "email_test_assignment_reminder_minutes",
+        5,
+    )
+    monkeypatch.setattr(email_notifications.settings, "email_test_due_soon_window_minutes", 7)
+    monkeypatch.setattr(email_notifications.settings, "email_test_overdue_repeat_minutes", 5)
+    context = {
+        "assignment_status": "pending",
+        "notification_lifecycle": 1,
+        "assigned_at": assigned_at.isoformat(),
+        "deadline": (assigned_at + timedelta(minutes=20)).isoformat(),
+        "course_status": "published",
+        "assignment_rule_active": True,
+    }
+
+    monkeypatch.setattr(
+        email_notifications,
+        "_now",
+        lambda: assigned_at + timedelta(minutes=5),
+    )
+    assert email_notifications._event_is_current(context, "assignment_reminder", 1)
+
+    monkeypatch.setattr(
+        email_notifications,
+        "_now",
+        lambda: assigned_at + timedelta(minutes=13),
+    )
+    assert email_notifications._event_is_current(context, "due_soon", 1)
+
+    deadline = assigned_at + timedelta(minutes=20)
+    assert (
+        email_notifications._overdue_occurrence_key(
+            deadline,
+            deadline + timedelta(minutes=4, seconds=59),
+        )
+        == "period-1"
+    )
+    assert (
+        email_notifications._overdue_occurrence_key(
+            deadline,
+            deadline + timedelta(minutes=5),
+        )
+        == "period-2"
+    )
+
+
+def test_test_digest_is_scheduled_after_short_delay(monkeypatch):
+    now = datetime(2026, 9, 20, 10, 0, 0)
+    monkeypatch.setattr(email_notifications.settings, "email_test_mode", True)
+    monkeypatch.setattr(email_notifications.settings, "email_test_digest_delay_minutes", 1)
+
+    assert email_notifications._digest_send_at(now, 24) == now + timedelta(minutes=1)
+
+
+def test_allowlist_filters_recipients_and_prefixes_subject(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings,
+        "email_recipient_allowlist",
+        ("learner@example.com",),
+    )
+    monkeypatch.setattr(
+        email_notifications.settings,
+        "email_subject_prefix",
+        "[LMS UAT TEST]",
+    )
+    context = {
+        "assignment_id": "assignment-1",
+        "course_id": "course-1",
+        "course_name": "AML Essentials",
+        "employee_email": "learner@example.com",
+        "employee_name": "Learner",
+        "hod_email": "manager@example.com",
+        "hod_name": "Manager",
+        "assigned_at": "2026-09-01T09:00:00",
+        "deadline": "2026-09-08T09:00:00",
+    }
+
+    assert [item["role"] for item in email_notifications._recipient_rows(context, "assigned")] == [
+        "employee"
+    ]
+    subject, _, _ = email_notifications._message_for(context, "assigned", "employee")
+    assert subject == "[LMS UAT TEST] New course assigned: AML Essentials"
+    assert email_notifications._email_subject(subject) == subject
+
+
 def test_digest_recipient_uses_employee_manager_as_hod():
     context = {
         "assignment_id": "assignment-1",
@@ -119,24 +224,33 @@ def test_approved_assignment_template_contains_details_and_no_reply_footer(monke
 
 
 def test_completion_timing_uses_full_twenty_four_hour_periods():
-    assert completion_timing(
-        {
-            "completed_at": "2026-09-08T08:00:00",
-            "deadline": "2026-09-10T09:00:00",
-        }
-    )[1] == "Completed 2 days before the deadline"
-    assert completion_timing(
-        {
-            "completed_at": "2026-09-10T08:30:00",
-            "deadline": "2026-09-10T09:00:00",
-        }
-    )[1] == "Completed before the deadline"
-    assert completion_timing(
-        {
-            "completed_at": "2026-09-10T09:01:00",
-            "deadline": "2026-09-10T09:00:00",
-        }
-    )[1] == "Completed after the deadline"
+    assert (
+        completion_timing(
+            {
+                "completed_at": "2026-09-08T08:00:00",
+                "deadline": "2026-09-10T09:00:00",
+            }
+        )[1]
+        == "Completed 2 days before the deadline"
+    )
+    assert (
+        completion_timing(
+            {
+                "completed_at": "2026-09-10T08:30:00",
+                "deadline": "2026-09-10T09:00:00",
+            }
+        )[1]
+        == "Completed before the deadline"
+    )
+    assert (
+        completion_timing(
+            {
+                "completed_at": "2026-09-10T09:01:00",
+                "deadline": "2026-09-10T09:00:00",
+            }
+        )[1]
+        == "Completed after the deadline"
+    )
 
 
 def test_hod_overdue_digest_has_one_summary_and_all_employee_rows(monkeypatch):
@@ -332,22 +446,34 @@ def test_overdue_occurrence_changes_every_two_days(monkeypatch):
     deadline = datetime(2026, 9, 10, 9, 0, 0)
     monkeypatch.setattr(email_notifications.settings, "email_overdue_repeat_days", 2)
 
-    assert email_notifications._overdue_occurrence_key(
-        deadline,
-        deadline + timedelta(minutes=1),
-    ) == "period-1"
-    assert email_notifications._overdue_occurrence_key(
-        deadline,
-        deadline + timedelta(days=1, hours=23),
-    ) == "period-1"
-    assert email_notifications._overdue_occurrence_key(
-        deadline,
-        deadline + timedelta(days=2),
-    ) == "period-2"
-    assert email_notifications._overdue_occurrence_key(
-        deadline,
-        deadline + timedelta(days=4),
-    ) == "period-3"
+    assert (
+        email_notifications._overdue_occurrence_key(
+            deadline,
+            deadline + timedelta(minutes=1),
+        )
+        == "period-1"
+    )
+    assert (
+        email_notifications._overdue_occurrence_key(
+            deadline,
+            deadline + timedelta(days=1, hours=23),
+        )
+        == "period-1"
+    )
+    assert (
+        email_notifications._overdue_occurrence_key(
+            deadline,
+            deadline + timedelta(days=2),
+        )
+        == "period-2"
+    )
+    assert (
+        email_notifications._overdue_occurrence_key(
+            deadline,
+            deadline + timedelta(days=4),
+        )
+        == "period-3"
+    )
 
 
 def test_only_current_overdue_occurrence_can_be_sent(monkeypatch):
@@ -505,4 +631,3 @@ def test_claim_recovers_notifications_left_sending_after_worker_crash(monkeypatc
     assert "status = 'sending' AND locked_at <= ?" in executed["query"]
     assert executed["params"][0] == (now - timedelta(seconds=600)).isoformat()
     assert executed["committed"] is True
-
