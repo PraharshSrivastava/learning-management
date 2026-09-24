@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/performance/assignment_detail_dialog.dart';
 import 'package:frontend/features/performance/course_detail_dialog.dart';
+import 'package:frontend/features/performance/learner_assignment_list.dart';
 import 'package:frontend/state/trainer_providers.dart';
 
 class PerformanceReportPortal extends ConsumerStatefulWidget {
@@ -476,10 +477,23 @@ class _PerformanceReportPortalState
     final total = _int(data['total']);
     final size = _int(data['page_size']) == 0 ? 25 : _int(data['page_size']);
     final report = ref.read(performanceReportProvider.notifier);
+    final quickStatuses = <(String, String?)>[
+      ('All', null),
+      ('Overdue', 'overdue'),
+      ('Due soon', 'due_soon'),
+      ('Completed', 'completed'),
+    ];
+    const otherStatuses = <String, String>{
+      'pending': 'Pending',
+      'started': 'Started',
+      'inactive': 'Inactive',
+      'repeated_failures': 'Repeated failures',
+    };
     return _Box(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const _Heading(
           'Learner assignments', 'One record per employee–course assignment.'),
+      const SizedBox(height: 4),
       Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -491,23 +505,23 @@ class _PerformanceReportPortalState
                     controller: search,
                     decoration: const InputDecoration(
                         prefixIcon: Icon(Icons.search),
-                        hintText: 'Search learner or course',
+                        hintText: 'Search learner or course…',
                         isDense: true,
                         border: OutlineInputBorder()),
                     onChanged: report.setSearch)),
+            for (final item in quickStatuses)
+              _StatusFilterChip(
+                  label: item.$1,
+                  selected: state.status == item.$2,
+                  onTap: () => report.setStatus(item.$2)),
             _Drop(
-                label: 'Status',
-                value: state.status,
-                width: 180,
-                items: const {
-                  'pending': 'Pending',
-                  'started': 'Started',
-                  'completed': 'Completed',
-                  'overdue': 'Overdue',
-                  'due_soon': 'Due soon',
-                  'inactive': 'Inactive',
-                  'repeated_failures': 'Repeated failures'
-                },
+                label: 'More statuses',
+                allLabel: 'More',
+                value: otherStatuses.containsKey(state.status)
+                    ? state.status
+                    : null,
+                width: 165,
+                items: otherStatuses,
                 onChanged: report.setStatus),
             _Drop(
                 label: 'Sort by',
@@ -535,31 +549,39 @@ class _PerformanceReportPortalState
             Text('$total assignments',
                 style: const TextStyle(color: AppTheme.textSecondary)),
           ]),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       if (rows.isEmpty)
         const Padding(
             padding: EdgeInsets.all(30),
             child: Center(child: Text('No matching assignments.'))),
-      for (final value in rows)
-        _AssignmentTile(
-            row: _map(value),
-            onTap: () =>
-                _showAssignment(_map(value)['assignment_id'].toString())),
+      if (rows.isNotEmpty)
+        LearnerAssignmentList(
+            rows: [for (final value in rows) _map(value)],
+            onOpenAssignment: _showAssignment),
       if (total > size)
-        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          IconButton(
-              tooltip: 'Previous page',
-              onPressed:
-                  state.page > 1 ? () => report.setPage(state.page - 1) : null,
-              icon: const Icon(Icons.chevron_left)),
-          Text('Page ${state.page} of ${(total / size).ceil()}'),
-          IconButton(
-              tooltip: 'Next page',
-              onPressed: state.page * size < total
-                  ? () => report.setPage(state.page + 1)
-                  : null,
-              icon: const Icon(Icons.chevron_right)),
-        ]),
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(children: [
+            Text(
+                'Showing ${(state.page - 1) * size + 1}–${(state.page * size).clamp(0, total)} of $total',
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary)),
+            const Spacer(),
+            IconButton(
+                tooltip: 'Previous page',
+                onPressed: state.page > 1
+                    ? () => report.setPage(state.page - 1)
+                    : null,
+                icon: const Icon(Icons.chevron_left)),
+            Text('Page ${state.page} of ${(total / size).ceil()}'),
+            IconButton(
+                tooltip: 'Next page',
+                onPressed: state.page * size < total
+                    ? () => report.setPage(state.page + 1)
+                    : null,
+                icon: const Icon(Icons.chevron_right)),
+          ]),
+        ),
     ]));
   }
 
@@ -1149,12 +1171,14 @@ class _Heading extends StatelessWidget {
 
 class _Drop extends StatelessWidget {
   final String label;
+  final String allLabel;
   final String? value;
   final Map<String, String> items;
   final double width;
   final ValueChanged<String?> onChanged;
   const _Drop(
       {required this.label,
+      this.allLabel = 'All',
       required this.value,
       required this.items,
       required this.width,
@@ -1170,7 +1194,7 @@ class _Drop extends StatelessWidget {
               isDense: true,
               border: const OutlineInputBorder()),
           items: [
-            const DropdownMenuItem(value: '', child: Text('All')),
+            DropdownMenuItem(value: '', child: Text(allLabel)),
             for (final item in items.entries)
               DropdownMenuItem(
                   value: item.key,
@@ -1241,26 +1265,37 @@ class _Trend extends StatelessWidget {
   }
 }
 
-class _AssignmentTile extends StatelessWidget {
-  final Map<String, dynamic> row;
+class _StatusFilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
   final VoidCallback onTap;
-  const _AssignmentTile({required this.row, required this.onTap});
+
+  const _StatusFilterChip(
+      {required this.label, required this.selected, required this.onTap});
+
   @override
-  Widget build(BuildContext context) => ListTile(
-      contentPadding: EdgeInsets.zero,
-      onTap: onTap,
-      title: Text(
-          '${row['employee_name']}${row['employee_status'] == 'inactive' ? ' (inactive employee)' : ''} · ${row['course_name']}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-          '${row['completed_modules']}/${row['total_modules']} modules  •  Score ${_score(row['average_score'])}  •  Due ${_date(row['deadline'])}  •  Active ${_date(row['last_learner_activity_at'])}${_int(row['failed_attempts']) > 0 ? '  •  ${row['failed_attempts']} failed attempts' : ''}'),
-      trailing: Text(_statusLabel(row),
-          style: TextStyle(
-              color: row['status'] == 'overdue'
-                  ? AppTheme.accentRed
-                  : AppTheme.primaryBlue,
-              fontWeight: FontWeight.w700)));
+  Widget build(BuildContext context) => Material(
+        color: selected ? AppTheme.brandBlue100 : Colors.white,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+                color:
+                    selected ? AppTheme.accentBlue : const Color(0xFFDDE6F1))),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: selected
+                        ? AppTheme.primaryBlue
+                        : AppTheme.textSecondary,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600)),
+          ),
+        ),
+      );
 }
 
 Map<String, dynamic> _map(Object? value) =>
@@ -1268,8 +1303,6 @@ Map<String, dynamic> _map(Object? value) =>
 List<dynamic> _list(Object? value) => value is List ? value : const [];
 int _int(Object? value) =>
     value is num ? value.toInt() : int.tryParse('$value') ?? 0;
-String _score(Object? value) =>
-    value is num ? '${value.toStringAsFixed(1)}%' : '—';
 String _date(Object? value) {
   final date = DateTime.tryParse(value?.toString() ?? '');
   return date == null ? '—' : '${date.day}/${date.month}/${date.year}';
