@@ -8,7 +8,6 @@ class PerformanceReportState {
   final String sort;
   final bool descending;
   final int page;
-  final int trendDays;
   final bool isLoading;
   final String? error;
   final Map<String, dynamic> options;
@@ -24,7 +23,6 @@ class PerformanceReportState {
     this.sort = 'deadline',
     this.descending = false,
     this.page = 1,
-    this.trendDays = 30,
     this.isLoading = false,
     this.error,
     this.options = const {},
@@ -42,7 +40,6 @@ class PerformanceReportState {
     String? sort,
     bool? descending,
     int? page,
-    int? trendDays,
     bool? isLoading,
     String? error,
     Map<String, dynamic>? options,
@@ -58,7 +55,6 @@ class PerformanceReportState {
         sort: sort ?? this.sort,
         descending: descending ?? this.descending,
         page: page ?? this.page,
-        trendDays: trendDays ?? this.trendDays,
         isLoading: isLoading ?? this.isLoading,
         error: error,
         options: options ?? this.options,
@@ -71,7 +67,6 @@ class PerformanceReportState {
 class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
   final Ref ref;
   int _request = 0;
-  Timer? _searchTimer;
 
   PerformanceReportNotifier(this.ref) : super(const PerformanceReportState());
 
@@ -109,7 +104,7 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
       final scope = _scope;
       final result = await Future.wait([
         _get('options', const {}),
-        _get('overview', {...scope, 'trend_days': '${state.trendDays}'}),
+        _get('overview', scope),
         _get('courses', scope),
         _get('assignments', {
           ...scope,
@@ -160,9 +155,8 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
   }
 
   void setSearch(String search) {
-    state = state.copyWith(search: search, page: 1);
-    _searchTimer?.cancel();
-    _searchTimer = Timer(const Duration(milliseconds: 350), refresh);
+    state = state.copyWith(search: search.trim(), page: 1);
+    refresh();
   }
 
   void setSort(String sort) {
@@ -177,11 +171,6 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
 
   void setPage(int page) {
     state = state.copyWith(page: page);
-    refresh();
-  }
-
-  void setTrendDays(int days) {
-    state = state.copyWith(trendDays: days);
     refresh();
   }
 
@@ -217,12 +206,6 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
       throw Exception('Unable to export report (${response.statusCode})');
     }
     return response.body;
-  }
-
-  @override
-  void dispose() {
-    _searchTimer?.cancel();
-    super.dispose();
   }
 }
 

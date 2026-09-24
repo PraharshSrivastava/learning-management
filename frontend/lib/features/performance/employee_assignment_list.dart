@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:frontend/core/theme/app_theme.dart';
 
-/// Scannable assignment rows for the trainer's Learners report.
-class LearnerAssignmentList extends StatelessWidget {
+/// Scannable assignment rows for the trainer's Employees report.
+class EmployeeAssignmentList extends StatelessWidget {
   final List<Map<String, dynamic>> rows;
   final ValueChanged<String> onOpenAssignment;
 
-  const LearnerAssignmentList({
+  const EmployeeAssignmentList({
     super.key,
     required this.rows,
     required this.onOpenAssignment,
@@ -47,7 +47,7 @@ class _TableHeader extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Row(children: [
-          Expanded(flex: 25, child: _HeaderLabel('LEARNER')),
+          Expanded(flex: 25, child: _HeaderLabel('EMPLOYEE')),
           Expanded(flex: 22, child: _HeaderLabel('COURSE')),
           Expanded(flex: 15, child: _HeaderLabel('PROGRESS')),
           Expanded(flex: 12, child: _HeaderLabel('QUIZ SCORE')),
@@ -82,7 +82,7 @@ class _TableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _status(row);
-    final name = row['employee_name']?.toString() ?? 'Learner';
+    final name = row['employee_name']?.toString() ?? 'Employee';
     return Material(
       color: Colors.white,
       child: InkWell(
@@ -162,7 +162,7 @@ class _CompactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = row['employee_name']?.toString() ?? 'Learner';
+    final name = row['employee_name']?.toString() ?? 'Employee';
     final status = _status(row);
     return Material(
       color: Colors.white,

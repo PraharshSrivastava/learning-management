@@ -7,12 +7,12 @@ import 'package:frontend/core/theme/app_theme.dart';
 /// Trainer view of a course's aggregate outcomes and module learning path.
 class CourseDetailDialog extends StatelessWidget {
   final Future<Map<String, dynamic>> detail;
-  final VoidCallback onViewLearners;
+  final VoidCallback onViewEmployees;
 
   const CourseDetailDialog({
     super.key,
     required this.detail,
-    required this.onViewLearners,
+    required this.onViewEmployees,
   });
 
   @override
@@ -43,7 +43,7 @@ class CourseDetailDialog extends StatelessWidget {
                 }
                 return _CourseContent(
                   data: snapshot.data!,
-                  onViewLearners: onViewLearners,
+                  onViewEmployees: onViewEmployees,
                 );
               },
             ),
@@ -56,9 +56,9 @@ class CourseDetailDialog extends StatelessWidget {
 
 class _CourseContent extends StatelessWidget {
   final Map<String, dynamic> data;
-  final VoidCallback onViewLearners;
+  final VoidCallback onViewEmployees;
 
-  const _CourseContent({required this.data, required this.onViewLearners});
+  const _CourseContent({required this.data, required this.onViewEmployees});
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +106,7 @@ class _CourseContent extends StatelessWidget {
         child: LayoutBuilder(builder: (context, constraints) {
           final summary = _CourseSummary(
             course: course,
-            onViewLearners: onViewLearners,
+            onViewEmployees: onViewEmployees,
           );
           final path = _ModulePath(modules: modules);
           if (constraints.maxWidth < 690) {
@@ -128,9 +128,9 @@ class _CourseContent extends StatelessWidget {
 
 class _CourseSummary extends StatelessWidget {
   final Map<String, dynamic> course;
-  final VoidCallback onViewLearners;
+  final VoidCallback onViewEmployees;
 
-  const _CourseSummary({required this.course, required this.onViewLearners});
+  const _CourseSummary({required this.course, required this.onViewEmployees});
 
   @override
   Widget build(BuildContext context) {
@@ -217,9 +217,9 @@ class _CourseSummary extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: onViewLearners,
+              onPressed: onViewEmployees,
               icon: const Icon(Icons.people_outline, size: 18),
-              label: const Text('View learners'),
+              label: const Text('View employees'),
             ),
           ),
         ]),

@@ -45,13 +45,13 @@ Map<String, dynamic> _detail() => {
     };
 
 void main() {
-  testWidgets('shows course learning path and opens learners', (tester) async {
-    var openedLearners = false;
+  testWidgets('shows course learning path and opens employees', (tester) async {
+    var openedEmployees = false;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: CourseDetailDialog(
           detail: Future.value(_detail()),
-          onViewLearners: () => openedLearners = true,
+          onViewEmployees: () => openedEmployees = true,
         ),
       ),
     ));
@@ -68,8 +68,8 @@ void main() {
     expect(find.text('Average 63.1%'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('View learners'));
-    expect(openedLearners, isTrue);
+    await tester.tap(find.text('View employees'));
+    expect(openedEmployees, isTrue);
   });
 
   testWidgets('fits the course detail on a narrow screen', (tester) async {
@@ -82,7 +82,7 @@ void main() {
       home: Scaffold(
         body: CourseDetailDialog(
           detail: Future.value(_detail()),
-          onViewLearners: () {},
+          onViewEmployees: () {},
         ),
       ),
     ));
@@ -90,7 +90,7 @@ void main() {
 
     expect(find.text('40%'), findsOneWidget);
     expect(find.text('100 assigned'), findsOneWidget);
-    expect(find.text('View learners'), findsOneWidget);
+    expect(find.text('View employees'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

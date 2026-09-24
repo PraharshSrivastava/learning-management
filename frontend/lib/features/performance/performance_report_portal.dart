@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/performance/assignment_detail_dialog.dart';
 import 'package:frontend/features/performance/course_detail_dialog.dart';
-import 'package:frontend/features/performance/learner_assignment_list.dart';
+import 'package:frontend/features/performance/employee_assignment_list.dart';
 import 'package:frontend/state/trainer_providers.dart';
 
 class PerformanceReportPortal extends ConsumerStatefulWidget {
@@ -86,7 +86,7 @@ class _PerformanceReportPortalState
           const SizedBox(height: 16),
           if (state.view == 0) _overview(state),
           if (state.view == 1) _courses(state),
-          if (state.view == 2) _learners(state),
+          if (state.view == 2) _employees(state),
         ]),
       ),
     );
@@ -96,78 +96,137 @@ class _PerformanceReportPortalState
     final options = state.options;
     final filter = state.filter;
     final report = ref.read(performanceReportProvider.notifier);
-    return _Box(
-        child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-          _Drop(
-              label: 'Course',
-              value: filter.courseId,
-              width: 210,
-              items: {
-                for (final value in _list(options['courses']))
-                  _map(value)['course_id'].toString():
-                      _map(value)['course_name'].toString()
-              },
-              onChanged: (value) => report.setFilter(filter.copyWith(
-                  courseId: value, clearCourse: value == null))),
-          _Drop(
-              label: 'Employee',
-              value: filter.employeeId,
-              width: 190,
-              items: {
-                for (final value in _list(options['employees']))
-                  _map(value)['employee_id'].toString():
-                      _map(value)['name'].toString()
-              },
-              onChanged: (value) => report.setFilter(filter.copyWith(
-                  employeeId: value, clearEmployee: value == null))),
-          _Drop(
-              label: 'Department',
-              value: filter.department,
-              width: 180,
-              items: {
-                for (final value in _list(options['departments']))
-                  value.toString(): value.toString()
-              },
-              onChanged: (value) => report.setFilter(filter.copyWith(
-                  department: value, clearDepartment: value == null))),
-          _Drop(
-              label: 'Mailing list',
-              value: filter.mailingList,
-              width: 180,
-              items: {
-                for (final value in _list(options['mailing_lists']))
-                  value.toString(): value.toString()
-              },
-              onChanged: (value) => report.setFilter(filter.copyWith(
-                  mailingList: value, clearMailingList: value == null))),
-          SizedBox(
-              width: 175,
-              child: TextField(
-                  controller: joined,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: 'Joined within days',
-                      isDense: true,
-                      border: OutlineInputBorder()),
-                  onSubmitted: (text) {
-                    final days = int.tryParse(text);
-                    report.setFilter(filter.copyWith(
-                        joinedLessThanDaysAgo: days,
-                        clearJoined: days == null));
-                  })),
+    final activeCount = [
+      filter.courseId,
+      filter.employeeId,
+      filter.department,
+      filter.mailingList,
+      filter.joinedLessThanDaysAgo,
+      state.status,
+      if (state.search.isNotEmpty) state.search,
+    ].where((value) => value != null).length;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF1F7FF), Colors.white],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD7E5F5)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A143D73),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppTheme.brandBlue100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.tune_rounded,
+                color: AppTheme.primaryBlue, size: 19),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('Filter reports',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          ),
+          if (activeCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.brandBlue100,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text('$activeCount active',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primaryBlue)),
+            ),
+          const SizedBox(width: 8),
           TextButton.icon(
-              onPressed: () {
-                joined.clear();
-                search.clear();
-                report.clearFilters();
-              },
-              icon: const Icon(Icons.filter_alt_off_outlined),
-              label: const Text('Clear')),
-        ]));
+            onPressed: activeCount == 0
+                ? null
+                : () {
+                    joined.clear();
+                    search.clear();
+                    report.clearFilters();
+                  },
+            icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+            label: const Text('Clear all'),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        LayoutBuilder(builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 960
+              ? 4
+              : constraints.maxWidth >= 540
+                  ? 2
+                  : 1;
+          final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
+          return Wrap(spacing: 12, runSpacing: 12, children: [
+            _Drop(
+                label: 'Course',
+                value: filter.courseId,
+                width: width,
+                icon: Icons.menu_book_outlined,
+                items: {
+                  for (final value in _list(options['courses']))
+                    _map(value)['course_id'].toString():
+                        _map(value)['course_name'].toString()
+                },
+                onChanged: (value) => report.setFilter(filter.copyWith(
+                    courseId: value, clearCourse: value == null))),
+            _Drop(
+                label: 'Department',
+                value: filter.department,
+                width: width,
+                icon: Icons.apartment_outlined,
+                items: {
+                  for (final value in _list(options['departments']))
+                    value.toString(): value.toString()
+                },
+                onChanged: (value) => report.setFilter(filter.copyWith(
+                    department: value, clearDepartment: value == null))),
+            _Drop(
+                label: 'Mailing list',
+                value: filter.mailingList,
+                width: width,
+                icon: Icons.group_outlined,
+                items: {
+                  for (final value in _list(options['mailing_lists']))
+                    value.toString(): value.toString()
+                },
+                onChanged: (value) => report.setFilter(filter.copyWith(
+                    mailingList: value, clearMailingList: value == null))),
+            SizedBox(
+                width: width,
+                child: TextField(
+                    controller: joined,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    decoration: _scopeFieldDecoration(
+                        'Joined within days', Icons.event_outlined),
+                    onSubmitted: (text) {
+                      final days = int.tryParse(text);
+                      report.setFilter(filter.copyWith(
+                          joinedLessThanDaysAgo: days,
+                          clearJoined: days == null));
+                    })),
+          ]);
+        }),
+      ]),
+    );
   }
 
   Widget _overview(PerformanceReportState state) {
@@ -182,7 +241,7 @@ class _PerformanceReportPortalState
       (
         'Assigned',
         '${summary['assigned'] ?? 0}',
-        '${summary['unique_learners'] ?? 0} unique learners',
+        '${summary['unique_learners'] ?? 0} unique employees',
         null,
         AppTheme.primaryBlue,
         Icons.assignment_outlined
@@ -194,22 +253,6 @@ class _PerformanceReportPortalState
         'completed',
         AppTheme.accentGreen,
         Icons.task_alt_rounded
-      ),
-      (
-        'Due soon',
-        '${summary['due_soon'] ?? 0}',
-        'Within ${data['due_soon_days'] ?? 2} days',
-        'due_soon',
-        AppTheme.accentOrange,
-        Icons.schedule_rounded
-      ),
-      (
-        'Overdue',
-        '${summary['overdue'] ?? 0}',
-        'Incomplete assignments',
-        'overdue',
-        AppTheme.accentRed,
-        Icons.error_outline_rounded
       ),
       (
         'On-time compliance',
@@ -236,13 +279,11 @@ class _PerformanceReportPortalState
     final mailingLists = _list(breakdowns['mailing_lists']);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       LayoutBuilder(builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1260
-            ? 6
-            : constraints.maxWidth >= 850
-                ? 3
-                : constraints.maxWidth >= 350
-                    ? 2
-                    : 1;
+        final columns = constraints.maxWidth >= 1100
+            ? 4
+            : constraints.maxWidth >= 560
+                ? 2
+                : 1;
         final cardWidth = columns == 1
             ? constraints.maxWidth
             : (constraints.maxWidth - 12 * (columns - 1)) / columns;
@@ -270,7 +311,7 @@ class _PerformanceReportPortalState
           children: [
             _SectionHeader(
               title: 'Needs attention',
-              subtitle: 'Start with the learners who need a follow-up.',
+              subtitle: 'Start with employees who need a follow-up.',
               onViewAll: () => report.setStatus(null),
             ),
             LayoutBuilder(builder: (context, inner) {
@@ -298,7 +339,7 @@ class _PerformanceReportPortalState
                 ),
                 _AttentionCard(
                   width: cardWidth,
-                  label: 'No learner activity',
+                  label: 'No learning activity',
                   count: summary['inactive'],
                   detail: 'For ${data['inactive_days'] ?? 14} days',
                   icon: Icons.person_off_outlined,
@@ -347,11 +388,14 @@ class _PerformanceReportPortalState
           ],
         ));
         return constraints.maxWidth < 1080
-            ? Column(children: [
-                attention,
-                const SizedBox(height: 12),
-                watchlistPanel
-              ])
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  attention,
+                  const SizedBox(height: 12),
+                  watchlistPanel
+                ],
+              )
             : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(flex: 5, child: attention),
                 const SizedBox(width: 12),
@@ -360,28 +404,6 @@ class _PerformanceReportPortalState
       }),
       const SizedBox(height: 16),
       LayoutBuilder(builder: (context, constraints) {
-        final trend = _Box(
-            child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Expanded(
-                  child: _Heading('Completions over time',
-                      'Completed assignments per day.')),
-              DropdownButton<int>(
-                value: state.trendDays,
-                items: const [
-                  DropdownMenuItem(value: 30, child: Text('30 days')),
-                  DropdownMenuItem(value: 90, child: Text('90 days')),
-                ],
-                onChanged: (days) {
-                  if (days != null) report.setTrendDays(days);
-                },
-              ),
-            ]),
-            _Trend(points: _list(data['completion_trend'])),
-          ],
-        ));
         final coursePanel = _Box(
             child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,16 +417,6 @@ class _PerformanceReportPortalState
             if (courses.isEmpty) const Text('No assigned courses yet.'),
           ],
         ));
-        return constraints.maxWidth < 900
-            ? Column(children: [trend, const SizedBox(height: 12), coursePanel])
-            : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(flex: 3, child: trend),
-                const SizedBox(width: 12),
-                Expanded(flex: 2, child: coursePanel),
-              ]);
-      }),
-      const SizedBox(height: 16),
-      LayoutBuilder(builder: (context, constraints) {
         final departmentPanel = _Box(
             child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,17 +437,39 @@ class _PerformanceReportPortalState
             if (mailingLists.isEmpty) const Text('No mailing list data yet.'),
           ],
         ));
-        return constraints.maxWidth < 760
-            ? Column(children: [
-                departmentPanel,
-                const SizedBox(height: 12),
-                mailingPanel
-              ])
-            : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: departmentPanel),
-                const SizedBox(width: 12),
-                Expanded(child: mailingPanel),
-              ]);
+        if (constraints.maxWidth >= 1200) {
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: coursePanel),
+            const SizedBox(width: 12),
+            Expanded(child: departmentPanel),
+            const SizedBox(width: 12),
+            Expanded(child: mailingPanel),
+          ]);
+        }
+        if (constraints.maxWidth < 760) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              coursePanel,
+              const SizedBox(height: 12),
+              departmentPanel,
+              const SizedBox(height: 12),
+              mailingPanel,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            coursePanel,
+            const SizedBox(height: 12),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: departmentPanel),
+              const SizedBox(width: 12),
+              Expanded(child: mailingPanel),
+            ]),
+          ],
+        );
       }),
     ]);
   }
@@ -471,7 +505,7 @@ class _PerformanceReportPortalState
     ]);
   }
 
-  Widget _learners(PerformanceReportState state) {
+  Widget _employees(PerformanceReportState state) {
     final data = state.assignments;
     final rows = _list(data['rows']);
     final total = _int(data['total']);
@@ -492,7 +526,7 @@ class _PerformanceReportPortalState
     return _Box(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const _Heading(
-          'Learner assignments', 'One record per employee–course assignment.'),
+          'Employee assignments', 'One record per employee–course assignment.'),
       const SizedBox(height: 4),
       Wrap(
           spacing: 10,
@@ -500,15 +534,16 @@ class _PerformanceReportPortalState
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             SizedBox(
-                width: 245,
+                width: 300,
                 child: TextField(
                     controller: search,
+                    textInputAction: TextInputAction.search,
                     decoration: const InputDecoration(
                         prefixIcon: Icon(Icons.search),
-                        hintText: 'Search learner or course…',
+                        hintText: 'Name or course · Enter',
                         isDense: true,
                         border: OutlineInputBorder()),
-                    onChanged: report.setSearch)),
+                    onSubmitted: (value) => report.setSearch(value.trim()))),
             for (final item in quickStatuses)
               _StatusFilterChip(
                   label: item.$1,
@@ -555,7 +590,7 @@ class _PerformanceReportPortalState
             padding: EdgeInsets.all(30),
             child: Center(child: Text('No matching assignments.'))),
       if (rows.isNotEmpty)
-        LearnerAssignmentList(
+        EmployeeAssignmentList(
             rows: [for (final value in rows) _map(value)],
             onOpenAssignment: _showAssignment),
       if (total > size)
@@ -600,7 +635,7 @@ class _PerformanceReportPortalState
         context: context,
         builder: (dialogContext) => CourseDetailDialog(
               detail: detail,
-              onViewLearners: () {
+              onViewEmployees: () {
                 Navigator.pop(dialogContext);
                 final current = ref.read(performanceReportProvider).filter;
                 report.setFilter(current.copyWith(courseId: id));
@@ -750,7 +785,7 @@ class _ViewTabs extends StatelessWidget {
           for (final (index, label) in const [
             (0, 'Overview'),
             (1, 'Courses'),
-            (2, 'Learners'),
+            (2, 'Employees'),
           ])
             InkWell(
               onTap: () => onSelected(index),
@@ -1028,7 +1063,7 @@ class _WatchlistHeader extends StatelessWidget {
           return const Padding(
             padding: EdgeInsets.fromLTRB(8, 4, 8, 8),
             child: Row(children: [
-              Expanded(flex: 3, child: Text('LEARNER')),
+              Expanded(flex: 3, child: Text('EMPLOYEE')),
               Expanded(flex: 3, child: Text('COURSE')),
               Expanded(flex: 2, child: Text('DUE')),
               Expanded(flex: 2, child: Text('PROGRESS')),
@@ -1058,7 +1093,7 @@ class _WatchlistRow extends StatelessWidget {
             return ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
               onTap: onTap,
-              title: Text(row['employee_name']?.toString() ?? 'Learner',
+              title: Text(row['employee_name']?.toString() ?? 'Employee',
                   style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(
                   '${row['course_name'] ?? 'Course'} • $completed/$total modules • Due ${_date(row['deadline'])}'),
@@ -1075,7 +1110,7 @@ class _WatchlistRow extends StatelessWidget {
               child: Row(children: [
                 Expanded(
                     flex: 3,
-                    child: Text(row['employee_name']?.toString() ?? 'Learner',
+                    child: Text(row['employee_name']?.toString() ?? 'Employee',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w700))),
@@ -1175,6 +1210,7 @@ class _Drop extends StatelessWidget {
   final String? value;
   final Map<String, String> items;
   final double width;
+  final IconData? icon;
   final ValueChanged<String?> onChanged;
   const _Drop(
       {required this.label,
@@ -1182,6 +1218,7 @@ class _Drop extends StatelessWidget {
       required this.value,
       required this.items,
       required this.width,
+      this.icon,
       required this.onChanged});
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1189,10 +1226,12 @@ class _Drop extends StatelessWidget {
       child: DropdownButtonFormField<String>(
           value: value != null && items.containsKey(value) ? value : '',
           isExpanded: true,
-          decoration: InputDecoration(
-              labelText: label,
-              isDense: true,
-              border: const OutlineInputBorder()),
+          decoration: icon == null
+              ? InputDecoration(
+                  labelText: label,
+                  isDense: true,
+                  border: const OutlineInputBorder())
+              : _scopeFieldDecoration(label, icon!),
           items: [
             DropdownMenuItem(value: '', child: Text(allLabel)),
             for (final item in items.entries)
@@ -1202,6 +1241,24 @@ class _Drop extends StatelessWidget {
           ],
           onChanged: (next) => onChanged(next == '' ? null : next)));
 }
+
+InputDecoration _scopeFieldDecoration(String label, IconData icon) =>
+    InputDecoration(
+      labelText: label,
+      isDense: true,
+      filled: true,
+      fillColor: Colors.white,
+      prefixIcon: Icon(icon, size: 19, color: AppTheme.primaryBlue),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFD2E0F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
+      ),
+    );
 
 class _Bar extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -1226,42 +1283,6 @@ class _Bar extends StatelessWidget {
           const SizedBox(width: 10),
           Text('$rate%')
         ]));
-  }
-}
-
-class _Trend extends StatelessWidget {
-  final List<dynamic> points;
-  const _Trend({required this.points});
-  @override
-  Widget build(BuildContext context) {
-    if (points.isEmpty) return const Text('No trend data yet.');
-    final maximum = points
-        .map((value) => _int(_map(value)['completed']))
-        .fold<int>(1, (a, b) => a > b ? a : b);
-    return Column(children: [
-      SizedBox(
-          height: 100,
-          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            for (final value in points)
-              Expanded(
-                  child: Tooltip(
-                      message:
-                          '${_map(value)['date']}: ${_map(value)['completed']} completed',
-                      child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 1),
-                          child: Container(
-                              height: 5 +
-                                  90 * _int(_map(value)['completed']) / maximum,
-                              color: AppTheme.accentBlue))))
-          ])),
-      const SizedBox(height: 5),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(_map(points.first)['date'].toString(),
-            style: const TextStyle(fontSize: 11)),
-        Text(_map(points.last)['date'].toString(),
-            style: const TextStyle(fontSize: 11))
-      ])
-    ]);
   }
 }
 

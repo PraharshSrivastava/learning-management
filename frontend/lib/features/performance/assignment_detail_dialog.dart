@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:frontend/core/theme/app_theme.dart';
 
-/// A focused learner journey for one employee-course assignment.
+/// A focused employee learning journey for one employee-course assignment.
 class AssignmentDetailDialog extends StatelessWidget {
   final Future<Map<String, dynamic>> detail;
 
@@ -94,7 +94,7 @@ class _AssignmentContent extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.4)),
                     const SizedBox(height: 10),
-                    Text(row['employee_name']?.toString() ?? 'Learner',
+                    Text(row['employee_name']?.toString() ?? 'Employee',
                         style: const TextStyle(
                             fontSize: 29,
                             fontWeight: FontWeight.w800,
@@ -181,7 +181,7 @@ class _AssignmentContent extends StatelessWidget {
                         _Metric(
                             width: width,
                             icon: Icons.schedule_outlined,
-                            label: 'Last learner activity',
+                            label: 'Last learning activity',
                             value: _date(row['last_learner_activity_at'])),
                         _Metric(
                             width: width,

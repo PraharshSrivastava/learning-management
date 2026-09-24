@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/features/performance/learner_assignment_list.dart';
+import 'package:frontend/features/performance/employee_assignment_list.dart';
 
 final _rows = <Map<String, dynamic>>[
   {
@@ -43,7 +43,7 @@ void main() {
       home: Scaffold(
         body: Padding(
           padding: const EdgeInsets.all(16),
-          child: LearnerAssignmentList(
+          child: EmployeeAssignmentList(
             rows: _rows,
             onOpenAssignment: (id) => opened = id,
           ),
@@ -51,6 +51,7 @@ void main() {
       ),
     ));
 
+    expect(find.text('EMPLOYEE'), findsOneWidget);
     expect(find.text('QUIZ SCORE'), findsOneWidget);
     expect(find.text('Kavya Nair'), findsOneWidget);
     expect(find.text('2/3 modules'), findsOneWidget);
@@ -73,7 +74,7 @@ void main() {
       home: Scaffold(
         body: Padding(
           padding: const EdgeInsets.all(16),
-          child: LearnerAssignmentList(
+          child: EmployeeAssignmentList(
             rows: _rows,
             onOpenAssignment: (_) {},
           ),
