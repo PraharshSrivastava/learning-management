@@ -59,6 +59,21 @@ def test_email_test_mode_requires_allowlist_and_subject_prefix():
     )
 
 
+@pytest.mark.parametrize(
+    "address",
+    [
+        "learner@example.com,attacker@example.com",
+        "Learner <learner@example.com>",
+        "learner@example.com\nBcc: attacker@example.com",
+    ],
+)
+def test_smtp_configuration_rejects_address_lists_and_headers(address):
+    with pytest.raises(ValueError, match="EMAIL_FROM_EMAIL"):
+        Settings(email_from_email=address)
+    with pytest.raises(ValueError, match="EMAIL_RECIPIENT_ALLOWLIST"):
+        Settings(email_recipient_allowlist=(address,))
+
+
 def test_test_mode_accelerates_notification_windows(monkeypatch):
     assigned_at = datetime(2026, 9, 1, 10, 0, 0)
     monkeypatch.setattr(email_notifications.settings, "email_test_mode", True)
@@ -585,8 +600,8 @@ def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch
         def login(self, username, password):
             sent.append(("login", username, password))
 
-        def send_message(self, message):
-            sent.append(("message", message))
+        def send_message(self, message, *, from_addr, to_addrs):
+            sent.append(("message", message, from_addr, to_addrs))
 
     monkeypatch.setattr(email_notifications.smtplib, "SMTP", FakeSmtp)
     monkeypatch.setattr(email_notifications.settings, "smtp_host", "smtp.example.com")
@@ -615,6 +630,10 @@ def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch
     assert sent.index(("ehlo",)) < sent.index(("login", "mailer", "secret"))
     assert ("login", "mailer", "secret") in sent
     assert message["Message-ID"] == "<notice-1@example.com>"
+    assert next(item for item in sent if item[0] == "message")[2:] == (
+        "lms@example.com",
+        ["learner@example.com"],
+    )
     assert message.is_multipart()
     assert message.get_body(preferencelist=("html",)).get_content_type() == "text/html"
 
@@ -637,8 +656,8 @@ def test_smtp_ssl_verifies_certificate_before_authentication(monkeypatch):
         def login(self, username, password):
             sent.append(("login", username, password))
 
-        def send_message(self, message):
-            sent.append(("message", message))
+        def send_message(self, message, *, from_addr, to_addrs):
+            sent.append(("message", message, from_addr, to_addrs))
 
     monkeypatch.setattr(email_notifications.smtplib, "SMTP_SSL", FakeSmtpSsl)
     monkeypatch.setattr(email_notifications.settings, "smtp_host", "smtp.example.com")
@@ -662,6 +681,19 @@ def test_smtp_ssl_verifies_certificate_before_authentication(monkeypatch):
     assert sent[0][0] == "connect"
     assert sent[1] == ("login", "mailer", "secret")
     assert sent[2][0] == "message"
+
+
+def test_smtp_rejects_multiple_recipients_before_connection(monkeypatch):
+    def unexpected_connection(*_args, **_kwargs):
+        pytest.fail("Malformed address must not reach SMTP")
+
+    monkeypatch.setattr(email_notifications.smtplib, "SMTP", unexpected_connection)
+    with pytest.raises(RuntimeError, match="single email address"):
+        email_notifications._send_smtp(
+            {
+                "recipient_email": "learner@example.com,attacker@example.com",
+            }
+        )
 
 
 def test_smtp_does_not_authenticate_when_starttls_fails(monkeypatch):

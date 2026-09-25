@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import os
+from email.utils import getaddresses
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
+def is_single_mailbox(value: str | None) -> bool:
+    """Accept one plain mailbox, never a display name or address list."""
+    if not value or value != value.strip() or value.count("@") != 1:
+        return False
+    if any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value):
+        return False
+    parsed = getaddresses([value])
+    return len(parsed) == 1 and parsed[0] == ("", value)
 
 
 def _load_dotenv_values(path: Path) -> dict[str, str]:
@@ -172,9 +183,7 @@ class Settings(BaseModel):
             email_errors.append("SMTP_USE_SSL and SMTP_USE_STARTTLS cannot both be true")
         if bool(self.smtp_username) != bool(self.smtp_password):
             email_errors.append("SMTP_USERNAME and SMTP_PASSWORD must be configured together")
-        if self.email_from_email and (
-            "@" not in self.email_from_email or " " in self.email_from_email
-        ):
+        if self.email_from_email and not is_single_mailbox(self.email_from_email):
             email_errors.append("EMAIL_FROM_EMAIL must be a valid email address")
         if self.email_delivery_mode == "smtp":
             if not self.smtp_host:
@@ -184,7 +193,7 @@ class Settings(BaseModel):
             if not (self.smtp_use_starttls or self.smtp_use_ssl):
                 email_errors.append("SMTP mode requires SMTP_USE_STARTTLS or SMTP_USE_SSL")
         invalid_allowlist = [
-            email for email in self.email_recipient_allowlist if "@" not in email or " " in email
+            email for email in self.email_recipient_allowlist if not is_single_mailbox(email)
         ]
         if invalid_allowlist:
             email_errors.append("EMAIL_RECIPIENT_ALLOWLIST contains an invalid email address")

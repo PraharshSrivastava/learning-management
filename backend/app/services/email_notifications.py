@@ -14,7 +14,7 @@ from email.utils import formataddr
 from typing import Iterable
 from zoneinfo import ZoneInfo
 
-from app.core.settings import settings
+from app.core.settings import is_single_mailbox, settings
 from app.repositories.database import advisory_lock, get_connection
 from app.services.email_templates import render_digest, render_individual
 
@@ -762,19 +762,22 @@ def enqueue_overdue_notifications(as_of: datetime | None = None) -> int:
 
 
 def _send_smtp(notification: dict) -> None:
-    if not _recipient_allowed(notification.get("recipient_email")):
+    recipient_email = notification.get("recipient_email")
+    if not is_single_mailbox(recipient_email):
+        raise RuntimeError("Recipient must be a single email address")
+    if not _recipient_allowed(recipient_email):
         raise RuntimeError("Recipient is not included in EMAIL_RECIPIENT_ALLOWLIST")
     if not settings.smtp_host:
         raise RuntimeError("SMTP_HOST is not configured")
     from_email = settings.email_from_email or settings.smtp_username
     if not from_email:
         raise RuntimeError("EMAIL_FROM_EMAIL is not configured")
+    if not is_single_mailbox(from_email):
+        raise RuntimeError("EMAIL_FROM_EMAIL must be a single email address")
 
     message = EmailMessage()
     message["From"] = formataddr((settings.email_from_name, from_email))
-    message["To"] = formataddr(
-        (notification.get("recipient_name") or "", notification["recipient_email"])
-    )
+    message["To"] = formataddr((notification.get("recipient_name") or "", recipient_email))
     message["Subject"] = notification["subject"]
     sender_domain = from_email.rsplit("@", 1)[-1]
     message["Message-ID"] = f"<{notification['notification_id']}@{sender_domain}>"
@@ -802,7 +805,7 @@ def _send_smtp(notification: dict) -> None:
             smtp.ehlo()
         if settings.smtp_username and settings.smtp_password:
             smtp.login(settings.smtp_username, settings.smtp_password)
-        smtp.send_message(message)
+        smtp.send_message(message, from_addr=from_email, to_addrs=[recipient_email])
 
 
 def _send_notification(notification: dict) -> None:
