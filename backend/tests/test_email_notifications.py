@@ -1,3 +1,4 @@
+import ssl
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
@@ -551,6 +552,17 @@ def test_email_configuration_is_validated_in_every_environment(overrides):
         Settings(**overrides)
 
 
+def test_smtp_mode_rejects_plaintext_even_without_authentication():
+    with pytest.raises(ValueError, match="requires SMTP_USE_STARTTLS or SMTP_USE_SSL"):
+        Settings(
+            email_delivery_mode="smtp",
+            smtp_host="smtp.example.com",
+            email_from_email="lms@example.com",
+            smtp_use_starttls=False,
+            smtp_use_ssl=False,
+        )
+
+
 def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch):
     sent = []
 
@@ -564,8 +576,11 @@ def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch
         def __exit__(self, *_args):
             return None
 
-        def starttls(self):
-            sent.append(("starttls",))
+        def starttls(self, *, context):
+            sent.append(("starttls", context))
+
+        def ehlo(self):
+            sent.append(("ehlo",))
 
         def login(self, username, password):
             sent.append(("login", username, password))
@@ -594,11 +609,100 @@ def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch
     )
 
     message = next(item[1] for item in sent if item[0] == "message")
-    assert ("starttls",) in sent
+    tls_context = next(item[1] for item in sent if item[0] == "starttls")
+    assert tls_context.verify_mode == ssl.CERT_REQUIRED
+    assert tls_context.check_hostname
+    assert sent.index(("ehlo",)) < sent.index(("login", "mailer", "secret"))
     assert ("login", "mailer", "secret") in sent
     assert message["Message-ID"] == "<notice-1@example.com>"
     assert message.is_multipart()
     assert message.get_body(preferencelist=("html",)).get_content_type() == "text/html"
+
+
+def test_smtp_ssl_verifies_certificate_before_authentication(monkeypatch):
+    sent = []
+
+    class FakeSmtpSsl:
+        def __init__(self, host, port, timeout, *, context):
+            sent.append(("connect", host, port, timeout))
+            assert context.verify_mode == ssl.CERT_REQUIRED
+            assert context.check_hostname
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def login(self, username, password):
+            sent.append(("login", username, password))
+
+        def send_message(self, message):
+            sent.append(("message", message))
+
+    monkeypatch.setattr(email_notifications.smtplib, "SMTP_SSL", FakeSmtpSsl)
+    monkeypatch.setattr(email_notifications.settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(email_notifications.settings, "smtp_port", 465)
+    monkeypatch.setattr(email_notifications.settings, "smtp_use_ssl", True)
+    monkeypatch.setattr(email_notifications.settings, "smtp_use_starttls", False)
+    monkeypatch.setattr(email_notifications.settings, "smtp_username", "mailer")
+    monkeypatch.setattr(email_notifications.settings, "smtp_password", "secret")
+    monkeypatch.setattr(email_notifications.settings, "email_from_email", "lms@example.com")
+
+    email_notifications._send_smtp(
+        {
+            "notification_id": "notice-ssl",
+            "recipient_name": "Learner",
+            "recipient_email": "learner@example.com",
+            "subject": "Course assigned",
+            "body_text": "Example body",
+        }
+    )
+
+    assert sent[0][0] == "connect"
+    assert sent[1] == ("login", "mailer", "secret")
+    assert sent[2][0] == "message"
+
+
+def test_smtp_does_not_authenticate_when_starttls_fails(monkeypatch):
+    class FailingSmtp:
+        def __init__(self, host, port, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def starttls(self, *, context):
+            raise ssl.SSLCertVerificationError("certificate verify failed")
+
+        def login(self, username, password):
+            pytest.fail("Credentials must not be sent after TLS verification fails")
+
+        def send_message(self, message):
+            pytest.fail("Email must not be sent after TLS verification fails")
+
+    monkeypatch.setattr(email_notifications.smtplib, "SMTP", FailingSmtp)
+    monkeypatch.setattr(email_notifications.settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(email_notifications.settings, "smtp_port", 587)
+    monkeypatch.setattr(email_notifications.settings, "smtp_use_ssl", False)
+    monkeypatch.setattr(email_notifications.settings, "smtp_use_starttls", True)
+    monkeypatch.setattr(email_notifications.settings, "smtp_username", "mailer")
+    monkeypatch.setattr(email_notifications.settings, "smtp_password", "secret")
+    monkeypatch.setattr(email_notifications.settings, "email_from_email", "lms@example.com")
+
+    with pytest.raises(ssl.SSLCertVerificationError):
+        email_notifications._send_smtp(
+            {
+                "notification_id": "notice-bad-cert",
+                "recipient_name": "Learner",
+                "recipient_email": "learner@example.com",
+                "subject": "Course assigned",
+                "body_text": "Example body",
+            }
+        )
 
 
 def test_claim_recovers_notifications_left_sending_after_worker_crash(monkeypatch):
