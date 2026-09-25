@@ -181,6 +181,8 @@ class Settings(BaseModel):
                 email_errors.append("SMTP_HOST is required in smtp mode")
             if not self.email_from_email:
                 email_errors.append("EMAIL_FROM_EMAIL is required in smtp mode")
+            if not (self.smtp_use_starttls or self.smtp_use_ssl):
+                email_errors.append("SMTP mode requires SMTP_USE_STARTTLS or SMTP_USE_SSL")
         invalid_allowlist = [
             email for email in self.email_recipient_allowlist if "@" not in email or " " in email
         ]

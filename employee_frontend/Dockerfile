@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS build
+FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS build
 
 # hadolint ignore=DL3008
 RUN apt-get update \
@@ -17,7 +17,7 @@ ARG API_BASE_URL=
 RUN printf "API_BASE_URL=%s\n" "$API_BASE_URL" > .env \
     && flutter build web --release --pwa-strategy=none
 
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.31.6-alpine3.24@sha256:6a23acdfca2b9cfbcec61419e3f1426bcbedb91362f2f19306a8567423bb4612
 USER root
 RUN apk upgrade --no-cache
 COPY nginx.conf /etc/nginx/conf.d/default.conf

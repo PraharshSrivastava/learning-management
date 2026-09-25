@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import smtplib
+import ssl
 import uuid
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
@@ -781,15 +782,24 @@ def _send_smtp(notification: dict) -> None:
     if notification.get("body_html"):
         message.add_alternative(notification["body_html"], subtype="html")
 
+    if not (settings.smtp_use_ssl or settings.smtp_use_starttls):
+        raise RuntimeError("SMTP delivery requires TLS")
+    tls_context = ssl.create_default_context()
     if settings.smtp_use_ssl:
-        client_factory = smtplib.SMTP_SSL
+        client = smtplib.SMTP_SSL(
+            settings.smtp_host,
+            settings.smtp_port,
+            timeout=settings.smtp_timeout_seconds,
+            context=tls_context,
+        )
     else:
-        client_factory = smtplib.SMTP
-    with client_factory(
-        settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds
-    ) as smtp:
+        client = smtplib.SMTP(
+            settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds
+        )
+    with client as smtp:
         if settings.smtp_use_starttls and not settings.smtp_use_ssl:
-            smtp.starttls()
+            smtp.starttls(context=tls_context)
+            smtp.ehlo()
         if settings.smtp_username and settings.smtp_password:
             smtp.login(settings.smtp_username, settings.smtp_password)
         smtp.send_message(message)
