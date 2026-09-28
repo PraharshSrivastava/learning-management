@@ -688,6 +688,16 @@ For safe UAT verification, begin with `EMAIL_DELIVERY_MODE=log`, inspect the
 outbox and backend logs, then switch to `smtp` only after SMTP connectivity and
 recipient data have been validated.
 
+SMTP uses verified STARTTLS or implicit TLS by default. An IT-approved internal
+relay that only supports plaintext port 25 can be enabled explicitly with
+`SMTP_ALLOW_INSECURE_RELAY=true`, `SMTP_PORT=25`, `SMTP_USE_STARTTLS=false`,
+and `SMTP_USE_SSL=false`. Both `SMTP_USERNAME` and `SMTP_PASSWORD` must be empty
+for plaintext delivery; authorization is handled by the relay (for example,
+an approved source IP). This exception exposes email contents on the connection
+to the relay and must be enabled only for the approved internal endpoint.
+Each plaintext send writes a warning to the backend log. A failed TLS handshake
+never falls back to plaintext, even when this setting is enabled.
+
 Accelerated SMTP verification is explicitly guarded by `EMAIL_TEST_MODE`.
 When enabled, assignment reminders, due-soon windows, overdue repeats, and
 digest delivery can be reduced to minutes. Test mode refuses to start unless

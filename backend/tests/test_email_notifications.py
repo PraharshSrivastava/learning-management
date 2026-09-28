@@ -638,6 +638,135 @@ def test_smtp_delivery_uses_tls_authentication_and_stable_message_id(monkeypatch
     assert message.get_body(preferencelist=("html",)).get_content_type() == "text/html"
 
 
+def test_approved_internal_relay_allows_plaintext_without_credentials():
+    settings = _production_settings(
+        email_delivery_mode="smtp",
+        smtp_host="psmtpesa.phillipcapital.in",
+        smtp_port=25,
+        email_from_email="lms@example.com",
+        smtp_use_starttls=False,
+        smtp_use_ssl=False,
+        smtp_allow_insecure_relay=True,
+        smtp_username=None,
+        smtp_password=None,
+    )
+    assert settings.smtp_allow_insecure_relay
+
+
+def test_approved_relay_environment_loads_without_tls_or_credentials(monkeypatch):
+    from app.core import settings as settings_module
+
+    monkeypatch.setattr(
+        settings_module,
+        "_load_dotenv_values",
+        lambda _path: {
+            "EMAIL_DELIVERY_MODE": "smtp",
+            "EMAIL_FROM_EMAIL": "lms@example.com",
+            "SMTP_HOST": "psmtpesa.phillipcapital.in",
+            "SMTP_PORT": "25",
+            "SMTP_USE_STARTTLS": "false",
+            "SMTP_USE_SSL": "false",
+            "SMTP_ALLOW_INSECURE_RELAY": "true",
+            "SMTP_USERNAME": "",
+            "SMTP_PASSWORD": "",
+        },
+    )
+    settings = Settings.from_environment()
+    assert settings.smtp_allow_insecure_relay
+    assert not settings.smtp_use_starttls
+    assert not settings.smtp_use_ssl
+    assert settings.smtp_username is None
+    assert settings.smtp_password is None
+    assert settings.smtp_port == 25
+
+
+@pytest.mark.parametrize(
+    "overrides, error",
+    [
+        ({"smtp_username": "user", "smtp_password": "secret"}, "without TLS"),
+        ({"smtp_port": 587}, "port 25"),
+    ],
+)
+def test_approved_plaintext_relay_rejects_credentials_and_other_ports(overrides, error):
+    with pytest.raises(ValueError, match=error):
+        Settings(
+            email_delivery_mode="smtp",
+            smtp_host="relay.example.com",
+            email_from_email="lms@example.com",
+            smtp_use_starttls=False,
+            smtp_use_ssl=False,
+            smtp_allow_insecure_relay=True,
+            **{"smtp_port": 25, **overrides},
+        )
+
+
+@pytest.mark.parametrize(
+    "overrides, error",
+    [
+        ({}, None),
+        ({"smtp_allow_insecure_relay": False}, "requires TLS"),
+        ({"smtp_username": "user", "smtp_password": "secret"}, "without TLS"),
+        ({"smtp_port": 587}, "port 25"),
+    ],
+)
+def test_plaintext_delivery_requires_explicit_credential_free_port_25(
+    monkeypatch, caplog, overrides, error
+):
+    sent = []
+
+    class PlainRelay:
+        def __init__(self, host, port, timeout):
+            sent.append((host, port))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def starttls(self, **_kwargs):
+            pytest.fail("Approved plaintext relay must not attempt STARTTLS")
+
+        def login(self, *_args):
+            pytest.fail("Approved plaintext relay must not send credentials")
+
+        def send_message(self, message, *, from_addr, to_addrs):
+            sent.append((message, from_addr, to_addrs))
+
+    monkeypatch.setattr(email_notifications.smtplib, "SMTP", PlainRelay)
+    values = {
+        "smtp_host": "relay.example.com",
+        "smtp_port": 25,
+        "smtp_use_ssl": False,
+        "smtp_use_starttls": False,
+        "smtp_allow_insecure_relay": True,
+        "smtp_username": None,
+        "smtp_password": None,
+        "email_from_email": "lms@example.com",
+        "email_recipient_allowlist": ("learner@example.com",),
+        **overrides,
+    }
+    for key, value in values.items():
+        monkeypatch.setattr(email_notifications.settings, key, value)
+    notification = {
+        "notification_id": "plain-relay-test",
+        "recipient_email": "learner@example.com",
+        "subject": "Test",
+        "body_text": "Test body",
+        "body_html": "<p>Test body</p>",
+    }
+    if error:
+        with pytest.raises(RuntimeError, match=error):
+            email_notifications._send_smtp(notification)
+        assert sent == []
+    else:
+        email_notifications._send_smtp(notification)
+        assert sent[0] == ("relay.example.com", 25)
+        assert sent[1][1:] == ("lms@example.com", ["learner@example.com"])
+        assert sent[1][0].is_multipart()
+        assert "smtp_insecure_relay_delivery" in caplog.text
+
+
 def test_smtp_ssl_verifies_certificate_before_authentication(monkeypatch):
     sent = []
 
@@ -721,6 +850,7 @@ def test_smtp_does_not_authenticate_when_starttls_fails(monkeypatch):
     monkeypatch.setattr(email_notifications.settings, "smtp_port", 587)
     monkeypatch.setattr(email_notifications.settings, "smtp_use_ssl", False)
     monkeypatch.setattr(email_notifications.settings, "smtp_use_starttls", True)
+    monkeypatch.setattr(email_notifications.settings, "smtp_allow_insecure_relay", True)
     monkeypatch.setattr(email_notifications.settings, "smtp_username", "mailer")
     monkeypatch.setattr(email_notifications.settings, "smtp_password", "secret")
     monkeypatch.setattr(email_notifications.settings, "email_from_email", "lms@example.com")
