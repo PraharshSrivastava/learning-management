@@ -786,7 +786,18 @@ def _send_smtp(notification: dict) -> None:
         message.add_alternative(notification["body_html"], subtype="html")
 
     if not (settings.smtp_use_ssl or settings.smtp_use_starttls):
-        raise RuntimeError("SMTP delivery requires TLS")
+        if not settings.smtp_allow_insecure_relay:
+            raise RuntimeError("SMTP delivery requires TLS")
+        if settings.smtp_username or settings.smtp_password:
+            raise RuntimeError("SMTP credentials cannot be used without TLS")
+        if settings.smtp_port != 25:
+            raise RuntimeError("Approved insecure SMTP relay requires port 25")
+        logger.warning(
+            "smtp_insecure_relay_delivery host=%s port=%s notification_id=%s",
+            settings.smtp_host,
+            settings.smtp_port,
+            notification["notification_id"],
+        )
     tls_context = ssl.create_default_context()
     if settings.smtp_use_ssl:
         client = smtplib.SMTP_SSL(

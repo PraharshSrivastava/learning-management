@@ -145,6 +145,7 @@ class Settings(BaseModel):
     smtp_password: str | None = None
     smtp_use_starttls: bool = True
     smtp_use_ssl: bool = False
+    smtp_allow_insecure_relay: bool = False
     smtp_timeout_seconds: float = Field(default=30, gt=0)
     lms_public_url: str | None = None
     lms_employee_public_url: str | None = None
@@ -191,7 +192,15 @@ class Settings(BaseModel):
             if not self.email_from_email:
                 email_errors.append("EMAIL_FROM_EMAIL is required in smtp mode")
             if not (self.smtp_use_starttls or self.smtp_use_ssl):
-                email_errors.append("SMTP mode requires SMTP_USE_STARTTLS or SMTP_USE_SSL")
+                if not self.smtp_allow_insecure_relay:
+                    email_errors.append(
+                        "SMTP mode requires SMTP_USE_STARTTLS or SMTP_USE_SSL unless "
+                        "SMTP_ALLOW_INSECURE_RELAY is explicitly enabled"
+                    )
+                if self.smtp_username or self.smtp_password:
+                    email_errors.append("SMTP credentials cannot be used without TLS")
+                if self.smtp_allow_insecure_relay and self.smtp_port != 25:
+                    email_errors.append("Approved insecure SMTP relay requires port 25")
         invalid_allowlist = [
             email for email in self.email_recipient_allowlist if not is_single_mailbox(email)
         ]
@@ -426,6 +435,7 @@ class Settings(BaseModel):
                 "smtp_password": values.get("SMTP_PASSWORD") or None,
                 "smtp_use_starttls": values.get("SMTP_USE_STARTTLS", "true"),
                 "smtp_use_ssl": values.get("SMTP_USE_SSL", "false"),
+                "smtp_allow_insecure_relay": values.get("SMTP_ALLOW_INSECURE_RELAY", "false"),
                 "smtp_timeout_seconds": values.get("SMTP_TIMEOUT_SECONDS", "30"),
                 "lms_public_url": values.get("LMS_PUBLIC_URL") or None,
                 "lms_employee_public_url": values.get("LMS_EMPLOYEE_PUBLIC_URL") or None,
