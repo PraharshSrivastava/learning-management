@@ -2,6 +2,12 @@
 
 These changes are on `fix/smtp-email-drafts`. They do not add HOD dashboard navigation or admin-trainer oversight.
 
+## Shared trainer performance reporting
+
+Every active authenticated trainer can see employee performance across all published courses in the Performance tab, including courses owned by other trainers. Course dropdown options and report filters use the same shared reporting scope. HOD reporting remains restricted to direct reports. Draft authoring, editing, deletion, generation and assignment/publishing endpoints remain owner-restricted; this change does not make another trainer's draft editable or add it to the authoring workspace. SMTP trainer recipients remain unchanged.
+
+After rebuilding/recreating the backend, log in as a second trainer and refresh Performance with filters cleared. Confirm that a course published by the first trainer appears in the course filter and shows employee rows. No database migration or new environment setting is needed for this reporting change.
+
 ## Configuration
 
 Set `TTS_MODEL_NAME=Qwen/Qwen3-TTS-12Hz-1.7B-Base` only on deployments whose speech endpoint accepts this model identifier. Existing deployments without this variable retain `qwen3-tts`. Blank identifiers fail validation.

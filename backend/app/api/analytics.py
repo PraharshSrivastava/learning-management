@@ -19,7 +19,9 @@ def trainer_performance(
     status: str | None = None,
     joined_less_than_days_ago: int | None = None,
 ):
-    trainer = current_trainer_from_request(request, authorization)
+    # Shared read-only reporting is available to every authenticated trainer.
+    # Authoring and assignment mutation endpoints retain their owner checks.
+    current_trainer_from_request(request, authorization)
     return api_trainer_performance(
         course_id=course_id,
         employee_id=employee_id,
@@ -27,7 +29,6 @@ def trainer_performance(
         mailing_list=mailing_list,
         status=status,
         joined_less_than_days_ago=joined_less_than_days_ago,
-        trainer_id=trainer["trainer_id"],
     )
 
 
