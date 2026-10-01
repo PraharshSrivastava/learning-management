@@ -87,6 +87,7 @@ class Settings(BaseModel):
     langfuse_timeout_seconds: int = Field(default=5, ge=1, le=60)
 
     tts_endpoint: str = "http://35.238.33.238:8081"
+    tts_model_name: str = Field(default="qwen3-tts", min_length=1)
     tts_voice: str = "priyanka"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
     tts_speed: float = Field(default=0.9, gt=0)
@@ -147,9 +148,29 @@ class Settings(BaseModel):
     smtp_use_ssl: bool = False
     smtp_allow_insecure_relay: bool = False
     smtp_timeout_seconds: float = Field(default=30, gt=0)
+    lms_hub_login_url: str | None = None
     lms_public_url: str | None = None
     lms_employee_public_url: str | None = None
     lms_trainer_public_url: str | None = None
+
+    @field_validator("tts_model_name")
+    @classmethod
+    def validate_tts_model_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("TTS_MODEL_NAME must not be empty")
+        return value
+
+    @field_validator("lms_hub_login_url")
+    @classmethod
+    def validate_hub_login_url(cls, value: str | None) -> str | None:
+        if value is not None:
+            from urllib.parse import urlsplit
+
+            parsed = urlsplit(value)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
+                raise ValueError("LMS_HUB_LOGIN_URL must be an HTTP(S) URL without credentials")
+        return value
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -322,6 +343,7 @@ class Settings(BaseModel):
                     "TTS_ENDPOINT",
                     "http://35.238.33.238:8081",
                 ),
+                "tts_model_name": values.get("TTS_MODEL_NAME", "qwen3-tts"),
                 "tts_voice": values.get("TTS_VOICE", "priyanka"),
                 "tts_temperature": values.get("TTS_TEMPERATURE", "0.6"),
                 "tts_speed": values.get("TTS_SPEED", "0.9"),
@@ -437,6 +459,7 @@ class Settings(BaseModel):
                 "smtp_use_ssl": values.get("SMTP_USE_SSL", "false"),
                 "smtp_allow_insecure_relay": values.get("SMTP_ALLOW_INSECURE_RELAY", "false"),
                 "smtp_timeout_seconds": values.get("SMTP_TIMEOUT_SECONDS", "30"),
+                "lms_hub_login_url": values.get("LMS_HUB_LOGIN_URL") or None,
                 "lms_public_url": values.get("LMS_PUBLIC_URL") or None,
                 "lms_employee_public_url": values.get("LMS_EMPLOYEE_PUBLIC_URL") or None,
                 "lms_trainer_public_url": values.get("LMS_TRAINER_PUBLIC_URL") or None,

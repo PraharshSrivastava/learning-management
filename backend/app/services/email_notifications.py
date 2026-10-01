@@ -29,13 +29,14 @@ COURSE_EVENTS = {
     "overdue",
 }
 EVENT_RECIPIENT_ROLES = {
-    "assigned": {"employee", "hod"},
+    "assigned": {"employee"},
     "assignment_reminder": {"employee"},
     "due_soon": {"employee"},
     "completed": {"employee"},
     "overdue": {"employee"},
 }
 DIGEST_RECIPIENT_ROLES = {
+    "assigned": {"hod"},
     "due_soon": {"hod", "trainer"},
     "completed": {"hod", "trainer"},
     "overdue": {"hod", "trainer"},
@@ -441,12 +442,28 @@ def _enqueue_digest_item(
     if prior:
         return 0
 
+    if event_type == "assigned":
+        delivered = connection.execute(
+            """
+            SELECT 1 FROM email_notifications
+            WHERE assignment_id = ? AND notification_lifecycle = ?
+              AND event_type = 'assigned' AND recipient_role = 'hod'
+              AND status IN ('sent', 'sending')
+            LIMIT 1
+            """,
+            (context["assignment_id"], lifecycle),
+        ).fetchone()
+        if delivered:
+            return 0
+
     now = _now()
     interval_hours = (
         _overdue_repeat_interval().total_seconds() / 3600
         if event_type == "overdue"
         else settings.email_completion_digest_interval_hours
         if event_type == "completed"
+        else 24
+        if event_type == "assigned"
         else settings.email_due_soon_digest_interval_hours
     )
     last_sent = connection.execute(
@@ -467,6 +484,23 @@ def _enqueue_digest_item(
         interval_hours,
         last_sent["sent_at"] if last_sent else None,
     )
+    if event_type == "assigned":
+        # Reuse the open batch, including in UAT where each enqueue time differs.
+        batch = connection.execute(
+            """
+            SELECT digest_key FROM email_notifications
+            WHERE message_kind = 'digest' AND event_type = 'assigned'
+              AND recipient_role = ? AND digest_scope_type = ?
+              AND digest_scope_id = ? AND recipient_email = ?
+              AND status IN ('pending', 'failed')
+            ORDER BY created_at LIMIT 1
+            """,
+            (role, recipient["scope_type"], recipient["scope_id"], recipient["email"]),
+        ).fetchone()
+        if batch:
+            # Retry timestamps can change; preserve the original batch key time.
+            prefix = f"assigned:{role}:{recipient['scope_type']}:{recipient['scope_id']}:"
+            send_at = datetime.fromisoformat(batch["digest_key"].removeprefix(prefix))
     created_at = now.isoformat()
     row = None
     for _attempt in range(2):
@@ -608,7 +642,7 @@ def migrate_pending_digest_notifications() -> int:
             FROM email_notifications
             WHERE message_kind = 'individual'
               AND recipient_role IN ('hod', 'trainer')
-              AND event_type IN ('due_soon', 'completed', 'overdue')
+              AND event_type IN ('assigned', 'due_soon', 'completed', 'overdue')
               AND status IN ('pending', 'failed')
               AND assignment_id IS NOT NULL
             """
@@ -626,7 +660,7 @@ def migrate_pending_digest_notifications() -> int:
             SET status = 'cancelled', updated_at = ?
             WHERE message_kind = 'individual'
               AND recipient_role IN ('hod', 'trainer')
-              AND event_type IN ('due_soon', 'completed', 'overdue')
+              AND event_type IN ('assigned', 'due_soon', 'completed', 'overdue')
               AND status IN ('pending', 'failed')
             """,
             (_now().isoformat(),),
@@ -1074,6 +1108,7 @@ def process_pending_notifications(limit: int | None = None) -> int:
                 notification["recipient_role"],
                 contexts,
                 summary,
+                recipient_name=notification.get("recipient_name"),
             )
             notification.update(
                 subject=_email_subject(subject),
@@ -1126,6 +1161,11 @@ def process_pending_notifications(limit: int | None = None) -> int:
             )
             _cancel_stale(notification["notification_id"])
             continue
+        # Refresh queued messages after upgrades and show current assignment details.
+        subject, body_text, body_html = _message_for(
+            context, notification["event_type"], notification["recipient_role"]
+        )
+        notification.update(subject=subject, body_text=body_text, body_html=body_html)
         try:
             _send_notification(notification)
         except Exception as exc:

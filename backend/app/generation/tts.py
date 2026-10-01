@@ -11,6 +11,7 @@ import requests
 from app.core.logging import generation_logger
 from app.core.providers import (
     TTS_ENDPOINT,
+    TTS_MODEL_NAME,
     TTS_SPEED,
     TTS_TEMPERATURE,
     TTS_VOICE,
@@ -71,7 +72,7 @@ def synthesize_speech_for_slide(text: str, output_path: str, language: str = "En
     voice = TTS_VOICE
     tts_url = f"{TTS_ENDPOINT.rstrip('/')}/v1/audio/speech"
     payload = {
-        "model": "qwen3-tts",
+        "model": TTS_MODEL_NAME,
         "input": cleaned_text,
         "voice": voice,
         "response_format": "wav",

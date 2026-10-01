@@ -62,22 +62,15 @@ def _absolute_url(base: str | None, **query: str) -> str:
 
 
 def course_link(context: dict) -> str:
-    return _absolute_url(
-        settings.lms_employee_public_url,
-        view="course",
-        course_id=str(context.get("course_id") or ""),
-    )
+    return settings.lms_hub_login_url or "Open the LMS from the Hub dashboard"
 
 
 def hod_report_link(event_type: str) -> str:
-    return _absolute_url(settings.lms_employee_public_url, view="team-performance", status=event_type)
+    return ""
 
 
 def trainer_report_link(event_type: str, course_id: str | None = None) -> str:
-    query = {"view": "performance", "status": event_type}
-    if course_id:
-        query["course_id"] = course_id
-    return _absolute_url(settings.lms_trainer_public_url, **query)
+    return settings.lms_hub_login_url or "Open the LMS from the Hub dashboard"
 
 
 def completion_timing(context: dict) -> tuple[str, str]:
@@ -133,22 +126,34 @@ def _details_text(values: list[tuple[str, object]]) -> list[str]:
     return [f"{label}: {value}" for label, value in values]
 
 
-def _html_document(title: str, paragraphs: list[str], details: list[tuple[str, object]], link_label: str | None = None, link: str | None = None, table: str | None = None) -> str:
-    paragraph_html = "".join(f"<p>{html.escape(value)}</p>" for value in paragraphs if value)
+def _html_document(title: str, paragraphs: list[str], details: list[tuple[str, object]], link_label: str | None = None, link: str | None = None, table: str | None = None, guidance: str = "") -> str:
+    font = "Segoe UI,Arial,sans-serif"
+    paragraph_html = "".join(f"<p style='margin:0 0 16px'>{html.escape(value)}</p>" for value in paragraphs if value)
     details_html = "".join(
-        f"<tr><th style='text-align:left;padding:4px 12px 4px 0'>{html.escape(label)}</th>"
-        f"<td style='padding:4px 0'>{html.escape(str(value))}</td></tr>"
+        f"<tr><th style='text-align:left;padding:8px 16px 8px 0;font-weight:600'>{html.escape(label)}</th>"
+        f"<td style='padding:8px 0'>{html.escape(str(value))}</td></tr>"
         for label, value in details
     )
     link_html = ""
     if link_label and link and link.startswith(("http://", "https://")):
-        link_html = f"<p><a href='{html.escape(link, quote=True)}'>{html.escape(link_label)}</a></p>"
+        link_html = (
+            "<table role='presentation' style='margin:24px 0 0'><tr>"
+            "<td style='background:#173b8f;border-radius:4px;padding:12px 22px'>"
+            f"<a href='{html.escape(link, quote=True)}' style='font-family:{font};font-size:15px;font-weight:600;color:#fff;text-decoration:none;display:inline-block'>{html.escape(link_label)}</a>"
+            "</td></tr></table>"
+        )
+    guidance_html = f"<p style='font-size:14px;color:#596579;margin:16px 0 0'>{html.escape(guidance)}</p>" if guidance else ""
     return (
-        "<!doctype html><html><body style='font-family:Arial,sans-serif;color:#172033;line-height:1.5'>"
-        f"<h2 style='color:#173b8f'>{html.escape(title)}</h2>{paragraph_html}"
-        f"<table role='presentation' style='border-collapse:collapse'>{details_html}</table>"
-        f"{table or ''}{link_html}<p style='color:#667085;font-size:12px'>{html.escape(FOOTER)}</p>"
-        "</body></html>"
+        f"<!doctype html><html lang='en'><head><meta charset='utf-8'></head><body style='margin:0;background:#f3f5f7;font-family:{font};color:#172033;line-height:1.5'>"
+        "<table role='presentation' width='100%' style='border-collapse:collapse'><tr><td align='center' style='padding:24px 12px'>"
+        "<table role='presentation' width='100%' style='max-width:660px;border-collapse:collapse;background:#fff;border-top:5px solid #173b8f'>"
+        "<tr><td style='padding:24px 28px;border-bottom:1px solid #e5e9ef'><strong style='font-size:20px;color:#173b8f'>PhillipCapital</strong><br>"
+        "<span style='font-size:13px;color:#667085'>Learning Management System</span></td></tr>"
+        f"<tr><td style='padding:28px;font-size:16px'><h2 style='font-size:22px;color:#173b8f;margin:0 0 22px'>{html.escape(title)}</h2>{paragraph_html}"
+        f"<table role='presentation' style='font-size:14px;border-collapse:collapse'>{details_html}</table>"
+        f"{table or ''}{link_html}{guidance_html}</td></tr>"
+        f"<tr><td style='padding:18px 28px;border-top:1px solid #e5e9ef;color:#667085;font-size:12px'>{html.escape(FOOTER)}</td></tr>"
+        "</table></td></tr></table></body></html>"
     )
 
 
@@ -163,24 +168,24 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
     link = course_link(context)
 
     if event_type == "assigned" and role == "employee":
-        subject = f"New course assigned: {course}"
-        paragraphs = [f"Hello {employee_first},", "You have been assigned a new course in the Learning Management System.", "Please complete the course by the stated deadline."]
+        subject = f"Course assignment: {course}"
+        paragraphs = [f"Dear {employee_first},", "You have been assigned a new course in the Learning Management System.", "Please complete the course by the stated deadline."]
         details = [("Course", course), ("Assigned on", assigned), ("Deadline", deadline), ("Trainer", trainer)]
         link_label = "Start course"
     elif event_type == "assigned" and role == "hod":
         subject = f"Course assigned to {employee}: {course}"
-        paragraphs = [f"Hello {first_name(context.get('hod_name'), 'there')},", f"{course} has been assigned to {employee}, a member of your team.", "You can monitor the employee’s progress from the LMS dashboard."]
+        paragraphs = [f"Dear {first_name(context.get('hod_name'), 'there')},", f"{course} has been assigned to {employee}, a member of your team.", "Please note the assignment details below."]
         details = [("Employee", employee), ("Course", course), ("Assigned on", assigned), ("Deadline", deadline), ("Trainer", trainer)]
         link = hod_report_link("assigned")
-        link_label = "View learning record"
+        link_label = None
     elif event_type == "assignment_reminder":
         subject = f"Reminder: Continue {course}"
-        paragraphs = [f"Hello {employee_first},", f"This is a reminder that {course} is still pending.", "Please continue the course and complete it by the stated deadline."]
+        paragraphs = [f"Dear {employee_first},", f"This is a reminder that {course} is still pending.", "Please continue the course and complete it by the stated deadline."]
         details = [("Course", course), ("Current progress", f"{progress}%"), ("Deadline", deadline), ("Time remaining", time_remaining(context))]
         link_label = "Continue course"
     elif event_type == "due_soon":
-        subject = f"Due soon: {course} must be completed by {format_date(context.get('deadline'))}"
-        paragraphs = [f"Hello {employee_first},", f"The deadline for {course} is approaching.", "Please complete the remaining modules before the deadline."]
+        subject = f"Upcoming deadline: {course}"
+        paragraphs = [f"Dear {employee_first},", f"The deadline for {course} is approaching.", "Please complete the remaining modules before the deadline."]
         details = [("Current progress", f"{progress}%"), ("Deadline", deadline), ("Time remaining", time_remaining(context))]
         link_label = "Continue course"
     elif event_type == "completed":
@@ -190,26 +195,31 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
         details = [("Course", course), ("Completion date", format_datetime(context.get("completed_at"))), ("Deadline", deadline), ("Status", timing_status)]
         link_label = "View course"
     elif event_type == "overdue":
-        subject = f"Action required: {course} is overdue"
-        paragraphs = [f"{employee_first}, the deadline for {course} has passed, and the course is still incomplete.", "Please complete the remaining modules as soon as possible.", "You will continue receiving reminders every 48 hours until the course is completed."]
+        subject = f"Overdue course: {course}"
+        paragraphs = [f"Dear {employee_first},", f"The deadline for {course} has passed, and the course is still incomplete.", "Please complete the remaining modules as soon as possible.", "You will continue receiving reminders every 48 hours until the course is completed."]
         details = [("Course", course), ("Deadline", deadline), ("Days overdue", days_overdue(context)), ("Current progress", f"{progress}%")]
         link_label = "Resume course"
     else:
         raise ValueError(f"Unsupported individual email template: {event_type}/{role}")
 
+    if role != "hod":
+        link_label = "Open LMS"
+    guidance = "Sign in to the LMS and open My Courses to access this course." if role != "hod" else ""
     text_lines = []
     for paragraph in paragraphs:
         text_lines.extend([paragraph, ""])
     text_lines.extend(_details_text(details))
     if link_label:
         text_lines.extend(["", f"{link_label}: {link}"])
-    text_lines.extend(["", FOOTER])
-    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, link_label, link)
+    text_lines.extend(["", guidance, "", FOOTER])
+    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, link_label, link, guidance=guidance)
 
 
 def _digest_table(rows: list[dict], event_type: str) -> tuple[str, str]:
     headers = ["Employee", "Course", "Deadline"]
-    if event_type == "completed":
+    if event_type == "assigned":
+        headers = ["Employee", "Course", "Assigned on", "Deadline"]
+    elif event_type == "completed":
         headers = ["Employee", "Course", "Completion date", "Status"]
     else:
         headers.append("Progress")
@@ -218,7 +228,9 @@ def _digest_table(rows: list[dict], event_type: str) -> tuple[str, str]:
     text_rows = [" | ".join(headers), " | ".join("---" for _ in headers)]
     html_rows = "<tr>" + "".join(f"<th style='text-align:left;padding:8px;border-bottom:1px solid #d0d5dd'>{html.escape(header)}</th>" for header in headers) + "</tr>"
     for row in rows:
-        if event_type == "completed":
+        if event_type == "assigned":
+            values = [row.get("employee_name") or "Employee", row.get("course_name") or "Course", format_date(row.get("assigned_at")), format_datetime(row.get("deadline"))]
+        elif event_type == "completed":
             values = [row.get("employee_name") or "Employee", row.get("course_name") or "Course", format_date(row.get("completed_at")), completion_timing(row)[1]]
         else:
             values = [row.get("employee_name") or "Employee", row.get("course_name") or "Course", format_date(row.get("deadline")), f"{int(row.get('completion_percent') or 0)}%"]
@@ -226,13 +238,16 @@ def _digest_table(rows: list[dict], event_type: str) -> tuple[str, str]:
                 values.append(days_overdue(row))
         text_rows.append(" | ".join(str(value) for value in values))
         html_rows += "<tr>" + "".join(f"<td style='padding:8px;border-bottom:1px solid #eaecf0'>{html.escape(str(value))}</td>" for value in values) + "</tr>"
-    return "\n".join(text_rows), f"<table style='border-collapse:collapse;width:100%;margin:16px 0'>{html_rows}</table>"
+    return "\n".join(text_rows), f"<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px'>{html_rows}</table>"
 
 
-def render_digest(event_type: str, role: str, rows: list[dict], summary: dict) -> tuple[str, str, str]:
+def render_digest(event_type: str, role: str, rows: list[dict], summary: dict, recipient_name: str | None = None) -> tuple[str, str, str]:
     count = len({row.get("employee_id") or row.get("assignment_id") for row in rows})
     course_name = rows[0].get("course_name") if rows else "Course"
-    if event_type == "due_soon" and role == "hod":
+    if event_type == "assigned" and role == "hod":
+        subject = f"Team course assignments: {count} employees"
+        paragraphs = ["The following courses have been assigned to members of your team.", "Please note the assignment dates and deadlines below."]
+    elif event_type == "due_soon" and role == "hod":
         subject = f"Courses due soon: {count} team members require attention"
         paragraphs = ["The following members of your team have courses approaching their deadlines.", "Please follow up with the employees where required."]
     elif event_type == "due_soon":
@@ -253,6 +268,8 @@ def render_digest(event_type: str, role: str, rows: list[dict], summary: dict) -
     else:
         raise ValueError(f"Unsupported digest template: {event_type}/{role}")
 
+    name = recipient_name or (rows[0].get("hod_name" if role == "hod" else "trainer_name") if rows else None)
+    paragraphs.insert(0, f"Dear {first_name(name, 'colleague')},")
     details: list[tuple[str, object]] = []
     if role == "trainer" or event_type == "overdue":
         details = [("Assigned employees" if role == "trainer" else "Total active assignments", summary.get("assigned_count", 0)), ("Completed", summary.get("completed_count", 0))]
@@ -264,10 +281,10 @@ def render_digest(event_type: str, role: str, rows: list[dict], summary: dict) -
         if event_type == "overdue":
             details.append(("Overdue rate", f"{summary.get('overdue_rate', 0)}%"))
 
-    visible_rows = rows[:DIGEST_ROW_LIMIT]
-    if len(rows) > DIGEST_ROW_LIMIT:
+    visible_rows = rows if role == "hod" else rows[:DIGEST_ROW_LIMIT]
+    if role != "hod" and len(rows) > DIGEST_ROW_LIMIT:
         paragraphs.append(
-            f"Showing the first {DIGEST_ROW_LIMIT} assignments. Use the complete report link to review all {len(rows)} assignments."
+            f"Showing the first {DIGEST_ROW_LIMIT} assignments. Open the LMS and select Performance to review all {len(rows)} assignments."
         )
     table_text, table_html = _digest_table(visible_rows, event_type)
     report_link = hod_report_link(event_type) if role == "hod" else trainer_report_link(event_type, rows[0].get("course_id") if event_type == "overdue" and rows else None)
@@ -275,8 +292,13 @@ def render_digest(event_type: str, role: str, rows: list[dict], summary: dict) -
     for paragraph in paragraphs:
         text_parts.extend([paragraph, ""])
     text_parts.extend(_details_text(details))
-    text_parts.extend(["", table_text, "", f"View complete report: {report_link}", "", FOOTER])
-    return subject, "\n".join(text_parts), _html_document(subject, paragraphs, details, "View complete report", report_link, table_html)
+    text_parts.extend(["", table_text])
+    guidance = ""
+    if role != "hod":
+        guidance = "Sign in to the trainer LMS and open Performance to review learner progress."
+        text_parts.extend(["", f"Open LMS: {report_link}", "", guidance])
+    text_parts.extend(["", FOOTER])
+    return subject, "\n".join(text_parts), _html_document(subject, paragraphs, details, "Open LMS" if role != "hod" else None, report_link, table_html, guidance=guidance)
 
 
 __all__ = [

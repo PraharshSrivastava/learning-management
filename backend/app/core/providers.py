@@ -33,6 +33,7 @@ CHAT_MODEL_NAME = settings.llm_model_name
 CHAT_MODEL_CONTEXT_WINDOW = settings.llm_context_window
 TOKEN_SAFETY_MARGIN = 1000
 
+TTS_MODEL_NAME = settings.tts_model_name
 TTS_ENDPOINT = settings.tts_endpoint
 TTS_VOICE = settings.tts_voice
 TTS_TEMPERATURE = settings.tts_temperature
