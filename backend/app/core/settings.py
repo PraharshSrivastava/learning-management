@@ -87,6 +87,7 @@ class Settings(BaseModel):
     langfuse_timeout_seconds: int = Field(default=5, ge=1, le=60)
 
     tts_endpoint: str = "http://35.238.33.238:8081"
+    tts_model_name: str = Field(default="qwen3-tts", min_length=1)
     tts_voice: str = "priyanka"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
     tts_speed: float = Field(default=0.9, gt=0)
@@ -150,6 +151,14 @@ class Settings(BaseModel):
     lms_public_url: str | None = None
     lms_employee_public_url: str | None = None
     lms_trainer_public_url: str | None = None
+
+    @field_validator("tts_model_name")
+    @classmethod
+    def validate_tts_model_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("TTS_MODEL_NAME must not be empty")
+        return value
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -322,6 +331,7 @@ class Settings(BaseModel):
                     "TTS_ENDPOINT",
                     "http://35.238.33.238:8081",
                 ),
+                "tts_model_name": values.get("TTS_MODEL_NAME", "qwen3-tts"),
                 "tts_voice": values.get("TTS_VOICE", "priyanka"),
                 "tts_temperature": values.get("TTS_TEMPERATURE", "0.6"),
                 "tts_speed": values.get("TTS_SPEED", "0.9"),
