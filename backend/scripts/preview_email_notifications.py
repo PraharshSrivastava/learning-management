@@ -63,7 +63,7 @@ def _sample_data() -> dict[str, dict]:
     }
     assigned = _context(**common, deadline=now + timedelta(days=25), completion_percent=0)
     reminder = _context(**common, deadline=now + timedelta(days=20), completion_percent=35)
-    due_soon = _context(**common, deadline=now + timedelta(days=2, hours=4), completion_percent=60)
+    due_soon = _context(**common, deadline=now + timedelta(days=2), completion_percent=60)
     completed = _context(
         **common,
         deadline=now + timedelta(days=2),
@@ -101,8 +101,8 @@ def _digest_rows(base: dict, event_type: str) -> list[dict]:
             row["deadline"] = _iso(completed_at + timedelta(days=index + 1))
         elif event_type == "overdue":
             row["deadline"] = _iso(datetime.now(UTC) - timedelta(days=index + 1, hours=2))
-        else:
-            row["deadline"] = _iso(datetime.now(UTC) + timedelta(days=index + 1, hours=2))
+        elif event_type == "due_soon":
+            row["deadline"] = _iso(datetime.now(UTC) + timedelta(hours=12 * (index + 1)))
         rows.append(row)
     return rows
 
@@ -149,6 +149,8 @@ def generate(output_dir: Path) -> list[dict]:
     output_dir.mkdir(parents=True, exist_ok=True)
     settings.lms_employee_public_url = "http://localhost:6970"
     settings.lms_trainer_public_url = "http://localhost:6969"
+    # Preview-only URL, never used to send mail or change deployment configuration.
+    settings.lms_hub_login_url = "https://hub.example.com/login"
     settings.email_notification_timezone = "Asia/Kolkata"
 
     samples = _sample_data()
@@ -156,7 +158,7 @@ def generate(output_dir: Path) -> list[dict]:
         "assigned_count": 50,
         "completed_count": 20,
         "completion_rate": 40,
-        "overdue_rate": 50,
+        "overdue_rate": 6,
     }
     specs = [
         (
@@ -166,8 +168,8 @@ def generate(output_dir: Path) -> list[dict]:
         ),
         (
             "02-assigned-hod",
-            "Assigned · HOD",
-            render_individual(samples["assigned"], "assigned", "hod"),
+            "Assigned · HOD · Consolidated",
+            render_digest("assigned", "hod", _digest_rows(samples["assigned"], "assigned"), summary),
         ),
         (
             "03-five-day-reminder",

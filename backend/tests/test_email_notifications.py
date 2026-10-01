@@ -159,7 +159,7 @@ def test_allowlist_filters_recipients_and_prefixes_subject(monkeypatch):
         "employee"
     ]
     subject, _, _ = email_notifications._message_for(context, "assigned", "employee")
-    assert subject == "[LMS UAT TEST] New course assigned: AML Essentials"
+    assert subject == "[LMS UAT TEST] Course assignment: AML Essentials"
     assert email_notifications._email_subject(subject) == subject
 
 
@@ -203,8 +203,8 @@ def test_recipient_matrix_matches_course_notification_policy():
 
     assert [item["role"] for item in email_notifications._recipient_rows(context, "assigned")] == [
         "employee",
-        "hod",
     ]
+    assert email_notifications.DIGEST_RECIPIENT_ROLES["assigned"] == {"hod"}
     assert [
         item["role"] for item in email_notifications._recipient_rows(context, "assignment_reminder")
     ] == ["employee"]
@@ -218,8 +218,8 @@ def test_recipient_matrix_matches_course_notification_policy():
 def test_approved_assignment_template_contains_details_and_no_reply_footer(monkeypatch):
     monkeypatch.setattr(
         email_notifications.settings,
-        "lms_employee_public_url",
-        "https://employee.example.com",
+        "lms_hub_login_url",
+        "https://hub.example.com/login",
     )
     context = {
         "course_id": "course-1",
@@ -232,11 +232,13 @@ def test_approved_assignment_template_contains_details_and_no_reply_footer(monke
 
     subject, body_text, body_html = render_individual(context, "assigned", "employee")
 
-    assert subject == "New course assigned: AML Essentials"
-    assert "Hello Ananya," in body_text
+    assert subject == "Course assignment: AML Essentials"
+    assert "Dear Ananya," in body_text
     assert "Assigned on: 01 Sep 2026" in body_text
     assert "Please do not reply to this email." in body_text
-    assert "course_id=course-1" in body_html
+    assert "https://hub.example.com/login" in body_html
+    assert "course_id=" not in body_html
+    assert "Open LMS" in body_html
 
 
 def test_completion_timing_uses_full_twenty_four_hour_periods():
