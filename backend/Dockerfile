@@ -2,7 +2,8 @@ FROM python:3.12.14-slim-trixie@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83d
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg
 
 ARG PIP_INDEX_URL=https://pypi.org/simple
 
@@ -20,7 +21,9 @@ RUN apt-get update \
 
 COPY requirements.txt requirements.lock ./
 RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes -r requirements.lock \
-    && python -m playwright install --with-deps chromium \
+    && python -m playwright install --with-deps --only-shell chromium \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/local/lib/python3.12/site-packages/imageio_ffmpeg/binaries/ffmpeg-* \
     && chmod -R a+rX /ms-playwright
 
 COPY app ./app
