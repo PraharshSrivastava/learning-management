@@ -20,7 +20,8 @@ RUN apt-get update \
 
 COPY requirements.txt requirements.lock ./
 RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes -r requirements.lock \
-    && python -m playwright install --with-deps chromium
+    && python -m playwright install --with-deps chromium \
+    && chmod -R a+rX /ms-playwright
 
 COPY app ./app
 COPY scripts ./scripts
@@ -28,7 +29,7 @@ COPY scripts ./scripts
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
     && mkdir -p /app/storage \
-    && chown -R app:app /app /ms-playwright
+    && chown -R app:app /app
 
 EXPOSE 8000
 
