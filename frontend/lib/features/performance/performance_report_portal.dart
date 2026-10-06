@@ -3,6 +3,7 @@
 import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
+import 'package:frontend/features/performance/report_access_guard.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:frontend/core/theme/app_theme.dart';
@@ -13,7 +14,9 @@ import 'package:frontend/features/performance/employee_summary_panel.dart';
 import 'package:frontend/state/trainer_providers.dart';
 
 class PerformanceReportPortal extends ConsumerStatefulWidget {
-  const PerformanceReportPortal({super.key});
+  final String? initialCourseId;
+  final String? initialStatus;
+  const PerformanceReportPortal({super.key, this.initialCourseId, this.initialStatus});
 
   @override
   ConsumerState<PerformanceReportPortal> createState() =>
@@ -22,6 +25,17 @@ class PerformanceReportPortal extends ConsumerStatefulWidget {
 
 class _PerformanceReportPortalState
     extends ConsumerState<PerformanceReportPortal> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final report = ref.read(performanceReportProvider.notifier);
+      if (widget.initialCourseId != null || widget.initialStatus != null) {
+        report.openLinkedReport(courseId: widget.initialCourseId, status: widget.initialStatus);
+      } else { report.refresh(); }
+    });
+  }
   final search = TextEditingController();
   final joined = TextEditingController();
 
@@ -72,6 +86,8 @@ class _PerformanceReportPortalState
                 ]),
               ]),
           const SizedBox(height: 16),
+          _reportScope(state, report),
+          const SizedBox(height: 16),
           _ViewTabs(selected: state.view, onSelected: report.setView),
           const SizedBox(height: 16),
           _filters(state),
@@ -92,6 +108,23 @@ class _PerformanceReportPortalState
         ]),
       ),
     );
+  }
+
+  Widget _reportScope(PerformanceReportState state, PerformanceReportNotifier report) {
+    final views = ref.watch(reportViewsProvider);
+    const labels = {'all_courses': 'All Courses', 'my_courses': 'My Courses',
+      'my_departments': 'My Department(s)', 'observed': 'Observed Employees', 'combined': 'Combined'};
+    final allowed = views.isEmpty ? <String>['all_courses', 'my_courses'] : views;
+    if (!allowed.contains(state.reportView)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) report.setReportView(allowed.first);
+      });
+    }
+    return Row(children: [const Text('View'), const SizedBox(width: 12),
+      DropdownButton<String>(value: allowed.contains(state.reportView) ? state.reportView : allowed.first,
+        items: allowed.map((v) => DropdownMenuItem(value: v, child: Text(labels[v] ?? v))).toList(),
+        onChanged: (v) { if (v != null) { search.clear(); joined.clear(); report.setReportView(v); } }),
+    ]);
   }
 
   Widget _filters(PerformanceReportState state) {
@@ -521,7 +554,7 @@ class _PerformanceReportPortalState
       if (state.employeeSummary)
         EmployeeSummaryPanel(
           scopeKey:
-              '${filter.courseId}|${filter.department}|${filter.mailingList}|${filter.joinedLessThanDaysAgo}',
+              '${ref.watch(reportContextProvider)}|${filter.joinedLessThanDaysAgo}',
           revision: state.overview['generated_at']?.toString() ?? '',
           resetVersion: state.employeeResetVersion,
           load: report.employeeList,
@@ -652,12 +685,14 @@ class _PerformanceReportPortalState
   Future<void> _showAssignment(String id) async {
     final report = ref.read(performanceReportProvider.notifier);
     final detail = report.assignmentDetail(id);
+    final guard = ref.read(reportContextProvider);
     await showDialog<void>(
         context: context,
-        builder: (context) => AssignmentDetailDialog(detail: detail));
+        builder: (context) => ReportAccessGuard(expected: guard, child: AssignmentDetailDialog(detail: detail)));
   }
 
   Future<void> _showEmployee(String id) async {
+    final guard = ref.read(reportContextProvider);
     final detail =
         ref.read(performanceReportProvider.notifier).employeeDetail(id);
     await showGeneralDialog<void>(
@@ -665,7 +700,7 @@ class _PerformanceReportPortalState
       barrierDismissible: true,
       barrierLabel: 'Close employee detail',
       barrierColor: Colors.black38,
-      pageBuilder: (drawerContext, _, __) => SafeArea(
+      pageBuilder: (drawerContext, _, __) => ReportAccessGuard(expected: guard, child: SafeArea(
         child: Align(
           alignment: Alignment.centerRight,
           child: EmployeeDetailDrawer(
@@ -676,16 +711,17 @@ class _PerformanceReportPortalState
             },
           ),
         ),
-      ),
+      )),
     );
   }
 
   Future<void> _showCourse(String id) async {
     final report = ref.read(performanceReportProvider.notifier);
     final detail = report.courseDetail(id);
+    final guard = ref.read(reportContextProvider);
     await showDialog<void>(
         context: context,
-        builder: (dialogContext) => CourseDetailDialog(
+        builder: (dialogContext) => ReportAccessGuard(expected: guard, child: CourseDetailDialog(
               detail: detail,
               onViewEmployees: () {
                 Navigator.pop(dialogContext);
@@ -694,7 +730,7 @@ class _PerformanceReportPortalState
                 report.setEmployeeSummary(false);
                 report.setView(2);
               },
-            ));
+            )));
   }
 
   Future<void> _export() => _downloadCsv(

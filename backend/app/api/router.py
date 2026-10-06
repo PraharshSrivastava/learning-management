@@ -14,6 +14,8 @@ from app.api.generation import router as generation_router
 from app.api.hub import router as hub_router
 from app.api.learning import router as learning_router
 from app.api.lms_access import router as lms_access_router
+from app.api.media import router as media_router
+from app.api.observers import router as observers_router
 from app.api.static_assets import router as static_router
 from app.api.uploads import router as upload_router
 
@@ -33,3 +35,7 @@ api_router.include_router(analytics_router)
 api_router.include_router(static_router)
 
 api_router.include_router(lms_access_router)
+
+api_router.include_router(observers_router)
+
+api_router.include_router(media_router)

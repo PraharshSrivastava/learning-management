@@ -30,6 +30,9 @@ def access_db(monkeypatch):
             raw.execute(f'SET LOCAL search_path TO "{schema}"')
             raw.execute("""CREATE TABLE employees (employee_id TEXT PRIMARY KEY, directory_uuid TEXT,
                 hub_user_id INTEGER, name TEXT, email TEXT, status TEXT, directory_status TEXT, source TEXT)""")
+            raw.execute("""CREATE TABLE courses (course_id TEXT PRIMARY KEY, trainer_id TEXT,
+                course_name TEXT, course_description TEXT, status TEXT, created_at TEXT, updated_at TEXT)""")
+            raw.execute("CREATE TABLE assignment_rules(course_id TEXT PRIMARY KEY, is_active BOOLEAN, published_at TEXT)")
             raw.execute(
                 "INSERT INTO employees VALUES ('employee-1', 'uuid-1', 42, 'Kiran', 'same@example.test', 'active', 'active', 'hub')"
             )
@@ -53,6 +56,8 @@ def access_db(monkeypatch):
                     yield transaction
 
             monkeypatch.setattr(lms_access, "get_connection", connection)
+            from app.repositories import report_access
+            monkeypatch.setattr(report_access, "get_connection", connection)
             apply_access_migrations(transaction)
             yield transaction
         finally:

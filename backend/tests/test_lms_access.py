@@ -23,6 +23,7 @@ def access_client(monkeypatch):
     }
     trainer = {"trainer_id": "t-1", "directory_uuid": "uuid-1", "name": "Kiran", "status": "active"}
     state = {"roles": set(), "version": 0}
+    monkeypatch.setattr(lms_access, "report_roles", lambda *_: set())
     monkeypatch.setattr(auth.settings, "hub_launch_dev_mode", True)
     monkeypatch.setattr(auth, "_hub_session", lambda *_: None)
     monkeypatch.setattr(auth, "_local_employee_sessions", {"employee-token": "e-1"})

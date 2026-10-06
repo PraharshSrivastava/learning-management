@@ -5,6 +5,13 @@ from __future__ import annotations
 from app.repositories.database import get_connection
 
 TABLES = (
+    "lms_report_access_audit",
+    "course_observer_employees",
+    "course_observer_departments",
+    "course_observer_grants",
+    "course_observer_configs",
+    "hod_department_access",
+    "lms_departments",
     "lms_access_audit",
     "lms_authoring_roles",
     "lms_access_versions",

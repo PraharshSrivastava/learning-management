@@ -1,3 +1,11 @@
+# Implementation status update — 2026-10-06
+
+The original design below is retained for traceability. Checkpoints 1–4 are implemented locally on `codex/admin-trainer-oversight`; see `admin-trainer-implementation-progress.md` for exact evidence and remaining production gates. Every Trainer retains all-course Performance. Creator-only management and Admin cross-owner read-only oversight are enforced.
+
+Final implementation decisions superseding proposal details: Observer activation uses explicit Save Observers -> existing Publish & Assign -> Apply Observers, with immediate restriction/revoke on save; publishing/email transaction architecture is preserved. Both Flutter apps reuse the existing report UI through adapted component copies, with one shared backend reporting engine; no new package/dependency/deployment change was introduced. Media credentials are short-lived identity/app-bound tickets with fresh resource authorization rather than one-file tickets. Pending/effective selector summary and directory-employee preview are shown; eligible report counts come from scoped Performance. The full HOD production integration remains gated on the authoritative department/HOD directory contract, and staging signed-Hub/rendering/UAT and release provisioning remain pending.
+
+---
+
 # LMS access implementation plan: Admin Trainer, Trainer, HOD, Observer
 
 Updated: 6 October 2026  

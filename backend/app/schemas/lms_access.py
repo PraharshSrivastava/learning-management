@@ -24,5 +24,6 @@ class LmsAccessResponse(ApiSchema):
     app: Literal["trainer", "employee"]
     roles: list[str] = Field(default_factory=list)
     permissions_version: int
+    report_scope_version: str = ""
     capabilities: LmsCapabilities
     performance_views: list[str] = Field(default_factory=list)

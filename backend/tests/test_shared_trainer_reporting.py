@@ -165,7 +165,7 @@ def test_streamed_export_rechecks_session_before_next_page(client, monkeypatch):
 
     monkeypatch.setattr(analytics.reports, "assignment_list", assignments)
     response = analytics.performance_export(
-        Request({"type": "http", "headers": []}),
+        Request({"type": "http", "headers": [], "query_string": b""}),
         authorization="Bearer active",
         joined_less_than_days_ago=None,
         search=None,

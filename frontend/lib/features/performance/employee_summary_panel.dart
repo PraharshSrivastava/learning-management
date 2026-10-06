@@ -73,6 +73,7 @@ class _EmployeeSummaryPanelState extends State<EmployeeSummaryPanel> {
     final current = ++request;
     setState(() {
       loading = true;
+      data = const {};
       error = null;
     });
     try {

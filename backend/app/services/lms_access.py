@@ -5,6 +5,7 @@ from fastapi import Request
 from app.core.exceptions import AuthenticationError
 from app.repositories import lms_access as grants
 from app.repositories.employees import EmployeeRepository
+from app.repositories.report_access import report_roles, report_scope_version
 from app.schemas.lms_access import LmsAccessResponse, LmsCapabilities
 from app.security.hub_launch import HubApp
 from app.services.auth import current_employee_from_request, current_trainer_from_request
@@ -46,8 +47,19 @@ def current_lms_access(
     # Existing authenticated Trainer-app entitlement remains the authoring gate.
     # A projection alone or an Employee-app session confers no Trainer capability.
     roles = ["admin_trainer" if "admin_trainer" in stored else "trainer"] if trainer else []
+    report = report_roles(employee)
+    roles.extend(sorted(report))
+    views = ["all_courses", "my_courses"] if trainer else []
+    if "hod" in report:
+        views.append("my_departments")
+    if "observer" in report:
+        views.append("observed")
+    if report:
+        views.append("combined")
     capabilities = LmsCapabilities(
         can_learn=app == "employee",
+        can_view_department_performance="hod" in report,
+        can_view_observed_performance="observer" in report,
         can_author_courses=trainer is not None,
         can_view_all_performance=trainer is not None,
         can_view_other_trainers_courses=trainer is not None and "admin_trainer" in stored,
@@ -59,6 +71,7 @@ def current_lms_access(
         app=app,
         roles=roles,
         permissions_version=version,
+        report_scope_version=report_scope_version() if report else "",
         capabilities=capabilities,
-        performance_views=["all_courses", "my_courses"] if trainer else [],
+        performance_views=views,
     )

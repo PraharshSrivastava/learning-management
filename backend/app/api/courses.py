@@ -2,7 +2,9 @@
 
 from fastapi import APIRouter, Header, Request, Response
 
+from app.core.exceptions import NotFoundError
 from app.repositories.courses import get_course_creator_name
+from app.repositories.documents import get_document_by_file_name
 from app.schemas.common import MessageResponse
 from app.schemas.course import (
     CourseResponse,
@@ -31,6 +33,8 @@ def generate_course(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    if not get_document_by_file_name(payload.file_name, trainer["trainer_id"]):
+        raise NotFoundError("Source document not found")
     return service.generate_outline(payload.file_name, trainer["trainer_id"])
 
 

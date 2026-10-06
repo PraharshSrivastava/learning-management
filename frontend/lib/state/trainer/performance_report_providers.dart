@@ -2,6 +2,7 @@ part of '../trainer_providers.dart';
 
 class PerformanceReportState {
   final PerformanceFilter filter;
+  final String reportView;
   final int view;
   final String? status;
   final String search;
@@ -19,6 +20,7 @@ class PerformanceReportState {
 
   const PerformanceReportState({
     this.filter = const PerformanceFilter(),
+    this.reportView = 'all_courses',
     this.view = 0,
     this.status,
     this.search = '',
@@ -37,6 +39,7 @@ class PerformanceReportState {
 
   PerformanceReportState copyWith({
     PerformanceFilter? filter,
+    String? reportView,
     int? view,
     String? status,
     bool clearStatus = false,
@@ -55,6 +58,7 @@ class PerformanceReportState {
   }) =>
       PerformanceReportState(
         filter: filter ?? this.filter,
+        reportView: reportView ?? this.reportView,
         view: view ?? this.view,
         status: clearStatus ? null : status ?? this.status,
         search: search ?? this.search,
@@ -81,6 +85,7 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
   Map<String, String> get _scope {
     final filter = state.filter;
     return {
+      'view': state.reportView,
       if (filter.courseId != null) 'course_id': filter.courseId!,
       if (filter.employeeId != null) 'employee_id': filter.employeeId!,
       if (filter.department != null) 'department': filter.department!,
@@ -92,22 +97,28 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
 
   Uri _uri(String path, Map<String, String> params) =>
       Uri.parse('${AppConstants.trainerPerformanceEndpoint}/$path')
-          .replace(queryParameters: params.isEmpty ? null : params);
+          .replace(queryParameters: {'view': state.reportView, ...params});
 
   Future<Map<String, dynamic>> _get(
       String path, Map<String, String> params) async {
+    final serial = _request;
+    final view = state.reportView;
     final response = await http.get(_uri(path, params),
         headers: ref.read(trainerAuthHeadersProvider));
     if (response.statusCode != 200) {
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        ref.read(lmsAccessProvider.notifier).refresh();
+      }
       throw Exception(
           'Unable to load performance data (${response.statusCode})');
     }
+    if (!mounted || serial != _request || view != state.reportView) throw StateError('Report access changed. Refresh the view.');
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<void> refresh() async {
     final request = ++_request;
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, overview: const {}, courses: const {}, assignments: const {}, options: const {});
     try {
       final scope = _scope;
       final result = await Future.wait([
@@ -136,6 +147,12 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
       if (!mounted || request != _request) return;
       state = state.copyWith(isLoading: false, error: error.toString());
     }
+  }
+
+  void setReportView(String view) {
+    _request++;
+    state = PerformanceReportState(reportView: view, employeeResetVersion: state.employeeResetVersion + 1);
+    refresh();
   }
 
   void setView(int view) => state = state.copyWith(view: view);
@@ -220,6 +237,7 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
   }
 
   Future<String> exportCsv() async {
+    final serial = _request;
     final response = await http.get(
         _uri('export', {
           ..._scope,
@@ -232,11 +250,13 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
     if (response.statusCode != 200) {
       throw Exception('Unable to export report (${response.statusCode})');
     }
+    if (!mounted || serial != _request) throw StateError('Report access changed. Export again.');
     return response.body;
   }
 
   Future<String> exportEmployeeCsv(Map<String, String> params) async {
     final scope = _scope..remove('employee_id');
+    final serial = _request;
     final response = await http.get(
         _uri('employees/export', {
           ...scope,
@@ -249,6 +269,7 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
     if (response.statusCode != 200) {
       throw Exception('Unable to export employees (${response.statusCode})');
     }
+    if (!mounted || serial != _request) throw StateError('Report access changed. Export again.');
     return response.body;
   }
 }
@@ -257,5 +278,16 @@ final performanceReportProvider =
     StateNotifierProvider<PerformanceReportNotifier, PerformanceReportState>(
         (ref) {
   ref.watch(trainerAuthProvider.select((state) => state.trainer?.trainerId));
+  ref.watch(trainerAuthProvider.select((state) => state.token));
+  ref.watch(lmsAccessProvider.select((s) => s['permissions_version']));
+  ref.watch(lmsAccessProvider.select((s) => s['report_scope_version']));
   return PerformanceReportNotifier(ref);
+});
+
+final reportContextProvider = Provider<String>((ref) {
+  final auth = ref.watch(trainerAuthProvider);
+  final access = ref.watch(lmsAccessProvider);
+  final report = ref.watch(performanceReportProvider);
+  return jsonEncode([auth.trainer?.trainerId, auth.token, access['permissions_version'], access['report_scope_version'], report.reportView,
+    report.filter.courseId, report.filter.employeeId, report.filter.department, report.filter.mailingList]);
 });

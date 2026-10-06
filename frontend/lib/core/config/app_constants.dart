@@ -1,6 +1,15 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConstants {
+  static String? mediaTicket;
+  static String protectedUrl(String url) {
+    if (mediaTicket == null || mediaTicket!.isEmpty) return url;
+    final uri = Uri.parse(url);
+    final api = apiBaseUrl.isEmpty ? Uri.base : Uri.parse(apiBaseUrl);
+    if (uri.hasAuthority && uri.authority != api.authority) return url;
+    if (uri.hasScheme && !{'http', 'https'}.contains(uri.scheme)) return url;
+    return uri.replace(queryParameters: {...uri.queryParameters, 'media_ticket': mediaTicket!}).toString();
+  }
   static String get apiBaseUrl {
     final configured = dotenv.env['API_BASE_URL'];
     if (configured != null && configured.trim().isNotEmpty) {
@@ -36,13 +45,14 @@ class AppConstants {
       '$apiBaseUrl/api/auth/local/trainer-login';
 
   static String viewFileUrl(String filename) =>
-      '$apiBaseUrl/api/files/$filename';
+      protectedUrl('$apiBaseUrl/api/files/${Uri.encodeComponent(filename)}');
   static String previewFileUrl(String filename) =>
-      '$apiBaseUrl/api/files/$filename/preview';
+      protectedUrl('$apiBaseUrl/api/files/${Uri.encodeComponent(filename)}/preview');
+  static String assetUrl(String path) => protectedUrl('$apiBaseUrl/${path.replaceFirst(RegExp(r'^/'), '')}');
   static String videoAssetUrl(String videoPath) {
-    if (videoPath.startsWith('http')) return videoPath;
+    if (videoPath.startsWith('http')) return protectedUrl(videoPath);
     final path = videoPath.startsWith('/') ? videoPath : '/$videoPath';
-    return '$apiBaseUrl$path';
+    return protectedUrl('$apiBaseUrl$path');
   }
 
   static String hlsVideoAssetUrl(String videoPath) {
@@ -82,5 +92,5 @@ class AppConstants {
   static String moduleQuizEndpoint(String id, int moduleNumber) =>
       '$apiBaseUrl/api/courses/$id/modules/$moduleNumber/quiz';
   static String slideshowHtmlUrl(String courseId, int moduleNum) =>
-      '$apiBaseUrl/assets/slides/$courseId/module_$moduleNum.html';
+      protectedUrl('$apiBaseUrl/assets/slides/$courseId/module_$moduleNum.html');
 }

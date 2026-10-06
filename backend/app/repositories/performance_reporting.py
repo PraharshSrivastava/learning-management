@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from app.core.settings import settings
 from app.repositories.database import get_connection
-from app.schemas.reporting_scope import TrainerReportScope, owner_filter
+from app.schemas.reporting_scope import EmployeePerformanceScope, TrainerReportScope, owner_filter
 
 
 def _assignment_scope(
@@ -27,7 +27,7 @@ def _assignment_scope(
     ]
     params: list[object] = list(owner_params)
     if owner_sql:
-        conditions.insert(0, "c.trainer_id = ?")
+        conditions.insert(0, owner_sql.removesuffix(" AND "))
     if course_id:
         conditions.append("ca.course_id = ?")
         params.append(course_id)
@@ -338,11 +338,17 @@ def employee_page(
 
 def list_scope_options(trainer_id: TrainerReportScope) -> dict:
     owner_sql, owner_params = owner_filter(trainer_id)
+    assignment_join = (
+        "JOIN course_assignments ca ON ca.course_id = c.course_id AND ca.status <> 'revoked' "
+        "JOIN employees e ON e.employee_id = ca.employee_id"
+        if isinstance(trainer_id, EmployeePerformanceScope) else ""
+    )
     with get_connection() as connection:
         courses = connection.execute(
             f"""
             SELECT DISTINCT c.course_id, c.course_name
             FROM courses c JOIN assignment_rules ar ON ar.course_id = c.course_id
+            {assignment_join}
             WHERE {owner_sql}c.status = 'published'
               AND ar.published_at IS NOT NULL AND ar.is_active = TRUE
             ORDER BY c.course_name
@@ -367,6 +373,7 @@ def list_scope_options(trainer_id: TrainerReportScope) -> dict:
             f"""
             SELECT DISTINCT eg.group_cn
             FROM employee_groups eg
+            JOIN employees e ON e.employee_id = eg.employee_id
             JOIN course_assignments ca ON ca.employee_id = eg.employee_id
             JOIN courses c ON c.course_id = ca.course_id
             JOIN assignment_rules ar ON ar.course_id = c.course_id
@@ -450,7 +457,7 @@ def course_module_summary(
     ]
     params: list[object] = [course_id, *owner_params]
     if owner_sql:
-        conditions.insert(1, "c.trainer_id = ?")
+        conditions.insert(1, owner_sql.removesuffix(" AND "))
     if employee_id:
         conditions.append("e.employee_id = ?")
         params.append(employee_id)

@@ -210,6 +210,10 @@ class HubLaunchMiddleware(BaseHTTPMiddleware):
             or path in self.public_api_paths
         ):
             return await call_next(request)
+        # Embedded file viewers cannot set X-LMS-App. These authenticated GET
+        # handlers independently verify the bounded media credential and record.
+        if path.startswith("/api/files/") and request.method in {"GET", "HEAD"}:
+            return await call_next(request)
         if not path.startswith("/api/"):
             return await call_next(request)
         if self.verifier.config.hub_launch_dev_mode:

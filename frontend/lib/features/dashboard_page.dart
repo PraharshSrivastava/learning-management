@@ -8,6 +8,7 @@ import 'package:frontend/state/trainer_providers.dart';
 import 'package:frontend/features/documents/document_portal.dart';
 import 'package:frontend/features/document_builder/document_builder_portal.dart';
 import 'package:frontend/features/courses/course_portal.dart';
+import 'package:frontend/features/courses/course_library_access.dart';
 import 'package:frontend/features/training/training_portal.dart';
 import 'package:frontend/features/assignments/assignment_portal.dart';
 import 'package:frontend/features/performance/performance_report_portal.dart';
@@ -19,7 +20,15 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends ConsumerState<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage> with WidgetsBindingObserver {
+  @override
+  void initState() { super.initState(); WidgetsBinding.instance.addObserver(this); }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) ref.read(lmsAccessProvider.notifier).refresh();
+  }
+  @override
+  void dispose() { WidgetsBinding.instance.removeObserver(this); super.dispose(); }
   String? _bootstrappedTrainerId;
   bool _deepLinkApplied = false;
 
@@ -175,13 +184,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               index: activeTab,
               children: [
                 _buildDocumentsPortal(context, ref, selectedFile, isMobile),
-                _buildCoursesPortal(context, ref, selectedCourse, isMobile),
-                _buildTrainingPortal(context, ref, selectedCourse, isMobile),
+                CourseLibraryAccess(ownPortal: _buildCoursesPortal(context, ref, selectedCourse, isMobile)),
+                CourseLibraryAccess(ownPortal: _buildTrainingPortal(context, ref, selectedCourse, isMobile)),
                 AssignmentPortal(
                   selectedCourse: selectedCourse,
                   isMobile: isMobile,
                 ),
-                const PerformanceReportPortal(),
+                PerformanceReportPortal(key: ValueKey('${trainerAuth.trainer?.trainerId}:${trainerAuth.token}:${ref.watch(lmsAccessProvider)['permissions_version']}:${ref.watch(lmsAccessProvider)['report_scope_version']}')),
               ],
             ),
           ),

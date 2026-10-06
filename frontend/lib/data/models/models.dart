@@ -701,6 +701,9 @@ class PerformanceDashboard {
 // Model for Generated Course Outline
 class Course {
   final String courseId;
+  final String trainerId;
+  final bool canManage;
+  final String? creatorName;
   final String courseName;
   final String courseDescription;
   final String courseObjective;
@@ -721,6 +724,9 @@ class Course {
 
   Course({
     required this.courseId,
+    this.trainerId = '',
+    this.canManage = false,
+    this.creatorName,
     required this.courseName,
     required this.courseDescription,
     required this.courseObjective,
@@ -768,6 +774,9 @@ class Course {
         });
     return Course(
       courseId: json['course_id']?.toString() ?? '',
+      trainerId: json['trainer_id']?.toString() ?? '',
+      canManage: json['can_manage'] == true,
+      creatorName: json['creator_name']?.toString(),
       courseName: json['course_name']?.toString() ?? '',
       courseDescription: json['course_description']?.toString() ?? '',
       courseObjective: json['course_objective']?.toString() ?? '',
@@ -796,6 +805,9 @@ class Course {
 
   Course copyWith({
     String? courseId,
+    String? trainerId,
+    bool? canManage,
+    String? creatorName,
     String? courseName,
     String? courseDescription,
     String? courseObjective,
@@ -817,6 +829,9 @@ class Course {
     final nextModules = modules ?? this.modules;
     return Course(
       courseId: courseId ?? this.courseId,
+      trainerId: trainerId ?? this.trainerId,
+      canManage: canManage ?? this.canManage,
+      creatorName: creatorName ?? this.creatorName,
       courseName: courseName ?? this.courseName,
       courseDescription: courseDescription ?? this.courseDescription,
       courseObjective: courseObjective ?? this.courseObjective,

@@ -18,10 +18,10 @@ from app.schemas.performance_reporting import (
     PerformanceOverview,
     PerformanceReportOptions,
 )
-from app.schemas.reporting_scope import TrainerPerformanceScope
 from app.services import performance_reporting as reports
 from app.services.analytics import api_trainer_performance
-from app.services.auth import current_employee_from_request, current_trainer_from_request
+from app.services.auth import current_trainer_from_request
+from app.services.report_access import current_report_scope
 
 router = APIRouter(prefix="/api", tags=["analytics"])
 
@@ -38,8 +38,12 @@ def trainer_performance(
 ):
     # Shared read-only reporting is available to every authenticated trainer.
     # Authoring and assignment mutation endpoints retain their owner checks.
-    current_trainer_from_request(request, authorization)
+    trainer = current_trainer_from_request(request, authorization)
+    view = request.query_params.get("view", "all_courses") if "query_string" in request.scope else "all_courses"
+    if view not in {"all_courses", "my_courses"}:
+        raise HTTPException(status_code=403, detail="Use the scoped Performance endpoints for this view")
     return api_trainer_performance(
+        trainer_id=trainer["trainer_id"] if view == "my_courses" else None,
         course_id=course_id,
         employee_id=employee_id,
         department=department,
@@ -50,17 +54,11 @@ def trainer_performance(
 
 
 def hod_team_performance(
-    request: Request,
-    authorization: str | None = Header(default=None),
+    request: Request, authorization: str | None = Header(default=None),
     course_id: str | None = None,
-    status: str | None = None,
 ):
-    employee = current_employee_from_request(request, authorization)
-    return api_trainer_performance(
-        course_id=course_id,
-        status=status,
-        manager_employee_id=employee["employee_id"],
-    )
+    return reports.overview(current_report_scope(request, authorization, app="employee"), course_id=course_id)
+
 
 
 router.add_api_route(
@@ -87,10 +85,13 @@ def _scope(
     }
 
 
-def _trainer_scope(request: Request, authorization: str | None) -> TrainerPerformanceScope:
-    trainer = current_trainer_from_request(request, authorization)
-    # Preserve shared published-course reporting without broadening authoring.
-    return TrainerPerformanceScope(trainer["trainer_id"], all_courses=True)
+def _trainer_scope(request: Request, authorization: str | None):
+    # Audience comes from the matched server route, never a browser role/app flag.
+    route = request.scope.get("route")
+    path = getattr(route, "path", "")
+    app = "employee" if path.startswith("/api/employee/performance") else "trainer"
+    return current_report_scope(request, authorization, app=app)
+
 
 
 @router.get("/trainer/performance/overview", response_model=PerformanceOverview)
@@ -458,5 +459,15 @@ router.add_api_route(
     "/employee/team-performance",
     hod_team_performance,
     methods=["GET"],
-    response_model=TrainerPerformanceResponse,
+    response_model=PerformanceOverview,
 )
+
+
+# Capture existing route entries before adding their employee counterparts.
+for route in list(router.routes):
+    if route.path.startswith("/api/trainer/performance/"):
+        router.add_api_route(
+            route.path.replace("/api/trainer/performance/", "/employee/performance/"),
+            route.endpoint, methods=list(route.methods), response_model=route.response_model,
+            name="employee_" + route.name,
+        )

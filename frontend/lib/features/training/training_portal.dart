@@ -13,8 +13,9 @@ import 'package:frontend/core/config/app_constants.dart';
 
 class TrainingView extends ConsumerStatefulWidget {
   final Course course;
+  final bool readOnly;
 
-  const TrainingView({super.key, required this.course});
+  const TrainingView({super.key, required this.course, this.readOnly = false});
 
   @override
   ConsumerState<TrainingView> createState() => _TrainingViewState();
@@ -249,7 +250,7 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
                 ),
                 onPressed: () {
                   final videoUrl =
-                      '${AppConstants.apiBaseUrl}/${module.videoPath!}';
+                      AppConstants.videoAssetUrl(module.videoPath!);
                   _downloadVideo(videoUrl, _videoDownloadFilename(module));
                 },
               ),
@@ -343,7 +344,7 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () {
+                onPressed: widget.readOnly ? null : () {
                   ref.read(videoGenerationProvider.notifier).generateVideo(
                         widget.course.courseId,
                         module.moduleNumber,
@@ -365,7 +366,7 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
       );
     }
 
-    final videoUrl = '${AppConstants.apiBaseUrl}/${module.videoPath!}';
+    final videoUrl = AppConstants.videoAssetUrl(module.videoPath!);
     return Container(
       height: 450,
       decoration: BoxDecoration(
@@ -583,7 +584,7 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: () async {
+              onPressed: widget.readOnly ? null : () async {
                 await ref.read(quizGenerationProvider.notifier).generateQuiz(
                       widget.course.courseId,
                       ref,

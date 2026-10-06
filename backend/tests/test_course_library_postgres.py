@@ -17,9 +17,6 @@ pytestmark = pytest.mark.skipif(
 def library_db(access_db, monkeypatch):
     access_db.execute("CREATE TABLE trainers (trainer_id TEXT PRIMARY KEY, name TEXT)")
     access_db.execute("INSERT INTO trainers VALUES ('t-1', 'Kiran'), ('t-2', 'Karneeshkar')")
-    access_db.execute("""CREATE TABLE courses (
-        course_id TEXT PRIMARY KEY, trainer_id TEXT, course_name TEXT, course_description TEXT,
-        status TEXT, created_at TEXT, updated_at TEXT)""")
     access_db.execute("CREATE TABLE course_generation_status (course_id TEXT PRIMARY KEY, status TEXT)")
     for course_id, owner, status in [("c-1", "t-1", "draft"), ("c-2", "t-2", "published"),
                                       ("c-3", "t-2", "archived")]:

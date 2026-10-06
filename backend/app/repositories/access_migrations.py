@@ -36,7 +36,7 @@ STATEMENTS = (
 )
 
 
-def apply_access_migrations(connection) -> None:
+def _apply_authoring_migration(connection) -> None:
     advisory_xact_lock(connection, "lms-access-schema-migrations")
     connection.execute("""CREATE TABLE IF NOT EXISTS lms_schema_migrations (
         version TEXT PRIMARY KEY,
@@ -49,3 +49,10 @@ def apply_access_migrations(connection) -> None:
     for statement in STATEMENTS:
         connection.execute(statement)
     connection.execute("INSERT INTO lms_schema_migrations(version) VALUES (?)", (VERSION,))
+
+
+def apply_access_migrations(connection) -> None:
+    from app.repositories.report_access_migrations import apply_report_access_migration
+
+    _apply_authoring_migration(connection)
+    apply_report_access_migration(connection)
