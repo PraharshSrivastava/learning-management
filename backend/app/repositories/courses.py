@@ -711,3 +711,59 @@ class CourseRepository:
 
     def delete_for_trainer(self, course_id: str, trainer_id: str) -> dict | None:
         return delete_course_for_trainer(course_id, trainer_id)
+
+
+def get_course_owner(course_id: str) -> str | None:
+    """Authorize before loading modules, source text, or generation payloads."""
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT trainer_id FROM courses WHERE course_id = ?", (course_id,)
+        ).fetchone()
+    return row["trainer_id"] if row else None
+
+
+def course_library_page(
+    *, owner_id: str | None, status: str | None, generation_status: str | None,
+    search: str | None, limit: int, offset: int,
+) -> dict:
+    """One snapshot: count and bounded metadata page, never full course contents."""
+    predicates, params = [], []
+    for column, value in (
+        ("c.trainer_id", owner_id), ("c.status", status), ("g.status", generation_status),
+    ):
+        if value is not None:
+            predicates.append(f"{column} = ?")
+            params.append(value)
+    if search:
+        predicates.append("strpos(lower(c.course_name), lower(?)) > 0")
+        params.append(search)
+    where = " AND ".join(predicates) or "TRUE"
+    with get_connection() as connection:
+        row = connection.execute(
+            f"""
+            WITH filtered AS (
+                SELECT c.course_id, c.trainer_id, c.course_name, c.course_description,
+                       c.status, c.created_at, c.updated_at, g.status AS generation_status,
+                       t.name AS creator_name
+                FROM courses c
+                LEFT JOIN trainers t ON t.trainer_id = c.trainer_id
+                LEFT JOIN course_generation_status g ON g.course_id = c.course_id
+                WHERE {where}
+            ), page AS (
+                SELECT * FROM filtered
+                ORDER BY created_at DESC, course_id DESC LIMIT ? OFFSET ?
+            )
+            SELECT (SELECT COUNT(*) FROM filtered) AS total,
+                   COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY p.created_at DESC, p.course_id DESC)
+                             FROM page p), '[]'::jsonb) AS items
+            """, (*params, limit, offset),
+        ).fetchone()
+    return {"total": int(row["total"]), "items": row["items"], "limit": limit, "offset": offset}
+
+
+def get_course_creator_name(trainer_id: str) -> str | None:
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT name FROM trainers WHERE trainer_id = ?", (trainer_id,)
+        ).fetchone()
+    return row["name"] if row else None

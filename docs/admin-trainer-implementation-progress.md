@@ -41,12 +41,10 @@ The existing Flutter 3.24 runtime resolves some packages differently from checke
 
 ## Remaining stages
 
-1. Persistent role storage, audit/provisioning, capability discovery; confirm the authoritative department-HOD contract before production HOD activation.
-2. Admin cross-owner read-only library/details and explicit creator-only denial, with all-course reporting retained for normal Trainers.
-3. Course-specific Observer grant storage, revision/apply/revoke behavior, and automatic capability discovery from active grants.
-4. Scoped Employee report endpoints sharing the existing reporting engine; HOD/Observer union and revocation checks.
-5. Existing product UI integration in both apps, role/scope cache isolation, Observer Include controls and admin read-only inspector.
-6. Document/media access isolation, renderer/playback compatibility, final UAT, deployment and rollback evidence.
+1. Course-specific Observer grant storage, revision/apply/revoke behavior, and automatic capability discovery from active grants.
+2. Scoped Employee report endpoints sharing the existing reporting engine; HOD/Observer union and revocation checks. Confirm the authoritative department-HOD contract before production HOD activation.
+3. Existing product UI integration in both apps, role/scope cache isolation, Observer Include controls and admin read-only inspector.
+4. Document/media access isolation, renderer/playback compatibility, final UAT, deployment and rollback evidence.
 
 Checkpoint 1 is an integration foundation, not completion of the four-role feature. Application release, pushing, merging into the release branch, and deployment remain pending.
 
@@ -60,3 +58,18 @@ The Employee app receives learning capabilities only in this stage; stored Admin
 Checks: 152 focused access, Hub, reporting and SMTP/TTS tests passed. This includes ten PostgreSQL migration/grant/audit tests inside rolled-back isolated schemas: idempotence, preserved records, exact identity, active synced grant requirement, no-op versions, revoke, identity reuse protection, audit rollback and current-session grant/revoke. Last full backend run: 253 passed, the same unchanged image-slide failure; the final added Hub production-mode discovery test passed in the final focused run. Ruff passed. No frontend changes, so the checkpoint-1 frontend builds remain the last frontend verification. No production schema migration or Kiran grant was performed.
 
 Operations runbook: `docs/admin-trainer-access-operations.md`. Next implementation stage: Admin cross-owner read-only course/assignment/generation visibility and creator-only mutation denial; normal Trainers retain report-only access to other creators’ metrics. Authoritative HOD source remains required before HOD activation.
+
+
+## Checkpoint 3: Admin course oversight APIs and creator-only management
+
+Implemented on `codex/admin-trainer-oversight` in the isolated attached checkout:
+
+- `GET /api/trainer/course-library`: explicit `scope=own|all`, creator/status/generation-status/title filters; default own scope retained. Admin grants are checked from current canonical identity and persisted roles for every cross-owner/all-scope request. Normal Trainers cannot widen this authoring library. One PostgreSQL statement returns the full filtered total and a bounded metadata page (default 50, maximum 100). Ordering is deterministic by creation timestamp and course ID descending; version one uses validated offset pagination, not a frozen cursor snapshot. Concurrent insert/delete changes can shift later pages; refresh starts the library again.
+- Existing course GET permits owner or current Admin, and adds creator display name, `can_manage`, and the server-derived read-only explanation. Assignment configuration GET and generation-job GET permit authorized Admin reads. Jobs are authorized against their actual course, including missing/deleted-course rejection. All successful privileged GETs disable caching.
+- `GET /api/trainer/course-library/{course_id}/assignments` provides bounded assigned-learner reporting through the existing Performance engine with a server-fixed course and explicit owner scope. Published/active/nonrevoked eligibility is preserved; draft/disabled courses have no eligible report rows. Status counts/summary cards remain available through the existing course-filtered Performance APIs, rather than being counted from one inspector page.
+- Editing, manual quiz edits, assignment saves/publication/disable, deletion, all generation stages, job creation and resume reject cross-owner Admin changes with HTTP 403 and the specified creator-only explanation before any mutation service call. Ordinary Trainers receive 404 for inaccessible content/resources. Original service/repository ownership checks remain in place, with the actual authenticated creator ID passed into mutations.
+- Legacy own-course list and current Trainer all-course Performance behavior are preserved. Employee-app tokens cannot enter these Trainer authoring/oversight APIs even with a stored Admin grant. Revocation blocks the next cross-owner request in the same session. Inactive canonical Admin identities fail authentication.
+
+Validation: 111 focused oversight/library/shared-reporting/PostgreSQL parity tests passed, including eight new rollback-only SQL tests for pagination, matching totals, duplicate titles/timestamps, literal search, injection strings, creator filters and minimal owner lookup. Final full backend suite: **306 passed, one unchanged image-slide failure**. Ruff passed. Existing learning/publishing helpers, SMTP/TTS generation internals, auth/Hub, Performance endpoints, frontend apps and deployment files have no changes from checkpoint 2. No production migration, grant, email or deployment occurred.
+
+This is the backend oversight checkpoint. Existing deployed UI remains unchanged until its planned integration stage. Document/media URL isolation is still pending; resource authorization must not yet be represented as end-to-end file privacy. Next stage: revisioned course-specific Observer configuration and grants; HOD production activation stays gated on a verified authoritative directory mapping.

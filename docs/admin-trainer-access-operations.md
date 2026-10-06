@@ -46,3 +46,12 @@ Grants are queried again on every capability request. Roles and version are read
 Access integration tests use a randomly named schema inside the isolated `lms_performance_demo` database; all changes are rolled back, including the schema itself. Tests refuse any other database. Run with `LMS_ACCESS_POSTGRES_TESTS=true`. Existing reporting parity tests remain read-only. Email delivery/scheduling and directory sync are disabled during checks.
 
 To withdraw Admin oversight, use the audited revoke operation and retain established Trainer access. If disabling capability discovery, keep additive tables/audit history and ordinary learning/Trainer reporting intact. Do not restore databases just to remove a role. Do not remove SMTP, TTS, signature/audience checks or other accepted fixes as part of rollback.
+
+
+## Admin oversight API checkpoint
+
+After the approved additive access migration and exact-identity Admin grant, the Trainer-app session can request `/api/trainer/course-library?scope=all`. Default library requests and the legacy `/api/courses` array remain own-course. Course inspection returns `creator_name`, `can_manage` and `read_only_reason`; assignment settings and generation monitoring are read-only across creators. Every cross-owner request checks the current grant. Revoking Admin removes this content oversight on the next request while retaining base Trainer entitlement and all-course Performance. Cross-owner edits/publication/disable/delete/generation return 403 with the creator-only explanation; no Admin override exists.
+
+The library uses bounded offset pagination and a deterministic sort. Under concurrent course creation/deletion, refresh the first page rather than assuming a multi-request snapshot. The assigned-learner inspector reuses eligible published-course reporting; draft/disabled/revoked assignments are excluded. Its summary counts come from existing course-filtered Performance APIs.
+
+UI integration and document/media authorization are pending. Do not treat this backend checkpoint as production rollout readiness. No Kiran grant has been applied by development tests.

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.analytics import router as analytics_router
 from app.api.assignments import router as assignment_router
 from app.api.auth import router as auth_router
+from app.api.course_library import router as course_library_router
 from app.api.courses import router as course_router
 from app.api.directory import router as directory_router
 from app.api.document_builder import router as document_builder_router
@@ -22,6 +23,7 @@ api_router.include_router(upload_router)
 api_router.include_router(document_builder_router)
 api_router.include_router(auth_router)
 api_router.include_router(course_router)
+api_router.include_router(course_library_router)
 api_router.include_router(directory_router)
 api_router.include_router(generation_router)
 api_router.include_router(employee_router)
