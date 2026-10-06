@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.repositories.database import get_connection
 
 TABLES = (
+    "learning_events",
     "module_progress",
     "email_notification_items",
     "email_notifications",
@@ -218,6 +219,7 @@ def _create_tables(cursor) -> None:
             started_at TEXT,
             completed_at TEXT,
             last_activity_at TEXT,
+            last_learner_activity_at TEXT,
             revoked_at TEXT,
             assigned_department TEXT,
             revoked_reason TEXT,
@@ -235,6 +237,12 @@ def _create_tables(cursor) -> None:
         """
         ALTER TABLE course_assignments
         ADD COLUMN IF NOT EXISTS notification_lifecycle INTEGER NOT NULL DEFAULT 1
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE course_assignments
+        ADD COLUMN IF NOT EXISTS last_learner_activity_at TEXT
         """
     )
     cursor.execute(
@@ -423,6 +431,20 @@ def _create_tables(cursor) -> None:
     )
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS learning_events (
+            event_id TEXT PRIMARY KEY,
+            assignment_id TEXT NOT NULL REFERENCES course_assignments(assignment_id) ON DELETE CASCADE,
+            module_id TEXT REFERENCES course_modules(module_id) ON DELETE SET NULL,
+            event_type TEXT NOT NULL CHECK (event_type IN ('video_watched', 'quiz_attempt', 'course_started', 'course_completed')),
+            occurred_at TEXT NOT NULL,
+            score REAL,
+            passed BOOLEAN,
+            CHECK (score IS NULL OR (score >= 0 AND score <= 100))
+        )
+        """
+    )
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS course_generation_status (
             course_id TEXT PRIMARY KEY,
             status TEXT NOT NULL DEFAULT 'pending',
@@ -461,6 +483,9 @@ def _create_indexes(cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_assignments_employee ON course_assignments(employee_id)",
         "CREATE INDEX IF NOT EXISTS idx_assignments_status ON course_assignments(status)",
         "CREATE INDEX IF NOT EXISTS idx_course_assignments_deadline ON course_assignments(deadline)",
+        "CREATE INDEX IF NOT EXISTS idx_course_assignments_learner_activity ON course_assignments(last_learner_activity_at)",
+        "CREATE INDEX IF NOT EXISTS idx_learning_events_assignment_time ON learning_events(assignment_id, occurred_at)",
+        "CREATE INDEX IF NOT EXISTS idx_learning_events_type_time ON learning_events(event_type, occurred_at)",
         "CREATE INDEX IF NOT EXISTS idx_email_notifications_status_next "
         "ON email_notifications(status, next_attempt_at)",
         "CREATE INDEX IF NOT EXISTS idx_email_notifications_assignment "

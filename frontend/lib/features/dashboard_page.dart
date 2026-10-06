@@ -10,7 +10,7 @@ import 'package:frontend/features/document_builder/document_builder_portal.dart'
 import 'package:frontend/features/courses/course_portal.dart';
 import 'package:frontend/features/training/training_portal.dart';
 import 'package:frontend/features/assignments/assignment_portal.dart';
-import 'package:frontend/features/performance/performance_portal.dart';
+import 'package:frontend/features/performance/performance_report_portal.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -38,13 +38,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           ref.read(currentTabProvider.notifier).state = 4;
-          ref.read(performanceProvider.notifier).updateFilter(
-                PerformanceFilter(
-                  courseId: query['course_id'],
-                  status: query['status'] == 'due_soon'
-                      ? 'due_soon'
-                      : query['status'],
-                ),
+          final linkedStatus = switch (query['status']) {
+            'due_soon' || 'overdue' || 'completed' => query['status'],
+            'assigned' || 'reactivated' || 'assignment_reminder' => 'assigned',
+            _ => null,
+          };
+          ref.read(performanceReportProvider.notifier).openLinkedReport(
+                courseId: query['course_id'],
+                status: linkedStatus,
               );
         });
       }
@@ -157,7 +158,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ref
                       .read(assignableCourseListProvider.notifier)
                       .fetchCourses();
-                  ref.read(performanceProvider.notifier).fetch();
+                  ref.read(performanceReportProvider.notifier).refresh();
                 },
                 tooltip: 'Refresh All Data',
               ),
@@ -180,7 +181,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   selectedCourse: selectedCourse,
                   isMobile: isMobile,
                 ),
-                const PerformancePortal(),
+                const PerformanceReportPortal(),
               ],
             ),
           ),
@@ -410,7 +411,7 @@ void _bootstrapTrainerData(WidgetRef ref) {
   ref.read(fileListProvider.notifier).fetchFiles();
   ref.read(courseListProvider.notifier).ensureLoaded();
   ref.read(assignableCourseListProvider.notifier).ensureLoaded();
-  ref.read(performanceProvider.notifier).fetch();
+  ref.read(performanceReportProvider.notifier).refresh();
 }
 
 Future<void> _activateTrainerTab(WidgetRef ref, int tabIndex) async {
@@ -429,7 +430,7 @@ Future<void> _activateTrainerTab(WidgetRef ref, int tabIndex) async {
       _syncSelectedCourseFromAssignableList(ref);
       break;
     case 4:
-      await ref.read(performanceProvider.notifier).fetch();
+      await ref.read(performanceReportProvider.notifier).refresh();
       break;
   }
 }
@@ -560,9 +561,8 @@ class _TrainerLoginPage extends ConsumerWidget {
                                                   .notifier)
                                               .ensureLoaded();
                                           ref
-                                              .read(
-                                                  performanceProvider.notifier)
-                                              .fetch();
+                                              .read(performanceReportProvider.notifier)
+                                              .refresh();
                                         }
                                       },
                                 child: Padding(
