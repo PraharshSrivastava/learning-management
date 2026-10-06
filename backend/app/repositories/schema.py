@@ -5,6 +5,10 @@ from __future__ import annotations
 from app.repositories.database import get_connection
 
 TABLES = (
+    "lms_access_audit",
+    "lms_authoring_roles",
+    "lms_access_versions",
+    "lms_schema_migrations",
     "learning_events",
     "module_progress",
     "email_notification_items",
@@ -29,6 +33,9 @@ def init_db() -> None:
         cursor = connection.cursor()
         _create_tables(cursor)
         _create_indexes(cursor)
+        from app.repositories.access_migrations import apply_access_migrations
+
+        apply_access_migrations(connection)
         connection.commit()
 
 
@@ -40,6 +47,9 @@ def recreate_db() -> None:
             cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
         _create_tables(cursor)
         _create_indexes(cursor)
+        from app.repositories.access_migrations import apply_access_migrations
+
+        apply_access_migrations(connection)
         connection.commit()
 
 

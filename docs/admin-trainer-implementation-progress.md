@@ -49,3 +49,14 @@ The existing Flutter 3.24 runtime resolves some packages differently from checke
 6. Document/media access isolation, renderer/playback compatibility, final UAT, deployment and rollback evidence.
 
 Checkpoint 1 is an integration foundation, not completion of the four-role feature. Application release, pushing, merging into the release branch, and deployment remain pending.
+
+
+## Checkpoint 2: persistent Admin grants and capability discovery
+
+Completed on the same isolated access branch. Added versioned additive access migration (advisory lock and ledger), stable-identity-bound Admin grants, audit/permission version in the same transaction, an operations-only CLI, and `GET /api/lms/me` with explicit app-audience authentication. Canonical identity linking uses directory UUID/employee ID without email fallback. Both the normal Trainer entitlement and all-course performance remain intact. Grants/version are read from one database snapshot; revoke affects an existing session on its next capability request. No automatic or name-based Admin promotion exists.
+
+The Employee app receives learning capabilities only in this stage; stored Admin grants do not enable Trainer access through an Employee session. HOD/Observer reporting capabilities remain false until authoritative mappings/effective grants are implemented. The Admin library is not yet wired to resource APIs. Current login response shapes, Hub signatures/audiences and existing authoring/reporting endpoints are unchanged.
+
+Checks: 152 focused access, Hub, reporting and SMTP/TTS tests passed. This includes ten PostgreSQL migration/grant/audit tests inside rolled-back isolated schemas: idempotence, preserved records, exact identity, active synced grant requirement, no-op versions, revoke, identity reuse protection, audit rollback and current-session grant/revoke. Last full backend run: 253 passed, the same unchanged image-slide failure; the final added Hub production-mode discovery test passed in the final focused run. Ruff passed. No frontend changes, so the checkpoint-1 frontend builds remain the last frontend verification. No production schema migration or Kiran grant was performed.
+
+Operations runbook: `docs/admin-trainer-access-operations.md`. Next implementation stage: Admin cross-owner read-only course/assignment/generation visibility and creator-only mutation denial; normal Trainers retain report-only access to other creators’ metrics. Authoritative HOD source remains required before HOD activation.
