@@ -110,6 +110,7 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
     if (existing.isEmpty) return summary;
     final detail = existing.first;
     return detail.copyWith(
+      trainerId: summary.trainerId,
       courseName: summary.courseName,
       courseDescription: summary.courseDescription,
       courseObjective: summary.courseObjective,

@@ -2,6 +2,9 @@
 
 from fastapi import APIRouter, Header, Request, Response
 
+from app.core.exceptions import NotFoundError
+from app.repositories.courses import get_course_creator_name
+from app.repositories.documents import get_document_by_file_name
 from app.schemas.common import MessageResponse
 from app.schemas.course import (
     CourseResponse,
@@ -9,8 +12,14 @@ from app.schemas.course import (
     CourseUpdateRequest,
     GenerateCourseRequest,
 )
+from app.schemas.course_library import CourseInspectionResponse
 from app.schemas.quiz import ManualQuizRequest
 from app.services.auth import current_trainer_from_request
+from app.services.course_authorization import (
+    READ_ONLY_MESSAGE,
+    course_owner_for_read,
+    require_course_creator,
+)
 from app.services.courses import CourseService
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
@@ -24,6 +33,8 @@ def generate_course(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    if not get_document_by_file_name(payload.file_name, trainer["trainer_id"]):
+        raise NotFoundError("Source document not found")
     return service.generate_outline(payload.file_name, trainer["trainer_id"])
 
 
@@ -38,7 +49,7 @@ def list_courses(
     return service.list_course_summaries(trainer["trainer_id"])
 
 
-@router.get("/{course_id}", response_model=CourseResponse)
+@router.get("/{course_id}", response_model=CourseInspectionResponse)
 def get_course(
     course_id: str,
     response: Response,
@@ -46,8 +57,15 @@ def get_course(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    owner_id = course_owner_for_read(course_id, trainer)
     response.headers.update({"Cache-Control": "no-store", "Pragma": "no-cache", "Expires": "0"})
-    return service.get_course(course_id, trainer["trainer_id"])
+    course = dict(service.get_course(course_id, owner_id))
+    can_manage = owner_id == trainer["trainer_id"]
+    return {
+        **course, "creator_name": get_course_creator_name(owner_id),
+        "can_manage": can_manage,
+        "read_only_reason": None if can_manage else READ_ONLY_MESSAGE,
+    }
 
 
 @router.put("/{course_id}", response_model=CourseResponse)
@@ -58,6 +76,7 @@ def update_course(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return service.update_course(course_id, payload, trainer["trainer_id"])
 
 
@@ -68,6 +87,7 @@ def delete_course(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     service.delete_course(course_id, trainer["trainer_id"])
     return MessageResponse(message="Course deleted successfully")
 
@@ -81,4 +101,5 @@ def update_module_quiz(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return service.update_module_quiz(course_id, module_number, payload, trainer["trainer_id"])

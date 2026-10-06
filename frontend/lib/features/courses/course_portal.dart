@@ -1172,7 +1172,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                     color: AppTheme.lightGray.withOpacity(0.3),
                                     child: Center(
                                       child: Image.network(
-                                        '${AppConstants.apiBaseUrl}/${img.filePath}',
+                                        AppConstants.assetUrl(img.filePath),
                                         fit: BoxFit.contain,
                                         errorBuilder:
                                             (context, error, stackTrace) =>

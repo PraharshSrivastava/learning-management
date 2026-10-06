@@ -33,6 +33,7 @@ def _assignment_from_row(row) -> dict:
         "modules": {},
         "attempts": {},
         "last_activity_at": row["last_activity_at"],
+        "last_learner_activity_at": row.get("last_learner_activity_at"),
         "revoked_at": row["revoked_at"],
         "assigned_department": row.get("assigned_department"),
         "revoked_reason": row.get("revoked_reason"),
@@ -208,9 +209,9 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
             """
             INSERT INTO course_assignments (
                 assignment_id, course_id, employee_id, status, assigned_at, deadline,
-                started_at, completed_at, last_activity_at, revoked_at,
+                started_at, completed_at, last_activity_at, last_learner_activity_at, revoked_at,
                 assigned_department, revoked_reason, notification_lifecycle, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(course_id, employee_id) DO UPDATE SET
                 status = excluded.status,
                 assigned_at = excluded.assigned_at,
@@ -218,6 +219,7 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 started_at = excluded.started_at,
                 completed_at = excluded.completed_at,
                 last_activity_at = excluded.last_activity_at,
+                last_learner_activity_at = COALESCE(excluded.last_learner_activity_at, course_assignments.last_learner_activity_at),
                 revoked_at = excluded.revoked_at,
                 assigned_department = excluded.assigned_department,
                 revoked_reason = excluded.revoked_reason,
@@ -234,6 +236,7 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                 data.get("started_at"),
                 data.get("completed_at"),
                 data.get("last_activity_at", now),
+                data.get("last_learner_activity_at"),
                 data.get("revoked_at"),
                 data.get("assigned_department"),
                 data.get("revoked_reason"),
@@ -247,6 +250,10 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
             if not module_id:
                 continue
             attempt = (data.get("attempts") or {}).get(str(module_number), {})
+            previous_module = connection.execute(
+                "SELECT video_watched, attempt_count FROM module_progress WHERE assignment_id = ? AND module_id = ?",
+                (assignment_id, module_id),
+            ).fetchone()
             connection.execute(
                 """
                 INSERT INTO module_progress (
@@ -280,6 +287,16 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                     now,
                 ),
             )
+            if module_progress.get("video_watched") and not (previous_module or {}).get("video_watched"):
+                connection.execute(
+                    "INSERT INTO learning_events (event_id, assignment_id, module_id, event_type, occurred_at) VALUES (?, ?, ?, 'video_watched', ?)",
+                    (str(uuid.uuid4()), assignment_id, module_id, module_progress.get("video_watched_at") or now),
+                )
+            if int(attempt.get("count") or 0) > int((previous_module or {}).get("attempt_count") or 0):
+                connection.execute(
+                    "INSERT INTO learning_events (event_id, assignment_id, module_id, event_type, occurred_at, score, passed) VALUES (?, ?, ?, 'quiz_attempt', ?, ?, ?)",
+                    (str(uuid.uuid4()), assignment_id, module_id, attempt.get("last_attempt_at") or now, attempt.get("last_score"), attempt.get("last_passed")),
+                )
         from app.services.email_notifications import (
             cancel_assignment_notifications,
             enqueue_assignment_notifications,

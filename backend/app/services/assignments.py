@@ -388,8 +388,10 @@ def api_disable_course_assignment(course_id: str, trainer_id: str):
         disable=True,
         disabled_by_trainer_id=trainer_id,
     )
+    from app.repositories.observers import suspend_course
     from app.services.notifications import schedule_employee_broadcast
 
+    suspend_course(course_id, trainer_id)
     now = datetime.now()
     for employee_id, course_progress in _progress.get_for_course(course_id).items():
         if course_progress.get("status") != "revoked":

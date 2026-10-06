@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/features/assignments/observer_include_panel.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -302,10 +303,13 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
+                SizedBox(
+                  width: 240,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -340,7 +344,6 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                         borderRadius: BorderRadius.circular(999)),
                   ),
                 ),
-                const SizedBox(width: 10),
                 IconButton.outlined(
                   tooltip: 'Refresh people and saved groups',
                   onPressed: assignment.isLoading ||
@@ -352,7 +355,6 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                           .refreshOptionsAndGroups(),
                   icon: const Icon(Icons.refresh),
                 ),
-                const SizedBox(width: 10),
                 FilledButton.icon(
                   onPressed: assignment.isSaving || assignment.isPublishing
                       ? null
@@ -368,7 +370,6 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                         borderRadius: BorderRadius.circular(999)),
                   ),
                 ),
-                const SizedBox(width: 10),
                 OutlinedButton.icon(
                   onPressed: assignment.isSaving ||
                           assignment.isPublishing ||
@@ -431,6 +432,7 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                           _update(rule.copyWith(includeGroups: groups)),
                     ),
                   ],
+                  ObserverIncludePanel(key: ValueKey('${course.courseId}:${ref.watch(trainerAuthProvider).trainer?.trainerId}:${ref.watch(lmsAccessProvider)['permissions_version']}'), course: course, employees: assignment.options.employees),
                 ],
               ),
             ),

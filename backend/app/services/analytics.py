@@ -188,7 +188,7 @@ def api_trainer_performance(
                 continue
         if status == "due_soon":
             deadline = parse_datetime(progress.get("deadline"))
-            if not deadline or not (now < deadline <= now + timedelta(days=settings.email_due_soon_days)):
+            if status_info["key"] == "completed" or not deadline or not (now < deadline <= now + timedelta(days=settings.email_due_soon_days)):
                 continue
         elif status and status not in {"assigned"} and status_info["key"] != status:
             continue
@@ -255,6 +255,10 @@ def api_trainer_performance(
     if manager_employee_id is None:
         options = _employees.assignment_options()
         options.pop("job_titles", None)
+        visible_ids = {row["employee"]["employee_id"] for row in rows}
+        options["employees"] = [employee for employee in options["employees"] if employee["employee_id"] in visible_ids]
+        options["departments"] = sorted({employee.get("department") for employee in options["employees"] if employee.get("department")})
+        options["mailing_lists"] = sorted({group for employee in options["employees"] for group in employee.get("mailing_lists", [])})
     else:
         options = {
             "departments": sorted(

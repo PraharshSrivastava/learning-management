@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Header, Query, Request
+from fastapi import APIRouter, Header, Query, Request, Response
 
 from app.schemas.assignment import (
     AssignmentOptionsResponse,
@@ -26,6 +26,7 @@ from app.services.assignments import (
     api_update_saved_assignment_group,
 )
 from app.services.auth import current_trainer_from_request
+from app.services.course_authorization import course_owner_for_read, require_course_creator
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 
@@ -102,10 +103,13 @@ def assignable_courses(
 def get_course_assignment(
     course_id: str,
     request: Request,
+    response: Response,
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
-    return api_get_course_assignment(course_id, trainer["trainer_id"])
+    response.headers["Cache-Control"] = "no-store"
+    owner_id = course_owner_for_read(course_id, trainer)
+    return api_get_course_assignment(course_id, owner_id)
 
 
 @router.put("/courses/{course_id}/assignment", response_model=CourseAssignmentResponse)
@@ -116,6 +120,7 @@ def save_course_assignment(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return api_save_course_assignment(course_id, payload, trainer["trainer_id"])
 
 
@@ -127,6 +132,7 @@ def publish_course_assignment(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return api_publish_course_assignment(course_id, payload, trainer["trainer_id"])
 
 
@@ -137,4 +143,5 @@ def disable_course_assignment(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return api_disable_course_assignment(course_id, trainer["trainer_id"])

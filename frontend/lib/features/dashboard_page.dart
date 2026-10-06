@@ -8,9 +8,10 @@ import 'package:frontend/state/trainer_providers.dart';
 import 'package:frontend/features/documents/document_portal.dart';
 import 'package:frontend/features/document_builder/document_builder_portal.dart';
 import 'package:frontend/features/courses/course_portal.dart';
+import 'package:frontend/features/courses/course_library_access.dart';
 import 'package:frontend/features/training/training_portal.dart';
 import 'package:frontend/features/assignments/assignment_portal.dart';
-import 'package:frontend/features/performance/performance_portal.dart';
+import 'package:frontend/features/performance/performance_report_portal.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -19,7 +20,15 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends ConsumerState<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage> with WidgetsBindingObserver {
+  @override
+  void initState() { super.initState(); WidgetsBinding.instance.addObserver(this); }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) ref.read(lmsAccessProvider.notifier).refresh();
+  }
+  @override
+  void dispose() { WidgetsBinding.instance.removeObserver(this); super.dispose(); }
   String? _bootstrappedTrainerId;
   bool _deepLinkApplied = false;
 
@@ -38,13 +47,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           ref.read(currentTabProvider.notifier).state = 4;
-          ref.read(performanceProvider.notifier).updateFilter(
-                PerformanceFilter(
-                  courseId: query['course_id'],
-                  status: query['status'] == 'due_soon'
-                      ? 'due_soon'
-                      : query['status'],
-                ),
+          final linkedStatus = switch (query['status']) {
+            'due_soon' || 'overdue' || 'completed' => query['status'],
+            'assigned' || 'reactivated' || 'assignment_reminder' => 'assigned',
+            _ => null,
+          };
+          ref.read(performanceReportProvider.notifier).openLinkedReport(
+                courseId: query['course_id'],
+                status: linkedStatus,
               );
         });
       }
@@ -157,7 +167,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ref
                       .read(assignableCourseListProvider.notifier)
                       .fetchCourses();
-                  ref.read(performanceProvider.notifier).fetch();
+                  ref.read(performanceReportProvider.notifier).refresh();
                 },
                 tooltip: 'Refresh All Data',
               ),
@@ -174,13 +184,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               index: activeTab,
               children: [
                 _buildDocumentsPortal(context, ref, selectedFile, isMobile),
-                _buildCoursesPortal(context, ref, selectedCourse, isMobile),
-                _buildTrainingPortal(context, ref, selectedCourse, isMobile),
+                CourseLibraryAccess(ownPortal: _buildCoursesPortal(context, ref, selectedCourse, isMobile)),
+                CourseLibraryAccess(ownPortal: _buildTrainingPortal(context, ref, selectedCourse, isMobile)),
                 AssignmentPortal(
                   selectedCourse: selectedCourse,
                   isMobile: isMobile,
                 ),
-                const PerformancePortal(),
+                PerformanceReportPortal(key: ValueKey('${trainerAuth.trainer?.trainerId}:${trainerAuth.token}:${ref.watch(lmsAccessProvider)['permissions_version']}:${ref.watch(lmsAccessProvider)['report_scope_version']}')),
               ],
             ),
           ),
@@ -410,7 +420,7 @@ void _bootstrapTrainerData(WidgetRef ref) {
   ref.read(fileListProvider.notifier).fetchFiles();
   ref.read(courseListProvider.notifier).ensureLoaded();
   ref.read(assignableCourseListProvider.notifier).ensureLoaded();
-  ref.read(performanceProvider.notifier).fetch();
+  ref.read(performanceReportProvider.notifier).refresh();
 }
 
 Future<void> _activateTrainerTab(WidgetRef ref, int tabIndex) async {
@@ -429,7 +439,7 @@ Future<void> _activateTrainerTab(WidgetRef ref, int tabIndex) async {
       _syncSelectedCourseFromAssignableList(ref);
       break;
     case 4:
-      await ref.read(performanceProvider.notifier).fetch();
+      await ref.read(performanceReportProvider.notifier).refresh();
       break;
   }
 }
@@ -560,9 +570,8 @@ class _TrainerLoginPage extends ConsumerWidget {
                                                   .notifier)
                                               .ensureLoaded();
                                           ref
-                                              .read(
-                                                  performanceProvider.notifier)
-                                              .fetch();
+                                              .read(performanceReportProvider.notifier)
+                                              .refresh();
                                         }
                                       },
                                 child: Padding(

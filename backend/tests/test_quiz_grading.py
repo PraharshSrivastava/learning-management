@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.exceptions import DomainValidationError
-from app.schemas.progress import ModuleProgressUpdateRequest
+from app.schemas.progress import CourseStatusUpdateRequest, ModuleProgressUpdateRequest
 from app.services import learning
 from app.services.learning import QUIZ_PASS_MARK, _grade_quiz, _learner_modules
 
@@ -102,6 +102,31 @@ class _Progress:
         assert employee_id == "employee-1"
         assert course_id == "course-1"
         self.saved = progress
+
+
+def test_course_cannot_be_manually_completed_before_modules_pass(monkeypatch) -> None:
+    course_progress = {"status": "started", "modules": {"1": {"video_watched": True}}}
+    monkeypatch.setattr(
+        learning,
+        "current_employee_from_request",
+        lambda request, authorization: {"employee_id": "employee-1"},
+    )
+    monkeypatch.setattr(learning, "ensure_assignments_for_employee", lambda _: None)
+    monkeypatch.setattr(
+        learning,
+        "_assigned_progress_for_employee",
+        lambda employee, course_id, now: course_progress,
+    )
+    monkeypatch.setattr(
+        learning,
+        "_courses",
+        _Courses({"course_id": "course-1", "modules": [_module(3)]}),
+    )
+
+    with pytest.raises(DomainValidationError, match="Complete all modules"):
+        asyncio.run(
+            learning.update_course_status("course-1", CourseStatusUpdateRequest(status="completed"))
+        )
 
 
 def test_module_progress_uses_backend_grading_and_persists_pass(monkeypatch) -> None:
