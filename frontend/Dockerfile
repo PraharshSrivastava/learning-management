@@ -20,7 +20,9 @@ RUN printf "API_BASE_URL=%s\n" "$API_BASE_URL" > .env \
 FROM nginxinc/nginx-unprivileged:1.31.6-alpine3.24@sha256:6a23acdfca2b9cfbcec61419e3f1426bcbedb91362f2f19306a8567423bb4612
 USER root
 RUN apk upgrade --no-cache
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# An empty trusted edge address accepts no client-supplied forwarded scheme.
+ENV TRUSTED_EDGE_PROXY_IP=""
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/build/web /usr/share/nginx/html
 
 EXPOSE 8080

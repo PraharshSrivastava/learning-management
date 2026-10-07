@@ -105,3 +105,44 @@ def test_preview_authorizes_record_before_conversion(tmp_path, monkeypatch):
     client = TestClient(app)
     assert client.get("/api/files/private.docx/preview").status_code == 404
     assert events == ["authorization"]
+
+def _accel_client(tmp_path, monkeypatch, allowed=True):
+    (tmp_path / "a b.mp4").write_bytes(b"0123456789")
+    (tmp_path / "master.m3u8").write_text("#EXTM3U\nsegment.ts\n", encoding="utf-8")
+    monkeypatch.setattr(media, "media_principal", lambda *_: SimpleNamespace())
+    monkeypatch.setattr(media, "asset_courses", lambda *_: ["course-1"])
+
+    def authorize(*args):
+        if not allowed:
+            raise NotFoundError("Media not found")
+
+    monkeypatch.setattr(media, "authorize_course_media", authorize)
+    app = FastAPI()
+    install_exception_handlers(app)
+    app.mount("/assets/videos", media.PrivateCourseStaticFiles(
+        directory=tmp_path, accel_location="/_lms_private_videos/"))
+    return TestClient(app)
+
+def test_authorized_video_is_handed_to_nginx_only_when_proxy_asks(tmp_path, monkeypatch):
+    client = _accel_client(tmp_path, monkeypatch)
+    direct = client.get("/assets/videos/a%20b.mp4", headers={"Range": "bytes=2-5"})
+    assert direct.status_code == 206 and "x-accel-redirect" not in direct.headers
+    response = client.get("/assets/videos/a%20b.mp4", headers={"X-LMS-Accel-Videos": "1"})
+    assert response.status_code == 200 and response.content == b""
+    assert response.headers["x-accel-redirect"] == "/_lms_private_videos/a%20b.mp4"
+    assert response.headers["cache-control"] == "no-store"
+    missing = client.get("/assets/videos/none.mp4", headers={"X-LMS-Accel-Videos": "1"})
+    assert missing.status_code == 404 and "x-accel-redirect" not in missing.headers
+    escape = client.get("/assets/videos/%2e%2e/x.mp4", headers={"X-LMS-Accel-Videos": "1"})
+    assert "x-accel-redirect" not in escape.headers
+
+def test_ticketed_playlists_are_still_rewritten_by_backend(tmp_path, monkeypatch):
+    client = _accel_client(tmp_path, monkeypatch)
+    response = client.get("/assets/videos/master.m3u8?media_ticket=t", headers={"X-LMS-Accel-Videos": "1"})
+    assert "x-accel-redirect" not in response.headers
+    assert "segment.ts?media_ticket=t" in response.text
+
+def test_denied_video_never_gets_accel_redirect(tmp_path, monkeypatch):
+    client = _accel_client(tmp_path, monkeypatch, allowed=False)
+    response = client.get("/assets/videos/a%20b.mp4", headers={"X-LMS-Accel-Videos": "1"})
+    assert response.status_code == 404 and "x-accel-redirect" not in response.headers

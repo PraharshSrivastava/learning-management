@@ -12,9 +12,11 @@ from typing import Literal
 
 from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import HTTPConnection, cookie_parser
 from starlette.responses import JSONResponse
 
 from app.core.settings import Settings, settings
+from app.security.public_mount import validated_public_mount
 
 HubApp = Literal["trainer", "employee"]
 
@@ -71,10 +73,20 @@ class HubLaunchVerifier:
             return self.config.hub_trainer_app_key
         return self.config.hub_employee_app_key
 
-    def cookie_name(self, app: HubApp) -> str:
-        if app == "trainer":
-            return self.config.hub_trainer_cookie_name
-        return self.config.hub_employee_cookie_name
+    def cookie_name(self, app: HubApp, mount: str = "/") -> str:
+        """Root keeps the configured name. Shared mounts add a mount suffix.
+
+        Browsers send a Path=/ cookie to every path, so a prefixed mount must
+        use a different name to stay isolated from a root session. The suffix
+        also keeps /lms/ and /lms/trainer/ apart.
+        """
+        base = (
+            self.config.hub_trainer_cookie_name
+            if app == "trainer"
+            else self.config.hub_employee_cookie_name
+        )
+        suffix = mount.strip("/").replace("/", "_")
+        return f"{base}_{suffix}" if suffix else base
 
     def _sign_payload(self, payload: dict) -> str:
         payload_b64 = _b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
@@ -89,23 +101,26 @@ class HubLaunchVerifier:
         if not self.config.hub_launch_secret or "." not in token:
             return None
         payload_b64, sig_b64 = token.rsplit(".", 1)
-        expected = hmac.new(
-            self.config.hub_launch_secret.encode("utf-8"),
-            payload_b64.encode("ascii"),
-            hashlib.sha256,
-        ).digest()
         try:
+            expected = hmac.new(
+                self.config.hub_launch_secret.encode("utf-8"),
+                payload_b64.encode("ascii"),
+                hashlib.sha256,
+            ).digest()
             actual = _b64decode(sig_b64)
             payload = json.loads(_b64decode(payload_b64))
-        except (ValueError, TypeError, json.JSONDecodeError):
-            return None
-        if not hmac.compare_digest(actual, expected):
-            return None
-        if payload.get("app_key") != self.app_key(app):
-            return None
-        if int(payload.get("exp", 0)) < int(time.time()):
-            return None
-        if not payload.get("email") or payload.get("sub") is None:
+            if not hmac.compare_digest(actual, expected) or not isinstance(payload, dict):
+                return None
+            if payload.get("app_key") != self.app_key(app):
+                return None
+            if int(payload.get("exp", 0)) <= int(time.time()):
+                return None
+            if not isinstance(payload.get("email"), str) or not payload["email"]:
+                return None
+            int(payload["sub"])
+            if payload.get("app_id") is not None:
+                int(payload["app_id"])
+        except (ValueError, TypeError, KeyError, OverflowError):
             return None
         return payload
 
@@ -134,11 +149,17 @@ class HubLaunchVerifier:
             return None
         return HubSession.from_payload(app, payload)
 
-    def session_from_request(self, request: Request, app: HubApp) -> HubSession | None:
-        token = request.cookies.get(self.cookie_name(app))
-        if not token:
+    def session_from_request(self, request: HTTPConnection, app: HubApp) -> HubSession | None:
+        """Read only the cookie that belongs to the active public mount (HTTP and WebSocket)."""
+        mount = validated_public_mount(request, app)
+        if mount is None:
             return None
-        return self.verify_session_token(token, app)
+        name = self.cookie_name(app, mount)
+        for pair in request.headers.get("cookie", "").split(";"):
+            token = cookie_parser(pair).get(name)
+            if token is not None:
+                return self.verify_session_token(token, app)
+        return None
 
     def require_session(self, request: Request, app: HubApp) -> HubSession:
         if not self.config.hub_launch_secret and not self.config.hub_launch_dev_mode:
@@ -155,22 +176,32 @@ class HubLaunchVerifier:
         request.state.hub_user = session.as_response()
         return session
 
-    def set_cookie(self, response: Response, app: HubApp, token: str) -> None:
+    def cookie_secure_for_mount(self, path: str) -> bool:
+        """Use explicit TLS settings for the shared mount, never a request scheme header."""
+        if path != "/" and self.config.hub_shared_cookie_secure is not None:
+            return self.config.hub_shared_cookie_secure
+        return self.config.hub_cookie_secure
+
+    def set_cookie(self, response: Response, app: HubApp, token: str, path: str = "/") -> None:
+        """Set the app session cookie at the validated active public mount."""
         response.set_cookie(
-            self.cookie_name(app),
+            self.cookie_name(app, path),
             token,
             max_age=self.config.hub_launch_session_seconds,
+            path=path,
             httponly=True,
             samesite="lax",
-            secure=self.config.hub_cookie_secure,
+            secure=self.cookie_secure_for_mount(path),
         )
 
-    def clear_cookie(self, response: Response, app: HubApp) -> None:
+    def clear_cookie(self, response: Response, app: HubApp, path: str = "/") -> None:
+        """Delete the app session cookie at the same path used to create it."""
         response.delete_cookie(
-            self.cookie_name(app),
+            self.cookie_name(app, path),
+            path=path,
             httponly=True,
             samesite="lax",
-            secure=self.config.hub_cookie_secure,
+            secure=self.cookie_secure_for_mount(path),
         )
 
 

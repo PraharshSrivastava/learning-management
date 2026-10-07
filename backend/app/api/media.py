@@ -1,6 +1,7 @@
 """Media URLs do not grant reporting users course-content access."""
 
 import re
+import stat
 from urllib.parse import quote
 
 from fastapi import APIRouter, Header, Request
@@ -25,18 +26,37 @@ def media_ticket(request: Request, app: HubApp, authorization: str | None = Head
                     media_type="application/json", headers={"Cache-Control": "no-store"})
 
 
+# Sent by the frontend nginx only. It overwrites any client value, so a browser
+# cannot ask for an internal redirect.
+ACCEL_HEADER = "x-lms-accel-videos"
+
 class PrivateCourseStaticFiles(StaticFiles):
+    def __init__(self, *args, accel_location: str | None = None, **kwargs):
+        """accel_location is the nginx `internal` location that maps to this directory."""
+        super().__init__(*args, **kwargs)
+        self.accel_location = accel_location
+
     async def get_response(self, path, scope):
         request = Request(scope)
         principal = await run_in_threadpool(media_principal, request, request.headers.get("Authorization"))
         full_path = request.url.path
         course_ids = await run_in_threadpool(asset_courses, full_path)
         await run_in_threadpool(authorize_course_media, principal, course_ids)
+        ticket = request.query_params.get("media_ticket")
+        rewrites_playlist = bool(ticket) and path.endswith((".m3u8", ".html"))
+        if self.accel_location and request.headers.get(ACCEL_HEADER) == "1" and not rewrites_playlist:
+            # Authorization passed. Let nginx send the bytes with Range support.
+            full_file, stat_result = await run_in_threadpool(self.lookup_path, path)
+            if stat_result is not None and stat.S_ISREG(stat_result.st_mode):
+                return Response(status_code=200, headers={
+                    "X-Accel-Redirect": self.accel_location + quote(path.lstrip("/")),
+                    "Cache-Control": "no-store",
+                    "Referrer-Policy": "no-referrer",
+                })
         response = await super().get_response(path, scope)
         response.headers["Cache-Control"] = "no-store"
         response.headers["Referrer-Policy"] = "no-referrer"
-        ticket = request.query_params.get("media_ticket")
-        if ticket and path.endswith((".m3u8", ".html")) and response.status_code == 200:
+        if rewrites_playlist and response.status_code == 200:
             from pathlib import Path
             file_path, _ = await run_in_threadpool(self.lookup_path, path)
             content = await run_in_threadpool(Path(file_path).read_text, encoding="utf-8")

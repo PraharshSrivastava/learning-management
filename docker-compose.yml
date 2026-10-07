@@ -66,6 +66,7 @@ services:
       HUB_LAUNCH_SESSION_SECONDS: ${HUB_LAUNCH_SESSION_SECONDS:-28800}
       HUB_LAUNCH_DEV_MODE: ${HUB_LAUNCH_DEV_MODE:-false}
       HUB_COOKIE_SECURE: ${HUB_COOKIE_SECURE:-false}
+      HUB_SHARED_COOKIE_SECURE: ${HUB_SHARED_COOKIE_SECURE:-}
       DIRECTORY_EXPORTS_BASE_URL: ${DIRECTORY_EXPORTS_BASE_URL:-}
       DIRECTORY_EXPORTS_API_KEY: ${DIRECTORY_EXPORTS_API_KEY:-}
       DIRECTORY_SYNC_ADMIN_KEY: ${DIRECTORY_SYNC_ADMIN_KEY:-}
@@ -133,6 +134,8 @@ services:
       args:
         API_BASE_URL: ${FRONTEND_API_BASE_URL:-}
     restart: unless-stopped
+    environment:
+      TRUSTED_EDGE_PROXY_IP: ${TRUSTED_EDGE_PROXY_IP:-}
     volumes:
       - ${LMS_STORAGE_DIR:-/opt/lms/storage}/generated/videos:/srv/lms/videos:ro
     ports:
@@ -147,6 +150,8 @@ services:
       args:
         API_BASE_URL: ${EMPLOYEE_FRONTEND_API_BASE_URL:-}
     restart: unless-stopped
+    environment:
+      TRUSTED_EDGE_PROXY_IP: ${TRUSTED_EDGE_PROXY_IP:-}
     volumes:
       - ${LMS_STORAGE_DIR:-/opt/lms/storage}/generated/videos:/srv/lms/videos:ro
     ports:
