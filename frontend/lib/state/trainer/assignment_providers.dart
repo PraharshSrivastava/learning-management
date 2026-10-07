@@ -175,6 +175,10 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
       {bool initial = false}) async {
     final serial = ++_request;
     ++_previewRequest;
+    if (initial) {
+      _baseline = null;
+      _expectedUpdatedAt = null;
+    }
     state = initial
         ? AssignmentState(loadedCourseId: courseId, isLoading: true)
         : state.copyWith(isLoading: true);
@@ -267,11 +271,13 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   }
 
   Future<void> fetchSavedGroups() async {
+    final serial = _request;
     try {
       final response = await _client.get(
         Uri.parse(AppConstants.savedAssignmentGroupsEndpoint),
         headers: ref.read(trainerAuthHeadersProvider),
       );
+      if (!mounted || serial != _request) return;
       if (response.statusCode == 200) {
         state = state.copyWith(
           message: state.message,
@@ -287,6 +293,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
             message: state.message);
       }
     } catch (_) {
+      if (!mounted || serial != _request) return;
       state = state.copyWith(
           error: 'Saved groups could not be refreshed.',
           message: state.message);
@@ -294,14 +301,16 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   }
 
   Future<void> reloadSavedRule(String courseId) async {
+    final serial = _request;
     state = state.copyWith(isLoading: true, error: state.error);
     try {
       final data = await _read(AppConstants.courseAssignmentEndpoint(courseId));
-      if (!mounted || state.loadedCourseId != courseId) return;
+      if (!mounted || serial != _request || state.loadedCourseId != courseId)
+        return;
       _applyAssignmentResponse(data, isLoading: false);
       await fetchEmployeePreview();
     } catch (error) {
-      if (mounted && state.loadedCourseId == courseId)
+      if (mounted && serial == _request && state.loadedCourseId == courseId)
         state = state.copyWith(isLoading: false, error: '$error');
     }
   }
@@ -364,6 +373,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
             ...jsonDecode(draft) as Map<String, dynamic>,
             'observer_employee_ids': state.draftObserverIds
           }));
+      if (result.statusCode == 401 || result.statusCode == 403) {
+        throw const AssignmentSessionExpired();
+      }
       if (result.statusCode != 200)
         throw Exception(
             'Employee preview could not be refreshed (${result.statusCode}).');
@@ -395,12 +407,20 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     } catch (e) {
       if (mounted &&
           serial == _previewRequest &&
-          state.loadedCourseId == courseId)
-        state = state.copyWith(
-            isPreviewLoading: false,
-            previewStale: true,
-            error: '$e',
-            message: state.message);
+          state.loadedCourseId == courseId) {
+        if (e is AssignmentSessionExpired) {
+          clearForAuthChange();
+          state = const AssignmentState(
+              error:
+                  'Your session or course access changed. Sign in again to reload assignment data.');
+        } else {
+          state = state.copyWith(
+              isPreviewLoading: false,
+              previewStale: true,
+              error: '$e',
+              message: state.message);
+        }
+      }
     }
   }
 
@@ -423,12 +443,14 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   }
 
   Future<void> save(String courseId) async {
+    final operationRequest = _request;
     if (state.loadedCourseId != courseId ||
         state.isSaving ||
         state.isPublishing ||
         state.isLoading) return;
     await fetchEmployeePreview();
-    if (state.loadedCourseId != courseId) return;
+    if (state.loadedCourseId != courseId || operationRequest != _request)
+      return;
     if (state.previewStale) {
       state = state.copyWith(
           error: 'Refresh the employee preview before saving or publishing.');
@@ -456,7 +478,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     state = state.copyWith(isSaving: true);
     try {
       final ruleToSave = await _persistReusableGroups(state.rule);
-      if (!mounted || state.loadedCourseId != courseId) return;
+      if (!mounted ||
+          state.loadedCourseId != courseId ||
+          operationRequest != _request) return;
       final response = await _client.put(
         Uri.parse(AppConstants.courseAssignmentEndpoint(courseId)),
         headers: {
@@ -469,7 +493,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
             'expected_updated_at': _expectedUpdatedAt
         }),
       );
-      if (!mounted || state.loadedCourseId != courseId) return;
+      if (!mounted ||
+          state.loadedCourseId != courseId ||
+          operationRequest != _request) return;
       if (response.statusCode == 200) {
         _applyAssignmentResponse(
             jsonDecode(response.body) as Map<String, dynamic>,
@@ -486,19 +512,23 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         );
       }
     } catch (e) {
-      if (mounted && state.loadedCourseId == courseId)
+      if (mounted &&
+          state.loadedCourseId == courseId &&
+          operationRequest == _request)
         state = state.copyWith(
             isSaving: false, error: e.toString(), message: state.message);
     }
   }
 
   Future<void> publish(String courseId) async {
+    final operationRequest = _request;
     if (state.loadedCourseId != courseId ||
         state.isSaving ||
         state.isPublishing ||
         state.isLoading) return;
     await fetchEmployeePreview();
-    if (state.loadedCourseId != courseId) return;
+    if (state.loadedCourseId != courseId || operationRequest != _request)
+      return;
     if (state.previewStale) {
       state = state.copyWith(
           error: 'Refresh the employee preview before saving or publishing.');
@@ -526,7 +556,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     state = state.copyWith(isPublishing: true);
     try {
       final ruleToPublish = await _persistReusableGroups(state.rule);
-      if (!mounted || state.loadedCourseId != courseId) return;
+      if (!mounted ||
+          state.loadedCourseId != courseId ||
+          operationRequest != _request) return;
       final response = await _client.post(
         Uri.parse(AppConstants.publishCourseAssignmentEndpoint(courseId)),
         headers: {
@@ -539,7 +571,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
             'expected_updated_at': _expectedUpdatedAt
         }),
       );
-      if (!mounted || state.loadedCourseId != courseId) return;
+      if (!mounted ||
+          state.loadedCourseId != courseId ||
+          operationRequest != _request) return;
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         final total = decoded['total_assigned_count'] ?? 0;
@@ -576,7 +610,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         );
       }
     } catch (e) {
-      if (mounted && state.loadedCourseId == courseId)
+      if (mounted &&
+          state.loadedCourseId == courseId &&
+          operationRequest == _request)
         state = state.copyWith(
             isPublishing: false, error: e.toString(), message: state.message);
     }
@@ -584,6 +620,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
 
   Future<AssignmentRule> _persistReusableGroups(AssignmentRule rule) async {
     final originalCourseId = state.loadedCourseId;
+    final originalRequest = _request;
     Future<AssignmentGroup> persist(
       AssignmentGroup group,
       String groupType,
@@ -649,12 +686,14 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
       includeGroups: includeGroups,
       excludeGroups: excludeGroups,
     );
-    if (mounted && state.loadedCourseId == originalCourseId)
-      state = state.copyWith(rule: updatedRule);
+    if (mounted &&
+        state.loadedCourseId == originalCourseId &&
+        originalRequest == _request) state = state.copyWith(rule: updatedRule);
     return updatedRule;
   }
 
   Future<void> disable(String courseId) async {
+    final operationRequest = _request;
     if (state.isSaving ||
         state.isPublishing ||
         state.isLoading ||
@@ -665,7 +704,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         Uri.parse(AppConstants.disableCourseAssignmentEndpoint(courseId)),
         headers: ref.read(trainerAuthHeadersProvider),
       );
-      if (!mounted || state.loadedCourseId != courseId) return;
+      if (!mounted ||
+          state.loadedCourseId != courseId ||
+          operationRequest != _request) return;
       if (response.statusCode == 200) {
         _applyAssignmentResponse(
           jsonDecode(response.body) as Map<String, dynamic>,
@@ -681,6 +722,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
                   'The operation succeeded, but course/report data could not be refreshed. Click Refresh.',
               message: state.message);
         }
+        await fetchEmployeePreview();
       } else {
         final decoded = jsonDecode(response.body);
         state = state.copyWith(
@@ -689,7 +731,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         );
       }
     } catch (e) {
-      if (mounted && state.loadedCourseId == courseId)
+      if (mounted &&
+          state.loadedCourseId == courseId &&
+          operationRequest == _request)
         state = state.copyWith(
             isPublishing: false, error: e.toString(), message: state.message);
     }
@@ -713,9 +757,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
       refreshGeneration: state.refreshGeneration + 1,
       matchCount: (decoded['match_count'] as num?)?.toInt() ?? 0,
       assignedCount: assignedCount,
-      previewEmployees: (decoded['preview_employees'] as List? ?? [])
-          .map((item) => Employee.fromJson(item as Map<String, dynamic>))
-          .toList(),
+      previewStale: true,
       isLoading: isLoading ?? state.isLoading,
       isSaving: isSaving ?? state.isSaving,
       isPublishing: isPublishing ?? state.isPublishing,

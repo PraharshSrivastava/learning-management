@@ -60,7 +60,9 @@ def _status_for_reactivation(progress: dict, now: datetime) -> str:
     return "pending"
 
 
-def _reactivated_progress(progress: dict, employee: dict, now: datetime, deadline_days: int, rule=None) -> dict:
+def _reactivated_progress(
+    progress: dict, employee: dict, now: datetime, deadline_days: int, rule=None
+) -> dict:
     next_progress = dict(progress)
     next_progress.setdefault("modules", {})
     next_progress.setdefault("attempts", {})
@@ -117,7 +119,11 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
             continue
         reason = None
         if not employee or employee.get("status") != "active":
-            reason = "directory_leaver" if employee and employee.get("source") == "hub" else "employee_inactive"
+            reason = (
+                "directory_leaver"
+                if employee and employee.get("source") == "hub"
+                else "employee_inactive"
+            )
         elif course_id not in published_courses:
             reason = "course_no_longer_published"
         else:
@@ -149,18 +155,26 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
             rule = _assignments.get(course_id)
             if not rule.get("published_at") or not rule.get("is_active", True):
                 continue
-            rule = {**rule, "deadline_mode": rule.get("applied_deadline_mode", "relative"), "deadline_date": rule.get("applied_deadline_date")}
+            rule = {
+                **rule,
+                "deadline_days": rule.get("applied_deadline_days") or rule["deadline_days"],
+                "deadline_mode": rule.get("applied_deadline_mode", "relative"),
+                "deadline_date": rule.get("applied_deadline_date"),
+            }
             if employee_id in observer_ids(course_id) or deadline_expired(rule):
                 continue
             if not _assignments.matches_employee(employee, rule, now):
                 continue
-            if course_id in existing:
-                course_progress = existing[course_id]
+            current_progress = _progress.get_for_employee(employee_id).get(course_id)
+            if current_progress is not None:
+                course_progress = current_progress
                 if course_progress.get("status") == "revoked":
                     _save_progress(
                         employee_id,
                         course_id,
-                        _reactivated_progress(course_progress, employee, now, rule["deadline_days"], rule),
+                        _reactivated_progress(
+                            course_progress, employee, now, rule["deadline_days"], rule
+                        ),
                     )
                     reactivated += 1
                     if notify:
@@ -232,7 +246,10 @@ def assign_published_course_to_matching_employees(
     deadline_updates = 0
 
     for employee_id, course_progress in list(existing_progress.items()):
-        if employee_id not in matched_by_id and course_progress.get("status") != "revoked":
+        if employee_id not in matched_by_id and course_progress.get("status") not in {
+            "completed",
+            "revoked",
+        }:
             _save_progress(
                 employee_id,
                 course_id,
@@ -249,7 +266,9 @@ def assign_published_course_to_matching_employees(
                 _save_progress(
                     employee_id,
                     course_id,
-                    _reactivated_progress(course_progress, employee, now, rule["deadline_days"], rule),
+                    _reactivated_progress(
+                        course_progress, employee, now, rule["deadline_days"], rule
+                    ),
                 )
                 reactivated += 1
                 schedule_employee_broadcast(employee_id)
@@ -291,9 +310,7 @@ def api_saved_assignment_groups(trainer_id: str, group_type: str | None = None):
     return _saved_groups.list(trainer_id, group_type)
 
 
-def api_create_saved_assignment_group(
-    trainer_id: str, payload: SavedAssignmentGroupRequest
-):
+def api_create_saved_assignment_group(trainer_id: str, payload: SavedAssignmentGroupRequest):
     return _saved_groups.upsert(trainer_id, payload.model_dump())
 
 
@@ -331,8 +348,7 @@ def api_assignable_courses(trainer_id: str | None = None):
     return [
         course
         for course in courses
-        if course.get("status") in {"ready", "published"}
-        and course_is_publishable(course)
+        if course.get("status") in {"ready", "published"} and course_is_publishable(course)
     ]
 
 
@@ -343,7 +359,10 @@ def _assignment_response(rule: dict) -> dict:
         "match_count": len(_assignments.matching_employees(rule)),
         "preview_employees": matches,
         "total_assigned_count": assignment_total(rule["course_id"]),
-        "blocked_employee_count": len({e["employee_id"] for e in _assignments.matching_employees(rule)} & observer_ids(rule["course_id"])),
+        "blocked_employee_count": len(
+            {e["employee_id"] for e in _assignments.matching_employees(rule)}
+            & observer_ids(rule["course_id"])
+        ),
     }
 
 
@@ -360,9 +379,16 @@ def api_save_course_assignment(
     if trainer_id:
         _owned_draft_course(course_id, trainer_id)
     existing = _assignments.get(course_id)
-    if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get("updated_at"):
-        raise ConflictError("The saved employee rule changed. Refresh and review the saved version before saving or publishing.")
-    proposed = {**existing, **payload.model_dump(exclude_unset=True, exclude={"expected_updated_at"})}
+    if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get(
+        "updated_at"
+    ):
+        raise ConflictError(
+            "The saved employee rule changed. Refresh and review the saved version before saving or publishing."
+        )
+    proposed = {
+        **existing,
+        **payload.model_dump(exclude_unset=True, exclude={"expected_updated_at"}),
+    }
     validate_deadline(proposed)
     validate_separation(course_id, proposed)
     rule = _assignments.save(course_id, proposed)
@@ -376,9 +402,16 @@ def api_publish_course_assignment(
     if trainer_id:
         _owned_draft_course(course_id, trainer_id)
     existing = _assignments.get(course_id)
-    if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get("updated_at"):
-        raise ConflictError("The saved employee rule changed. Refresh and review the saved version before saving or publishing.")
-    proposed = {**existing, **payload.model_dump(exclude_unset=True, exclude={"expected_updated_at"})}
+    if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get(
+        "updated_at"
+    ):
+        raise ConflictError(
+            "The saved employee rule changed. Refresh and review the saved version before saving or publishing."
+        )
+    proposed = {
+        **existing,
+        **payload.model_dump(exclude_unset=True, exclude={"expected_updated_at"}),
+    }
     validate_deadline(proposed)
     validate_separation(course_id, proposed)
     rule = _assignments.save(course_id, proposed)
@@ -386,7 +419,11 @@ def api_publish_course_assignment(
         (course for course in _courses.list() if course["course_id"] == course_id),
         None,
     )
-    if not course or course.get("status") not in {"ready", "published"} or not course_is_publishable(course):
+    if (
+        not course
+        or course.get("status") not in {"ready", "published"}
+        or not course_is_publishable(course)
+    ):
         raise DomainValidationError(
             "Course is not ready for assignment. Generate the full course first."
         )
@@ -394,10 +431,13 @@ def api_publish_course_assignment(
     update_course_status(course_id, "published")
     deadline_changed = (
         existing.get("applied_deadline_days") != rule["deadline_days"]
-        or existing.get("applied_deadline_mode", "relative") != rule.get("deadline_mode", "relative")
+        or existing.get("applied_deadline_mode", "relative")
+        != rule.get("deadline_mode", "relative")
         or existing.get("applied_deadline_date") != rule.get("deadline_date")
     )
-    changes = assign_published_course_to_matching_employees(course_id, deadline_changed=deadline_changed)
+    changes = assign_published_course_to_matching_employees(
+        course_id, deadline_changed=deadline_changed
+    )
     response = _assignment_response(rule)
     response.update(
         {
@@ -458,9 +498,13 @@ __all__ = [
 
 _ASSIGNED_WHERE = "ca.course_id = ? AND ca.status <> 'revoked' AND ca.revoked_at IS NULL"
 
+
 def assignment_total(course_id):
     with get_connection() as db:
-        return db.execute(f"SELECT COUNT(*) AS n FROM course_assignments ca WHERE {_ASSIGNED_WHERE}", (course_id,)).fetchone()["n"]
+        return db.execute(
+            f"SELECT COUNT(*) AS n FROM course_assignments ca WHERE {_ASSIGNED_WHERE}", (course_id,)
+        ).fetchone()["n"]
+
 
 def assignment_employee_page(course_id, payload, view="matching", search="", page=1, page_size=25):
     """Read-only draft preview or persisted assignments; never reconcile on read."""
@@ -469,20 +513,61 @@ def assignment_employee_page(course_id, payload, view="matching", search="", pag
     with get_connection() as db:
         total_assigned = assignment_total(course_id)
         if view == "assigned":
-            term = "%" + search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-            where = _ASSIGNED_WHERE + " AND (e.name ILIKE ? OR e.department ILIKE ? OR e.employee_id ILIKE ?)"
+            term = (
+                "%"
+                + search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                + "%"
+            )
+            where = (
+                _ASSIGNED_WHERE
+                + " AND (e.name ILIKE ? OR e.department ILIKE ? OR e.employee_id ILIKE ?)"
+            )
             params = (course_id, term, term, term)
-            total = db.execute(f"SELECT COUNT(*) AS n FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where}", params).fetchone()["n"]
-            rows = db.execute(f"SELECT e.employee_id, e.name, e.department, e.job_title, e.status FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where} ORDER BY lower(e.name), e.employee_id LIMIT ? OFFSET ?", (*params, page_size, (page-1)*page_size)).fetchall()
+            total = db.execute(
+                f"SELECT COUNT(*) AS n FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where}",
+                params,
+            ).fetchone()["n"]
+            rows = db.execute(
+                f"SELECT e.employee_id, e.name, e.department, e.job_title, e.status FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where} ORDER BY lower(e.name), e.employee_id LIMIT ? OFFSET ?",
+                (*params, page_size, (page - 1) * page_size),
+            ).fetchall()
         else:
             employees = _assignments.matching_employees(rule)
-            employees = sorted((e for e in employees if not needle or any(needle in str(e.get(k) or "").casefold() for k in ("name", "department", "employee_id"))), key=lambda e: (e["name"].casefold(), e["employee_id"]))
+            employees = sorted(
+                (
+                    e
+                    for e in employees
+                    if not needle
+                    or any(
+                        needle in str(e.get(k) or "").casefold()
+                        for k in ("name", "department", "employee_id")
+                    )
+                ),
+                key=lambda e: (e["name"].casefold(), e["employee_id"]),
+            )
             total = len(employees)
-            rows = [{k: e.get(k) for k in ("employee_id", "name", "department", "job_title", "status")} for e in employees[(page-1)*page_size:page*page_size]]
+            rows = [
+                {k: e.get(k) for k in ("employee_id", "name", "department", "job_title", "status")}
+                for e in employees[(page - 1) * page_size : page * page_size]
+            ]
     designated = observer_ids(course_id) | set(getattr(payload, "observer_employee_ids", []))
     matching_ids = {e["employee_id"] for e in _assignments.matching_employees(rule)}
     with get_connection() as db:
-        assigned_ids = {r["employee_id"] for r in db.execute("SELECT employee_id FROM course_assignments ca WHERE " + _ASSIGNED_WHERE, (course_id,)).fetchall()}
+        assigned_ids = {
+            r["employee_id"]
+            for r in db.execute(
+                "SELECT employee_id FROM course_assignments ca WHERE " + _ASSIGNED_WHERE,
+                (course_id,),
+            ).fetchall()
+        }
     conflicts = sorted(designated & (matching_ids | assigned_ids))
     blocked = len(designated & matching_ids)
-    return {"total": total, "total_assigned_count": total_assigned, "employees": rows, "page": page, "page_size": page_size, "blocked_employee_count": blocked, "conflicting_observer_ids": conflicts}
+    return {
+        "total": total,
+        "total_assigned_count": total_assigned,
+        "employees": rows,
+        "page": page,
+        "page_size": page_size,
+        "blocked_employee_count": blocked,
+        "conflicting_observer_ids": conflicts,
+    }

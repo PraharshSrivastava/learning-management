@@ -22,14 +22,25 @@ The original plan proposed additional deadline columns. The implementation inste
 
 ## Local verification
 
-- Focused backend checks: 21 passed, including isolated PostgreSQL concurrency, rollback, full preview, directory changes, stable identities and fixed-deadline checks.
-- Full backend suite: 334 passed, 15 skipped, 1 failed. The previously observed failure is `tests/test_image_slide_flow.py::test_splits_third_landscape_image_to_separate_slide`, expecting three slides when the unchanged generator returns four. No generation fix is included in this task.
-- Trainer Flutter suite: 22 passed. Refresh coverage includes same-course refresh, draft preservation, partial failure, session expiry, stale course responses and unsaved Observer conflict prevention.
+- Focused backend checks: 23 passed, including isolated PostgreSQL concurrency, rollback, full preview, directory changes, stable identities and fixed-deadline checks.
+- Full backend suite: 336 passed, 15 skipped, 1 failed. The previously observed failure is `tests/test_image_slide_flow.py::test_splits_third_landscape_image_to_separate_slide`, expecting three slides when the unchanged generator returns four. No generation fix is included in this task.
+- Trainer Flutter suite: 24 passed. Refresh coverage includes same-course refresh, draft preservation, partial failure, session expiry, stale course responses and unsaved Observer conflict prevention.
 - Trainer release web build succeeded.
-- Ruff passed for all changed backend files. Flutter analysis reported no errors or warnings and 44 informational style recommendations across the frontend; these are not a clean lint result.
+- Ruff passed for all changed backend files. Flutter analysis reported no errors or warnings and 45 informational style recommendations across the frontend; these are not a clean lint result.
 - Git whitespace check passed. Docker, dependency manifests/locks, SMTP configuration and Employee frontend files were not changed. The separate SBOM checkout was not modified.
 
 Checks used the available cached local Flutter dependencies and the isolated PostgreSQL demo database. They do not establish parity with the production Flutter toolchain or constitute Big Coding browser verification.
+
+## Final review corrections
+
+- Completed assignments excluded from a new employee rule retain their completion and are no longer counted as removed in the publication confirmation.
+- New automatic assignments use published relative deadline days as well as published fixed-date metadata, even if a Trainer has saved a different deadline draft.
+- Automatic enrolment reloads employee progress inside the course lock before deciding to create or reactivate, so a stale pre-lock snapshot cannot overwrite a newer assignment.
+- Save/Publish/Disable and saved-rule reload responses are guarded by workspace generation as well as course ID. Switching away and back does not permit an old mutation response to replace freshly loaded course state.
+- Mutation-time editing is blocked in the form, and the full preview is marked stale until refreshed after a mutation. Disable explicitly reloads the selected employee preview instead of displaying the legacy ten-row response sample.
+- Preview access/session expiry clears protected assignment data. Initial course loading clears the previous course's saved revision baseline.
+
+The final review fetched origin; no newer origin/main commits were present. The release web build and tests listed above include these corrections. Local commits have not been pushed.
 
 ## Before rollout on Big Coding
 

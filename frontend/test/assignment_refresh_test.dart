@@ -44,6 +44,77 @@ ProviderContainer container(http.Client client) =>
       assignableCourseListProvider.overrideWith((ref) => QuietCourses(ref)),
     ]);
 void main() {
+  test('delayed Disable response cannot replace a newly reloaded same course',
+      () async {
+    final gate = Completer<http.Response>();
+    final c = container(MockClient((r) async {
+      if (r.url.path.endsWith('/options')) return jsonResponse({});
+      if (r.url.path.endsWith('/saved-groups')) return jsonResponse([]);
+      if (r.url.path.endsWith('/disable-assignment')) return gate.future;
+      if (r.url.path.endsWith('/employee-preview')) {
+        return jsonResponse(
+            {'total': 0, 'total_assigned_count': 0, 'employees': []});
+      }
+      return jsonResponse(saved(r.url.path.contains('/two/') ? 'two' : 'one'));
+    }));
+    addTearDown(c.dispose);
+    final n = c.read(assignmentProvider.notifier);
+    await n.loadForCourse('one');
+    final pending = n.disable('one');
+    await Future<void>.delayed(Duration.zero);
+    await n.loadForCourse('two');
+    await n.loadForCourse('one');
+    final old = saved('one');
+    (old['rule'] as Map<String, dynamic>)['is_active'] = false;
+    gate.complete(jsonResponse(old));
+    await pending;
+    expect(c.read(assignmentProvider).loadedCourseId, 'one');
+    expect(c.read(assignmentProvider).rule.isActive, isTrue);
+    expect(c.read(assignmentProvider).message, isNull);
+  });
+
+  test('Disable reloads the assigned employee page instead of a legacy sample',
+      () async {
+    var disabled = false;
+    final c = container(MockClient((r) async {
+      if (r.url.path.endsWith('/options')) return jsonResponse({});
+      if (r.url.path.endsWith('/saved-groups')) return jsonResponse([]);
+      if (r.url.path.endsWith('/disable-assignment')) {
+        disabled = true;
+        final data = saved('one');
+        (data['rule'] as Map<String, dynamic>)['is_active'] = false;
+        data['preview_employees'] = [
+          {'employee_id': 'legacy', 'name': 'Legacy sample'}
+        ];
+        return jsonResponse(data);
+      }
+      if (r.url.path.endsWith('/employee-preview')) {
+        return jsonResponse({
+          'total': disabled ? 0 : 2,
+          'total_assigned_count': disabled ? 0 : 2,
+          'employees': disabled
+              ? []
+              : [
+                  {'employee_id': 'a', 'name': 'Employee A'}
+                ]
+        });
+      }
+      return jsonResponse(saved('one'));
+    }));
+    addTearDown(c.dispose);
+    final n = c.read(assignmentProvider.notifier);
+    await n.loadForCourse('one');
+    await n.fetchEmployeePreview(view: 'assigned');
+    await n.disable('one');
+    final state = c.read(assignmentProvider);
+    expect(state.rule.isActive, isFalse);
+    expect(state.previewView, 'assigned');
+    expect(state.previewTotal, 0);
+    expect(state.previewEmployees, isEmpty);
+    expect(state.previewStale, isFalse);
+    expect(state.message, contains('disabled'));
+  });
+
   setUp(() {
     dotenv.loadFromString(envString: 'API_BASE_URL=http://localhost:8000');
   });

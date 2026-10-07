@@ -321,3 +321,50 @@ def test_stale_observer_identity_does_not_block_replacement_employee(workspace_d
     from app.services.assignment_conflicts import observer_ids
 
     assert observer_ids("course") == set()
+
+
+def test_completed_employee_is_preserved_and_not_reported_removed(workspace_db):
+    assignments.api_publish_course_assignment(
+        "course",
+        AssignmentRuleRequest(include_all=False, include_groups=[{"employee_ids": ["a", "b"]}]),
+        "creator",
+    )
+    from app.repositories.progress import get_employee_course_progress
+
+    progress = get_employee_course_progress("a", "course")
+    progress["status"] = "completed"
+    progress["completed_at"] = "2026-10-01T12:00:00"
+    save_employee_course_progress("a", "course", progress)
+    result = assignments.api_publish_course_assignment(
+        "course",
+        AssignmentRuleRequest(include_all=False, include_groups=[{"employee_ids": ["b"]}]),
+        "creator",
+    )
+    assert result["removed_count"] == 0
+    assert result["total_assigned_count"] == 2
+    assert get_employee_course_progress("a", "course")["status"] == "completed"
+
+
+def test_relative_deadline_draft_does_not_change_automatic_enrolment(workspace_db):
+    assignments.api_publish_course_assignment(
+        "course",
+        AssignmentRuleRequest(
+            include_all=False, include_groups=[{"departments": ["Risk"]}], deadline_days=7
+        ),
+        "creator",
+    )
+    assignments.api_save_course_assignment(
+        "course", AssignmentRuleRequest(deadline_days=30), "creator"
+    )
+    with database.get_connection() as db:
+        db.execute("UPDATE employees SET department='Risk' WHERE employee_id='observer'")
+        db.commit()
+    assert assignments.reconcile_assignments_for_employee("observer")["assigned"] == 1
+    from datetime import datetime, timedelta
+
+    from app.repositories.progress import get_employee_course_progress
+
+    progress = get_employee_course_progress("observer", "course")
+    assert datetime.fromisoformat(progress["deadline"]) - datetime.fromisoformat(
+        progress["assigned_at"]
+    ) == timedelta(days=7)
