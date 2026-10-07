@@ -57,6 +57,10 @@ def default_assignment_rule(course_id: str) -> dict:
         "exclude_mailing_lists": [],
         "exclude_job_titles": [],
         "deadline_days": 7,
+        "deadline_mode": "relative",
+        "deadline_date": None,
+        "applied_deadline_mode": "relative",
+        "applied_deadline_date": None,
         "applied_deadline_days": None,
         "published_at": None,
         "is_active": True,
@@ -98,6 +102,10 @@ def _row_to_assignment_rule(row) -> dict:
         "exclude_mailing_lists": exclude.get("mailing_lists") or [],
         "exclude_job_titles": exclude.get("job_titles") or [],
         "deadline_days": row["deadline_days"],
+        "deadline_mode": include.get("deadline_mode", "relative"),
+        "deadline_date": include.get("deadline_date"),
+        "applied_deadline_mode": include.get("applied_deadline_mode", "relative"),
+        "applied_deadline_date": include.get("applied_deadline_date"),
         "applied_deadline_days": row["applied_deadline_days"],
         "published_at": row["published_at"],
         "is_active": bool(row["is_active"]),
@@ -154,9 +162,17 @@ def save_assignment_rule(
             "updated_at": now,
         }
     )
+    for key in ("deadline_mode", "deadline_date"):
+        if key in rule:
+            value = rule[key]
+            normalized[key] = value.isoformat() if hasattr(value, "isoformat") else value
+    if normalized["deadline_mode"] == "relative":
+        normalized["deadline_date"] = None
     if normalized["include_match_mode"] not in {"all", "any"}:
         normalized["include_match_mode"] = "all"
     if publish:
+        normalized["applied_deadline_mode"] = normalized["deadline_mode"]
+        normalized["applied_deadline_date"] = normalized["deadline_date"]
         normalized["published_at"] = now
         normalized["applied_deadline_days"] = normalized["deadline_days"]
         normalized["is_active"] = True
@@ -177,6 +193,7 @@ def save_assignment_rule(
         match_mode=normalized["include_match_mode"],
         groups=normalized["include_groups"],
     )
+    include_filters.update({key: normalized[key] for key in ("deadline_mode", "deadline_date", "applied_deadline_mode", "applied_deadline_date")})
     exclude_filters = _filters(
         employee_ids=normalized["exclude_employee_ids"],
         departments=normalized["exclude_departments"],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from pydantic import Field, model_validator
@@ -48,6 +49,7 @@ def _validate_new_assignment_groups(
 
 
 class AssignmentRuleRequest(RequestSchema):
+    expected_updated_at: str | None = None
     include_all: bool | None = None
     include_match_mode: Literal["all", "any"] | None = None
     include_groups: list[AssignmentGroup] | None = None
@@ -63,6 +65,8 @@ class AssignmentRuleRequest(RequestSchema):
     exclude_job_titles: list[str] | None = None
     include_inactive: bool | None = None
     deadline_days: int | None = Field(default=None, ge=1)
+    deadline_mode: Literal["relative", "fixed"] | None = None
+    deadline_date: date | None = None
 
     @model_validator(mode="after")
     def validate_group_filters(self):
@@ -88,6 +92,10 @@ class AssignmentRuleRecord(ApiSchema):
     exclude_job_titles: list[str] = Field(default_factory=list)
     include_inactive: bool = False
     deadline_days: int = Field(default=7, ge=1)
+    deadline_mode: Literal["relative", "fixed"] = "relative"
+    deadline_date: date | None = None
+    applied_deadline_mode: Literal["relative", "fixed"] = "relative"
+    applied_deadline_date: date | None = None
     applied_deadline_days: int | None = Field(default=None, ge=1)
     published_at: str | None = None
     is_active: bool = True
@@ -143,7 +151,13 @@ class CourseAssignmentResponse(ApiSchema):
     rule: AssignmentRuleRecord
     match_count: int
     preview_employees: list[EmployeeResponse] = Field(default_factory=list)
+    total_assigned_count: int = 0
+    blocked_employee_count: int = 0
     assigned_count: int | None = None
     removed_count: int | None = None
     reactivated_count: int | None = None
     deadline_update_count: int | None = None
+
+
+class AssignmentPreviewRequest(AssignmentRuleRequest):
+    observer_employee_ids: list[str] = Field(default_factory=list, max_length=200)

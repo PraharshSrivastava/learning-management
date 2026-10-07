@@ -24,7 +24,8 @@ class AssignmentPortal extends ConsumerWidget {
     final effectiveCourse = selectedCourse != null &&
             assignableCourses
                 .any((course) => course.courseId == selectedCourse!.courseId)
-        ? selectedCourse
+        ? assignableCourses
+            .firstWhere((course) => course.courseId == selectedCourse!.courseId)
         : null;
 
     if (isMobile) {
@@ -41,7 +42,10 @@ class AssignmentPortal extends ConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: AssignmentRuleView(course: effectiveCourse),
+              child: AssignmentRuleView(
+                  key: ValueKey(
+                      '${effectiveCourse?.courseId}:${ref.watch(trainerAuthProvider).trainer?.trainerId}:${ref.watch(trainerAuthProvider).token}'),
+                  course: effectiveCourse),
             ),
           ],
         ),
@@ -63,7 +67,10 @@ class AssignmentPortal extends ConsumerWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-            child: AssignmentRuleView(course: effectiveCourse),
+            child: AssignmentRuleView(
+                key: ValueKey(
+                    '${effectiveCourse?.courseId}:${ref.watch(trainerAuthProvider).trainer?.trainerId}:${ref.watch(trainerAuthProvider).token}'),
+                course: effectiveCourse),
           ),
         ),
       ],
@@ -300,184 +307,298 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
       color: Colors.transparent,
       child: Container(
         decoration: AppTheme.cardDecoration(),
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 240,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Assign Course',
-                        style: GoogleFonts.barlow(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.textBlack,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        course.courseName,
-                        style: const TextStyle(color: Color(0xFF667085)),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: assignment.isSaving || assignment.isPublishing
-                      ? null
-                      : () => ref
-                          .read(assignmentProvider.notifier)
-                          .save(course.courseId),
-                  icon: const Icon(Icons.save_outlined, size: 18),
-                  label: const Text('Save Rule'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.primaryBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999)),
-                  ),
-                ),
-                IconButton.outlined(
-                  tooltip: 'Refresh people and saved groups',
-                  onPressed: assignment.isLoading ||
-                          assignment.isSaving ||
-                          assignment.isPublishing
-                      ? null
-                      : () => ref
-                          .read(assignmentProvider.notifier)
-                          .refreshOptionsAndGroups(),
-                  icon: const Icon(Icons.refresh),
-                ),
-                FilledButton.icon(
-                  onPressed: assignment.isSaving || assignment.isPublishing
-                      ? null
-                      : () => ref
-                          .read(assignmentProvider.notifier)
-                          .publish(course.courseId),
-                  icon: const Icon(Icons.publish_outlined, size: 18),
-                  label: const Text('Publish & Assign'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF087443),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999)),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: assignment.isSaving ||
-                          assignment.isPublishing ||
-                          !assignment.rule.isActive
-                      ? null
-                      : () => ref
-                          .read(assignmentProvider.notifier)
-                          .disable(course.courseId),
-                  icon: const Icon(Icons.visibility_off_outlined, size: 18),
-                  label: const Text('Disable'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.accentRed,
-                    side: const BorderSide(color: AppTheme.accentRed),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999)),
-                  ),
-                ),
-              ],
-            ),
-            if (!assignment.rule.isActive) ...[
-              const SizedBox(height: 16),
-              const _Notice(
-                text:
-                    'This course is disabled for employees. Publish & Assign again to show it and reset due dates.',
-                isError: false,
-              ),
-            ],
-            if (assignment.error != null) ...[
-              const SizedBox(height: 16),
-              _Notice(text: assignment.error!, isError: true),
-            ],
-            if (assignment.message != null) ...[
-              const SizedBox(height: 16),
-              _Notice(text: assignment.message!, isError: false),
-            ],
-            const SizedBox(height: 24),
-            _Section(
-              title: 'Include',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: AbsorbPointer(
+          absorbing: assignment.isLoading ||
+              assignment.isSaving ||
+              assignment.isPublishing,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('All active employees'),
-                    subtitle: const Text(
-                        'Start from everyone, then apply exclusions.'),
-                    value: rule.includeAll,
-                    onChanged: (value) =>
-                        _update(rule.copyWith(includeAll: value)),
-                  ),
-                  if (!rule.includeAll) ...[
-                    const SizedBox(height: 12),
-                    _GroupList(
-                      groups: rule.includeGroups,
-                      savedGroups: assignment.savedGroups
-                          .where((group) => group.groupType == 'include')
-                          .toList(),
-                      options: assignment.options,
-                      onChanged: (groups) =>
-                          _update(rule.copyWith(includeGroups: groups)),
+                  SizedBox(
+                    width: 240,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Assign Course',
+                          style: GoogleFonts.barlow(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textBlack,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          course.courseName,
+                          style: const TextStyle(color: Color(0xFF667085)),
+                        ),
+                      ],
                     ),
-                  ],
-                  ObserverIncludePanel(key: ValueKey('${course.courseId}:${ref.watch(trainerAuthProvider).trainer?.trainerId}:${ref.watch(lmsAccessProvider)['permissions_version']}'), course: course, employees: assignment.options.employees),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: assignment.isLoading ||
+                            assignment.isSaving ||
+                            assignment.isPublishing
+                        ? null
+                        : () => ref
+                            .read(assignmentProvider.notifier)
+                            .save(course.courseId),
+                    icon: const Icon(Icons.save_outlined, size: 18),
+                    label: Text(assignment.isSaving ? 'Saving…' : 'Save Rule'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryBlue,
+                      side: const BorderSide(color: AppTheme.primaryBlue),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999)),
+                    ),
+                  ),
+                  IconButton.outlined(
+                    tooltip: 'Refresh assignment data',
+                    onPressed: assignment.isLoading ||
+                            assignment.isSaving ||
+                            assignment.isPublishing
+                        ? null
+                        : () => ref
+                            .read(assignmentProvider.notifier)
+                            .refreshOptionsAndGroups(),
+                    icon: const Icon(Icons.refresh),
+                  ),
+                  FilledButton.icon(
+                    onPressed: assignment.isLoading ||
+                            assignment.isSaving ||
+                            assignment.isPublishing
+                        ? null
+                        : () => ref
+                            .read(assignmentProvider.notifier)
+                            .publish(course.courseId),
+                    icon: const Icon(Icons.publish_outlined, size: 18),
+                    label: Text(assignment.isPublishing
+                        ? 'Publishing…'
+                        : 'Publish & Assign'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.primaryBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999)),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: assignment.isLoading ||
+                            assignment.isSaving ||
+                            assignment.isPublishing ||
+                            !assignment.rule.isActive
+                        ? null
+                        : () => ref
+                            .read(assignmentProvider.notifier)
+                            .disable(course.courseId),
+                    icon: const Icon(Icons.visibility_off_outlined, size: 18),
+                    label: const Text('Disable'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.accentRed,
+                      side: const BorderSide(color: AppTheme.accentRed),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999)),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 20),
-            _Section(
-              title: 'Exclude',
-              child: _GroupList(
-                groups: rule.excludeGroups,
-                savedGroups: assignment.savedGroups
-                    .where((group) => group.groupType == 'exclude')
-                    .toList(),
-                options: assignment.options,
-                allowJoinedFilter: false,
-                onChanged: (groups) =>
-                    _update(rule.copyWith(excludeGroups: groups)),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _Section(
-              title: 'Deadline',
-              child: SizedBox(
-                width: 260,
-                child: TextField(
-                  controller: _deadlineController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
-                    labelText: 'Due days after assignment',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  onChanged: (value) => _update(
-                    rule.copyWith(deadlineDays: int.tryParse(value) ?? 1),
-                  ),
+              if (!assignment.rule.isActive) ...[
+                const SizedBox(height: 16),
+                const _Notice(
+                  text:
+                      'This course is disabled for employees. Publish & Assign again to restore access using the selected deadline.',
+                  isError: false,
+                ),
+              ],
+              if (assignment.error != null) ...[
+                const SizedBox(height: 16),
+                _Notice(text: assignment.error!, isError: true),
+                if (assignment.error!.contains('changed'))
+                  TextButton.icon(
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reload saved employee rule'),
+                      onPressed: () async {
+                        final discard = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                                    title: const Text(
+                                        'Reload saved employee rule?'),
+                                    content: const Text(
+                                        'Your unsaved employee selections and deadline edits will be discarded. Observer edits will be retained.'),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Keep editing')),
+                                      FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child:
+                                              const Text('Reload saved rule'))
+                                    ]));
+                        if (discard == true && mounted)
+                          await ref
+                              .read(assignmentProvider.notifier)
+                              .reloadSavedRule(course.courseId);
+                      }),
+              ],
+              if (assignment.message != null) ...[
+                const SizedBox(height: 16),
+                _Notice(
+                    text: assignment.message!,
+                    isError: false,
+                    onDismiss: () =>
+                        ref.read(assignmentProvider.notifier).dismissMessage()),
+              ],
+              const SizedBox(height: 24),
+              _Section(
+                title: 'Target Employees',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('All active employees'),
+                      subtitle: const Text(
+                          'Start from everyone, then apply exclusions.'),
+                      value: rule.includeAll,
+                      onChanged: (value) =>
+                          _update(rule.copyWith(includeAll: value)),
+                    ),
+                    if (!rule.includeAll) ...[
+                      const SizedBox(height: 12),
+                      _GroupList(
+                        groups: rule.includeGroups,
+                        savedGroups: assignment.savedGroups
+                            .where((group) => group.groupType == 'include')
+                            .toList(),
+                        options: assignment.options,
+                        onChanged: (groups) =>
+                            _update(rule.copyWith(includeGroups: groups)),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            _PreviewCard(
-              isLoading: assignment.isLoading,
-              matchCount: assignment.matchCount,
-              assignedCount: assignment.assignedCount,
-              employees: assignment.previewEmployees,
-            ),
-          ],
+              const SizedBox(height: 20),
+              _Section(
+                  title: 'Performance Observers',
+                  child: ObserverIncludePanel(
+                      key: ValueKey(
+                        '${course.courseId}:${ref.watch(trainerAuthProvider).trainer?.trainerId}:${ref.watch(lmsAccessProvider)['permissions_version']}',
+                      ),
+                      course: course,
+                      employees: assignment.options.employees,
+                      refreshGeneration: assignment.refreshGeneration,
+                      isAssignmentActive: rule.isActive)),
+              const SizedBox(height: 20),
+              _Section(
+                title: 'Employee Exclusions',
+                child: _GroupList(
+                  groups: rule.excludeGroups,
+                  savedGroups: assignment.savedGroups
+                      .where((group) => group.groupType == 'exclude')
+                      .toList(),
+                  options: assignment.options,
+                  allowJoinedFilter: false,
+                  onChanged: (groups) =>
+                      _update(rule.copyWith(excludeGroups: groups)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _Section(
+                title: 'Completion Deadline',
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(spacing: 12, children: [
+                        ChoiceChip(
+                            label: const Text('Days after assignment'),
+                            selected: rule.deadlineMode == 'relative',
+                            onSelected: assignment.isLoading
+                                ? null
+                                : (_) => _update(
+                                    rule.copyWith(deadlineMode: 'relative'))),
+                        ChoiceChip(
+                            label: const Text('Specific date'),
+                            selected: rule.deadlineMode == 'fixed',
+                            onSelected: assignment.isLoading
+                                ? null
+                                : (_) => _update(
+                                    rule.copyWith(deadlineMode: 'fixed'))),
+                      ]),
+                      const SizedBox(height: 12),
+                      if (rule.deadlineMode == 'relative')
+                        SizedBox(
+                            width: 260,
+                            child: TextField(
+                              controller: _deadlineController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly
+                              ],
+                              decoration: const InputDecoration(
+                                  labelText: 'Due days after assignment',
+                                  border: OutlineInputBorder(),
+                                  isDense: true),
+                              onChanged: (value) => _update(rule.copyWith(
+                                  deadlineDays: int.tryParse(value) ?? 1)),
+                            ))
+                      else
+                        OutlinedButton.icon(
+                            icon: const Icon(Icons.calendar_month_outlined),
+                            label: Text(
+                                rule.deadlineDate ?? 'Select completion date'),
+                            onPressed: assignment.isLoading
+                                ? null
+                                : () async {
+                                    final local = DateTime.now().toUtc().add(
+                                        const Duration(hours: 5, minutes: 30));
+                                    final today = DateTime(
+                                        local.year, local.month, local.day);
+                                    final stored = DateTime.tryParse(
+                                        rule.deadlineDate ?? '');
+                                    final initial =
+                                        stored == null || stored.isBefore(today)
+                                            ? today
+                                            : stored;
+                                    final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: initial,
+                                        firstDate: today,
+                                        lastDate: DateTime(today.year + 10));
+                                    if (picked != null &&
+                                        mounted &&
+                                        ref
+                                                .read(assignmentProvider)
+                                                .loadedCourseId ==
+                                            course.courseId) {
+                                      final value =
+                                          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                                      _update(ref
+                                          .read(assignmentProvider)
+                                          .rule
+                                          .copyWith(
+                                              deadlineDate: value,
+                                              deadlineMode: 'fixed'));
+                                    }
+                                  }),
+                      if (rule.deadlineMode == 'fixed')
+                        const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text(
+                                'Due by the end of this date (Asia/Kolkata).')),
+                    ]),
+              ),
+              const SizedBox(height: 20),
+              const _PreviewCard(),
+            ],
+          ),
         ),
       ),
     );
@@ -509,9 +630,36 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                  color: title == 'Employee Exclusions'
+                      ? const Color(0xFFFBECEF)
+                      : title == 'Completion Deadline'
+                          ? const Color(0xFFF0F2F5)
+                          : const Color(0xFFEDF5FF),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Row(children: [
+                Icon(
+                    title == 'Employee Exclusions'
+                        ? Icons.person_remove_outlined
+                        : title == 'Performance Observers'
+                            ? Icons.visibility_outlined
+                            : title == 'Completion Deadline'
+                                ? Icons.calendar_month_outlined
+                                : title == 'Assignment Preview'
+                                    ? Icons.list_alt_outlined
+                                    : Icons.people_outline,
+                    color: AppTheme.primaryBlue,
+                    size: 21),
+                const SizedBox(width: 10),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primaryBlue))
+              ])),
           const SizedBox(height: 14),
           child,
         ],
@@ -1134,74 +1282,148 @@ class _EmployeePickerDialogState extends State<_EmployeePickerDialog> {
   }
 }
 
-class _PreviewCard extends StatelessWidget {
-  final bool isLoading;
-  final int matchCount;
-  final int? assignedCount;
-  final List<Employee> employees;
-
-  const _PreviewCard({
-    required this.isLoading,
-    required this.matchCount,
-    required this.assignedCount,
-    required this.employees,
-  });
-
+class _PreviewCard extends ConsumerWidget {
+  const _PreviewCard();
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(assignmentProvider);
+    final notifier = ref.read(assignmentProvider.notifier);
     return _Section(
-      title: 'Preview',
-      child: isLoading
-          ? const LinearProgressIndicator()
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        title: 'Assignment Preview',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Check your employees before publishing.',
+              style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF475467),
+                  fontWeight: FontWeight.w600)),
+          if (state.blockedEmployeeCount > 0)
+            Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                    '${state.blockedEmployeeCount} matching employees are also Observers. Resolve these conflicts before publishing.',
+                    style: const TextStyle(color: Color(0xFF805300)))),
+          const SizedBox(height: 12),
+          Wrap(spacing: 12, runSpacing: 8, children: [
+            ChoiceChip(
+                label: Text('Matching employees (${state.matchCount})'),
+                selected: state.previewView == 'matching',
+                onSelected: state.isLoading
+                    ? null
+                    : (_) => notifier.fetchEmployeePreview(
+                        view: 'matching', page: 1)),
+            ChoiceChip(
+                label: Text('Assigned employees (${state.totalAssignedCount})'),
+                selected: state.previewView == 'assigned',
+                onSelected: state.isLoading
+                    ? null
+                    : (_) => notifier.fetchEmployeePreview(
+                        view: 'assigned', page: 1)),
+          ]),
+          const SizedBox(height: 12),
+          SizedBox(
+              width: 360,
+              child: TextField(
+                  decoration: const InputDecoration(
+                      labelText: 'Search employees',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true),
+                  onSubmitted: (value) =>
+                      notifier.fetchEmployeePreview(search: value, page: 1))),
+          if (state.isPreviewLoading) const LinearProgressIndicator(),
+          if (state.previewStale)
+            const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                    'Preview needs refreshing. Your edits are preserved.',
+                    style: TextStyle(color: Color(0xFF805300)))),
+          const SizedBox(height: 8),
+          if (!state.isPreviewLoading && state.previewEmployees.isEmpty)
+            const Text('No employees to display.'),
+          for (final employee in state.previewEmployees)
+            ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(employee.name),
+                subtitle: Text('${employee.department} • ${employee.jobTitle}'),
+                trailing: Text(employee.employeeId)),
+          Wrap(
+              spacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  '$matchCount matching active employees',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                if (assignedCount != null) ...[
-                  const SizedBox(height: 4),
-                  Text('$assignedCount new employee assignments created.'),
-                ],
-                const SizedBox(height: 12),
-                for (final employee in employees)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      '${employee.name} • ${employee.department} • ${employee.jobTitle}',
-                      style: const TextStyle(color: Color(0xFF344054)),
-                    ),
-                  ),
-              ],
-            ),
-    );
+                    '${state.previewTotal} employees • Page ${state.previewPage}'),
+                TextButton(
+                    onPressed: state.isPreviewLoading || state.previewPage <= 1
+                        ? null
+                        : () => notifier.fetchEmployeePreview(
+                            page: state.previewPage - 1),
+                    child: const Text('Previous')),
+                TextButton(
+                    onPressed: state.isPreviewLoading ||
+                            state.previewPage * 25 >= state.previewTotal
+                        ? null
+                        : () => notifier.fetchEmployeePreview(
+                            page: state.previewPage + 1),
+                    child: const Text('Next')),
+              ]),
+        ]));
   }
 }
 
 class _Notice extends StatelessWidget {
   final String text;
   final bool isError;
+  final VoidCallback? onDismiss;
 
-  const _Notice({required this.text, required this.isError});
+  const _Notice({required this.text, required this.isError, this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
+    final warning = text.contains('Observer') && isError;
+    final success =
+        !isError && (text.contains('successfully') || text.contains('saved.'));
+    final background = warning
+        ? const Color(0xFFFFF8E8)
+        : isError
+            ? const Color(0xFFFFF1F3)
+            : success
+                ? const Color(0xFFEFFAF3)
+                : const Color(0xFFEDF5FF);
+    final foreground = warning
+        ? const Color(0xFF805300)
+        : isError
+            ? const Color(0xFFA11D33)
+            : success
+                ? const Color(0xFF087443)
+                : AppTheme.primaryBlue;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isError ? const Color(0xFFFFF1F3) : const Color(0xFFEFFAF3),
+        color: background,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isError ? const Color(0xFFFFCCD5) : const Color(0xFFB7E4C7),
         ),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-            color: isError ? const Color(0xFFA11D33) : const Color(0xFF087443)),
-      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(
+            warning
+                ? Icons.warning_amber_rounded
+                : isError
+                    ? Icons.error_outline
+                    : success
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
+            color: foreground),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: TextStyle(color: foreground))),
+        if (onDismiss != null)
+          IconButton(
+              tooltip: 'Dismiss message',
+              onPressed: onDismiss,
+              icon: const Icon(Icons.close, size: 18)),
+      ]),
     );
   }
 }
