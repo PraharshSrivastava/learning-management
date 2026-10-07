@@ -78,10 +78,17 @@ def create_app() -> FastAPI:
         "slides": settings.slide_dir,
         "videos": settings.video_dir,
     }
+    def _asset_files(asset_name, directory):
+        if asset_name in {"brand", "layouts"}:
+            return StaticFiles(directory=str(directory), check_dir=False)
+        # Videos are authorized here, then sent by the frontend nginx via X-Accel-Redirect.
+        accel = "/_lms_private_videos/" if asset_name == "videos" else None
+        return PrivateCourseStaticFiles(directory=str(directory), check_dir=False, accel_location=accel)
+
     for asset_name, directory in public_directories.items():
         app.mount(
             f"/assets/{asset_name}",
-            (StaticFiles if asset_name in {"brand", "layouts"} else PrivateCourseStaticFiles)(directory=str(directory), check_dir=False),
+            _asset_files(asset_name, directory),
             name=f"assets-{asset_name}",
         )
     app.include_router(api_router)

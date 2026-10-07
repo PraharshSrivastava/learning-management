@@ -46,7 +46,15 @@ WebSocket URLs use the resolved API origin, scheme, port, and mount.
 
 Generated slide HTML already uses relative stylesheet and image paths.
 Video and slide URL builders use the active API mount.
-Nginx serves video files with byte-range support at both mounts.
+Video requests at every mount go through the backend media checks first.
+Nginx proxies `/assets/videos/` (and the prefixed forms) to the backend with `X-LMS-Accel-Videos: 1` and the correct `X-LMS-App` and `X-Forwarded-Prefix`.
+The backend checks the session cookie or media ticket and the course access of the requester.
+For an allowed request it answers with `X-Accel-Redirect` to the `internal` nginx location `/_lms_private_videos/`.
+Nginx then serves the file with byte-range support.
+A denied request gets the backend error status and never the file.
+The internal location cannot be requested directly.
+Ticketed playlists (`.m3u8`) are still rewritten by the backend.
+Nginx access logs omit query strings, so media tickets are not logged.
 The frontend images build with PWA registration disabled.
 Entry HTML unregisters only a worker whose scope matches the active mount.
 It does not clear shared-origin cache storage or other apps' workers.
@@ -55,12 +63,15 @@ It does not clear shared-origin cache storage or other apps' workers.
 
 Launch endpoints exchange the Hub launch token for an independently typed LMS session token.
 Session tokens cannot be used as launch tokens.
-Trainer and employee cookie names remain `lms_trainer_hub` and `lms_employee_hub` by default.
-Root mode uses cookie path `/`.
-Shared mode uses `/lms/` or `/lms/trainer/`.
+Root mode keeps the cookie names `lms_trainer_hub` and `lms_employee_hub` (or the `HUB_*_COOKIE_NAME` values) with cookie path `/`.
+Shared mounts add a mount suffix to the name: `lms_employee_hub_lms` at `/lms/` and `lms_trainer_hub_lms_trainer` at `/lms/trainer/`.
+Browsers send a `Path=/` cookie to every path, so a distinct name keeps a root session out of a mount.
+The `/lms/` cookie also reaches `/lms/trainer/`, so the two mounts use different names.
+The backend derives the name from the validated mount for set, read (HTTP and WebSocket), and clear.
+It reads only the cookie of the active mount and never falls back to the root cookie.
 Logout deletes the same cookie name at the same path and with the same security settings.
-When a browser sends both root and mount cookies with the same name, the backend uses the first cookie, which browsers send in most-specific-path order.
-It does not fall back to a root cookie when the more-specific cookie is invalid.
+Existing root deployments are unchanged.
+Users who hold a mount cookie from an earlier build of this branch must open the app from the Hub again.
 
 Set `HUB_COOKIE_SECURE=false` for direct HTTP origins.
 Set it to `true` when those origins use TLS.

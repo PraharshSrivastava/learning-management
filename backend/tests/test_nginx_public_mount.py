@@ -26,8 +26,36 @@ def docker_command(*args):
     return subprocess.check_output(["docker", *args], text=True).strip()
 
 
+GOOD_SESSION = "valid-session-marker"
+
+def expected_cookie(role, prefix):
+    from app.security.hub_launch import HubLaunchVerifier
+
+    return f"{HubLaunchVerifier().cookie_name(role, prefix + '/')}={GOOD_SESSION}"
+
 class BackendEchoHandler(BaseHTTPRequestHandler):
+    def authorize_video(self):
+        """Stand-in for PrivateCourseStaticFiles: same contract, no database."""
+        headers = {key.lower(): value for key, value in self.headers.items()}
+        role = headers.get("x-lms-app", "")
+        prefix = headers.get("x-forwarded-prefix", "")
+        cookies = [part.strip() for part in headers.get("cookie", "").split(";")]
+        ticket = "media_ticket=good-ticket-marker" in self.path
+        if role not in {"trainer", "employee"} or not (ticket or expected_cookie(role, prefix) in cookies):
+            self.send_response(401)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        name = self.path.split("?", 1)[0].removeprefix("/assets/videos/")
+        self.send_response(200)
+        if headers.get("x-lms-accel-videos") == "1":
+            self.send_header("X-Accel-Redirect", "/_lms_private_videos/" + name)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
+        if self.path.startswith("/assets/videos/"):
+            return self.authorize_video()
         body = json.dumps({"path": self.path, "headers": dict(self.headers)}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -136,15 +164,41 @@ def test_nginx_serves_both_mounts_and_overwrites_forwarding(tmp_path, backend_ec
                 assert headers["connection"] == "upgrade"
             with fetch(prefix + "/assets/slides/course/module_1.html") as response:
                 assert json.load(response)["path"] == "/assets/slides/course/module_1.html"
-            with fetch(prefix + "/assets/videos/clip.mp4", {"Range": "bytes=2-5"}) as response:
+            video = prefix + "/assets/videos/clip.mp4"
+            good = {"Cookie": expected_cookie(role, prefix)}
+            with fetch(video, {**good, "Range": "bytes=2-5"}) as response:
                 assert response.status == 206
                 assert response.read() == b"2345"
+                assert response.headers["Content-Range"] == "bytes 2-5/10"
+                assert "no-store" in response.headers["Cache-Control"]
+            with fetch(video, good) as response:
+                assert response.status == 200 and response.read() == b"0123456789"
+            with fetch(video + "?media_ticket=good-ticket-marker", {"Range": "bytes=0-1"}) as response:
+                assert response.status == 206 and response.read() == b"01"
+            # No session, a bad session, or the other mount's session never gets bytes.
+            other = "" if prefix else mount
+            for headers in [{}, {"Cookie": "x=y"}, {"Cookie": expected_cookie(role, other)},
+                            {"Cookie": f"{expected_cookie(role, prefix).split('=')[0]}=forged"}]:
+                with fetch(video, {**headers, "Range": "bytes=2-5"}) as response:
+                    assert response.status in {401, 403}
+                    assert b"2345" not in response.read()
+            with fetch(prefix + "/assets/videos/clip.mp4?media_ticket=bad-ticket-marker") as response:
+                assert response.status in {401, 403}
+            # Spoofed headers cannot choose the role or the mount.
+            with fetch(video, {"X-LMS-App": "trainer" if role == "employee" else "employee",
+                               "X-Forwarded-Prefix": "/evil", "Cookie": expected_cookie(role, prefix)}) as response:
+                assert response.status == 200 and response.read() == b"0123456789"
+        # The internal location is not reachable from outside, even with a valid session.
+        with fetch("/_lms_private_videos/clip.mp4", {"Cookie": expected_cookie(role, "")}) as response:
+            assert response.status == 404
         with fetch(mount + "?keep=query") as response:
             assert response.url == origin + mount + "/?keep=query"
         logs = docker_command("logs", container)
         assert "private-launch-marker" not in logs
         assert "private-ws-marker" not in logs
         assert "private-missing-marker" not in logs
+        assert "good-ticket-marker" not in logs
+        assert "bad-ticket-marker" not in logs
     finally:
         subprocess.run(["docker", "rm", "-f", container], check=False, capture_output=True)
         subprocess.run(["docker", "network", "rm", network], check=False, capture_output=True)
