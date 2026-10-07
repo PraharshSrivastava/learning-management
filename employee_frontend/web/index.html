@@ -33,6 +33,17 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    // Disable only this mount's old Flutter worker, not other same-origin apps.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        var appScope = new URL('.', document.baseURI).href;
+        registrations.forEach(function(registration) {
+          if (registration.scope === appScope) registration.unregister();
+        });
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

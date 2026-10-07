@@ -12,6 +12,7 @@ from typing import Literal
 
 from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import HTTPConnection, cookie_parser
 from starlette.responses import JSONResponse
 
 from app.core.settings import Settings, settings
@@ -89,23 +90,26 @@ class HubLaunchVerifier:
         if not self.config.hub_launch_secret or "." not in token:
             return None
         payload_b64, sig_b64 = token.rsplit(".", 1)
-        expected = hmac.new(
-            self.config.hub_launch_secret.encode("utf-8"),
-            payload_b64.encode("ascii"),
-            hashlib.sha256,
-        ).digest()
         try:
+            expected = hmac.new(
+                self.config.hub_launch_secret.encode("utf-8"),
+                payload_b64.encode("ascii"),
+                hashlib.sha256,
+            ).digest()
             actual = _b64decode(sig_b64)
             payload = json.loads(_b64decode(payload_b64))
-        except (ValueError, TypeError, json.JSONDecodeError):
-            return None
-        if not hmac.compare_digest(actual, expected):
-            return None
-        if payload.get("app_key") != self.app_key(app):
-            return None
-        if int(payload.get("exp", 0)) < int(time.time()):
-            return None
-        if not payload.get("email") or payload.get("sub") is None:
+            if not hmac.compare_digest(actual, expected) or not isinstance(payload, dict):
+                return None
+            if payload.get("app_key") != self.app_key(app):
+                return None
+            if int(payload.get("exp", 0)) <= int(time.time()):
+                return None
+            if not isinstance(payload.get("email"), str) or not payload["email"]:
+                return None
+            int(payload["sub"])
+            if payload.get("app_id") is not None:
+                int(payload["app_id"])
+        except (ValueError, TypeError, KeyError, OverflowError):
             return None
         return payload
 
@@ -134,11 +138,14 @@ class HubLaunchVerifier:
             return None
         return HubSession.from_payload(app, payload)
 
-    def session_from_request(self, request: Request, app: HubApp) -> HubSession | None:
-        token = request.cookies.get(self.cookie_name(app))
-        if not token:
-            return None
-        return self.verify_session_token(token, app)
+    def session_from_request(self, request: HTTPConnection, app: HubApp) -> HubSession | None:
+        """Use the first matching cookie, which browsers order by the most specific path."""
+        name = self.cookie_name(app)
+        for pair in request.headers.get("cookie", "").split(";"):
+            token = cookie_parser(pair).get(name)
+            if token is not None:
+                return self.verify_session_token(token, app)
+        return None
 
     def require_session(self, request: Request, app: HubApp) -> HubSession:
         if not self.config.hub_launch_secret and not self.config.hub_launch_dev_mode:
@@ -155,22 +162,32 @@ class HubLaunchVerifier:
         request.state.hub_user = session.as_response()
         return session
 
-    def set_cookie(self, response: Response, app: HubApp, token: str) -> None:
+    def cookie_secure_for_mount(self, path: str) -> bool:
+        """Use explicit TLS settings for the shared mount, never a request scheme header."""
+        if path != "/" and self.config.hub_shared_cookie_secure is not None:
+            return self.config.hub_shared_cookie_secure
+        return self.config.hub_cookie_secure
+
+    def set_cookie(self, response: Response, app: HubApp, token: str, path: str = "/") -> None:
+        """Set the app session cookie at the validated active public mount."""
         response.set_cookie(
             self.cookie_name(app),
             token,
             max_age=self.config.hub_launch_session_seconds,
+            path=path,
             httponly=True,
             samesite="lax",
-            secure=self.config.hub_cookie_secure,
+            secure=self.cookie_secure_for_mount(path),
         )
 
-    def clear_cookie(self, response: Response, app: HubApp) -> None:
+    def clear_cookie(self, response: Response, app: HubApp, path: str = "/") -> None:
+        """Delete the app session cookie at the same path used to create it."""
         response.delete_cookie(
             self.cookie_name(app),
+            path=path,
             httponly=True,
             samesite="lax",
-            secure=self.config.hub_cookie_secure,
+            secure=self.cookie_secure_for_mount(path),
         )
 
 

@@ -1,22 +1,24 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'lms_runtime_urls.dart';
+
 class AppConstants {
   static String? mediaTicket;
   static String protectedUrl(String url) {
     if (mediaTicket == null || mediaTicket!.isEmpty) return url;
     final uri = Uri.parse(url);
-    final api = apiBaseUrl.isEmpty ? Uri.base : Uri.parse(apiBaseUrl);
+    final api = Uri.base.resolve(apiBaseUrl);
     if (uri.hasAuthority && uri.authority != api.authority) return url;
     if (uri.hasScheme && !{'http', 'https'}.contains(uri.scheme)) return url;
     return uri.replace(queryParameters: {...uri.queryParameters, 'media_ticket': mediaTicket!}).toString();
   }
-  static String get apiBaseUrl {
-    final configured = dotenv.env['API_BASE_URL'];
-    if (configured != null && configured.trim().isNotEmpty) {
-      return configured.trim();
-    }
-    return '';
-  }
+  static LmsRuntimeUrls get runtimeUrls => LmsRuntimeUrls(
+        entrypoint: Uri.base,
+        publicMount: '/lms',
+        configuredApiBase: dotenv.env['API_BASE_URL'] ?? '',
+      );
+
+  static String get apiBaseUrl => runtimeUrls.apiBaseUrl;
 
   static String get uploadEndpoint => '$apiBaseUrl/api/upload';
   static String get listFilesEndpoint => '$apiBaseUrl/api/files';
@@ -35,12 +37,10 @@ class AppConstants {
       '$apiBaseUrl/api/employee/team-performance';
 
   static String myCoursesWsEndpoint(String token) {
-    final wsBase = apiBaseUrl.isEmpty
-        ? '${Uri.base.scheme == 'https' ? 'wss' : 'ws'}://${Uri.base.authority}'
-        : apiBaseUrl
-            .replaceFirst('http://', 'ws://')
-            .replaceFirst('https://', 'wss://');
-    return '$wsBase/api/me/courses/ws?token=$token';
+    return runtimeUrls.websocketEndpoint(
+      'api/me/courses/ws',
+      {'token': token},
+    ).toString();
   }
 
   static String viewFileUrl(String filename) =>

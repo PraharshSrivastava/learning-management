@@ -107,6 +107,7 @@ class Settings(BaseModel):
     hub_launch_session_seconds: int = Field(default=28800, ge=60)
     hub_launch_dev_mode: bool = False
     hub_cookie_secure: bool = False
+    hub_shared_cookie_secure: bool | None = None
     directory_exports_base_url: str | None = None
     directory_exports_api_key: str | None = None
     directory_sync_admin_key: str | None = None
@@ -386,6 +387,7 @@ class Settings(BaseModel):
                 ),
                 "hub_launch_dev_mode": values.get("HUB_LAUNCH_DEV_MODE", "false"),
                 "hub_cookie_secure": values.get("HUB_COOKIE_SECURE", "false"),
+                "hub_shared_cookie_secure": values.get("HUB_SHARED_COOKIE_SECURE") or None,
                 "directory_exports_base_url": values.get("DIRECTORY_EXPORTS_BASE_URL") or None,
                 "directory_exports_api_key": values.get("DIRECTORY_EXPORTS_API_KEY") or None,
                 "directory_sync_admin_key": values.get("DIRECTORY_SYNC_ADMIN_KEY") or None,
