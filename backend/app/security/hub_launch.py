@@ -16,6 +16,7 @@ from starlette.requests import HTTPConnection, cookie_parser
 from starlette.responses import JSONResponse
 
 from app.core.settings import Settings, settings
+from app.security.public_mount import validated_public_mount
 
 HubApp = Literal["trainer", "employee"]
 
@@ -72,10 +73,20 @@ class HubLaunchVerifier:
             return self.config.hub_trainer_app_key
         return self.config.hub_employee_app_key
 
-    def cookie_name(self, app: HubApp) -> str:
-        if app == "trainer":
-            return self.config.hub_trainer_cookie_name
-        return self.config.hub_employee_cookie_name
+    def cookie_name(self, app: HubApp, mount: str = "/") -> str:
+        """Root keeps the configured name. Shared mounts add a mount suffix.
+
+        Browsers send a Path=/ cookie to every path, so a prefixed mount must
+        use a different name to stay isolated from a root session. The suffix
+        also keeps /lms/ and /lms/trainer/ apart.
+        """
+        base = (
+            self.config.hub_trainer_cookie_name
+            if app == "trainer"
+            else self.config.hub_employee_cookie_name
+        )
+        suffix = mount.strip("/").replace("/", "_")
+        return f"{base}_{suffix}" if suffix else base
 
     def _sign_payload(self, payload: dict) -> str:
         payload_b64 = _b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
@@ -139,8 +150,11 @@ class HubLaunchVerifier:
         return HubSession.from_payload(app, payload)
 
     def session_from_request(self, request: HTTPConnection, app: HubApp) -> HubSession | None:
-        """Use the first matching cookie, which browsers order by the most specific path."""
-        name = self.cookie_name(app)
+        """Read only the cookie that belongs to the active public mount (HTTP and WebSocket)."""
+        mount = validated_public_mount(request, app)
+        if mount is None:
+            return None
+        name = self.cookie_name(app, mount)
         for pair in request.headers.get("cookie", "").split(";"):
             token = cookie_parser(pair).get(name)
             if token is not None:
@@ -171,7 +185,7 @@ class HubLaunchVerifier:
     def set_cookie(self, response: Response, app: HubApp, token: str, path: str = "/") -> None:
         """Set the app session cookie at the validated active public mount."""
         response.set_cookie(
-            self.cookie_name(app),
+            self.cookie_name(app, path),
             token,
             max_age=self.config.hub_launch_session_seconds,
             path=path,
@@ -183,7 +197,7 @@ class HubLaunchVerifier:
     def clear_cookie(self, response: Response, app: HubApp, path: str = "/") -> None:
         """Delete the app session cookie at the same path used to create it."""
         response.delete_cookie(
-            self.cookie_name(app),
+            self.cookie_name(app, path),
             path=path,
             httponly=True,
             samesite="lax",

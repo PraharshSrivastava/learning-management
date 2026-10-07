@@ -54,6 +54,22 @@ def test_websocket_rejects_wrong_role(websocket_client, app, cookie_app):
     assert error.value.code == 1008
 
 
+@pytest.mark.parametrize("prefix", ["", "/lms"])
+def test_websocket_uses_cookie_of_its_own_mount(websocket_client, prefix):
+    client, verifier = websocket_client
+    token = session_token(verifier)
+    own = verifier.cookie_name("employee", f"{prefix}/")
+    other = verifier.cookie_name("employee", "/" if prefix else "/lms/")
+    headers = {"X-LMS-App": "employee", "X-Forwarded-Prefix": prefix}
+    with client.websocket_connect("/api/me/courses/ws?token=", headers={
+            **headers, "Cookie": f"{own}={token}"}) as socket:
+        assert socket.receive_json() == []
+    with pytest.raises(WebSocketDisconnect) as error:
+        with client.websocket_connect("/api/me/courses/ws?token=", headers={
+                **headers, "Cookie": f"{other}={token}"}):
+            pass
+    assert error.value.code == 1008
+
 def test_websocket_rejects_missing_session(websocket_client):
     client, _ = websocket_client
     with pytest.raises(WebSocketDisconnect) as error:
