@@ -49,13 +49,17 @@ def report_db(monkeypatch):
                             (employee_id, employee_id, department, "uuid-" + employee_id))
             for course_id, trainer_id in (("course-1", "t-1"), ("course-2", "t-2")):
                 raw.execute("INSERT INTO courses(course_id,trainer_id,course_name,status) VALUES (?, ?, 'Same title', 'published')", (course_id, trainer_id))
-                raw.execute("INSERT INTO assignment_rules(course_id,published_at) VALUES (?, '2026-10-06')", (course_id,))
+                raw.execute("INSERT INTO assignment_rules(course_id,published_at,include_filters_json) VALUES (?, '2026-10-06', ?::jsonb)", (course_id, '{"include_all":false,"groups":[{"employee_ids":["a","b","c"]}]}'))
                 for employee_id in ("a", "b", "c"):
                     raw.execute("INSERT INTO course_assignments(assignment_id,course_id,employee_id,assigned_at,deadline) VALUES (?, ?, ?, '2026-10-06', '2026-12-01')",
                                 (course_id + employee_id, course_id, employee_id))
             raw.execute("INSERT INTO lms_departments VALUES ('finance', 'dir-finance', 'Finance', 'directory', TRUE), ('ops', 'dir-ops', 'Ops', 'directory', TRUE)")
             raw.execute("INSERT INTO hod_department_access(hod_employee_id,identity_key,department_id,source,source_key) VALUES ('hod','directory:uuid-hod','finance','directory','verified-fixture')")
-            yield tx
+            token = database._active_transaction.set(tx)
+            try:
+                yield tx
+            finally:
+                database._active_transaction.reset(token)
         finally:
             raw.rollback()
 

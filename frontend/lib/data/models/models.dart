@@ -202,6 +202,8 @@ class AssignmentRule {
   final List<AssignmentGroup> includeGroups;
   final List<AssignmentGroup> excludeGroups;
   final int deadlineDays;
+  final String deadlineMode;
+  final String? deadlineDate;
   final bool isActive;
 
   const AssignmentRule({
@@ -209,6 +211,8 @@ class AssignmentRule {
     this.includeGroups = const [],
     this.excludeGroups = const [],
     this.deadlineDays = 7,
+    this.deadlineMode = 'relative',
+    this.deadlineDate,
     this.isActive = true,
   });
 
@@ -245,6 +249,8 @@ class AssignmentRule {
               )
             ].where((group) => !group.isEmpty).toList(),
       deadlineDays: (json['deadline_days'] as num?)?.toInt() ?? 7,
+      deadlineMode: json['deadline_mode']?.toString() ?? 'relative',
+      deadlineDate: json['deadline_date']?.toString(),
       isActive: json['is_active'] != false,
     );
   }
@@ -254,6 +260,8 @@ class AssignmentRule {
     List<AssignmentGroup>? includeGroups,
     List<AssignmentGroup>? excludeGroups,
     int? deadlineDays,
+    String? deadlineMode,
+    String? deadlineDate,
     bool? isActive,
   }) {
     return AssignmentRule(
@@ -261,6 +269,8 @@ class AssignmentRule {
       includeGroups: includeGroups ?? this.includeGroups,
       excludeGroups: excludeGroups ?? this.excludeGroups,
       deadlineDays: deadlineDays ?? this.deadlineDays,
+      deadlineMode: deadlineMode ?? this.deadlineMode,
+      deadlineDate: deadlineDate ?? this.deadlineDate,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -270,6 +280,8 @@ class AssignmentRule {
         'include_groups': includeGroups.map((group) => group.toJson()).toList(),
         'exclude_groups': excludeGroups.map((group) => group.toJson()).toList(),
         'deadline_days': deadlineDays,
+        'deadline_mode': deadlineMode,
+        'deadline_date': deadlineMode == 'fixed' ? deadlineDate : null,
       };
 }
 
@@ -797,8 +809,7 @@ class Course {
       currentCheckpoint:
           (json['generation'] as Map?)?['current_checkpoint']?.toString() ?? '',
       generationError: (json['generation'] as Map?)?['error']?.toString() ?? '',
-      moduleCount:
-          (json['module_count'] as num?)?.toInt() ?? modules.length,
+      moduleCount: (json['module_count'] as num?)?.toInt() ?? modules.length,
       isAssignable: json['is_assignable'] == true || inferredAssignable,
     );
   }

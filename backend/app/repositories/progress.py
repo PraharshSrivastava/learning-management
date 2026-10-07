@@ -191,6 +191,7 @@ def _notification_transition(existing: dict | None, data: dict) -> tuple[int, st
 def save_employee_course_progress(employee_id: str, course_id: str, data: dict) -> dict:
     now = datetime.now().isoformat()
     with get_connection() as connection:
+        connection.execute("SELECT course_id FROM courses WHERE course_id = ? FOR UPDATE", (course_id,))
         storage_course_id = _assignment_course_id(connection, course_id)
         existing = connection.execute(
             """
@@ -200,6 +201,10 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
             """,
             (employee_id, storage_course_id),
         ).fetchone()
+        if data.get("status", "pending") != "revoked" and (not existing or existing["status"] == "revoked"):
+            from app.services.assignment_conflicts import EmployeeObserverConflict, observer_ids
+            if employee_id in observer_ids(course_id, connection):
+                raise EmployeeObserverConflict("This employee is an Observer for this course. Resolve the role conflict before assigning the course.")
         assignment_id = existing["assignment_id"] if existing else str(uuid.uuid4())
         previous_status = existing["status"] if existing else None
         existing_data = dict(existing) if existing else None

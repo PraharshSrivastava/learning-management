@@ -10,7 +10,7 @@ from app.core.exceptions import (
     DomainValidationError,
     NotFoundError,
 )
-from app.repositories.database import get_connection
+from app.repositories.database import atomic_course, get_connection
 from app.repositories.lms_access import identity_key
 
 
@@ -67,6 +67,7 @@ def _finish(db, course_id, trainer_id, before, affected, action):
     return after
 
 
+@atomic_course
 def save_config(course_id, trainer_id, payload):
     with get_connection() as db:
         _lock(db, course_id, trainer_id, payload.revision)
@@ -74,6 +75,8 @@ def save_config(course_id, trainer_id, payload):
         existing = db.execute("SELECT observer_employee_id FROM course_observer_grants WHERE course_id = ?", (course_id,)).fetchall()
         affected = {r["observer_employee_id"] for r in existing}
         incoming = {s.observer_employee_id for s in payload.observers}
+        from app.services.assignment_conflicts import validate_separation
+        validate_separation(course_id, proposed_observers=incoming, db=db)
         for employee_id in affected - incoming:
             db.execute("DELETE FROM course_observer_employees WHERE course_id = ? AND observer_employee_id = ?", (course_id, employee_id))
             db.execute("DELETE FROM course_observer_departments WHERE course_id = ? AND observer_employee_id = ?", (course_id, employee_id))
@@ -108,12 +111,15 @@ def save_config(course_id, trainer_id, payload):
         return _finish(db, course_id, trainer_id, before, affected, "save")
 
 
+@atomic_course
 def apply_config(course_id, trainer_id, revision):
     with get_connection() as db:
         course = _lock(db, course_id, trainer_id, revision)
         rule = db.execute("SELECT is_active, published_at FROM assignment_rules WHERE course_id = ?", (course_id,)).fetchone()
         if course["status"] != "published" or not rule or not rule["is_active"] or not rule["published_at"]:
             raise DomainValidationError("Publish and assign the course before applying observers")
+        from app.services.assignment_conflicts import validate_separation
+        validate_separation(course_id, db=db)
         before = _config(db, course_id)
         affected = set()
         for item in before["observers"]:
@@ -136,6 +142,7 @@ def apply_config(course_id, trainer_id, revision):
         return _finish(db, course_id, trainer_id, before, affected, "apply")
 
 
+@atomic_course
 def suspend_course(course_id, trainer_id=None):
     with get_connection() as db:
         owner = db.execute("SELECT trainer_id FROM courses WHERE course_id = ? FOR UPDATE", (course_id,)).fetchone()

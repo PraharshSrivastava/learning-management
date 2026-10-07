@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import datetime
 
 from app.repositories.assignments import employee_matches_assignment_rule
@@ -172,6 +173,8 @@ def test_reconcile_revokes_started_assignment_when_mailing_list_is_removed(monke
             }
         }
     }
+    monkeypatch.setattr(assignment_service, "course_transaction", lambda _: nullcontext())
+    monkeypatch.setattr(assignment_service, "observer_ids", lambda _: set())
     monkeypatch.setattr(assignment_service, "datetime", _FixedDatetime)
     monkeypatch.setattr(
         assignment_service,
@@ -215,6 +218,8 @@ def test_reconcile_reactivates_revoked_assignment_with_remaining_deadline(monkey
             }
         }
     }
+    monkeypatch.setattr(assignment_service, "course_transaction", lambda _: nullcontext())
+    monkeypatch.setattr(assignment_service, "observer_ids", lambda _: set())
     monkeypatch.setattr(assignment_service, "datetime", _FixedDatetime)
     monkeypatch.setattr(assignment_service, "_employees", _FakeEmployees({employee_id: _employee()}))
     monkeypatch.setattr(
