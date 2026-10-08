@@ -1,0 +1,66 @@
+--- a/fofi/FoFiTrueType.cc
++++ b/fofi/FoFiTrueType.cc
+@@ -604,11 +604,15 @@
+         gid = getU16BE(pos + 10 + 2 * (c - cmapFirst), &ok);
+         break;
+     case 12:
+-    case 13:
++    case 13: {
+         segCnt = getU32BE(pos + 12, &ok);
+         a = -1;
+         b = segCnt - 1;
+-        segEnd = getU32BE(pos + 16 + 12 * b + 4, &ok);
++        int b12;
++        if (checkedMultiply(b, 12, &b12)) {
++            return 0;
++        }
++        segEnd = getU32BE(pos + 16 + b12 + 4, &ok);
+         if (c > segEnd) {
+             return 0;
+         }
+@@ -632,6 +636,7 @@
+         // for an entire segment.
+         gid = segDelta + (cmaps[i].fmt == 12 ? (c - segStart) : 0);
+         break;
++    }
+     default:
+         return 0;
+     }
+@@ -1225,7 +1230,11 @@
+             checksum = 0;
+             glyfPos = tables[seekTable("glyf")].offset;
+             for (j = 0; j < nGlyphs; ++j) {
+-                length += locaTable[j].len;
++                if (unlikely(checkedAdd(length, locaTable[j].len, &length))) {
++                    error(errSyntaxError, -1, "Integer overflow in glyph table length calculation");
++                    ok = false;
++                    break;
++                }
+                 if (length & 3) {
+                     length += 4 - (length & 3);
+                 }
+--- a/poppler/JBIG2Stream.cc
++++ b/poppler/JBIG2Stream.cc
+@@ -1195,7 +1195,7 @@
+     mmrDecoder->setStream(curStr);
+     readSegments();
+ 
+-    if (pageBitmap) {
++    if (pageBitmap && pageBitmap->isOk()) {
+         dataPtr = pageBitmap->getDataPtr();
+         dataEnd = dataPtr + pageBitmap->getDataSize();
+     } else {
+@@ -3980,7 +3980,12 @@
+             goto oomError;
+         }
+     }
+-    huffTab[i].val = lowVal - 1;
++    int lowValMinusOne;
++    if (unlikely(checkedSubtraction(lowVal, 1, &lowValMinusOne))) {
++        free(huffTab);
++        return;
++    }
++    huffTab[i].val = lowValMinusOne;
+     huffTab[i].prefixLen = huffDecoder->readBits(prefixBits);
+     huffTab[i].rangeLen = jbig2HuffmanLOW;
+     ++i;

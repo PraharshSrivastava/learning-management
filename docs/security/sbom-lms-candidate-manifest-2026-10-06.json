@@ -1,0 +1,657 @@
+{
+  "date": "2026-10-06",
+  "state": "ISOLATED CANDIDATES TESTED; RELEASE GATES OPEN; NOT DEPLOYED",
+  "branch": "codex/lms-sbom-remediation",
+  "source_base_commit": "16adda0",
+  "excluded_scope": {
+    "postgresql": "Deferred by user; preserve completed evidence, no further fixes or deployment."
+  },
+  "scanner_image": "aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa",
+  "scanner_version": "0.75.0",
+  "advisory_database": {
+    "Version": 2,
+    "NextUpdate": "2026-10-07T01:08:27.805176349Z",
+    "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
+    "DownloadedAt": "2026-10-06T04:26:58.756905245Z"
+  },
+  "components": [
+    {
+      "component": "backend",
+      "candidate_tag": "lms-sbom-backend:candidate-20261006-16",
+      "image_id": "sha256:745b3418f4009f8b832beb630b49718893eb4a7dc9310307d0bc5951f6dbb827",
+      "os": {
+        "Family": "ubuntu",
+        "Name": "26.04"
+      },
+      "occurrences": 37,
+      "severity": {
+        "MEDIUM": 25,
+        "LOW": 12
+      },
+      "distinct_advisories": 29,
+      "with_listed_fix": 0,
+      "detected_sbom_components": 398,
+      "enriched_sbom_components": 399,
+      "report_created": "2026-10-06T09:57:51.123806972Z",
+      "report_sha256": "a6e9790b8046fac6fd7be7d45d02a8b7af6324b1e5417d1be4006a6bb3337f0b",
+      "evidence_directory": "/home/karphi/lms-security/evidence/backend-high-candidate-20261006-16",
+      "evidence_sha256": {
+        "backend-candidate.json": "a6e9790b8046fac6fd7be7d45d02a8b7af6324b1e5417d1be4006a6bb3337f0b",
+        "previous-refreshed.json": "41c243a9885eb60d07fc4f1defdc0e2e3df56f8d301a2291140c7fceac043608",
+        "comparison.json": "6fb3b72ad919a26488cab79be549d10fbc3ff1693edfe52ab8aba21ff7d2696d",
+        "backend.raw.cdx.json": "97d99da3f6b45bd1ffe9b1273cb227729f946b74554365ed5d04f945b833e262",
+        "backend.enriched.cdx.json": "19fed8bccc2ed24699f6b1bdc799ddfe6c62dd8358a3f7a82a456b7ed81ab410",
+        "native-inventory.json": "7513f1da2bb308144882731a3d92b3635afaa53f471c17fcfd64f0d824fe9867",
+        "inherited-reconciled.json": "f695cde7878664a47e2294edf1e6694dc0ea7803742d62077406bd8fb3a6db2d",
+        "inherited-reconciled.csv": "f033f6502e3429922992d978d1d73c27cc7b9021d4128783f67e263ee463dd15",
+        "context-inputs.json": "4983f5029d882f86b19c5396c4169ca0573af52be7906d893d987efe1e57a701",
+        "build-inputs-sha256.txt": "e756f4d127f9a3bb67f9b23c5fa155f3d46f8a6de51e89c676356a4baa80be9e",
+        "Dockerfile": "c020f816e76707e91ba385ddb8af5d65aeff82634f7468edd1ad7a809ecb3c00",
+        "package_util_linux.py": "6995dc3ce881c3ab671e67aca4c98f5bc602985f61c4ed2b1ab875b156d088e6",
+        "smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+        "pytest.log": "017883ca52d056dfe346a0a251097459362eeaac0ce37595a0f05a095d10f139",
+        "import-health.log": "d9efe5e7f74257cc6a0a14a98d1aa36379bd09f143c3acc44ad744b1a4761adf",
+        "high-advisory-review.json": "f66c1aedb3cefb4c4451c8f7edf005be448f530cb55bb05b13fcdf4f637a4675",
+        "provenance-check.json": "924cf5108db761d8c0a721e5471e444195015c830f2433bca66f598bc8cb310b"
+      },
+      "source_context_files_verified": 147,
+      "inherited_assessment": {
+        "candidate_image": "sha256:745b3418f4009f8b832beb630b49718893eb4a7dc9310307d0bc5951f6dbb827",
+        "inherited_occurrences": 829,
+        "assessments": {
+          "OPEN_MISSING_VENDOR_EVIDENCE": 190,
+          "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED": 36,
+          "VENDOR_FIXED_VERSION_CONFIRMED": 126,
+          "VENDOR_NOT_AFFECTED_EXACT_VERSION": 39,
+          "OPEN_UNDER_INVESTIGATION": 76,
+          "AFFECTED_COMPONENT_ABSENT_VERIFIED": 9,
+          "UPSTREAM_FIXED_VERSION_VERIFIED": 282,
+          "VULNERABLE_CODE_EXCLUDED_VERIFIED": 9,
+          "OPEN_AFFECTED": 11,
+          "OPEN_SOURCE_ABSENT_BUNDLE_REVIEW": 48,
+          "OPEN_NOT_AFFECTED": 1,
+          "AFFECTED_COMPONENT_REMOVED_VERIFIED": 2
+        },
+        "open_original_severity": {
+          "LOW": 195,
+          "MEDIUM": 97,
+          "HIGH": 14,
+          "UNKNOWN": 20
+        },
+        "addressed_original_severity": {
+          "HIGH": 216,
+          "MEDIUM": 209,
+          "LOW": 77,
+          "CRITICAL": 1
+        },
+        "this_batch": {
+          "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED": 36,
+          "AFFECTED_COMPONENT_ABSENT_VERIFIED": 9,
+          "AFFECTED_COMPONENT_REMOVED_VERIFIED": 2
+        },
+        "changes": [
+          {
+            "source": "util-linux",
+            "package": "bsdutils",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "bsdutils",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "bsdutils",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "bsdutils",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "gnupg2",
+            "package": "dirmngr",
+            "advisory": "CVE-2026-24882",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "gnupg2",
+            "package": "gnupg",
+            "advisory": "CVE-2026-24882",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "gnupg2",
+            "package": "gnupg-l10n",
+            "advisory": "CVE-2026-24882",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "gnupg2",
+            "package": "gpg",
+            "advisory": "CVE-2026-24882",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "gnupg2",
+            "package": "gpg-agent",
+            "advisory": "CVE-2026-24882",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "gnupg2",
+            "package": "gpgconf",
+            "advisory": "CVE-2026-24882",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "gnupg2",
+            "package": "gpgsm",
+            "advisory": "CVE-2026-24882",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libblkid1",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libblkid1",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libblkid1",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libblkid1",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "liblastlog2-2",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "liblastlog2-2",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "liblastlog2-2",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "liblastlog2-2",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libmount1",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libmount1",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libmount1",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libmount1",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libsmartcols1",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libsmartcols1",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libsmartcols1",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libsmartcols1",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "tiff",
+            "package": "libtiff6",
+            "advisory": "CVE-2026-52490",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libuuid1",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libuuid1",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libuuid1",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "libuuid1",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "login",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "login",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "login",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "login",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "mount",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "mount",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "mount",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "mount",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "perl",
+            "package": "perl-base",
+            "advisory": "CVE-2026-9538",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "util-linux",
+            "advisory": "CVE-2026-76642",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "util-linux",
+            "advisory": "CVE-2026-78408",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "util-linux",
+            "advisory": "CVE-2026-78409",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "util-linux",
+            "package": "util-linux",
+            "advisory": "CVE-2026-78410",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "xorg-server",
+            "package": "xserver-common",
+            "advisory": "CVE-2023-5574",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_REMOVED_VERIFIED"
+          },
+          {
+            "source": "xorg-server",
+            "package": "xvfb",
+            "advisory": "CVE-2023-5574",
+            "severity": "HIGH",
+            "assessment": "AFFECTED_COMPONENT_REMOVED_VERIFIED"
+          }
+        ],
+        "previous_register_sha256": "8b2255fa65db58d8b3a279404f9955807b8b18bfe8afa7da63e6a275a8b53990",
+        "native_inventory_sha256": "7513f1da2bb308144882731a3d92b3635afaa53f471c17fcfd64f0d824fe9867",
+        "advisory_review_sha256": "f66c1aedb3cefb4c4451c8f7edf005be448f530cb55bb05b13fcdf4f637a4675",
+        "limitations": "Package-advisory occurrences, not unique CVEs. Distinguish upgrades, removal and applicability assessments. No scanner suppression. Bundled-code review and remaining inherited risks are still open. No deployment."
+      },
+      "earlier_fix_regression_check": "39 OpenSSL OS occurrences vendor-fixed; PCRE2 10.49 and PNG 1.6.59 upstream fixes verified; urllib3 2.8.0 and runtime pip removal retained",
+      "tests": {
+        "native_LMS_smoke": "PASS",
+        "upstream_libmount_subtests_passed": 85,
+        "upstream_libmount_groups_passed": 7,
+        "upstream_libmount_groups_skipped": 11,
+        "ABI_symbol_compatibility": "PASS",
+        "apt_dependency_check": "PASS",
+        "selected_regression_passed": 44,
+        "selected_regression_failed": 1,
+        "known_failure": "test_splits_third_landscape_image_to_separate_slide; reproduced on prior candidate",
+        "app_import_health_route": "PASS; lifespan not run",
+        "full_PostgreSQL_startup": "PENDING",
+        "real_Hub_UAT_workflow": "PENDING"
+      },
+      "advisory_database": {
+        "Version": 2,
+        "NextUpdate": "2026-10-07T07:04:23.108323332Z",
+        "UpdatedAt": "2026-10-06T07:04:23.108323632Z",
+        "DownloadedAt": "2026-10-06T09:27:53.355334234Z"
+      },
+      "current_ubuntu_assessment": {
+        "OPEN_REVIEW_REQUIRED": 34,
+        "UPSTREAM_FIXED_VERSION_VERIFIED": 3
+      }
+    },
+    {
+      "component": "frontend",
+      "candidate_tag": "lms-sbom-frontend:candidate-20261006-03",
+      "image_id": "sha256:c88f10f7f0575b71aebec69a3facb605e41f9dec0243e8bf9535e8a20ec5776d",
+      "occurrences": 0,
+      "severity": {},
+      "with_listed_fix": 0,
+      "detected_sbom_components": 71,
+      "report_created": "2026-10-06T05:09:30.413892145Z",
+      "report_sha256": "adef0b1519ba0487184725c9d3fff971ce6a17a14674340e6db291f1d4d777e0",
+      "evidence_directory": "/home/karphi/lms-security/evidence/frontend-candidates-20261006-03",
+      "advisory_database": {
+        "Version": 2,
+        "NextUpdate": "2026-10-07T01:08:27.805176349Z",
+        "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
+        "DownloadedAt": "2026-10-06T04:26:58.756905245Z"
+      }
+    },
+    {
+      "component": "employee_frontend",
+      "candidate_tag": "lms-sbom-employee_frontend:candidate-20261006-03",
+      "image_id": "sha256:1450b4384f5473e8dfa401677da8afbaf5255bd7ace086a35d848e8ad3a7df2d",
+      "occurrences": 0,
+      "severity": {},
+      "with_listed_fix": 0,
+      "detected_sbom_components": 71,
+      "report_created": "2026-10-06T05:09:37.660137712Z",
+      "report_sha256": "83dd2a22ba11e4e4b72b9932693681dc6f7f08ecc21f78853351c95c143581a0",
+      "evidence_directory": "/home/karphi/lms-security/evidence/frontend-candidates-20261006-03",
+      "advisory_database": {
+        "Version": 2,
+        "NextUpdate": "2026-10-07T01:08:27.805176349Z",
+        "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
+        "DownloadedAt": "2026-10-06T04:26:58.756905245Z"
+      }
+    }
+  ],
+  "manual_binary_inventory": {
+    "backend_chromium": "153.0.8010.12",
+    "backend_system_ffmpeg": "9.0.2 (minimal source build)",
+    "frontend_sdk": "Flutter 3.44.0 / Dart 3.12.0",
+    "backend_libxml2": "2.15.4",
+    "backend_lxml": "6.1.3 (linked XML 2.15.4)",
+    "backend_pcre2": "10.49",
+    "backend_libpng": "1.6.59",
+    "backend_util_linux_security_components": "2.42.4; partial replacement, other Ubuntu utilities retained",
+    "backend_cpython_expat": "2.8.3; High review still open",
+    "backend_pillow_libtiff": "4.7.1; High review still open"
+  },
+  "coverage_limits": [
+    "Downloaded browsers and Flutter/CanvasKit/Dart engines require separate advisory assessment.",
+    "Raw matches do not establish exploitability.",
+    "Real Hub login/course workflow and UAT deployment are pending.",
+    "Debian and Ubuntu raw scan counts cannot be used as a verified fix reduction; inherited priority review still has 14 High and 97 Medium occurrences open.",
+    "Operator-built XML/PCRE2/PNG and manual FFmpeg require separate upstream maintenance; Linux amd64 only tested.",
+    "One existing slide-layout regression fails both prior and final candidate. Full-stack validation and deployment remain blocked by open release gates.",
+    "Enriched CycloneDX was parsed and reference-checked, not fully schema-validated. Mutable APT/build tooling/browser downloads prevent bit-for-bit reproducibility.",
+    "Partial util-linux packages declare tested ABI compatibility with old exact-version dependencies; maintain and verify these providers when changing Ubuntu base. No full util-linux family upgrade claimed."
+  ],
+  "historical_backend_round1": {
+    "component": "backend",
+    "candidate_tag": "lms-sbom-backend:candidate-20261006-05",
+    "image_id": "sha256:4662cac700d64379a481f34fc0783e70b52eaa25bdef4d93b22e49b406da67c1",
+    "occurrences": 829,
+    "severity": {
+      "LOW": 272,
+      "HIGH": 230,
+      "MEDIUM": 306,
+      "UNKNOWN": 20,
+      "CRITICAL": 1
+    },
+    "with_listed_fix": 0,
+    "detected_sbom_components": 500,
+    "report_created": "2026-10-06T05:23:28.843502389Z",
+    "report_sha256": "2f02e313fdd63eabd839992089f0c1c4f2081703a55fdf1d3b4ffa86546e5358",
+    "evidence_directory": "/home/karphi/lms-security/evidence/backend-candidate-20261006-05"
+  },
+  "live_application_verification": {
+    "backend": {
+      "image_id": "sha256:6093e61d548ac903f661add8a58897ca959438bd1a1cff1b15d02e4ea429fd64",
+      "state": "running healthy unchanged"
+    },
+    "frontend": {
+      "image_id": "sha256:a09ac1f56d61a0f3ff0fdc78bbac4960e6c8bfe98a794c5b391205119398589a",
+      "state": "running healthy unchanged"
+    },
+    "employee_frontend": {
+      "image_id": "sha256:83e4b8026f5944bc8993766018c6f77471a78aa6d6d134def1b66898b91fb3ec",
+      "state": "running healthy unchanged"
+    },
+    "database": "Not accessed, tested or changed in rounds 2 or 3"
+  },
+  "assessment_evidence_sources": {
+    "native_tracker_feed": {
+      "url": "https://security-tracker.debian.org/tracker/data/json",
+      "sha256": "d059b671f7cbb86a0341f779543f41813d93412e26c745d2c2473c49f89a81ac",
+      "retrieved_at": "2026-10-06T06:08:37.066967+00:00"
+    },
+    "ubuntu_vex_inherited": {
+      "commit": "a3f40224dd201a816b4725891b70d22f7809225f",
+      "requested_CVEs": 330,
+      "downloaded": 320,
+      "missing": 10,
+      "unqueried_non_CVE_IDs": 5
+    },
+    "ubuntu_vex_earlier_fixes": {
+      "commit": "ba7357b25a342f8244cf8ef08023b5110b47a265",
+      "requested_CVEs": 15,
+      "downloaded": 15
+    },
+    "earlier_fix_provenance": "41 synthetic OS input rows derived from prior comparable removed occurrences; not a fresh baseline scan",
+    "native_source_archive_sha256": {
+      "FFmpeg9.0.2": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+      "libxml2-2.15.4": "98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821",
+      "PCRE2-10.49": "929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae",
+      "libpng1.6.59": "2540302a1844ad2b2b501977abecfa850f265f97b78f065a712ab4074a89f5b5",
+      "util-linux2.42.4": "fbd62a100ab7bb8746ba0661255c3c48185b1e9021507c624da01fbc696330ec"
+    },
+    "high_advisory_review": {
+      "sha256": "f66c1aedb3cefb4c4451c8f7edf005be448f530cb55bb05b13fcdf4f637a4675",
+      "primary_pages": 8
+    }
+  },
+  "historical_backend_round2": {
+    "component": "backend",
+    "candidate_tag": "lms-sbom-backend:candidate-20261006-15",
+    "image_id": "sha256:4d351be75ab579c0dd81041d0c3a452b32331516f4121cfffa5f1467441edab9",
+    "os": {
+      "Family": "ubuntu",
+      "Name": "26.04"
+    },
+    "occurrences": 38,
+    "severity": {
+      "MEDIUM": 24,
+      "LOW": 14
+    },
+    "distinct_advisories": 29,
+    "with_listed_fix": 0,
+    "detected_sbom_components": 399,
+    "enriched_sbom_components": 400,
+    "report_created": "2026-10-06T08:59:57.363094106Z",
+    "report_sha256": "1a11d78b53dca5470986cbb8c22cc9bb6895f8cbe1b05d06b81b25c1bd948129",
+    "evidence_directory": "/home/karphi/lms-security/evidence/backend-patched-candidate-20261006-15",
+    "evidence_sha256": {
+      "backend-candidate.json": "1a11d78b53dca5470986cbb8c22cc9bb6895f8cbe1b05d06b81b25c1bd948129",
+      "backend.raw.cdx.json": "5d1e2b73706f453bc9f1e5235fceb360c73fd44153f76d518823efbd66cb4393",
+      "backend.enriched.cdx.json": "319b95fcee95fb452a029baacb04eda01bc1fe59523ce9c6e900f4822b029955",
+      "native-inventory.json": "5bb22ec0ea406d71828bbe142e937ecdea2d10011d701e8952a535259d00881c",
+      "inherited-reconciled.json": "99778941ff3039464129c807b007e698952d82eb9e16b7f669f76661d2daed2c",
+      "inherited-reconciled.csv": "8b2255fa65db58d8b3a279404f9955807b8b18bfe8afa7da63e6a275a8b53990",
+      "context-inputs.json": "4983f5029d882f86b19c5396c4169ca0573af52be7906d893d987efe1e57a701",
+      "build-inputs-sha256.txt": "dcf6fb2c89ae126f580c2f01485694a8facbe6b3c09a4096157c03811a25974f",
+      "Dockerfile": "01b42775d55a82658bfb1406c6fee043bdef174deccad9a4fe8ab1e3f42a20df",
+      "smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+      "pytest.log": "5353910c0948bdb8d5a7200344e779a4cd42dc9ac81e9df420d45fd42821107b",
+      "earlier-fixes-reconciled.json": "4f8bde0033568e42af5479b700c5453a4764ac09a5b7ffc54ba3f09f31be16b5",
+      "earlier-fixes-reconciled.csv": "ad138ef3f56706fee2da0fd1d18a8ee696d4728ed7ec6a359784b247ee6d39e1"
+    },
+    "source_context_files_verified": 147,
+    "inherited_assessment": {
+      "candidate_image": "sha256:4d351be75ab579c0dd81041d0c3a452b32331516f4121cfffa5f1467441edab9",
+      "inherited_occurrences": 829,
+      "assessments": {
+        "OPEN_MISSING_VENDOR_EVIDENCE": 198,
+        "OPEN_UNDER_INVESTIGATION": 115,
+        "VENDOR_FIXED_VERSION_CONFIRMED": 126,
+        "VENDOR_NOT_AFFECTED_EXACT_VERSION": 39,
+        "UPSTREAM_FIXED_VERSION_VERIFIED": 282,
+        "VULNERABLE_CODE_EXCLUDED_VERIFIED": 9,
+        "OPEN_AFFECTED": 11,
+        "OPEN_SOURCE_ABSENT_BUNDLE_REVIEW": 48,
+        "OPEN_NOT_AFFECTED": 1
+      },
+      "open_original_severity": {
+        "LOW": 195,
+        "HIGH": 61,
+        "MEDIUM": 97,
+        "UNKNOWN": 20
+      },
+      "addressed_original_severity": {
+        "MEDIUM": 209,
+        "LOW": 77,
+        "HIGH": 169,
+        "CRITICAL": 1
+      },
+      "limitation": "Open inherited issues remain visible even when the new OS scanner does not report them. Native-code exclusions and vendor not-affected assessments are distinct from version fixes."
+    },
+    "earlier_fix_regression_check": "39 OpenSSL OS occurrences vendor-fixed; PCRE2 10.49 and PNG 1.6.59 upstream fixes verified; urllib3 2.8.0 and runtime pip removal retained",
+    "tests": {
+      "native_LMS_smoke": "PASS",
+      "selected_regression_passed": 44,
+      "selected_regression_failed": 1,
+      "known_failure": "test_splits_third_landscape_image_to_separate_slide; reproduced on prior candidate",
+      "real_Hub_UAT_workflow": "PENDING"
+    },
+    "advisory_database": {
+      "Version": 2,
+      "NextUpdate": "2026-10-07T01:08:27.805176349Z",
+      "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
+      "DownloadedAt": "2026-10-06T04:26:58.756905245Z"
+    }
+  },
+  "advisory_database_scope": "Original frontend snapshot; selected backend uses its component-specific refreshed snapshot."
+}

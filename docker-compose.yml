@@ -21,6 +21,9 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     environment:
       APP_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -136,6 +139,9 @@ services:
     restart: unless-stopped
     environment:
       TRUSTED_EDGE_PROXY_IP: ${TRUSTED_EDGE_PROXY_IP:-}
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ${LMS_STORAGE_DIR:-/opt/lms/storage}/generated/videos:/srv/lms/videos:ro
     ports:
@@ -152,6 +158,9 @@ services:
     restart: unless-stopped
     environment:
       TRUSTED_EDGE_PROXY_IP: ${TRUSTED_EDGE_PROXY_IP:-}
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ${LMS_STORAGE_DIR:-/opt/lms/storage}/generated/videos:/srv/lms/videos:ro
     ports:

@@ -64,6 +64,11 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  # CanvasKit otherwise downloads its default Roboto font even with CDN resources disabled.
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/google_fonts/Roboto-Regular.ttf
 
   # To add assets to your application, add an assets section, like this:
   assets:
