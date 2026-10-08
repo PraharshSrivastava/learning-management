@@ -211,7 +211,7 @@ class AssignmentRule {
     this.includeGroups = const [],
     this.excludeGroups = const [],
     this.deadlineDays = 7,
-    this.deadlineMode = 'relative',
+    this.deadlineMode = 'fixed',
     this.deadlineDate,
     this.isActive = true,
   });

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:frontend/features/performance/searchable_report_filter.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -213,20 +214,42 @@ class _ObserverIncludePanelState extends ConsumerState<ObserverIncludePanel> {
                   content: SizedBox(
                       width: 520,
                       height: 380,
-                      child: ListView(
-                          children: options
-                              .map((o) => CheckboxListTile(
-                                    title: Text(o['label']!),
-                                    value: picked.contains(o['id']),
-                                    onChanged: (value) => update(() {
-                                      if (value == true) {
-                                        picked.add(o['id']!);
-                                      } else {
-                                        picked.remove(o['id']);
-                                      }
-                                    }),
-                                  ))
-                              .toList())),
+                      child: Column(children: [
+                        if (field == 'employee_ids')
+                          Wrap(spacing: 8, children: [
+                            TextButton.icon(
+                                onPressed: options.isEmpty ||
+                                        options.every(
+                                            (o) => picked.contains(o['id']))
+                                    ? null
+                                    : () => update(() => picked
+                                        .addAll(options.map((o) => o['id']!))),
+                                icon: const Icon(Icons.done_all, size: 18),
+                                label: const Text('Select all')),
+                            TextButton(
+                                onPressed: picked.isEmpty
+                                    ? null
+                                    : () => update(picked.clear),
+                                child: const Text('Clear all')),
+                            Text('${picked.length} selected'),
+                          ]),
+                        Expanded(
+                            child: ListView.builder(
+                                itemCount: options.length,
+                                itemBuilder: (_, index) {
+                                  final option = options[index];
+                                  return CheckboxListTile(
+                                      title: Text(option['label']!),
+                                      value: picked.contains(option['id']),
+                                      onChanged: (value) => update(() {
+                                            if (value == true) {
+                                              picked.add(option['id']!);
+                                            } else {
+                                              picked.remove(option['id']);
+                                            }
+                                          }));
+                                })),
+                      ])),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -311,23 +334,22 @@ class _ObserverIncludePanelState extends ConsumerState<ObserverIncludePanel> {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  DropdownButton<String>(
-                      value: candidates.any((e) =>
-                              e.employeeId == selection['observer_employee_id'])
-                          ? selection['observer_employee_id'] as String
-                          : null,
-                      hint: const Text('Choose observer'),
-                      items: candidates
-                          .map((e) => DropdownMenuItem(
-                              value: e.employeeId, child: Text(e.name)))
-                          .toList(),
-                      onChanged: busy
-                          ? null
-                          : (v) => setState(() {
-                                selection['observer_employee_id'] = v;
-                                dirty = true;
-                                Future.microtask(notifyDraftObservers);
-                              })),
+                  SearchableReportFilter(
+                      label: 'Observer',
+                      value: selection['observer_employee_id'] as String?,
+                      items: {
+                        for (final employee in candidates)
+                          employee.employeeId: employee.name
+                      },
+                      icon: Icons.search,
+                      width: 260,
+                      allowAll: false,
+                      enabled: !busy,
+                      onChanged: (value) => setState(() {
+                            selection['observer_employee_id'] = value;
+                            dirty = true;
+                            Future.microtask(notifyDraftObservers);
+                          })),
                   OutlinedButton(
                       onPressed: busy
                           ? null

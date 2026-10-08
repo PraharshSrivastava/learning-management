@@ -1,6 +1,9 @@
 // This trainer application is deployed as Flutter Web; CSV downloads use the browser.
 // ignore_for_file: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
+import 'dart:async';
+import 'package:frontend/features/performance/searchable_report_filter.dart';
+import 'package:frontend/features/performance/course_report_browser.dart';
 
 import 'package:flutter/material.dart';
 import 'package:frontend/features/performance/report_access_guard.dart';
@@ -16,7 +19,8 @@ import 'package:frontend/state/trainer_providers.dart';
 class PerformanceReportPortal extends ConsumerStatefulWidget {
   final String? initialCourseId;
   final String? initialStatus;
-  const PerformanceReportPortal({super.key, this.initialCourseId, this.initialStatus});
+  const PerformanceReportPortal(
+      {super.key, this.initialCourseId, this.initialStatus});
 
   @override
   ConsumerState<PerformanceReportPortal> createState() =>
@@ -32,15 +36,21 @@ class _PerformanceReportPortalState
       if (!mounted) return;
       final report = ref.read(performanceReportProvider.notifier);
       if (widget.initialCourseId != null || widget.initialStatus != null) {
-        report.openLinkedReport(courseId: widget.initialCourseId, status: widget.initialStatus);
-      } else { report.refresh(); }
+        report.openLinkedReport(
+            courseId: widget.initialCourseId, status: widget.initialStatus);
+      } else {
+        report.refresh();
+      }
     });
   }
+
+  Timer? searchDelay;
   final search = TextEditingController();
   final joined = TextEditingController();
 
   @override
   void dispose() {
+    searchDelay?.cancel();
     search.dispose();
     joined.dispose();
     super.dispose();
@@ -110,26 +120,49 @@ class _PerformanceReportPortalState
     );
   }
 
-  Widget _reportScope(PerformanceReportState state, PerformanceReportNotifier report) {
+  Widget _reportScope(
+      PerformanceReportState state, PerformanceReportNotifier report) {
     final views = ref.watch(reportViewsProvider);
-    const labels = {'all_courses': 'All Courses', 'my_courses': 'My Courses',
-      'my_departments': 'My Department(s)', 'observed': 'Observed Employees', 'combined': 'Combined'};
-    final allowed = views.isEmpty ? <String>['all_courses', 'my_courses'] : views;
+    const labels = {
+      'all_courses': 'All Courses',
+      'my_courses': 'My Courses',
+      'my_departments': 'My Department(s)',
+      'observed': 'Observed Employees',
+      'combined': 'Combined'
+    };
+    final allowed =
+        views.isEmpty ? <String>['all_courses', 'my_courses'] : views;
     if (!allowed.contains(state.reportView)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) report.setReportView(allowed.first);
       });
     }
-    return Row(children: [const Text('View'), const SizedBox(width: 12),
-      DropdownButton<String>(value: allowed.contains(state.reportView) ? state.reportView : allowed.first,
-        items: allowed.map((v) => DropdownMenuItem(value: v, child: Text(labels[v] ?? v))).toList(),
-        onChanged: (v) { if (v != null) { search.clear(); joined.clear(); report.setReportView(v); } }),
+    return Row(children: [
+      const Text('View'),
+      const SizedBox(width: 12),
+      DropdownButton<String>(
+          value: allowed.contains(state.reportView)
+              ? state.reportView
+              : allowed.first,
+          items: allowed
+              .map((v) =>
+                  DropdownMenuItem(value: v, child: Text(labels[v] ?? v)))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) {
+              searchDelay?.cancel();
+              search.clear();
+              joined.clear();
+              report.setReportView(v);
+            }
+          }),
     ]);
   }
 
   Widget _filters(PerformanceReportState state) {
     final options = state.options;
     final filter = state.filter;
+    final guard = ref.read(reportContextProvider);
     final report = ref.read(performanceReportProvider.notifier);
     final activeCount = [
       filter.courseId,
@@ -189,6 +222,7 @@ class _PerformanceReportPortalState
           const SizedBox(width: 8),
           TextButton.icon(
             onPressed: () {
+              searchDelay?.cancel();
               joined.clear();
               search.clear();
               report.clearFilters();
@@ -206,7 +240,9 @@ class _PerformanceReportPortalState
                   : 1;
           final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
           return Wrap(spacing: 12, runSpacing: 12, children: [
-            _Drop(
+            SearchableReportFilter(
+                guard: (child) =>
+                    ReportAccessGuard(expected: guard, child: child),
                 label: 'Course',
                 value: filter.courseId,
                 width: width,
@@ -218,7 +254,9 @@ class _PerformanceReportPortalState
                 },
                 onChanged: (value) => report.setFilter(filter.copyWith(
                     courseId: value, clearCourse: value == null))),
-            _Drop(
+            SearchableReportFilter(
+                guard: (child) =>
+                    ReportAccessGuard(expected: guard, child: child),
                 label: 'Department',
                 value: filter.department,
                 width: width,
@@ -229,7 +267,9 @@ class _PerformanceReportPortalState
                 },
                 onChanged: (value) => report.setFilter(filter.copyWith(
                     department: value, clearDepartment: value == null))),
-            _Drop(
+            SearchableReportFilter(
+                guard: (child) =>
+                    ReportAccessGuard(expected: guard, child: child),
                 label: 'Mailing list',
                 value: filter.mailingList,
                 width: width,
@@ -506,33 +546,20 @@ class _PerformanceReportPortalState
   }
 
   Widget _courses(PerformanceReportState state) {
-    final courses = _list(state.courses['courses']);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const _Heading(
-          'Course performance', 'Open a course to inspect module results.'),
-      if (courses.isEmpty)
-        const _Box(
-            child: Padding(
-                padding: EdgeInsets.all(30),
-                child: Center(
-                    child: Text('No courses match the selected filters.')))),
-      if (courses.isNotEmpty)
-        LayoutBuilder(builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 850 ? 2 : 1;
-          final width = columns == 1
-              ? constraints.maxWidth
-              : (constraints.maxWidth - 12) / 2;
-          return Wrap(spacing: 12, runSpacing: 12, children: [
-            for (final value in courses)
-              SizedBox(
-                width: width,
-                child: _CourseCard(
-                  course: _map(value),
-                  onTap: () => _showCourse(_map(value)['course_id'].toString()),
-                ),
-              ),
-          ]);
-        }),
+      const _Heading('Course performance',
+          'Search a course, then open it to inspect module results.'),
+      CourseReportBrowser(
+        courses: [
+          for (final value in _list(state.courses['courses'])) _map(value)
+        ],
+        scopeKey: ref.watch(reportContextProvider),
+        resetVersion: state.employeeResetVersion,
+        isLoading: state.isLoading,
+        itemBuilder: (course) => _CourseCard(
+            course: course,
+            onTap: () => _showCourse(course['course_id'].toString())),
+      ),
     ]);
   }
 
@@ -602,10 +629,20 @@ class _PerformanceReportPortalState
                     textInputAction: TextInputAction.search,
                     decoration: const InputDecoration(
                         prefixIcon: Icon(Icons.search),
-                        hintText: 'Name or course · Enter',
+                        hintText: 'Search employee name, ID or course',
                         isDense: true,
                         border: OutlineInputBorder()),
-                    onSubmitted: (value) => report.setSearch(value.trim()))),
+                    onChanged: (value) {
+                      searchDelay?.cancel();
+                      searchDelay =
+                          Timer(const Duration(milliseconds: 350), () {
+                        if (mounted) report.setSearch(value.trim());
+                      });
+                    },
+                    onSubmitted: (value) {
+                      searchDelay?.cancel();
+                      report.setSearch(value.trim());
+                    })),
             for (final item in quickStatuses)
               _StatusFilterChip(
                   label: item.$1,
@@ -688,7 +725,8 @@ class _PerformanceReportPortalState
     final guard = ref.read(reportContextProvider);
     await showDialog<void>(
         context: context,
-        builder: (context) => ReportAccessGuard(expected: guard, child: AssignmentDetailDialog(detail: detail)));
+        builder: (context) => ReportAccessGuard(
+            expected: guard, child: AssignmentDetailDialog(detail: detail)));
   }
 
   Future<void> _showEmployee(String id) async {
@@ -700,18 +738,20 @@ class _PerformanceReportPortalState
       barrierDismissible: true,
       barrierLabel: 'Close employee detail',
       barrierColor: Colors.black38,
-      pageBuilder: (drawerContext, _, __) => ReportAccessGuard(expected: guard, child: SafeArea(
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: EmployeeDetailDrawer(
-            detail: detail,
-            onOpenAssignment: (assignmentId) {
-              Navigator.pop(drawerContext);
-              _showAssignment(assignmentId);
-            },
-          ),
-        ),
-      )),
+      pageBuilder: (drawerContext, _, __) => ReportAccessGuard(
+          expected: guard,
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: EmployeeDetailDrawer(
+                detail: detail,
+                onOpenAssignment: (assignmentId) {
+                  Navigator.pop(drawerContext);
+                  _showAssignment(assignmentId);
+                },
+              ),
+            ),
+          )),
     );
   }
 
@@ -721,7 +761,9 @@ class _PerformanceReportPortalState
     final guard = ref.read(reportContextProvider);
     await showDialog<void>(
         context: context,
-        builder: (dialogContext) => ReportAccessGuard(expected: guard, child: CourseDetailDialog(
+        builder: (dialogContext) => ReportAccessGuard(
+            expected: guard,
+            child: CourseDetailDialog(
               detail: detail,
               onViewEmployees: () {
                 Navigator.pop(dialogContext);
@@ -1302,7 +1344,6 @@ class _Drop extends StatelessWidget {
   final String? value;
   final Map<String, String> items;
   final double width;
-  final IconData? icon;
   final ValueChanged<String?> onChanged;
   const _Drop(
       {required this.label,
@@ -1310,7 +1351,6 @@ class _Drop extends StatelessWidget {
       required this.value,
       required this.items,
       required this.width,
-      this.icon,
       required this.onChanged});
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -1318,12 +1358,10 @@ class _Drop extends StatelessWidget {
       child: DropdownButtonFormField<String>(
           value: value != null && items.containsKey(value) ? value : '',
           isExpanded: true,
-          decoration: icon == null
-              ? InputDecoration(
-                  labelText: label,
-                  isDense: true,
-                  border: const OutlineInputBorder())
-              : _scopeFieldDecoration(label, icon!),
+          decoration: InputDecoration(
+              labelText: label,
+              isDense: true,
+              border: const OutlineInputBorder()),
           items: [
             DropdownMenuItem(value: '', child: Text(allLabel)),
             for (final item in items.entries)
