@@ -7,7 +7,11 @@
 - Local backend suite: 329 passed, 60 opt-in tests skipped, one pre-existing landscape slide assertion failure. Both the failing test and its implementation are unchanged from main.
 - Disposable VM database tests: 41 passed. Seeded only lms_performance_demo with synthetic data; Performance SQL parity suite: 15 passed. These validate feature code with the test image dependencies, not the unfinished maintained backend runtime.
 - Trainer tests on pinned Flutter SDK: 36 passed on both export attempts. Employee native-platform tests expose the existing browser-only import gap; browser-platform validation is in progress.
-- All fresh image scans and full candidate-runtime/Hub/UAT acceptance remain pending until their recorded results exist. Historical security counts are not recertified by this integration.
+- Both final frontend image identities have fresh Trivy scans with zero detected findings. Their CycloneDX 1.7 SBOMs validate against the official schema; each records 71 components, 70 with licence metadata. This OS/container inventory does not establish complete compiled Flutter/engine coverage.
+- Fresh OSV audit of 57 hosted Dart package versions found no listed advisories. Flutter/SDK entries remain a separate coverage gap.
+- Four Nginx/shared-route regression tests passed against the combined templates. Employee Chrome widget validation did not reach assertions: DDC modules fail ERR_INSUFFICIENT_RESOURCES at both nofile 1024 and 65536, and after one cached reload. The disposable browser tests were stopped and the harness gap recorded; compiled UI acceptance remains required. No runtime application changes were made for this test harness issue.
+- Maintained backend compilation, its fresh scan/native smoke tests, and full candidate-runtime/Hub/UAT acceptance remain pending. Historical backend security counts are not recertified by this integration.
+- UAT execution method confirmed: the user will run the supplied commands and share outputs. Read-only preflight collects deployment identities and topology before exact rollout/rollback commands are finalized.
 
 ## Canonical source export
 
@@ -24,3 +28,13 @@ Accepted archive SHA-256: d208d1f98f529b4c134d0745f220418999e5dfb27bdc88712884a0
 ## Remaining gates
 
 Finish the maintained backend build and review any native identity drift; generate final SBOMs/scans, retain residual coverage gaps, run native/media smoke tests and the real Hub workflow checks, evaluate the existing slide-layout test failure, then prepare the reviewed release/rollback bundle before UAT promotion. Candidate tests use dedicated data/storage and preserve the live database and edge aliases.
+
+## UAT preflight received
+
+UAT is pcilailabuat, 10.204.6.139, with an offline deployment directory at /root/lms/lms_1_10_26/learning-management-offline-amd64-20261001. It has no Git checkout. Project learning-management uses docker-compose.yml plus observability.yml; three app containers currently use 20261001 tags. Root filesystem has 361G free. Exact image identities, mount/network topology and database host/name are requested. Transfer tested image archives rather than invoking git pull or rebuilding on UAT. Do not substitute the VM database/edge configuration.
+
+Feature startup migration review against the October 1 source identifies additive learning_events/last_learner_activity_at/access metadata changes. Startup invokes init_db, not recreate_db. Existing UAT source identity is unrecorded so compatibility and database backup/restore readiness must be checked against its actual state; image rollback alone does not restore data.
+
+## Updated responsibility for UAT
+
+The user superseded the manual-command plan: DevOps will get the merged Git main code, build Docker images on their PC and deploy them to UAT. No more UAT command execution is requested from the user. Codex will provide the validated integration and DevOps handoff. Separately rebuilt DevOps artifacts require their own recorded identities, scans and runtime acceptance; main-commit equivalence does not guarantee image equivalence. See sbom-lms-devops-handoff-2026-10-08.md (draft until remaining gates pass).
