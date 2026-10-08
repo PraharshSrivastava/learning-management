@@ -1,6 +1,6 @@
 # LMS SBOM release handoff for DevOps
 
-Status: preparation in progress; maintained backend build/validation and real Hub workflow acceptance are still pending. Four compiled frontend startup/gating smoke cases passed with synthetic Hub responses. This is not a declaration that UAT is ready for deployment.
+Status: combined candidate build, scan/SBOM, native/media, maintained-runtime database tests and synthetic production startup are complete. Real Hub workflow acceptance and residual-risk review remain pending. Four compiled frontend startup/gating smoke cases passed with synthetic Hub responses. This is not a declaration that UAT is ready for deployment.
 
 ## Agreed release workflow
 
@@ -101,3 +101,15 @@ docker compose -p learning-management \
 ```
 
 Do not run this draft command until the actual image overlay, build/scan acceptance and database recovery readiness are complete. To revert app images, use the captured rollback overlay with the same original files/project and scoped services; treat any data/schema recovery as a separate reviewed operation.
+
+## Source-build guard review
+
+The original combined backend guard rejected seven locally compiled lxml files while the other 62 reference files matched. Replacing historical hashes on every machine would not provide a repeatable build policy. The reviewed update records the hash-enforced lxml 6.1.3 source wheel outputs and requires the exact approved source/version/seven-file set; all other reference files remain exact and additional native files fail. Twelve tamper/manifest tests passed, and the complete 9f26951 backend build passed this final guard. Final image export, scanner/SBOM schema validation, all four native smoke suites, 41 access/database tests, 15 Performance parity tests and synthetic production-config startup passed. Real authenticated Hub workflow acceptance remains pending. This changes build verification, not the status of the six inherited High coverage reviews.
+
+## Final combined candidate evidence
+
+Backend source 9f2695172dae768a3e1f0a285cfeaba3ef5ba662 produced image sha256:79a2e619cfd6f90729bfedded267dd8ce89e3b396eab8dc1a9e8f8f944930097. Trainer image is sha256:0d9f86c72818a6a7025e9c3f796db2381d6dcc8178763a48ffa0123576016573; employee image is sha256:8f352d64d842557ea91d6a363d445b17b4b4782166e28a1a30c707e6e43e4a13. Their inputs are unchanged from the earlier 767d262 frontend build.
+
+Against the shared recorded Trivy database snapshot (UpdatedAt 2026-10-07T07:38:55Z, downloaded October 8 07:04 UTC), backend raw results are 0 Critical, 0 High, 27 Medium and 12 Low; both frontend raw scans have zero findings. This is a consistent comparison snapshot, not a claim that its database is the latest at deployment. The exact backend package/version/advisory/severity multiset matches the prior 39-row assessment. Existing assessment evidence still requires review for the final artifact; no finding is closed merely by matching counts. Six inherited High bundled-code coverage reviews remain open independently of scanner counts.
+
+All three CycloneDX 1.7 SBOM schemas pass. Backend contains 406 components, 328 with license metadata; each frontend contains 71 components, 70 with license metadata. Missing license metadata requires attribution review before distribution. Final backend evidence archive SHA-256 is 52f78eb9d9fc0d7135dcd507e9c3dd17ecb3aba192bdc24b793eeb74191a0448. Four native/media suites passed. The 56 database feature checks were repeated on the final maintained runtime, and production-config startup passed against an isolated synthetic database. No live service or UAT deployment was changed.
