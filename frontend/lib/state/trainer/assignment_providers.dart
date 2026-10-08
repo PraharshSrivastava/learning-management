@@ -249,8 +249,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         warning =
             'The saved rule changed in another session. Your edits are preserved; review the saved version before saving.';
       if (!state.dirty) {
-        freshRule =
-            AssignmentRule.fromJson(saved!['rule'] as Map<String, dynamic>);
+        freshRule = _ruleForEditor(saved!['rule'] as Map<String, dynamic>);
         _baseline = baseline;
         _expectedUpdatedAt = saved!['rule']['updated_at']?.toString();
       }
@@ -739,6 +738,15 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     }
   }
 
+  AssignmentRule _ruleForEditor(Map<String, dynamic> rawRule) {
+    final rule = AssignmentRule.fromJson(rawRule);
+    // Only an unsaved rule gets the new UI default; persisted relative
+    // deadlines (including legacy records) keep their original meaning.
+    return rawRule['updated_at'] == null && rawRule['published_at'] == null
+        ? rule.copyWith(deadlineMode: 'fixed')
+        : rule;
+  }
+
   void _applyAssignmentResponse(
     Map<String, dynamic> decoded, {
     bool? isLoading,
@@ -751,7 +759,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     _baseline = jsonEncode(decoded['rule']);
     _expectedUpdatedAt = decoded['rule']['updated_at']?.toString();
     state = state.copyWith(
-      rule: AssignmentRule.fromJson(decoded['rule'] as Map<String, dynamic>),
+      rule: _ruleForEditor(decoded['rule'] as Map<String, dynamic>),
       dirty: false,
       totalAssignedCount: (decoded['total_assigned_count'] as num?)?.toInt(),
       refreshGeneration: state.refreshGeneration + 1,

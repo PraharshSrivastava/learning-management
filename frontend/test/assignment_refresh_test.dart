@@ -44,6 +44,36 @@ ProviderContainer container(http.Client client) =>
       assignableCourseListProvider.overrideWith((ref) => QuietCourses(ref)),
     ]);
 void main() {
+  test(
+      'new rules default to Specific date but saved relative deadlines are preserved',
+      () async {
+    dotenv.loadFromString(envString: 'API_BASE_URL=http://localhost:8000');
+    expect(const AssignmentRule().deadlineMode, 'fixed');
+    expect(
+        AssignmentRule.fromJson({'deadline_days': 9}).deadlineMode, 'relative');
+    final c = container(MockClient((r) async {
+      if (r.url.path.endsWith('/options')) return jsonResponse({});
+      if (r.url.path.endsWith('/saved-groups')) return jsonResponse([]);
+      if (r.url.path.endsWith('/employee-preview'))
+        return jsonResponse({'total': 0, 'employees': []});
+      final data = saved('course');
+      final rule = data['rule'] as Map<String, dynamic>;
+      rule['deadline_mode'] = 'relative';
+      if (r.url.path.contains('/new/')) rule['updated_at'] = null;
+      return jsonResponse(data);
+    }));
+    addTearDown(c.dispose);
+    final n = c.read(assignmentProvider.notifier);
+    await n.loadForCourse('new');
+    expect(c.read(assignmentProvider).rule.deadlineMode, 'fixed');
+    expect(c.read(assignmentProvider).rule.deadlineDate, isNull);
+    await n.reloadSavedRule('new');
+    expect(c.read(assignmentProvider).rule.deadlineMode, 'fixed');
+    await n.loadForCourse('saved');
+    expect(c.read(assignmentProvider).rule.deadlineMode, 'relative');
+    expect(c.read(assignmentProvider).rule.deadlineDays, 7);
+  });
+
   test('delayed Disable response cannot replace a newly reloaded same course',
       () async {
     final gate = Completer<http.Response>();

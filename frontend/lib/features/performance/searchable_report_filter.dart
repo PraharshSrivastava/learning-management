@@ -11,6 +11,8 @@ class SearchableReportFilter extends StatelessWidget {
   final double width;
   final ValueChanged<String?> onChanged;
   final Widget Function(Widget)? guard;
+  final bool allowAll;
+  final bool enabled;
   const SearchableReportFilter(
       {super.key,
       required this.label,
@@ -19,11 +21,15 @@ class SearchableReportFilter extends StatelessWidget {
       required this.icon,
       required this.width,
       required this.onChanged,
-      this.guard});
+      this.guard,
+      this.allowAll = true,
+      this.enabled = true});
 
   @override
   Widget build(BuildContext context) {
-    final selected = value == null ? 'All' : items[value] ?? 'Selected $label';
+    final selected = value == null
+        ? (allowAll ? 'All' : 'Choose ${label.toLowerCase()}')
+        : items[value] ?? 'Selected $label';
     return SizedBox(
         width: width,
         child: Tooltip(
@@ -37,18 +43,23 @@ class SearchableReportFilter extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     side: const BorderSide(color: Color(0xFFD2E0F0))),
-                onPressed: () async {
-                  final picked = await showDialog<_Selection>(
-                      context: context,
-                      builder: (_) {
-                        final dialog = _FilterDialog(
-                            label: label, value: value, items: items);
-                        return guard?.call(dialog) ?? dialog;
-                      });
-                  if (context.mounted && picked != null) {
-                    onChanged(picked.value);
-                  }
-                },
+                onPressed: !enabled
+                    ? null
+                    : () async {
+                        final picked = await showDialog<_Selection>(
+                            context: context,
+                            builder: (_) {
+                              final dialog = _FilterDialog(
+                                  label: label,
+                                  value: value,
+                                  items: items,
+                                  allowAll: allowAll);
+                              return guard?.call(dialog) ?? dialog;
+                            });
+                        if (context.mounted && picked != null) {
+                          onChanged(picked.value);
+                        }
+                      },
                 child: Row(children: [
                   Icon(icon, size: 19),
                   const SizedBox(width: 10),
@@ -77,8 +88,12 @@ class _FilterDialog extends StatefulWidget {
   final String label;
   final String? value;
   final Map<String, String> items;
+  final bool allowAll;
   const _FilterDialog(
-      {required this.label, required this.value, required this.items});
+      {required this.label,
+      required this.value,
+      required this.items,
+      required this.allowAll});
   @override
   State<_FilterDialog> createState() => _FilterDialogState();
 }
@@ -123,12 +138,14 @@ class _FilterDialogState extends State<_FilterDialog> {
               Text('${results.length} matching options',
                   style: const TextStyle(
                       fontSize: 12, color: AppTheme.textSecondary)),
-              ListTile(
-                  title: Text('All ${widget.label.toLowerCase()} options'),
-                  trailing: widget.value == null
-                      ? const Icon(Icons.check, color: AppTheme.primaryBlue)
-                      : null,
-                  onTap: () => Navigator.pop(context, const _Selection(null))),
+              if (widget.allowAll)
+                ListTile(
+                    title: Text('All ${widget.label.toLowerCase()} options'),
+                    trailing: widget.value == null
+                        ? const Icon(Icons.check, color: AppTheme.primaryBlue)
+                        : null,
+                    onTap: () =>
+                        Navigator.pop(context, const _Selection(null))),
               const Divider(height: 1),
               Expanded(
                   child: results.isEmpty

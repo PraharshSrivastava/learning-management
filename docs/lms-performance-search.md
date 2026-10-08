@@ -11,17 +11,24 @@ Implemented locally on `codex/lms-performance-search`, based on main `1b734ab`.
 - Report access guard protects filter dialogs when user, permissions, report scope or filters change. Existing all-course Trainer performance visibility remains enforced by the unchanged backend.
 - Existing AppTheme navy/pale blue palette and inherited fonts are retained. Pickers use lazy scrolling; course cards are limited to 12 rendered results per page.
 
+## Additional Assign UI fixes
+
+- Employees to observe includes Select all and Clear all with a selected count. Select all includes every active employee option; inactive employees are not added. Saving and applying Observer access remain explicit actions.
+- Observer identity selection opens a searchable picker using employee names/IDs. The picker is disabled while loading and has no All choice because one Observer identity must be selected. Existing duplicate/conflict validation remains unchanged.
+- New, unsaved rules default to Specific date with no silently selected date. The trainer must choose a completion date before saving/publishing. Persisted relative or fixed rules and existing employee deadlines remain unchanged. The same default applies when reloading an unsaved rule.
+- Publish & Assign uses the outlined paper-plane icon; its publication behaviour is unchanged.
+
 ## Validation
 
-- Full Trainer Flutter suite: 34 passed, including large-option search, narrow pickers, course paging and opening the correct searched course, employee debounce/clear, and existing assignment/Observer refresh coverage.
+- Full Trainer Flutter suite: 36 passed, including large-option search, narrow pickers, course paging and opening the correct searched course, employee debounce/clear, and existing assignment/Observer refresh coverage.
 - Trainer release web build passed locally.
-- Analysis of changed components/tests passed after lint cleanup; full-project analysis still includes existing informational findings.
+- Performance search component analysis passed after lint cleanup. Assignment component analysis has no errors/warnings and two pre-existing informational findings; full-project analysis also includes existing informational findings.
 - Git whitespace check passed.
 - VM browser UAT is pending. No push, merge or deployment is part of this local change.
 
 ## Scope and scale
 
-Frontend Performance code and tests only. No backend, role, SMTP, assignment, database, deployment or dependency changes. Employee frontend is unchanged.
+Trainer Performance and Assign UI, rule-editor defaults, and regression tests only. No backend, role, SMTP, database, deployment or dependency changes. Employee frontend is unchanged.
 
 Option lists and course aggregates still come from the existing complete, permission-scoped report APIs. Lazy rendering and paging reduce UI work; this change does not introduce server-side course/option pagination. If payload size becomes a bottleneck at larger volumes, add permission-scoped option search and course pagination as a separately measured backend change.
 

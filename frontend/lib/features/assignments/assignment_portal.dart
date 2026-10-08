@@ -376,7 +376,7 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                         : () => ref
                             .read(assignmentProvider.notifier)
                             .publish(course.courseId),
-                    icon: const Icon(Icons.publish_outlined, size: 18),
+                    icon: const Icon(Icons.send_outlined, size: 18),
                     label: Text(assignment.isPublishing
                         ? 'Publishing…'
                         : 'Publish & Assign'),
