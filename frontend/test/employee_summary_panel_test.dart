@@ -44,7 +44,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   });
 
-  testWidgets('employee search waits for Enter and uses submitted full name',
+  testWidgets(
+      'employee search debounces typing and Enter submits the full name',
       (tester) async {
     final calls = <Map<String, String>>[];
     final exports = <Map<String, String>>[];
@@ -74,11 +75,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(exports.single.containsKey('search'), isFalse);
     await tester.enterText(find.byType(TextField), 'ka');
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 200));
     expect(calls.length, 1);
-    await tester.tap(find.text('Export employees CSV'));
-    await tester.pumpAndSettle();
-    expect(exports.last.containsKey('search'), isFalse);
     await tester.enterText(find.byType(TextField), 'Kavya Nair');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:frontend/core/theme/app_theme.dart';
@@ -27,6 +28,7 @@ class EmployeeSummaryPanel extends StatefulWidget {
 }
 
 class _EmployeeSummaryPanelState extends State<EmployeeSummaryPanel> {
+  Timer? searchDelay;
   final search = TextEditingController();
   String submittedSearch = '';
   String attention = 'all';
@@ -58,6 +60,8 @@ class _EmployeeSummaryPanelState extends State<EmployeeSummaryPanel> {
     if (oldWidget.scopeKey != widget.scopeKey ||
         oldWidget.revision != widget.revision ||
         oldWidget.resetVersion != widget.resetVersion) {
+      searchDelay?.cancel();
+      submittedSearch = search.text.trim();
       page = 1;
       _load();
     }
@@ -65,6 +69,7 @@ class _EmployeeSummaryPanelState extends State<EmployeeSummaryPanel> {
 
   @override
   void dispose() {
+    searchDelay?.cancel();
     search.dispose();
     super.dispose();
   }
@@ -99,6 +104,7 @@ class _EmployeeSummaryPanelState extends State<EmployeeSummaryPanel> {
   }
 
   void _search() {
+    searchDelay?.cancel();
     submittedSearch = search.text.trim();
     page = 1;
     _load();
@@ -131,7 +137,7 @@ class _EmployeeSummaryPanelState extends State<EmployeeSummaryPanel> {
           style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
       const SizedBox(height: 4),
       const Text(
-          'One row per employee · Your published courses and current filters.',
+          'One row per employee · Your selected reporting scope and current filters.',
           style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
       const SizedBox(height: 18),
       Wrap(
@@ -144,10 +150,15 @@ class _EmployeeSummaryPanelState extends State<EmployeeSummaryPanel> {
                 child: TextField(
                   controller: search,
                   textInputAction: TextInputAction.search,
+                  onChanged: (_) {
+                    searchDelay?.cancel();
+                    searchDelay =
+                        Timer(const Duration(milliseconds: 350), _search);
+                  },
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search),
-                    hintText: 'Employee name or ID · Enter',
+                    hintText: 'Search employee name or ID',
                     isDense: true,
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
