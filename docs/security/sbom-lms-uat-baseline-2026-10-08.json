@@ -1,0 +1,63 @@
+{
+  "source": "User-run read-only preflight output, 2026-10-08",
+  "host": "pcilailabuat",
+  "address": "10.204.6.139",
+  "deployment_directory": "/root/lms/lms_1_10_26/learning-management-offline-amd64-20261001",
+  "git_repository": false,
+  "compose_project": "learning-management",
+  "compose_files": [
+    "docker-compose.yml",
+    "observability.yml"
+  ],
+  "runtime": {
+    "backend": {
+      "container": "learning-management-backend-1",
+      "image_reference": "learning-management-backend:20261001",
+      "port": "127.0.0.1:3060->8000",
+      "image_id": "sha256:a112df637acd59771ea5f794d0370d5789d6614de31483c1346e72f521c8ebe4",
+      "user": "10001:10001",
+      "networks": [
+        "11-hub-app_default",
+        "ai-observability",
+        "hub-app_default",
+        "learning-management_default",
+        "learning-management_learning-management"
+      ]
+    },
+    "frontend": {
+      "container": "learning-management-frontend-1",
+      "image_reference": "learning-management-frontend:20261001",
+      "port": "0.0.0.0:6969->8080",
+      "image_id": "sha256:36a28c1401dd2dcf8ee020b41b3fec214a8efea41fe2e32bbccfb236f88a9458",
+      "user": "101",
+      "networks": [
+        "learning-management_default"
+      ]
+    },
+    "employee_frontend": {
+      "container": "learning-management-employee_frontend-1",
+      "image_reference": "learning-management-employee-frontend:20261001",
+      "port": "0.0.0.0:6970->8080",
+      "image_id": "sha256:17ee77349090a9aaae34690e977350cbe77b372ce0b909de246c262bdb9d3b1e",
+      "user": "101",
+      "networks": [
+        "learning-management_default"
+      ]
+    }
+  },
+  "root_available": "361G",
+  "database": {
+    "host": "172.30.0.2",
+    "port": 5432,
+    "name": "lms",
+    "deployment": "external to LMS Compose project; owner unconfirmed"
+  },
+  "image_ids_and_networks": "Received from user targeted read-only preflight",
+  "execution_method": "Superseded by user: DevOps engineer builds from Git main on their PC and deploys images to UAT",
+  "deployment_status": "No changes performed",
+  "mounts": {
+    "backend": "/opt/lms/storage -> /app/storage",
+    "frontends": "/opt/lms/storage/generated/videos -> /srv/lms/videos (read-only in Compose)"
+  },
+  "source_revision_label": "unrecorded"
+}

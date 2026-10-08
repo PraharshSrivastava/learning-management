@@ -1,6 +1,6 @@
 # LMS SBOM release handoff for DevOps
 
-Status: preparation in progress; maintained backend build/validation and compiled UI acceptance are still pending. This is not a declaration that UAT is ready for deployment.
+Status: preparation in progress; maintained backend build/validation and real Hub workflow acceptance are still pending. Four compiled frontend startup/gating smoke cases passed with synthetic Hub responses. This is not a declaration that UAT is ready for deployment.
 
 ## Agreed release workflow
 
@@ -60,11 +60,11 @@ bash scripts/security/scan-candidates.sh \
 
 Generate/validate SBOMs, review new findings and retain native attribution/provenance. Scanner success/exit zero does not mean zero findings. Run the four backend native/parser/medium/backlog smoke scripts in the final backend image using a read-only scripts mount, network none, cap_drop ALL and no-new-privileges. Repeat feature/runtime checks and compiled frontend acceptance on those artifacts. Keep raw findings separate from supported patch/affectedness assessments. Six inherited High bundled-code coverage reviews are still open; no automatic risk acceptance is recorded.
 
-Current combined-source results: 329 backend unit passes with one pre-existing slide-layout assertion mismatch; 41 synthetic PostgreSQL feature checks plus 15 Performance SQL parity checks; four Nginx/shared-route tests; 36 trainer Flutter tests. Employee native tests have 13 passes plus a browser-only import gap. Chrome widget tests stalled in the DDC harness with module-resource errors; they are not passes. Real compiled UI acceptance must resolve the release impact of these gaps. The fresh trainer/employee candidate container scans detected zero findings; this does not establish complete compiled Flutter/engine vulnerability coverage.
+Current combined-source results: 329 backend unit passes with one pre-existing slide-layout assertion mismatch; 41 synthetic PostgreSQL feature checks plus 15 Performance SQL parity checks; four Nginx/shared-route tests; 36 trainer Flutter tests. Employee native tests have 13 passes plus a browser-only import gap. Chrome widget tests stalled in the DDC harness with module-resource errors; they are not passes. Four exact-image compiled startup/access-gate checks passed (trainer/employee direct/shared routes), with zero JavaScript errors and zero external asset requests. They used synthetic Hub responses; real Hub workflow acceptance must still resolve the release impact of the remaining gaps. The fresh trainer/employee candidate container scans detected zero findings; this does not establish complete compiled Flutter/engine vulnerability coverage.
 
 ## UAT settings to preserve
 
-User-provided preflight identifies host pcilailabuat (10.204.6.139), offline directory /root/lms/lms_1_10_26/learning-management-offline-amd64-20261001, project learning-management, docker-compose.yml plus observability.yml. Current app images have 20261001 tags and ports backend 127.0.0.1:3060, trainer 6969, employee 6970. No bundled LMS database container was listed; DevOps must identify and preserve the actual database connection.
+User-provided preflight identifies host pcilailabuat (10.204.6.139), offline directory /root/lms/lms_1_10_26/learning-management-offline-amd64-20261001, project learning-management, docker-compose.yml plus observability.yml. Current app images have 20261001 tags and ports backend 127.0.0.1:3060, trainer 6969, employee 6970. The LMS database connection is 172.30.0.2:5432/lms, external to this Compose project; DevOps must confirm its owner/backup and preserve the connection.
 
 Preserve the UAT environment, observability overlay, storage paths, networks, Hub secret/cookies/app keys, directory settings and SMTP settings. Do not replace them with VM settings. New frontend images run as UID 101 and backend as UID 10001; verify existing mount access without weakening permissions globally. Preserve trusted edge settings only for the actual UAT topology. Recreate only backend, frontend and employee_frontend; do not bring up or replace a PostgreSQL service.
 
@@ -77,3 +77,27 @@ After transferring/loading images, verify the destination IDs against the DevOps
 Check real Hub trainer/employee launch, shared/direct routes, forwarded scheme/cookies, private media authorization, cross-trainer course visibility, reporting permissions, Performance values, assignment/Observer separation, search/pagination, deadline behavior, PDF/document conversion, slides/audio/video/HLS, progress and safe notification previews. Use controlled test identities/data; external email requires the intended recipients.
 
 Complete the handoff with build logs, Git commit, build values, final image IDs, scanner/database metadata, raw scans, validated SBOMs, smoke/feature/UI results, residual-risk dispositions and rollback readiness. A successful image build or Git main pull alone is insufficient evidence of a verified UAT release.
+
+## Confirmed UAT baseline (refresh before deployment)
+
+The targeted user-run inspection recorded these current image IDs:
+
+| Service | Current image ID | Runtime user |
+| --- | --- | --- |
+| backend | sha256:a112df637acd59771ea5f794d0370d5789d6614de31483c1346e72f521c8ebe4 | 10001:10001 |
+| frontend | sha256:36a28c1401dd2dcf8ee020b41b3fec214a8efea41fe2e32bbccfb236f88a9458 | 101 |
+| employee_frontend | sha256:17ee77349090a9aaae34690e977350cbe77b372ce0b909de246c262bdb9d3b1e | 101 |
+
+Backend storage is /opt/lms/storage -> /app/storage. Both frontend mounts are /opt/lms/storage/generated/videos -> /srv/lms/videos and read-only in Compose. Frontends use learning-management_default. Backend uses that network plus 11-hub-app_default, hub-app_default, ai-observability and learning-management_learning-management. Preserve these existing settings rather than introducing VM onprem-edge aliases.
+
+DATABASE_URL points to host 172.30.0.2, port 5432, database lms. The database owner/container has not been identified; confirm connectivity/backup with that owner before rollout and preserve the connection. Current image source-revision labels are unrecorded. See sbom-lms-uat-baseline-2026-10-08.json. These recorded October 8 identities must be rechecked immediately before deployment; a later release may have changed them.
+
+A release image overlay should change only the three app image references plus the intended cap_drop ALL/no-new-privileges settings, retaining the original deployment files. With a validated overlay and rollback record in place, the scoped command shape is:
+
+```bash
+docker compose -p learning-management \
+  -f docker-compose.yml -f observability.yml -f security-release.images.yml \
+  up -d --no-deps --no-build --pull never backend frontend employee_frontend
+```
+
+Do not run this draft command until the actual image overlay, build/scan acceptance and database recovery readiness are complete. To revert app images, use the captured rollback overlay with the same original files/project and scoped services; treat any data/schema recovery as a separate reviewed operation.

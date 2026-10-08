@@ -66,6 +66,9 @@ COPY requirements-lxml-source.lock /src/requirements-lxml-source.lock
 RUN python -m pip wheel --no-deps --no-binary=lxml --require-hashes -r /src/requirements-lxml-source.lock --wheel-dir=/out/wheels \
     && cd /out/wheels && sha256sum lxml-*.whl > SHA256SUMS
 
+COPY security/record_source_wheel.py /src/
+RUN python /src/record_source_wheel.py --source-lock /src/requirements-lxml-source.lock --wheels /out/wheels --output /out/lxml-source-build.json
+
 FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS app-runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -93,6 +96,7 @@ COPY --from=xml-build /out/libxml2-16_2.15.4+lms1_amd64.deb /tmp/libxml2.deb
 RUN dpkg -i /tmp/libxml2.deb && ldconfig && rm /tmp/libxml2.deb
 COPY --from=ffmpeg-build /opt/ffmpeg/ /opt/ffmpeg/
 COPY --from=lxml-build /out/wheels/ /tmp/lxml-wheels/
+COPY --from=lxml-build /out/lxml-source-build.json /usr/share/lms-security/lxml-source-build.json
 COPY requirements-bootstrap.lock ./
 RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes --only-binary=:all: -r requirements-bootstrap.lock
 
@@ -539,8 +543,9 @@ COPY --from=backlog-poppler-build /extra-out/provenance.json /usr/share/lms-secu
 RUN dpkg -i /tmp/poppler-security.deb && ldconfig && apt-get check \
     && test -z "$(dpkg --audit)" && rm /tmp/poppler-security.deb
 COPY security/check_native_bundle_lock.py security/native-bundle-lock.json /usr/share/lms-security/
-# Identity drift requires renewed provenance review; this is not a CVE exemption.
+# Reference identities and reviewed-source output manifests are not CVE exemptions.
 RUN python /usr/share/lms-security/check_native_bundle_lock.py \
         --lock /usr/share/lms-security/native-bundle-lock.json \
-        > /usr/share/lms-security/native-bundle-identity.json
+        > /usr/share/lms-security/native-bundle-identity.json \
+    || { cat /usr/share/lms-security/native-bundle-identity.json; exit 1; }
 USER 10001:10001

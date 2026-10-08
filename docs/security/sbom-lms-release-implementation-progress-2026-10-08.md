@@ -38,3 +38,15 @@ Feature startup migration review against the October 1 source identifies additiv
 ## Updated responsibility for UAT
 
 The user superseded the manual-command plan: DevOps will get the merged Git main code, build Docker images on their PC and deploy them to UAT. No more UAT command execution is requested from the user. Codex will provide the validated integration and DevOps handoff. Separately rebuilt DevOps artifacts require their own recorded identities, scans and runtime acceptance; main-commit equivalence does not guarantee image equivalence. See sbom-lms-devops-handoff-2026-10-08.md (draft until remaining gates pass).
+
+## Compiled frontend runtime smoke
+
+Four checks passed on the exact trainer/employee candidate IDs: each direct route and its shared /lms route rendered the expected unauthenticated Hub gate. Playwright intercepted only API calls with a synthetic unauthenticated Hub response; no real Hub login was performed. There were zero JavaScript exceptions and zero external asset requests. Trainer and employee screenshots were inspected and show the correct gate. The test network/containers were removed automatically; no live mounts or aliases were used. Evidence archive SHA-256: 37688142cde95dffe05b7d62ba108f885beb9840c63854f35f975ea9cb069b6d. The legacy Chrome widget harness gap remains open; these four smoke cases do not replace its assertions or real Hub workflow acceptance.
+
+## Confirmed UAT topology
+
+Follow-up user output records the previous UAT images in sbom-lms-uat-baseline-2026-10-08.json. Existing runtime users match the candidate UID 10001 backend and UID 101 frontends. DATABASE_URL host is 172.30.0.2:5432, database lms, external to the LMS project. Storage mounts and all five backend networks are recorded. DevOps owns confirming that database's owner/backup and preserving the existing observability/network configuration. No further UAT commands are requested from the user.
+
+## Native identity rebuild issue
+
+The full backend build reached its final guard, which rejected exactly seven source-built lxml binaries. The other 62 reference identities matched. A cache-only diagnostic printed the unchanged guard rejection; a separate pre-guard diagnostic image is retained solely for review, not release. The final guard now binds the seven lxml outputs to a manifest generated from the hash-enforced source wheel build (lxml 6.1.3, source SHA-256 45222d94ddd511536f3b2f7d9deae3b2339b4ce0f075f1ca25703b07cad9dd21). The manifest records wheel/native output hashes, Python/compiler/XML/XSLT versions and build packages. It must match the exact approved version/source and original seven-file set; the other 62 files keep their historical exact-hash checks. New/missing/modified files remain rejected. All six inherited High coverage reviews remain open. Twelve focused tests passed, including source/version tampering, changed outputs, extra/missing evidence and unsafe wheel paths. Updated guarded candidate rebuild/native validation/scanning remain pending; the old failed build is preserved.
