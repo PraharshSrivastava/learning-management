@@ -12,14 +12,24 @@ from pathlib import Path
 import imageio_ffmpeg
 
 from app.core.logging import generation_logger
-from app.core.providers import SLIDE_TRANSITION_PAUSE_SECONDS
 from app.core.settings import settings
 from app.core.storage import public_asset_url, resolve_public_asset_path
-from app.generation.html import compile_slides_for_course
-from app.generation.parallel import run_parallel_stage_items
-from app.generation.runtime import load_course_for_generation, log_event, save_generated_course
 
 logger = generation_logger(__name__)
+SLIDE_TRANSITION_PAUSE_SECONDS = settings.slide_transition_pause_seconds
+
+
+def _generate_captions_if_available(
+    video_path: Path, slides: list[dict], *, already_locked: bool = False
+) -> None:
+    from app.generation.captions import generate_module_captions
+
+    try:
+        result = generate_module_captions(video_path, slides, already_locked=already_locked)
+        logger.info("captions_%s video=%s", result, video_path)
+    except Exception as error:
+        # A caption provider failure must not take a playable lesson offline.
+        logger.warning("captions_unavailable video=%s reason=%s", video_path, error)
 
 
 def _inject_local_slide_assets(page) -> None:
@@ -85,6 +95,7 @@ def capture_slide_frames(
             browser.close()
     return frame_paths
 
+
 def audio_duration(audio_path: str) -> float:
     if not audio_path or not Path(audio_path).is_file():
         raise FileNotFoundError(f"Narration audio not found: {audio_path}")
@@ -101,6 +112,7 @@ def audio_duration(audio_path: str) -> float:
         raise RuntimeError(f"Could not determine narration duration: {audio_path}")
     hours, minutes, seconds = match.groups()
     return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
 
 def encode_slide_clip(
     frame_path: str,
@@ -144,6 +156,7 @@ def encode_slide_clip(
     )
     if result.returncode:
         raise RuntimeError(f"FFmpeg failed encoding {frame_path}: {result.stderr}")
+
 
 def concatenate_clips(clips: list[str], output_path: str, *, working_dir: str) -> None:
     manifest = Path(working_dir) / "concat.txt"
@@ -212,9 +225,7 @@ def generate_hls_playlist(mp4_path: Path) -> Path:
             check=False,
         )
         if result.returncode:
-            raise RuntimeError(
-                f"FFmpeg HLS packaging failed for {mp4_path}: {result.stderr}"
-            )
+            raise RuntimeError(f"FFmpeg HLS packaging failed for {mp4_path}: {result.stderr}")
         if hls_dir.exists():
             shutil.rmtree(hls_dir)
         temporary_dir.replace(hls_dir)
@@ -230,6 +241,16 @@ VIDEO_STAGE_WORKERS = 2
 
 
 def render_video_for_module(course: dict, course_id: str, module_number: int) -> str:
+    from app.generation.captions import module_lock
+
+    path = VIDEO_DIR / f"course_{course_id}" / f"module_{module_number}.mp4"
+    with module_lock(path):
+        return _render_video_for_module(course, course_id, module_number)
+
+
+def _render_video_for_module(course: dict, course_id: str, module_number: int) -> str:
+    from app.generation.captions import source_inputs
+
     modules = course.get("modules", [])
     if module_number < 1 or module_number > len(modules):
         raise ValueError(f"Module number {module_number} out of range.")
@@ -246,6 +267,7 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
     output_dir = VIDEO_DIR / f"course_{course_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"module_{module_number}.mp4"
+    caption_inputs = source_inputs(slides)
 
     with tempfile.TemporaryDirectory() as temporary_dir:
         logger.info(
@@ -260,6 +282,7 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
             output_dir=temporary_dir,
         )
         clips: list[str] = []
+        clip_durations: list[float] = []
         for index, (slide, frame) in enumerate(zip(slides, frames, strict=True)):
             audio_reference = str(slide.get("audio_path") or "")
             audio_path = str(resolve_public_asset_path(audio_reference, settings))
@@ -275,8 +298,25 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
                 transition_pause_seconds=SLIDE_TRANSITION_PAUSE_SECONDS,
             )
             clips.append(clip_path)
-        concatenate_clips(clips, str(output_path), working_dir=temporary_dir)
+            clip_durations.append(audio_duration(clip_path))
+        staged_video = Path(temporary_dir) / "module.mp4"
+        concatenate_clips(clips, str(staged_video), working_dir=temporary_dir)
+        # Copy into the destination filesystem before atomic publication.
+        staged_output = output_path.with_suffix(".rendering.mp4")
+        try:
+            shutil.copyfile(staged_video, staged_output)
+            staged_output.replace(output_path)
+        finally:
+            staged_output.unlink(missing_ok=True)
         generate_hls_playlist(output_path)
+
+    from app.generation.captions import record_video_source
+
+    try:
+        record_video_source(output_path, slides, clip_durations, caption_inputs)
+        _generate_captions_if_available(output_path, slides, already_locked=True)
+    except Exception as error:
+        logger.warning("captions_source_unavailable video=%s reason=%s", output_path, error)
 
     video_path = public_asset_url(
         "videos",
@@ -293,6 +333,9 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
 
 
 def generate_video_for_module(course_id: str, module_number: int) -> str:
+    from app.generation.html import compile_slides_for_course
+    from app.generation.runtime import load_course_for_generation, save_generated_course
+
     course = load_course_for_generation(course_id)
     compile_slides_for_course(course_id)
     video_path = render_video_for_module(course, course_id, module_number)
@@ -303,6 +346,9 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
 
 
 def generate_videos_for_course(course_id: str) -> dict:
+    from app.generation.parallel import run_parallel_stage_items
+    from app.generation.runtime import load_course_for_generation, log_event, save_generated_course
+
     course = load_course_for_generation(course_id)
     modules = course.get("modules", [])
     module_numbers: list[int] = []
@@ -313,6 +359,7 @@ def generate_videos_for_course(course_id: str) -> dict:
         path = str(module.get("video_path") or "")
         absolute_path = resolve_public_asset_path(path, settings)
         if path and absolute_path.is_file() and absolute_path.stat().st_size > 0:
+            _generate_captions_if_available(absolute_path, module.get("slides", []))
             log_event(course_id, "video", "skipped_valid_video", module=module_number)
             continue
         module_numbers.append(module_number)

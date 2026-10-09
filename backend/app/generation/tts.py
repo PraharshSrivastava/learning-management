@@ -103,6 +103,9 @@ def synthesize_speech_for_slide(text: str, output_path: str, language: str = "En
         return False
 
 def generate_tts_for_course(course_id: str) -> dict:
+    from pathlib import Path
+
+    from app.generation.captions import module_lock, narration_matches, record_narration_source
     from app.generation.video import audio_duration
 
     course = load_course_for_generation(course_id)
@@ -114,6 +117,12 @@ def generate_tts_for_course(course_id: str) -> dict:
             slide_jobs.append((module_index, module_number, slide_index, slide))
 
     def synthesize_slide(item: tuple[int, int, int, dict]) -> tuple[int, int, str]:
+        _, module_number, slide_index, _ = item
+        audio = settings.audio_dir / f"course_{course_id}" / f"module_{module_number}" / f"slide_{slide_index}.wav"
+        with module_lock(audio):
+            return synthesize_slide_locked(item)
+
+    def synthesize_slide_locked(item: tuple[int, int, int, dict]) -> tuple[int, int, str]:
         module_index, module_number, slide_index, slide = item
         started = time.perf_counter()
         script_text = str(slide.get("script") or "").strip()
@@ -136,6 +145,7 @@ def generate_tts_for_course(course_id: str) -> dict:
             and os.path.isfile(audio_abs)
             and os.path.getsize(audio_abs) > 0
             and audio_duration(audio_abs) > 0
+            and narration_matches(Path(audio_abs), script_text)
         ):
             log_event(course_id, "tts", "skipped_valid_audio", module=module_number, slide=slide_index)
             return module_index, slide_index - 1, audio_rel
@@ -161,6 +171,7 @@ def generate_tts_for_course(course_id: str) -> dict:
             module_number=module_number,
             slide_number=slide_index,
         )
+        record_narration_source(Path(audio_abs), script_text)
         log_event(
             course_id,
             "tts",

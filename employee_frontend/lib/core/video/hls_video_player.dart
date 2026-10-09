@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:html' as html;
+import 'dart:js' as js;
 import 'dart:js_util' as js_util;
 import 'dart:ui_web' as ui_web;
 
@@ -13,6 +14,7 @@ class HlsVideoPlayer extends StatefulWidget {
   final VoidCallback? onEnded;
   final bool enforceLinearPlayback;
   final bool initiallyCompleted;
+  final bool fitToWidth;
 
   const HlsVideoPlayer({
     super.key,
@@ -21,6 +23,7 @@ class HlsVideoPlayer extends StatefulWidget {
     this.onEnded,
     this.enforceLinearPlayback = false,
     this.initiallyCompleted = false,
+    this.fitToWidth = false,
   });
 
   @override
@@ -31,6 +34,8 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   static Future<void>? _hlsJsLoad;
 
   late final html.VideoElement _video;
+  late final html.Element _container;
+  double _captionHeight = 0;
   late final String _viewType;
   StreamSubscription<html.Event>? _endedSubscription;
   StreamSubscription<html.Event>? _timeUpdateSubscription;
@@ -38,6 +43,7 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   late final LinearPlaybackGuard _playbackGuard;
   Object? _hls;
   bool _disposed = false;
+  int _sourceRequest = 0;
   bool _correctingSeek = false;
 
   @override
@@ -58,7 +64,22 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
     _endedSubscription = _video.onEnded.listen(_handleEnded);
     _timeUpdateSubscription = _video.onTimeUpdate.listen(_handleTimeUpdate);
     _seekingSubscription = _video.onSeeking.listen(_handleSeeking);
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) => _video);
+    final player = js_util.getProperty(js_util.globalThis, 'LmsCaptionPlayer');
+    _container = player == null
+        ? _video
+        : js_util.callMethod(player, 'create', [
+            _video,
+            js.allowInterop((num height) {
+              if (mounted && (height.toDouble() - _captionHeight).abs() > .5) {
+                setState(() => _captionHeight = height.toDouble());
+              }
+            }),
+            js.allowInterop(
+                (num time) => _playbackGuard.constrainSeek(time.toDouble())),
+          ]) as html.Element;
+    if (player != null) _video.controls = false;
+    ui_web.platformViewRegistry
+        .registerViewFactory(_viewType, (_) => _container);
     _attachSource();
   }
 
@@ -97,26 +118,34 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   }
 
   Future<void> _attachSource() async {
-    if (!await _hlsPlaylistExists()) {
-      if (!_disposed) _video.src = widget.fallbackUrl;
+    final request = ++_sourceRequest;
+    final hlsUrl = widget.hlsUrl;
+    final fallbackUrl = widget.fallbackUrl;
+    if (js_util.hasProperty(_container, 'loadCaptions')) {
+      js_util.callMethod(_container, 'loadCaptions', [fallbackUrl]);
+    }
+    final playlistExists = await _hlsPlaylistExists(hlsUrl);
+    if (_disposed || request != _sourceRequest) return;
+    if (!playlistExists) {
+      _video.src = fallbackUrl;
       return;
     }
 
     if (_canPlayNativeHls()) {
-      _video.src = widget.hlsUrl;
+      _video.src = hlsUrl;
       return;
     }
 
     try {
       await _loadHlsJs();
-      if (_disposed) return;
+      if (_disposed || request != _sourceRequest) return;
       final hlsConstructor = js_util.getProperty(js_util.globalThis, 'Hls');
       final isSupported = hlsConstructor != null &&
           js_util.callMethod(hlsConstructor, 'isSupported', []) == true;
       if (isSupported) {
         final hls = js_util.callConstructor(hlsConstructor, []);
         _hls = hls;
-        js_util.callMethod(hls, 'loadSource', [widget.hlsUrl]);
+        js_util.callMethod(hls, 'loadSource', [hlsUrl]);
         js_util.callMethod(hls, 'attachMedia', [_video]);
         return;
       }
@@ -124,13 +153,12 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
       // Fall back to the progressive MP4 below.
     }
 
-    _video.src = widget.fallbackUrl;
+    if (!_disposed && request == _sourceRequest) _video.src = fallbackUrl;
   }
 
-  Future<bool> _hlsPlaylistExists() async {
+  Future<bool> _hlsPlaylistExists(String hlsUrl) async {
     try {
-      final response =
-          await html.HttpRequest.request(widget.hlsUrl, method: 'HEAD');
+      final response = await html.HttpRequest.request(hlsUrl, method: 'HEAD');
       return response.status != null &&
           response.status! >= 200 &&
           response.status! < 300;
@@ -179,6 +207,9 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   void dispose() {
     _disposed = true;
     _endedSubscription?.cancel();
+    if (js_util.hasProperty(_container, 'disposePlayer')) {
+      js_util.callMethod(_container, 'disposePlayer', []);
+    }
     _timeUpdateSubscription?.cancel();
     _seekingSubscription?.cancel();
     _destroyHls();
@@ -187,6 +218,13 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.fitToWidth) {
+      return LayoutBuilder(
+          builder: (context, constraints) => SizedBox(
+                height: constraints.maxWidth * 9 / 16 + _captionHeight,
+                child: HtmlElementView(viewType: _viewType),
+              ));
+    }
     return HtmlElementView(viewType: _viewType);
   }
 }

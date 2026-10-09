@@ -408,37 +408,35 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: HlsVideoPlayer(
-          hlsUrl: AppConstants.hlsVideoAssetUrl(module.videoPath),
-          fallbackUrl: AppConstants.videoAssetUrl(module.videoPath),
-          enforceLinearPlayback: true,
-          initiallyCompleted: initiallyWatched,
-          onEnded: initiallyWatched
-              ? null
-              : () {
-                  if (_locallyWatchedModules.contains(module.moduleNumber)) {
-                    return;
-                  }
-                  _locallyWatchedModules.add(module.moduleNumber);
-                  _handleVideoCompleted(module.moduleNumber);
-                  _showLearningSuccessSnackBar(
-                    context,
-                    message: 'Video completed. Quiz unlocked.',
-                    icon: Icons.assignment_turned_in_rounded,
-                  );
-                  unawaited(ref
-                      .read(employeeCourseListProvider.notifier)
-                      .updateModuleProgress(
-                    widget.course.courseId,
-                    module.moduleNumber,
-                    {"video_watched": true},
-                  ));
-                },
-          key: ValueKey(
-              '${widget.course.courseId}_${module.moduleNumber}_$initiallyWatched'),
-        ),
+      child: HlsVideoPlayer(
+        fitToWidth: true,
+        hlsUrl: AppConstants.hlsVideoAssetUrl(module.videoPath),
+        fallbackUrl: AppConstants.videoAssetUrl(module.videoPath),
+        enforceLinearPlayback: true,
+        initiallyCompleted: initiallyWatched,
+        onEnded: initiallyWatched
+            ? null
+            : () {
+                if (_locallyWatchedModules.contains(module.moduleNumber)) {
+                  return;
+                }
+                _locallyWatchedModules.add(module.moduleNumber);
+                _handleVideoCompleted(module.moduleNumber);
+                _showLearningSuccessSnackBar(
+                  context,
+                  message: 'Video completed. Quiz unlocked.',
+                  icon: Icons.assignment_turned_in_rounded,
+                );
+                unawaited(ref
+                    .read(employeeCourseListProvider.notifier)
+                    .updateModuleProgress(
+                  widget.course.courseId,
+                  module.moduleNumber,
+                  {"video_watched": true},
+                ));
+              },
+        key: ValueKey(
+            '${widget.course.courseId}_${module.moduleNumber}_$initiallyWatched'),
       ),
     );
   }

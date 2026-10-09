@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from email.utils import getaddresses
 from pathlib import Path
@@ -91,6 +92,9 @@ class Settings(BaseModel):
     tts_voice: str = "priyanka"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
     tts_speed: float = Field(default=0.9, gt=0)
+    caption_align_command: tuple[str, ...] = ()
+    caption_align_model_path: str = ""
+    caption_align_device: str = "cpu"
     slide_transition_pause_seconds: float = Field(default=1.0, ge=0)
     thumbnail_endpoint: str = "http://35.238.33.238:4000/v1/images/generations"
     thumbnail_model: str = "z-image-turbo"
@@ -160,6 +164,15 @@ class Settings(BaseModel):
         if not value:
             raise ValueError("TTS_MODEL_NAME must not be empty")
         return value
+
+    @field_validator("caption_align_command", mode="before")
+    @classmethod
+    def parse_caption_command(cls, value: object) -> tuple[str, ...]:
+        if isinstance(value, str):
+            value = json.loads(value)
+        if not isinstance(value, (list, tuple)) or any(not isinstance(arg, str) or not arg for arg in value):
+            raise ValueError("CAPTION_ALIGN_COMMAND must be a JSON list of nonempty command arguments")
+        return tuple(value)
 
     @field_validator("lms_hub_login_url")
     @classmethod
@@ -347,6 +360,9 @@ class Settings(BaseModel):
                 "tts_voice": values.get("TTS_VOICE", "priyanka"),
                 "tts_temperature": values.get("TTS_TEMPERATURE", "0.6"),
                 "tts_speed": values.get("TTS_SPEED", "0.9"),
+                "caption_align_command": values.get("CAPTION_ALIGN_COMMAND", "[]"),
+                "caption_align_model_path": values.get("CAPTION_ALIGN_MODEL_PATH", ""),
+                "caption_align_device": values.get("CAPTION_ALIGN_DEVICE", "cpu"),
                 "slide_transition_pause_seconds": values.get(
                     "SLIDE_TRANSITION_PAUSE_SECONDS", "1.0"
                 ),

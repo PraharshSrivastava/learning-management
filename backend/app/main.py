@@ -59,6 +59,7 @@ def create_app() -> FastAPI:
         allow_credentials=origins != ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["Content-Length", "Last-Modified"],
     )
     app.middleware("http")(request_context_middleware)
     install_exception_handlers(app)

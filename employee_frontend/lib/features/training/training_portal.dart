@@ -296,7 +296,6 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
 
     final videoUrl = '${AppConstants.apiBaseUrl}/${module.videoPath!}';
     return Container(
-      height: 450,
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: AppTheme.pShapeRadius,
@@ -310,6 +309,7 @@ class _TrainingViewState extends ConsumerState<TrainingView> {
       ),
       clipBehavior: Clip.antiAlias,
       child: HlsVideoPlayer(
+        fitToWidth: true,
         hlsUrl: AppConstants.hlsVideoAssetUrl(module.videoPath!),
         fallbackUrl: videoUrl,
         key: ValueKey(videoUrl),
