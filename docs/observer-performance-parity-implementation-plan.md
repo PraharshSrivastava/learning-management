@@ -67,3 +67,15 @@ Report visibility remains role-specific: an Observer sees only authorized observ
 - Modify Employee providers or backend only if contract/lifecycle verification reveals a concrete gap; preserve Employee-scoped endpoints and current authorization.
 
 Implementation has not started. The branch contains this plan only; the original checkout and its existing work remain separate.
+
+## Combined HOD + Observer code verification — 9 October 2026
+
+Reviewed `backend/app/schemas/reporting_scope.py`, report role discovery, request scope authorization, reporting repository reads and Employee view/context handling.
+
+- Combined is a parenthesized HOD EXISTS OR Observer EXISTS predicate applied to assignment rows. Grant matches do not join extra rows into results, so overlapping permissions do not multiply assignments.
+- HOD uses active authoritative directory department mappings, not the viewer's own department. Observer grants require the matching course and active employee/department selectors.
+- Request authorization permits only granted Employee views; Trainer All Courses/My Courses requests from Employee sessions are denied. Repository reads apply the shared scope to report rows, options and details; normal assignment eligibility checks remain in place.
+- Added `backend/tests/test_combined_reporting_scope.py`: eight passing tests execute the production predicate against synthetic SQLite rows, with only PostgreSQL `::text` casts removed for dialect compatibility. Coverage includes exact union, overlap count, course limits, each contribution's independent revocation, no grants, inactive/recycled viewer identity and pending/recycled observed subject identity.
+- Command: existing local Python environment running `-m unittest discover -s tests -p test_combined_reporting_scope.py -v`. Result: 8 passed.
+- Attempted `-m pytest tests/test_employee_report_access.py tests/test_observer_reporting_postgres.py -q`; both modules failed during collection because psycopg cannot load its database wrapper (Windows application control blocks `_ssl`, and no fallback libpq is installed). These API/PostgreSQL suites were not executed successfully. The PostgreSQL suite also requires its explicit opt-in and isolated `lms_performance_demo` database.
+- No defect found in the reviewed Combined predicate; no production authorization changes made. This focused check does not replace full PostgreSQL/API integration verification. Rerun those suites in the approved database environment before release.
