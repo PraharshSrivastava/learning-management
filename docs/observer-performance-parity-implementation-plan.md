@@ -1,72 +1,158 @@
-# Observer Performance parity: implementation plan
+# LMS Performance parity and course lifecycle: implementation plan
 
-Status: planned; no application code changed.
-Date: 9 October 2026.
+Status: approved design and implementation plan; production implementation has not started. Focused Combined-scope regression tests already exist on this branch.
+Updated: 9 October 2026.
 Branch: `codex/observer-performance-parity`.
 Base: local `codex/lms-sbom-release`, commit `8876a34ccbacc7027bca995fc2ed9a0633fe8bac`.
 Workspace: `C:/Users/LPUSER/.codex/worktrees/observer-performance-parity/LMS_V1`.
 
-## Objective and scope
+## Objective and approved scope
 
-Bring the Employee application's Observer Performance search experience into parity with Trainer. Implement searchable Course, Department and Mailing list selectors, course-list search and pagination, and automatic employee-report search. Retain the existing metrics, report sections, details, exports and responsive styling.
+Implement two connected improvements:
 
-Report visibility remains role-specific: an Observer sees only authorized observed employees and courses; HOD and Combined views remain available only when granted. All Courses and My Courses are Trainer views and must not be enabled for Observers. Because the Employee Performance portal is shared by Observer/HOD users, these UI improvements also apply to their authorized views.
+1. Bring Employee Observer/HOD Performance search into parity with Trainer: searchable Course, Department and Mailing list selectors; course-name/ID search with pagination; automatic employee-report search.
+2. Integrate the approved course action menu into the existing Trainer UI, with reversible Disable/Enable, Archive/Restore, permanent deletion restricted to unused courses, employee exclusions that withdraw access without destroying learning history, and historical records in the existing Performance tab.
 
-## Verified baseline
+Preserve creator-only course mutation. Admin Trainer retains read-only access to other creators' content. All authenticated active Trainers retain All Courses/My Courses reporting. Observer access remains course-specific; HOD access remains mapped to authorized departments; Combined is their deduplicated union. Improvements to the shared Employee Performance portal also apply to authorized HOD/Combined views. Employee sessions must never acquire Trainer All Courses/My Courses visibility or authoring controls.
 
-- Trainer `frontend/lib/features/performance/performance_report_portal.dart` uses `SearchableReportFilter` for Course, Department and Mailing list. Employee `employee_frontend/lib/features/performance/performance_report_portal.dart` still uses plain `_Drop` selectors for these fields.
-- Trainer `searchable_report_filter.dart` searches option labels and keys, case-insensitively by all entered words. It includes matching counts, selection indicators, clear search, All and Cancel, and lazily builds results.
-- Trainer `course_report_browser.dart` adds local course-name/ID search, matching counts, clear search and 12-card pagination. Employee renders the complete course-card list without that browser.
-- Trainer employee-report search uses a 350 ms debounce and immediate Enter submission. Employee currently submits only on Enter. Both use the existing report notifier search path.
-- Employee `state/employee/performance_report_providers.dart` already owns report view, filters, search, pagination, reset version and permission-aware request context. Existing `ReportAccessGuard` protects open report details.
+The approved interaction uses an action menu, not a row of separate destructive buttons. Employee Exclusions handles individual removals; do not add a separate Revoke employee action. Do not add View historical reports to the action menu: reporting belongs in the existing app-wide Performance tab. Keep Apply Observers as a separate explicit operation.
 
-## Stage 1: confirm contracts
+## UI reference and current layout
 
-1. Recheck the branch against the integration target before implementation; preserve newer Employee/Trainer changes rather than overwriting entire files.
-2. Verify Employee option responses include all authorized options, and that the course-summary response is complete for the active filters. If either endpoint paginates, consume all permitted pages or implement scope-preserving server search before claiming full-list search.
-3. Confirm employee report search matches name, employee ID and course in the shared backend reporting engine. Use the Trainer hint only after ID matching is verified; add focused coverage if it is absent.
-4. Review context keys, request generation checks and grant-revocation handling before adding local controllers or asynchronous callbacks.
+Approved preview: `C:/Users/LPUSER/.codex/visualizations/2026/10/09/01a11f7d-e6e5-7bd2-9d32-098d4e29a5de/lms-existing-layout-actions.html`.
 
-## Stage 2: searchable Filter reports controls
+This is an interactive design reference with sample data, not an implemented screen or a captured authenticated LMS session. It supersedes the earlier previews that placed navigation tabs inside a course.
 
-1. Adapt Trainer `searchable_report_filter.dart` into Employee `features/performance/`, using Employee imports and theme. Follow the existing adapted-component approach; no new shared package is needed for this change.
-2. Replace only the Course, Department and Mailing list `_Drop` controls with the adapted component. Preserve filter values, callbacks, responsive widths, active-filter count and Clear filters behavior.
-3. Provide the same dialog search, matching count, clear action, selected checkmark, scoped All option, Cancel and empty state. Typing searches options locally; only selecting an option changes report filters.
-4. Wrap dialogs with Employee `ReportAccessGuard` using the captured report context. Reject a returned selection if its context became stale. All means all options inside the current authorized scope.
+The existing UI was inspected through `frontend/lib/features/dashboard_page.dart`, `features/assignments/assignment_portal.dart`, `features/courses/course_portal.dart`, `features/performance/performance_report_portal.dart` and `core/theme/app_theme.dart`:
 
-## Stage 3: searchable course browser
+- Preserve app-wide Documents, Blueprint, Courses, Assign and Performance tabs.
+- Preserve Assign's left Assignable Courses list and right Assign Course panel; do not replace the application shell with per-course Content/Assign/Performance tabs.
+- Preserve the stacked sections: Target Employees, Performance Observers, Employee Exclusions, Completion Deadline and Assignment Preview. Keep existing employee selectors, saved groups, relative/fixed deadlines, preview pagination and refresh behavior.
+- Preserve PhillipCapital styling: primary blue `#00317A`, existing typography, rounded white cards, blue/pink/gray section strips, pill-shaped buttons and responsive layout.
+- Add the Course actions menu near the selected course's existing header, accessible in Courses/Assign as appropriate. It must act on the explicitly selected course and respect read-only mode.
+- Courses retains its existing course list/content layout; add a status filter including Archived. Performance remains the separate global reporting screen.
+- The prototype's simplified selectors/sample data do not authorize replacing the real assignment controls, reducing report functionality or using fabricated counts in product UI.
 
-1. Adapt Trainer `course_report_browser.dart` into Employee and integrate it with existing `_CourseCard` and course-detail callbacks.
-2. Match Trainer behavior: case-insensitive name/ID search, all-word matching, clear action, matching count, 12-card pages, previous/next controls, loading and no-match messages, and existing responsive one/two-column cards.
-3. Keep course search local to the course section; it must not alter employee-report search, global filters, metric totals or export scope.
-4. Reset search and page on identity/permission/view changes and Clear filters using the existing report context/reset version. Reset to page 1 when the query changes and clamp the page when results shrink.
+## Verified gaps in current code
 
-## Stage 4: automatic employee-report search
+- Trainer Performance uses `SearchableReportFilter` for Course, Department and Mailing list; Employee Performance still uses plain `_Drop` controls.
+- Trainer course reporting uses `CourseReportBrowser` with local name/ID search and 12-card pages; Employee renders all cards without this browser.
+- Trainer employee-report search debounces for 350 ms and supports immediate Enter; Employee currently submits only on Enter.
+- Employee reporting providers already own view, filters, search, pagination, reset version and permission-aware context; existing `ReportAccessGuard` protects report details.
+- Disable currently marks every assignment revoked, including completed assignments, and suspends course Observers. Progress data is retained, but published/active/nonrevoked reporting predicates hide these records.
+- Applying employee-rule changes currently skips completed assignments during exclusion-based removal. Save Rule alone does not immediately reconcile existing assignments.
+- Delete currently permits creator-owned published courses and cascades through assignments/progress, except when generation is pending/running. The UI warns about this loss; the new policy must also be enforced on the server.
+- Archive/Restore and course-status historical reporting are proposed additions, not existing functionality.
 
-1. Add a cancellable 350 ms debounce to the Employee portal. Trim submitted text and reuse `PerformanceReportNotifier.setSearch`, which resets report pagination.
-2. Enter cancels the pending debounce and submits immediately; avoid duplicate requests for the same submitted query where practical. Clearing text must restore the current scoped result set.
-3. Cancel pending callbacks on disposal, view/context changes and Clear filters. Capture/check context for delayed callbacks so a previous identity or permission scope cannot drive a new report request.
-4. Preserve current provider stale-response protection, filter interactions, quick-status chips, details and export behavior.
+## Approved states, actions and placement
+
+| Course state | Primary action in Assign | Course actions menu | Reporting |
+|---|---|---|---|
+| Ready, never assigned | Publish & Assign | Delete permanently, only when deletion eligibility passes | No assignment history yet |
+| Active | Update Assignments | Disable, Archive | Current records; excluded employees retained in history |
+| Disabled | Enable | Enable, Archive | Historical learning records remain accessible |
+| Archived | None; assignment controls read-only | Restore | Historical learning records remain accessible |
+
+Unused drafts may also be deleted when generation is not pending/running. Content preparation still controls whether Publish & Assign is enabled. Existing creator/read-only rules apply to every row. Menu actions and Assign's primary action may expose the same Enable operation in context; implement one backend operation and consistent confirmation.
+
+State transitions:
+
+- Ready -> Publish & Assign -> Active.
+- Active -> Disable -> Disabled; Disabled -> Enable -> Active.
+- Active or Disabled -> Archive -> Archived.
+- Archived -> Restore -> Disabled; review employee rules -> Enable -> Active.
+- Unused draft/ready -> Delete permanently -> removed, with no normal recovery action.
+
+Restore must never automatically reopen learner access, enroll employees, resume reminders or reactivate Observers. Use the short label Restore; explain its disabled result in the confirmation and success message. Archive need not require Disable first. Delete need not require Disable/Archive first, but must reject courses with assignment history.
+
+## Stage 1: contracts, lifecycle and data model
+
+1. Recheck current integration-target changes before implementation; preserve newer work instead of copying whole files over it.
+2. Inventory current course status, assignment-rule activity, revoked progress payloads, deadline restoration, grants, content authorization, report predicates and notification jobs.
+3. Define a single derived public lifecycle state shared by UI/API. Keep content readiness/generation state separate from availability. Prefer additive lifecycle metadata (archive timestamp/actor and necessary state/version fields); do not overload generation statuses or replace them without a migration design.
+4. Separate assignment access from recorded learning status. Completed remains completed even when course access is withdrawn; progress, quiz scores, completion dates and learning events must survive Disable, Archive and Exclusions.
+5. Plan backward-compatible migration for existing revoked records. Recover learning state only from reliable stored prior status/progress/completion evidence; do not invent completion history. Preserve older reasons/timestamps and document unrecoverable cases.
+6. Define optimistic concurrency/version checks and audit entries for Disable, Enable, Archive, Restore and Delete. Use the same course lock/transaction boundary as assignment and Observer writers. Prevent stale or concurrent operations from restoring access or deleting a newly assigned course.
+7. Verify all authorized filter options/course summaries are complete. Respect endpoint pagination before claiming full-list local search. Confirm employee search matches name, employee ID and course.
+8. Finalize request/response fields for lifecycle, access availability/reason, actual mutation counts and historical inclusion; update models in both clients without breaking existing API consumers.
+
+## Stage 2: Observer Performance search parity
+
+1. Adapt Trainer `searchable_report_filter.dart` into Employee with Employee imports/theme. Replace Course, Department and Mailing list dropdowns, preserving widths, callbacks, selected values, active-filter counts and Clear filters behavior.
+2. Match dialog behavior: label/key search using case-insensitive all-word matching, lazy results, matching count, selection checkmark, clear search, scoped All, Cancel and no-match state. Typing searches options locally; selecting changes the report.
+3. Guard open selectors using the captured Employee report context and `ReportAccessGuard`; reject stale returned selections. All always means the current authorized scope.
+4. Adapt `course_report_browser.dart`: local name/ID search, clear, matching counts, 12-card pages, previous/next, loading and no-match states, existing responsive cards/detail callbacks.
+5. Keep course search independent of employee search/global filters/exports. Reset on identity, permission, report-view or Clear filters changes; reset page on query change and clamp it when results shrink.
+6. Add a cancellable 350 ms employee-search debounce. Trim text, submit Enter immediately without a delayed duplicate and reset report pagination using the existing notifier.
+7. Cancel delayed work on disposal, context/view changes and Clear filters; preserve stale-response protection, quick statuses, details, filters and exports.
+
+## Stage 3: Disable/Enable and Archive/Restore
+
+1. Disable atomically makes assignments unavailable, blocks new automatic assignments and suspends Observer grants. Retain content and recorded learning states/history. Keep the course in normal Trainer lists with a Disabled badge.
+2. Archive performs the same access withdrawal and moves the course to Archived lists. Keep content, employee rules, Observer configuration and learning records. Archived assignment controls are read-only until restored.
+3. Restore removes archive state and returns the course to Disabled. Preserve rules and history; require review and Enable before access resumes.
+4. Enable validates creator permission, readiness, current employee eligibility/exclusions, learner/Observer separation and deadlines. Restore access only to currently eligible employees and preserve their recorded progress. Apply existing deadline/reactivation policy consistently and explain any changed deadlines before confirmation; do not reset completed learning or silently start a new training cycle.
+5. Keep saved Observers suspended after Enable/Restore until explicit Apply Observers; preserve current save/restriction/revocation semantics and backend activation prerequisites.
+6. Check learner APIs, lists, progress writes and private media/document authorization against access availability and archive state. Hiding a course in UI must not leave direct URLs accessible.
+7. Block reconciliation and assignment/reminder jobs for disabled/archived courses. Preserve existing SMTP infrastructure and intended recipient rules; prevent duplicate new-assignment notifications for unchanged employees. Check queued notification behavior at delivery time where required by current contracts.
+8. Return truthful assigned/reactivated/removed/deadline-update counts and success messages. Refresh affected lists, selection and capabilities without displaying stale success under another course.
+
+## Stage 4: Employee Exclusions and permanent deletion
+
+1. Keep Employee Exclusions as the sole individual access-removal workflow. Applying Update Assignments withdraws excluded employees' access, including completed employees, while preserving their learning history.
+2. Exclusions take precedence over explicit employee, department, mailing list and other include matches; automatic reconciliation cannot reassign an excluded person.
+3. Save Rule saves configuration only; immediately applying access changes requires Update Assignments (or Publish & Assign/Enable in the appropriate state). Keep this distinction explicit and test background reconciliation so saved rules do not unexpectedly apply destructive access changes before the intended action.
+4. Removing an exclusion can restore eligibility on the next explicit application using the established assignment policy. Preserve saved learning results; do not implicitly restart completion.
+5. Enforce Delete eligibility in the backend, not just in the menu: creator-owned, no current or historical assignments/progress, and no pending/running generation. Check dependent learning history even if no currently active enrollment remains.
+6. Reject permanent deletion of a course with assignment history with a clear Use Archive explanation. No broad delete-anyway exception is included in this scope.
+7. Eligible deletion removes the course and generated artifacts, retains the uploaded source document and uses the existing cleanup-failure reporting strategy. Require a confirmation naming the course and explicit DELETE input for this irreversible action.
+
+## Stage 5: historical reporting and authorization
+
+1. Extend the existing Performance tab in both clients with a Course status filter: Active, Disabled, Archived and All course states. Default to Active to preserve normal reporting behavior; users deliberately choose other states to view history.
+2. Retain Overview, Courses and Employees reporting views, current selectors/search, detail drilldowns, sorting/pagination and CSV exports. Apply lifecycle filters consistently across options, summaries, details and both exports; a lifecycle filter must not be confused with learning-status chips such as Completed/Overdue.
+3. Display learning status and course access separately. Excluded/disabled/archived records retain actual progress/completion, with an unavailable-access reason. Include retained unavailable assignments when viewing history; summaries must clearly distinguish eligible/current assignments from historical records.
+4. Refactor the shared published/active/nonrevoked predicates deliberately rather than removing them globally. Learner-access queries still exclude unavailable assignments; authenticated report queries may include retained history only under an explicitly authorized reporting mode/filter.
+5. Apply current permissions to historical reads. Trainers retain established all-course reporting; HOD remains restricted to authorized departments; Observer remains restricted to currently effective course-specific grants. Suspension/revocation must not be bypassed by selecting Disabled, Archived or All course states.
+6. A suspended Observer cannot regain that course's historical data merely through a status filter. A person with independent HOD authority may retain only the rows authorized by that authority. Combined remains an OR union with each assignment counted once, including retained historical rows.
+7. Inspect all direct detail, options and CSV paths for scope widening. Preserve identity/grant checks, export-page authorization and permission/membership cache isolation. Reset filters/search/open dialogs when context changes.
+8. Show lifecycle badges in Courses/Assignable Courses and appropriate Archived filtering. Do not add a redundant historical-report action to the course menu.
+
+## Stage 6: integrate the approved UI
+
+1. Use the existing dashboard shell and source components. Add a selected-course action menu in the current header/toolbar instead of inventing another navigation hierarchy.
+2. Assign keeps Save Rule, coordinated Refresh and the state-appropriate primary action: Publish & Assign, Update Assignments or Enable. Menu contents derive from current server lifecycle and deletion eligibility, never from guessed client status.
+3. Courses uses the same lifecycle operations/action availability and provides Archived filtering; Restore transitions to Disabled and updates the selected course in Assign.
+4. Preserve creator/read-only behavior, existing selection widgets, previews, observers, deadline controls, section order and narrow-width wrapping. Keep course lifecycle UI available without hover and ensure keyboard/focus support.
+5. Confirmations show the selected course and real impact when available: employees losing/regaining access, Observer suspension and retained history. Cancel has no side effects; successful mutations followed by refresh failures remain successful with a reload warning.
+6. Keep explanatory text user-facing. No implementation terminology, invented counts or fake reporting data from the mockup should enter production.
 
 ## Validation and acceptance
 
-- Add focused Employee widget tests for searchable selector matching by label/key, scoped All, Cancel, no matches and selection behavior.
-- Test course name/ID matching, a result beyond the first 12 cards, pagination, clearing, shrinking results and scope/reset changes.
-- Test debounce timing, immediate Enter without a delayed duplicate, empty search, report-page reset and cancellation on disposal/context changes.
-- Verify unauthorized options/courses never appear; revocation or scope switching closes/invalidates open selectors and prevents stale search responses from restoring old data.
-- Run Employee Flutter analysis, relevant tests and a web build using the repository's approved SDK/tooling. Run existing reporting authorization tests if provider/backend behavior changes.
-- Browser UAT: compare Trainer and Observer at desktop and narrow widths with a scoped Observer account. Exercise all three selectors, course search/pagination, employee name/ID/course search, Clear filters, Refresh, detail opening and CSV exports. Also check HOD/Combined views where available.
-- Completion requires parity for the three search features with unchanged authorized visibility and report totals. Record actual commands/results and any limitations; no deployment is included in this planning request.
+- Focused widget tests: option matching/selection/Cancel/scoped All, course-name/ID search and pagination, debounce/Enter/clearing/context cancellation, state-dependent menu/primary labels, confirmation cancellation and read-only controls.
+- Database integration tests: allowed/denied lifecycle transitions, repeated requests, stale revisions and concurrent publish/archive/delete; history preservation and migration behavior; restore staying disabled; deletion eligibility including revoked/completed history.
+- Exclusion tests: completed and unfinished employees lose access, other employees remain unaffected, history survives, include-group overlap cannot override exclusions, and background reconciliation does not undo the explicit workflow.
+- Access tests: disabled/archived/excluded employees cannot load content or mutate progress via direct routes; saved/restored progress and deadlines behave correctly on Enable.
+- Reporting tests: matching counts across summaries/list/detail/options/export for every lifecycle filter; actual completion states preserved; search/page/filter resets; no duplicate Combined rows; revoked/suspended Observers cannot use historical filters to widen access.
+- Observer tests: Save restrictions/removal revoke immediately, additions require Apply, Disable/Archive suspend, Restore/Enable do not auto-apply, and learner/Observer separation remains enforced.
+- Notification tests: disabled/archived eligibility gates, queued delivery checks and no duplicate assignment emails from label changes/repeated updates. Do not send live mail during UAT.
+- Run relevant backend suites on the approved isolated PostgreSQL environment; the current Windows driver limitation recorded below must be resolved in the test environment before release sign-off.
+- Run Trainer and Employee Flutter analysis, focused/relevant existing tests and web builds with approved SDK/tooling.
+- Browser UAT on an authenticated test build at desktop and narrow widths: existing shell/layout; all course states and menu actions; Exclusions; deadlines/preview/refresh; Observer save/apply; historical Performance filters/details/exports; Observer/HOD/Combined scope cases.
+- Test Archive -> Courses status Archived -> Restore -> Disabled -> review rules -> Enable -> Apply Observers, and verify completed learning survives throughout.
+- Completion requires both original search parity and approved lifecycle/history behavior, with actual commands/results recorded. This planning update does not implement, publish or deploy application changes.
 
-## Planned file changes
+## Planned file areas
 
-- `employee_frontend/lib/features/performance/performance_report_portal.dart`: integrate selector/course components and employee-search lifecycle.
-- `employee_frontend/lib/features/performance/searchable_report_filter.dart`: adapted searchable selector.
-- `employee_frontend/lib/features/performance/course_report_browser.dart`: adapted course search/pagination.
-- Focused tests under `employee_frontend/test/` following existing conventions.
-- Modify Employee providers or backend only if contract/lifecycle verification reveals a concrete gap; preserve Employee-scoped endpoints and current authorization.
+- Trainer dashboard/theme and course/assignment UI: `frontend/lib/features/dashboard_page.dart`, `features/courses/course_portal.dart`, `features/training/training_portal.dart` as needed, `features/assignments/assignment_portal.dart`, `observer_include_panel.dart`, related providers/models.
+- Both Performance portals/providers/models: lifecycle filters, historical access display, options/details/exports and cache isolation.
+- New Employee components: `employee_frontend/lib/features/performance/searchable_report_filter.dart` and `course_report_browser.dart` adapted from Trainer.
+- Backend course/assignment APIs, services/repositories, progress, lifecycle schema/migrations, private-media authorization, report access/reporting and notification eligibility as identified during contract review.
+- Focused Trainer/Employee Flutter tests and backend authorization, lifecycle, reporting, assignment and notification integration tests.
 
-Implementation has not started. The branch contains this plan only; the original checkout and its existing work remain separate.
+## Existing verification evidence
+
+The Combined-scope regression coverage below remains useful evidence from before production implementation. It does not establish readiness of the newly planned lifecycle/history changes.
 
 ## Combined HOD + Observer code verification — 9 October 2026
 
