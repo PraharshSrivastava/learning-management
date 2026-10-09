@@ -5,17 +5,22 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl git unzip xz-utils zip libglu1-mesa ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth 1 --branch 3.24.5 https://github.com/flutter/flutter.git /usr/local/flutter
+# Match the SDK required by pubspec.lock and verify the immutable upstream revision.
+RUN git clone --depth 1 --branch 3.44.0 https://github.com/flutter/flutter.git /usr/local/flutter \
+    && test "$(git -C /usr/local/flutter rev-parse HEAD)" = 559ffa3f75e7402d65a8def9c28389a9b2e6fe42
 ENV PATH="/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:${PATH}"
+# Cache the SDK/web artifacts independently of each application's dependency lockfile.
+RUN flutter config --no-analytics \
+    && flutter precache --web
 
 WORKDIR /app
 COPY pubspec.yaml pubspec.lock ./
-RUN flutter pub get
+RUN flutter pub get --enforce-lockfile
 
 COPY . .
 ARG API_BASE_URL=
 RUN printf "API_BASE_URL=%s\n" "$API_BASE_URL" > .env \
-    && flutter build web --release --pwa-strategy=none
+    && flutter build web --release --no-pub --pwa-strategy=none --no-web-resources-cdn
 
 FROM nginxinc/nginx-unprivileged:1.31.6-alpine3.24@sha256:6a23acdfca2b9cfbcec61419e3f1426bcbedb91362f2f19306a8567423bb4612
 USER root

@@ -1,0 +1,17 @@
+--- a/src/pcm/pcm_multi.c
++++ b/src/pcm/pcm_multi.c
+@@ -1090,6 +1090,14 @@
+ 	assert(slaves_count > 0 && slaves_pcm && schannels_count);
+ 	assert(channels_count > 0 && sidxs && schannels);
+ 	assert(master_slave < slaves_count);
++
++	/* Reject sparse and out-of-range bindings before any indexed access. */
++	for (i = 0; i < channels_count; ++i) {
++		if (sidxs[i] < 0 || (unsigned int)sidxs[i] >= slaves_count)
++			return -EINVAL;
++		if (schannels[i] >= schannels_count[sidxs[i]])
++			return -EINVAL;
++	}
+ 
+ 	multi = calloc(1, sizeof(snd_pcm_multi_t));
+ 	if (!multi) {

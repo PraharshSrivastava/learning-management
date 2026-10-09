@@ -13,9 +13,11 @@ python-pptx==1.0.2
 
 # HTTP & Utils
 requests==2.34.2
+# Security pin for requests' HTTP transport dependency.
+urllib3==2.8.0
 langfuse==4.15.4
 
 # Video & Image Generation (Playwright requires: playwright install chromium)
-playwright==1.61.0
+playwright==1.63.0
 pillow==12.3.0
 imageio-ffmpeg==0.6.0
