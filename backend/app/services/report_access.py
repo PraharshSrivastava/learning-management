@@ -12,6 +12,8 @@ def current_report_scope(request, authorization, *, app):
     course_status = request.query_params.get("course_status", "active")
     if course_status not in ("active", "disabled", "archived", "all"):
         raise AuthorizationError("Choose a valid course status filter")
+    if course_status == "archived":
+        course_status = "disabled"  # Old bookmarks retain authorized historical results.
     default = "all_courses" if app == "trainer" else "combined"
     view = request.query_params.get("view", default)
     if app == "trainer":

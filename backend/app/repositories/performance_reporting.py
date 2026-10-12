@@ -14,7 +14,7 @@ def _availability_filter(scope: TrainerReportScope) -> str:
     if status == "all":
         return "c.status IN ('published', 'archived') AND ar.published_at IS NOT NULL"
     if status == "archived":
-        return "c.status = 'archived' AND ar.published_at IS NOT NULL"
+        return "c.status IN ('published', 'archived') AND ar.published_at IS NOT NULL AND ar.is_active = FALSE"
     if status == "disabled":
         return "c.status = 'published' AND ar.published_at IS NOT NULL AND ar.is_active = FALSE"
     if status != "active":

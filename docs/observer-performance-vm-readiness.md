@@ -26,3 +26,8 @@ Reviewed: 12 October 2026. Branch: `codex/observer-performance-parity`.
 ## Gate before on-prem UAT
 
 Complete and record the VM checks above with no unresolved new blocking defects. The local Chrome app-shell smoke test stalled while loading, so live authenticated UI/proxy testing is still required. Then promote the exact VM-tested revision/images to on-prem UAT, with that environment's backup and migration/startup checks. On-prem production approval is outside this testing rollout.
+
+
+## Pending Enable/Disable follow-up
+
+The deployed coding-VM baseline is 71584a5. The local follow-up documented in [the simplification plan](enable-disable-simplification-plan.md) removes Archive/Restore, migrates old archived records to Disabled and aligns both filter panels. It is not pushed/deployed yet. For that revision, replace the Archive/Restore checklist path with Publish & Assign -> Disable -> reviewed Enable -> explicit Apply Observers. Verify Active/Disabled/All courses filters, five controls in one row and retained report history. Confirm migration 20261012_enable_disable_v1 is recorded once in addition to the original migration. Build/scan/test new images before on-prem UAT.

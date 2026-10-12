@@ -64,29 +64,11 @@ def _change_lifecycle(course_id, trainer_id, action, expected_revision):
                 "Wait for course generation to finish before changing availability."
             )
         rule = get_assignment_rule(course_id)
-        if action == "restore":
-            if course["status"] != "archived":
-                raise ConflictError("Only an archived course can be restored.")
-            db.execute("UPDATE courses SET status = 'published' WHERE course_id = ?", (course_id,))
-            # Restore deliberately leaves the rule disabled and observers suspended.
-            from app.repositories.assignments import save_assignment_rule
-
-            save_assignment_rule(course_id, rule, disable=True, disabled_by_trainer_id=trainer_id)
-            from app.repositories.observers import suspend_course
-
-            suspend_course(course_id, trainer_id)
-            record_action(course_id, trainer_id, "restore")
-        elif action in ("disable", "archive"):
-            if course["status"] != "published" or not rule.get("published_at"):
-                raise ConflictError("Only a published course can be disabled or archived.")
-            if action == "disable" and not rule["is_active"]:
-                raise ConflictError("Course assignments are already disabled.")
-            api_disable_course_assignment(course_id, trainer_id)
-            if action == "archive":
-                db.execute(
-                    "UPDATE courses SET status = 'archived' WHERE course_id = ?", (course_id,)
-                )
-                record_action(course_id, trainer_id, "archive")
-        else:
-            raise DomainValidationError("Choose Disable, Archive or Restore.")
+        if action != "disable":
+            raise DomainValidationError("Use Disable or review assignments to Enable. Archive and Restore are no longer available.")
+        if course["status"] != "published" or not rule.get("published_at"):
+            raise ConflictError("Only a published course can be disabled.")
+        if not rule["is_active"]:
+            raise ConflictError("Course assignments are already disabled.")
+        api_disable_course_assignment(course_id, trainer_id)
     return get_course(course_id)

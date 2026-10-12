@@ -32,9 +32,8 @@ Course course(String state, {bool canDelete = false}) => Course(
 
 void main() {
   for (final entry in {
-    'active': ['Disable', 'Archive'],
-    'disabled': ['Enable', 'Archive'],
-    'archived': ['Restore'],
+    'active': ['Disable'],
+    'disabled': ['Enable'],
     'draft': ['Delete']
   }.entries) {
     testWidgets('${entry.key} offers only eligible lifecycle actions',

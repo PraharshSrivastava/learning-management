@@ -30,8 +30,6 @@ class _CourseActionsMenuState extends ConsumerState<CourseActionsMenu> {
     final actions = <String>[
       if (state == 'active') 'Disable',
       if (state == 'disabled') 'Enable',
-      if (state == 'active' || state == 'disabled') 'Archive',
-      if (state == 'archived') 'Restore',
       if (c.canDelete) 'Delete',
     ];
     return PopupMenuButton<String>(
@@ -72,15 +70,11 @@ class _CourseActionsMenuState extends ConsumerState<CourseActionsMenu> {
       final descriptions = {
         'Disable':
             'Employees lose course access and Observers are suspended. Progress and completed results are preserved. You can Enable this course again.',
-        'Archive':
-            'Retire this course and withdraw employee access. Progress and reports are preserved. Restore returns it to Disabled; Enable and Apply Observers are separate steps.',
-        'Restore':
-            'Return this course to Disabled. Review employee selections and the deadline, then Enable. Observers remain suspended until you Apply Observers.',
         'Delete':
             'Permanently delete this unused course and generated content. The source document is retained. Type DELETE to confirm.',
       };
       String impact = '';
-      if (action == 'Disable' || action == 'Archive') {
+      if (action == 'Disable') {
         final responses = await Future.wait([
           http.get(Uri.parse(AppConstants.courseAssignmentEndpoint(c.courseId)),
               headers: ref.read(trainerAuthHeadersProvider)),

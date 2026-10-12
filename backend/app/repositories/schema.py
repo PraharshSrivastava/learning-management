@@ -44,6 +44,9 @@ def init_db() -> None:
         from app.repositories.access_migrations import apply_access_migrations
 
         apply_access_migrations(connection)
+        from app.repositories.availability_migrations import apply_availability_migration
+
+        apply_availability_migration(cursor)
         connection.commit()
 
 
@@ -58,6 +61,9 @@ def recreate_db() -> None:
         from app.repositories.access_migrations import apply_access_migrations
 
         apply_access_migrations(connection)
+        from app.repositories.availability_migrations import apply_availability_migration
+
+        apply_availability_migration(cursor)
         connection.commit()
 
 

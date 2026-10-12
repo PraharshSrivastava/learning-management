@@ -81,7 +81,7 @@ class _CourseLibraryInspectorState extends ConsumerState<CourseLibraryInspector>
     return ListView(padding: const EdgeInsets.all(24), children: [
       Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center, children: [
         SizedBox(width: 300, child: TextField(controller: search, decoration: const InputDecoration(labelText: 'Find a course', prefixIcon: Icon(Icons.search)), onSubmitted: (_) { offset = 0; load(); })),
-        DropdownButton<String>(value: status, hint: const Text('All statuses'), items: const [DropdownMenuItem(value: null, child: Text('All statuses')), DropdownMenuItem(value: 'draft', child: Text('Draft')), DropdownMenuItem(value: 'ready', child: Text('Ready')), DropdownMenuItem(value: 'published', child: Text('Published')), DropdownMenuItem(value: 'archived', child: Text('Archived'))], onChanged: (s) { status = s; offset = 0; load(); }),
+        DropdownButton<String>(value: status, hint: const Text('All statuses'), items: const [DropdownMenuItem(value: null, child: Text('All statuses')), DropdownMenuItem(value: 'draft', child: Text('Draft')), DropdownMenuItem(value: 'ready', child: Text('Ready')), DropdownMenuItem(value: 'published', child: Text('Published'))], onChanged: (s) { status = s; offset = 0; load(); }),
         OutlinedButton.icon(onPressed: busy ? null : load, icon: const Icon(Icons.refresh), label: const Text('Refresh')),
         Text('$total courses'),
       ]),

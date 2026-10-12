@@ -1,3 +1,4 @@
+import 'report_filter_row.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 
@@ -24,7 +25,8 @@ class SearchableReportFilter extends StatelessWidget {
       required this.onChanged,
       this.guard,
       this.allowAll = true,
-      this.enabled = true, this.isCurrent});
+      this.enabled = true,
+      this.isCurrent});
 
   @override
   Widget build(BuildContext context) {
@@ -33,14 +35,15 @@ class SearchableReportFilter extends StatelessWidget {
         : items[value] ?? 'Selected $label';
     return SizedBox(
         width: width,
+        height: ReportFilterStyle.controlHeight(context),
         child: Tooltip(
             message: selected,
             child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: AppTheme.primaryBlue,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 13),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     side: const BorderSide(color: Color(0xFFD2E0F0))),
@@ -57,7 +60,9 @@ class SearchableReportFilter extends StatelessWidget {
                                   allowAll: allowAll);
                               return guard?.call(dialog) ?? dialog;
                             });
-                        if (context.mounted && picked != null && (isCurrent?.call() ?? true)) {
+                        if (context.mounted &&
+                            picked != null &&
+                            (isCurrent?.call() ?? true)) {
                           onChanged(picked.value);
                         }
                       },
@@ -67,13 +72,12 @@ class SearchableReportFilter extends StatelessWidget {
                   Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                        Text(label,
-                            style: const TextStyle(
-                                fontSize: 11, color: AppTheme.textSecondary)),
+                        Text(label, style: ReportFilterStyle.label),
                         Text(selected,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700))
+                            style: ReportFilterStyle.value)
                       ])),
                   const Icon(Icons.expand_more, size: 20)
                 ]))));
