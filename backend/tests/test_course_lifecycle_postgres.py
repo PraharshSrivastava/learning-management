@@ -245,3 +245,17 @@ def test_archived_course_cannot_be_reopened_by_stale_content_or_generation(works
     with pytest.raises(ValueError, match="Restore"):
         GenerationJobRepository().create(job)
     assert get_course("course")["lifecycle_state"] == "archived"
+
+
+def test_lifecycle_uses_one_pool_connection_and_preserves_lock_order(workspace_db):
+    publish()
+    pool = database._pool
+    original_max_size = pool.max_size
+    pool.resize(min_size=0, max_size=1)
+    try:
+        result = change_lifecycle("course", "creator", "archive", 1)
+        assert result["lifecycle_state"] == "archived"
+        result = change_lifecycle("course", "creator", "restore", result["lifecycle_revision"])
+        assert result["lifecycle_state"] == "disabled"
+    finally:
+        pool.resize(min_size=0, max_size=original_max_size)

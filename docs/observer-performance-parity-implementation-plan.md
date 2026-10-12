@@ -194,3 +194,15 @@ Migration behavior and remaining acceptance:
 - Schema initialization applies the additive versioned `20261009_course_lifecycle_v1` migration. It adds applied include/exclude snapshots, lifecycle revisions and audit records. Legacy revoked learning status is reconstructed only from stored completion/start/module evidence; no completion is invented.
 - Historical reporting remains inside Performance. No separate View historical reports shortcut and no individual Revoke action were added.
 - Before release, perform the authenticated desktop/narrow-width browser UAT listed above, especially Archive → Restore → Disabled → Enable → Apply Observers. Do not treat the successful isolated tests/builds as a production rollout or completed live UAT.
+
+
+## Follow-up VM readiness review — 12 October 2026
+
+Verdict: ready to push this branch to the coding VM for integration testing. Promotion to on-prem UAT is conditional on completing the VM acceptance checklist in `docs/observer-performance-vm-readiness.md`.
+
+The additional review fixed two issues before recommending that push:
+
+- The legacy Trainer report excluded only `status=revoked`; it now also excludes withdrawals recorded in `revoked_at`, so retained completion status cannot inflate its current-assignment totals.
+- Lifecycle actions now acquire the generation advisory lock and course row lock on one shared database connection, in that order. The previous nested connections could exhaust a busy connection pool. A real PostgreSQL test verifies Archive/Restore with a pool limited to one connection.
+
+Follow-up evidence: **356 passed, 72 skipped, 1 existing image-slide failure** in the full backend unit/API run; **53 passing** PostgreSQL lifecycle/permission/library tests plus **15 passing** seeded report aggregation/search/sort parity tests, for **68 real PostgreSQL tests passed**. Synthetic report data was seeded only in a disposable schema in the isolated local `lms_performance_demo` database; that schema was removed afterwards. Both Flutter clients build with the actual Dockerfile flags (`--release --no-pub --pwa-strategy=none --no-web-resources-cdn`) and the pinned Flutter 3.44.0 SDK. The existing analyzer/video-player limitation and pending live browser UAT remain as previously recorded. No remote push or VM/on-prem deployment was performed by this review.

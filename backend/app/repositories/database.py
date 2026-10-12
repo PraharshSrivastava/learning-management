@@ -126,10 +126,12 @@ def advisory_lock(name: str) -> Iterator[None]:
 
 
 @contextmanager
-def course_transaction(course_id: str):
+def course_transaction(course_id: str, *, lock_generation: bool = False):
     """Share one connection and atomic commit across nested course repositories."""
     active = _active_transaction.get()
     if active is not None:
+        if lock_generation:
+            raise RuntimeError("Acquire the generation lock before entering a course transaction")
         yield active
         return
     callbacks = []
@@ -137,6 +139,8 @@ def course_transaction(course_id: str):
         db.managed = True
         token = _active_transaction.set(db)
         try:
+            if lock_generation:
+                advisory_xact_lock(db, f"course_generation:{course_id}")
             db.execute("SELECT course_id FROM courses WHERE course_id = ? FOR UPDATE", (course_id,))
             yield db
             db._connection.commit()

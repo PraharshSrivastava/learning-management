@@ -3,7 +3,7 @@
 from uuid import uuid4
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
-from app.repositories.database import advisory_lock, course_transaction, get_connection
+from app.repositories.database import course_transaction, get_connection
 
 
 def require_editable_course(course_id, expected_revision=None):
@@ -38,9 +38,8 @@ def record_action(course_id, actor, action):
 
 def change_lifecycle(course_id, trainer_id, action, expected_revision):
     # Match the generation/deletion lock order before taking the course row lock.
-    with advisory_lock(f"course_generation:{course_id}"):
-        with course_transaction(course_id):
-            return _change_lifecycle(course_id, trainer_id, action, expected_revision)
+    with course_transaction(course_id, lock_generation=True):
+        return _change_lifecycle(course_id, trainer_id, action, expected_revision)
 
 
 def _change_lifecycle(course_id, trainer_id, action, expected_revision):
