@@ -223,6 +223,8 @@ def _event_is_current(
     if int(context.get("notification_lifecycle") or 1) != lifecycle:
         return False
     status = context.get("assignment_status")
+    if context.get("revoked_at"):
+        return False
     if context.get("course_status") not in {None, "published"}:
         return False
     if context.get("assignment_rule_active") is False:
@@ -1056,7 +1058,7 @@ def _digest_summary(connection, notification: dict) -> dict[str, int]:
         JOIN courses c ON c.course_id = ca.course_id
         JOIN assignment_rules ar ON ar.course_id = ca.course_id
         JOIN employees e ON e.employee_id = ca.employee_id
-        WHERE ca.status <> 'revoked'
+        WHERE ca.status <> 'revoked' AND ca.revoked_at IS NULL
           AND c.status = 'published'
           AND ar.is_active = TRUE
           {scope_sql}

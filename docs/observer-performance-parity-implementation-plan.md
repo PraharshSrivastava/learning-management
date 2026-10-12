@@ -1,7 +1,7 @@
 # LMS Performance parity and course lifecycle: implementation plan
 
-Status: approved design and implementation plan; production implementation has not started. Focused Combined-scope regression tests already exist on this branch.
-Updated: 9 October 2026.
+Status: implementation completed on this branch; automated verification recorded below. Live authenticated browser UAT and release sign-off remain pending.
+Updated: 12 October 2026.
 Branch: `codex/observer-performance-parity`.
 Base: local `codex/lms-sbom-release`, commit `8876a34ccbacc7027bca995fc2ed9a0633fe8bac`.
 Workspace: `C:/Users/LPUSER/.codex/worktrees/observer-performance-parity/LMS_V1`.
@@ -136,11 +136,11 @@ Restore must never automatically reopen learner access, enroll employees, resume
 - Reporting tests: matching counts across summaries/list/detail/options/export for every lifecycle filter; actual completion states preserved; search/page/filter resets; no duplicate Combined rows; revoked/suspended Observers cannot use historical filters to widen access.
 - Observer tests: Save restrictions/removal revoke immediately, additions require Apply, Disable/Archive suspend, Restore/Enable do not auto-apply, and learner/Observer separation remains enforced.
 - Notification tests: disabled/archived eligibility gates, queued delivery checks and no duplicate assignment emails from label changes/repeated updates. Do not send live mail during UAT.
-- Run relevant backend suites on the approved isolated PostgreSQL environment; the current Windows driver limitation recorded below must be resolved in the test environment before release sign-off.
+- Run relevant backend suites on the approved isolated PostgreSQL environment; the earlier Windows driver limitation has been resolved for test execution as recorded below.
 - Run Trainer and Employee Flutter analysis, focused/relevant existing tests and web builds with approved SDK/tooling.
 - Browser UAT on an authenticated test build at desktop and narrow widths: existing shell/layout; all course states and menu actions; Exclusions; deadlines/preview/refresh; Observer save/apply; historical Performance filters/details/exports; Observer/HOD/Combined scope cases.
 - Test Archive -> Courses status Archived -> Restore -> Disabled -> review rules -> Enable -> Apply Observers, and verify completed learning survives throughout.
-- Completion requires both original search parity and approved lifecycle/history behavior, with actual commands/results recorded. This planning update does not implement, publish or deploy application changes.
+- Completion requires both original search parity and approved lifecycle/history behavior, with actual commands/results recorded. The implementation is local to this branch; it has not been published or deployed.
 
 ## Planned file areas
 
@@ -165,3 +165,32 @@ Reviewed `backend/app/schemas/reporting_scope.py`, report role discovery, reques
 - Command: existing local Python environment running `-m unittest discover -s tests -p test_combined_reporting_scope.py -v`. Result: 8 passed.
 - Attempted `-m pytest tests/test_employee_report_access.py tests/test_observer_reporting_postgres.py -q`; both modules failed during collection because psycopg cannot load its database wrapper (Windows application control blocks `_ssl`, and no fallback libpq is installed). These API/PostgreSQL suites were not executed successfully. The PostgreSQL suite also requires its explicit opt-in and isolated `lms_performance_demo` database.
 - No defect found in the reviewed Combined predicate; no production authorization changes made. This focused check does not replace full PostgreSQL/API integration verification. Rerun those suites in the approved database environment before release.
+
+
+## Implementation and verification — 12 October 2026
+
+The following supersedes the earlier Windows-driver testing limitation. A working bundled Windows Python runtime runs the unit/API suites, and a WSL Python environment runs real PostgreSQL checks against the isolated `lms_performance_demo` database. Tests create their own schemas and clean them up; production data and live email delivery were not used.
+
+| Stage | Implemented result |
+| --- | --- |
+| 1: contracts and authorization | Lifecycle/access fields, trusted availability filters and revision checks; creator-only mutations and deduplicated HOD/Observer scope retained. |
+| 2: Observer search parity | Searchable Course/Department/Mailing list selectors, course name/ID search with 12-item pages, employee debounce and cancellation when reporting context changes. |
+| 3: employee access and applied rules | Published rule snapshots isolate saved drafts from reconciliation. Exclusions withdraw unfinished and completed employee access while preserving completion, scores, answers, attempts and deadlines. Learning writes share the course lock. |
+| 4: course action menu | Courses and Assign use eligible actions with confirmations and actual impact counts. Delete requires typing DELETE and is restricted by the backend to unused draft/ready content. Archive retains history; Restore leaves the course Disabled. Enable reviews the employee preview/deadline and does not reapply Observers. Generation and stale content writes cannot reopen Archived courses. |
+| 5: reporting history | Active/Disabled/Archived/All filters, separate learning and access displays, current/historical totals and CSV access columns. Historical links retain availability scope; suspended Observers cannot regain history through a filter. |
+| 6: automated verification | Backend/API checks, real PostgreSQL lifecycle/access/migration tests, Flutter search/menu/detail/refresh tests and release web builds. Live authenticated browser UAT is still a release acceptance item. |
+
+Verification results:
+
+- Backend full suite: `python -m pytest -o addopts='-p no:cacheprovider' -q`: **355 passed, 71 skipped, 1 failed**. The one failure is the existing `test_splits_third_landscape_image_to_separate_slide`, independently reproduced in the original checkout. It concerns image-slide generation outside this change. Skipped tests have explicit integration opt-ins.
+- Real PostgreSQL: `LMS_ACCESS_POSTGRES_TESTS=true`, running `test_assignment_workspace_postgres.py`, `test_course_lifecycle_postgres.py`, `test_observer_reporting_postgres.py` and `test_media_access_postgres.py`: **34 passed**. Coverage includes complete score/answer/attempt preservation, migration idempotence, draft isolation, stale/concurrent lifecycle writes, deletion eligibility/audit, suspended Observer historical reads and generation guards.
+- Trainer: `flutter test --no-pub`: **44 passed**, including eligible menu actions, DELETE confirmation cancellation, responsive reporting components, scope cancellation and assignment/Observer refresh behavior.
+- Employee: focused reporting, playback, quiz-result and runtime-URL suites: **21 passed**. The separate Chrome app-shell smoke test did not progress beyond loading and was cancelled; it is not recorded as passed.
+- Both clients: release `flutter build web --no-pub --release --no-wasm-dry-run` builds succeeded. The existing video player's `dart:js_util` analyzer error remains under the available SDK; JavaScript web compilation succeeds. VM execution of the Employee app-shell test cannot import its existing web-only libraries, so it must use a browser platform.
+- Ruff checks on all changed Python files pass. `git diff --check` passes.
+
+Migration behavior and remaining acceptance:
+
+- Schema initialization applies the additive versioned `20261009_course_lifecycle_v1` migration. It adds applied include/exclude snapshots, lifecycle revisions and audit records. Legacy revoked learning status is reconstructed only from stored completion/start/module evidence; no completion is invented.
+- Historical reporting remains inside Performance. No separate View historical reports shortcut and no individual Revoke action were added.
+- Before release, perform the authenticated desktop/narrow-width browser UAT listed above, especially Archive → Restore → Disabled → Enable → Apply Observers. Do not treat the successful isolated tests/builds as a production rollout or completed live UAT.

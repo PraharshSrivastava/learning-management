@@ -6,7 +6,20 @@ from datetime import datetime, timedelta
 
 from app.core.settings import settings
 from app.repositories.database import get_connection
-from app.schemas.reporting_scope import EmployeePerformanceScope, TrainerReportScope, owner_filter
+from app.schemas.reporting_scope import TrainerReportScope, owner_filter
+
+
+def _availability_filter(scope: TrainerReportScope) -> str:
+    status = getattr(scope, "course_status", "active")
+    if status == "all":
+        return "c.status IN ('published', 'archived') AND ar.published_at IS NOT NULL"
+    if status == "archived":
+        return "c.status = 'archived' AND ar.published_at IS NOT NULL"
+    if status == "disabled":
+        return "c.status = 'published' AND ar.published_at IS NOT NULL AND ar.is_active = FALSE"
+    if status != "active":
+        raise ValueError("Invalid course status filter")
+    return "c.status = 'published' AND ar.published_at IS NOT NULL AND ar.is_active = TRUE AND ca.status <> 'revoked' AND ca.revoked_at IS NULL"
 
 
 def _assignment_scope(
@@ -19,12 +32,7 @@ def _assignment_scope(
     joined_less_than_days_ago: int | None = None,
 ) -> tuple[str, list[object]]:
     owner_sql, owner_params = owner_filter(trainer_id)
-    conditions = [
-        "c.status = 'published'",
-        "ca.status <> 'revoked'",
-        "ar.published_at IS NOT NULL",
-        "ar.is_active = TRUE",
-    ]
+    conditions = [_availability_filter(trainer_id)]
     params: list[object] = list(owner_params)
     if owner_sql:
         conditions.insert(0, owner_sql.removesuffix(" AND "))
@@ -57,7 +65,8 @@ def _assignment_summary_query(where: str) -> str:
                ca.assigned_at, ca.deadline, ca.started_at, ca.completed_at,
                ca.last_learner_activity_at,
                e.name AS employee_name, e.department, e.status AS employee_status,
-               c.course_name,
+               c.course_name, c.status AS course_status, ar.is_active AS rule_active,
+               ca.revoked_at, ca.revoked_reason,
                ARRAY(SELECT eg.group_cn FROM employee_groups eg WHERE eg.employee_id = e.employee_id AND eg.group_cn IS NOT NULL ORDER BY eg.group_cn) AS mailing_lists,
                COUNT(cm.module_id) AS total_modules,
                COUNT(cm.module_id) FILTER (
@@ -80,7 +89,7 @@ def _assignment_summary_query(where: str) -> str:
         LEFT JOIN course_modules cm ON cm.course_id = c.course_id
         LEFT JOIN module_progress mp ON mp.assignment_id = ca.assignment_id AND mp.module_id = cm.module_id
         WHERE {where}
-        GROUP BY ca.assignment_id, e.employee_id, c.course_id, ev.failed_attempts
+        GROUP BY ca.assignment_id, e.employee_id, c.course_id, ar.course_id, ev.failed_attempts
     """  # nosec B608
 
 
@@ -119,17 +128,17 @@ def _decorated_assignments(where: str) -> str:
         ), decorated AS (
             SELECT summary.*,
                    CASE WHEN status = 'completed' THEN 'completed'
-                        WHEN deadline::timestamp < clock.current_time THEN 'overdue'
+                        WHEN revoked_at IS NULL AND rule_active AND course_status = 'published' AND deadline::timestamp < clock.current_time THEN 'overdue'
                         WHEN status = 'started' OR started_at IS NOT NULL THEN 'started'
                         ELSE 'pending' END AS report_status,
-                   status <> 'completed' AND deadline::timestamp > clock.current_time
+                   status <> 'completed' AND revoked_at IS NULL AND rule_active AND course_status = 'published' AND deadline::timestamp > clock.current_time
                        AND deadline::timestamp <= clock.due_end AS due_soon,
-                   status <> 'completed' AND (
+                   status <> 'completed' AND revoked_at IS NULL AND rule_active AND course_status = 'published' AND (
                        last_learner_activity_at::timestamp < clock.inactive_cutoff
                        OR (last_learner_activity_at IS NULL AND started_at IS NULL
                            AND assigned_at::timestamp < clock.inactive_cutoff)
                    ) AS inactive,
-                   status <> 'completed' AND failed_attempts >= ? AS repeated_failures,
+                   status <> 'completed' AND revoked_at IS NULL AND rule_active AND course_status = 'published' AND failed_attempts >= ? AS repeated_failures,
                    CASE WHEN total_modules > 0
                         THEN ROUND(100.0 * completed_modules / total_modules)
                         ELSE 0 END AS completion_percent,
@@ -337,62 +346,22 @@ def employee_page(
 
 
 def list_scope_options(trainer_id: TrainerReportScope) -> dict:
-    owner_sql, owner_params = owner_filter(trainer_id)
-    assignment_join = (
-        "JOIN course_assignments ca ON ca.course_id = c.course_id AND ca.status <> 'revoked' "
-        "JOIN employees e ON e.employee_id = ca.employee_id"
-        if isinstance(trainer_id, EmployeePerformanceScope) else ""
-    )
+    where, params = _assignment_scope(trainer_id)
+    joins = """FROM course_assignments ca JOIN courses c ON c.course_id = ca.course_id
+        JOIN employees e ON e.employee_id = ca.employee_id
+        JOIN assignment_rules ar ON ar.course_id = ca.course_id"""
     with get_connection() as connection:
-        courses = connection.execute(
-            f"""
-            SELECT DISTINCT c.course_id, c.course_name
-            FROM courses c JOIN assignment_rules ar ON ar.course_id = c.course_id
-            {assignment_join}
-            WHERE {owner_sql}c.status = 'published'
-              AND ar.published_at IS NOT NULL AND ar.is_active = TRUE
-            ORDER BY c.course_name
-            """,
-            owner_params,
-        ).fetchall()
-        departments = connection.execute(
-            f"""
-            SELECT DISTINCT e.department
-            FROM employees e
-            JOIN course_assignments ca ON ca.employee_id = e.employee_id
-            JOIN courses c ON c.course_id = ca.course_id
-            JOIN assignment_rules ar ON ar.course_id = c.course_id
-            WHERE {owner_sql}c.status = 'published' AND ca.status <> 'revoked'
-              AND ar.published_at IS NOT NULL AND ar.is_active = TRUE
-              AND e.department IS NOT NULL AND e.department <> ''
-            ORDER BY e.department
-            """,
-            owner_params,
-        ).fetchall()
-        groups = connection.execute(
-            f"""
-            SELECT DISTINCT eg.group_cn
-            FROM employee_groups eg
-            JOIN employees e ON e.employee_id = eg.employee_id
-            JOIN course_assignments ca ON ca.employee_id = eg.employee_id
-            JOIN courses c ON c.course_id = ca.course_id
-            JOIN assignment_rules ar ON ar.course_id = c.course_id
-            WHERE {owner_sql}c.status = 'published' AND ca.status <> 'revoked'
-              AND ar.published_at IS NOT NULL AND ar.is_active = TRUE
-              AND eg.group_cn IS NOT NULL
-            ORDER BY eg.group_cn
-            """,
-            owner_params,
-        ).fetchall()
-    return {
-        "courses": [dict(row) for row in courses],
-        "departments": [row["department"] for row in departments],
-        "mailing_lists": [row["group_cn"] for row in groups],
-    }
+        courses = connection.execute(f"SELECT DISTINCT c.course_id, c.course_name {joins} WHERE {where} ORDER BY c.course_name", tuple(params)).fetchall()
+        departments = connection.execute(f"SELECT DISTINCT e.department {joins} WHERE {where} AND e.department IS NOT NULL AND e.department <> '' ORDER BY e.department", tuple(params)).fetchall()
+        groups = connection.execute(f"SELECT DISTINCT eg.group_cn {joins} JOIN employee_groups eg ON eg.employee_id = e.employee_id WHERE {where} AND eg.group_cn IS NOT NULL ORDER BY eg.group_cn", tuple(params)).fetchall()
+    return {"courses": [dict(row) for row in courses],
+            "departments": [row["department"] for row in departments],
+            "mailing_lists": [row["group_cn"] for row in groups]}
 
 
 def get_assignment_detail(trainer_id: TrainerReportScope, assignment_id: str) -> dict | None:
     owner_sql, owner_params = owner_filter(trainer_id)
+    availability = _availability_filter(trainer_id)
     with get_connection() as connection:
         row = connection.execute(
             f"""
@@ -402,8 +371,7 @@ def get_assignment_detail(trainer_id: TrainerReportScope, assignment_id: str) ->
             JOIN courses c ON c.course_id = ca.course_id
             JOIN employees e ON e.employee_id = ca.employee_id
             JOIN assignment_rules ar ON ar.course_id = ca.course_id
-            WHERE ca.assignment_id = ? AND {owner_sql}c.status = 'published'
-              AND ca.status <> 'revoked' AND ar.published_at IS NOT NULL AND ar.is_active = TRUE
+            WHERE ca.assignment_id = ? AND {owner_sql}{availability}
             """,
             (assignment_id, *owner_params),
         ).fetchone()
@@ -451,9 +419,7 @@ def course_module_summary(
     owner_sql, owner_params = owner_filter(trainer_id)
     conditions = [
         "c.course_id = ?",
-        "c.status = 'published'",
-        "ar.published_at IS NOT NULL",
-        "ar.is_active = TRUE",
+        _availability_filter(trainer_id),
     ]
     params: list[object] = [course_id, *owner_params]
     if owner_sql:
@@ -487,7 +453,7 @@ def course_module_summary(
             FROM course_modules cm
             JOIN courses c ON c.course_id = cm.course_id
             JOIN assignment_rules ar ON ar.course_id = c.course_id
-            JOIN course_assignments ca ON ca.course_id = c.course_id AND ca.status <> 'revoked'
+            JOIN course_assignments ca ON ca.course_id = c.course_id
             JOIN employees e ON e.employee_id = ca.employee_id
             LEFT JOIN module_progress mp ON mp.assignment_id = ca.assignment_id AND mp.module_id = cm.module_id
             WHERE {where}

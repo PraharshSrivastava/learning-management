@@ -174,11 +174,16 @@ def _notification_transition(existing: dict | None, data: dict) -> tuple[int, st
         and previous_status != next_status
         and next_status in {"completed", "revoked"}
     )
-    reactivated = previous_status == "revoked" and next_status != "revoked"
+    was_unavailable = bool(existing and (existing.get("revoked_at") or previous_status == "revoked"))
+    unavailable = bool(data.get("revoked_at") or next_status == "revoked")
+    reactivated = was_unavailable and not unavailable
+    terminal_transition = terminal_transition or (not was_unavailable and unavailable)
 
     if deadline_changed or terminal_transition or reactivated:
         version += 1
 
+    if unavailable:
+        return version, None
     if not existing and next_status != "revoked":
         return version, "assigned"
     if previous_status != "completed" and next_status == "completed":
@@ -195,13 +200,13 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
         storage_course_id = _assignment_course_id(connection, course_id)
         existing = connection.execute(
             """
-            SELECT assignment_id, status, deadline, notification_lifecycle
+            SELECT assignment_id, status, deadline, revoked_at, notification_lifecycle
             FROM course_assignments
             WHERE employee_id = ? AND course_id = ?
             """,
             (employee_id, storage_course_id),
         ).fetchone()
-        if data.get("status", "pending") != "revoked" and (not existing or existing["status"] == "revoked"):
+        if not data.get("revoked_at") and data.get("status", "pending") != "revoked" and (not existing or existing.get("revoked_at") or existing["status"] == "revoked"):
             from app.services.assignment_conflicts import EmployeeObserverConflict, observer_ids
             if employee_id in observer_ids(course_id, connection):
                 raise EmployeeObserverConflict("This employee is an Observer for this course. Resolve the role conflict before assigning the course.")

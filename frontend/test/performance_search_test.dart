@@ -110,4 +110,47 @@ void main() {
     expect(calls.last.containsKey('search'), isFalse);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('picker ignores a selection after its report scope changes',
+      (tester) async {
+    bool current = true;
+    String? picked;
+    await tester.pumpWidget(screen(SearchableReportFilter(
+        label: 'Course',
+        value: null,
+        width: 300,
+        icon: Icons.search,
+        items: const {'c1': 'Course 1'},
+        isCurrent: () => current,
+        onChanged: (value) => picked = value)));
+    await tester.tap(find.byType(OutlinedButton));
+    await tester.pumpAndSettle();
+    current = false;
+    await tester.tap(find.text('Course 1'));
+    await tester.pumpAndSettle();
+    expect(picked, isNull);
+  });
+
+  testWidgets('scope reset cancels pending employee search', (tester) async {
+    final calls = <Map<String, String>>[];
+    Widget panel(String scope, int reset) => screen(EmployeeSummaryPanel(
+        scopeKey: scope,
+        revision: '1',
+        resetVersion: reset,
+        load: (params) async {
+          calls.add(params);
+          return {'rows': [], 'total': 0};
+        },
+        onOpenEmployee: (_) {}));
+    await tester.pumpWidget(panel('observer', 0));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Old employee');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpWidget(panel('hod', 1));
+    await tester.pumpAndSettle();
+    final count = calls.length;
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(calls.length, count);
+    expect(calls.last.containsKey('search'), isFalse);
+    expect(find.text('Old employee'), findsNothing);
+  });
 }

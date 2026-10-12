@@ -50,6 +50,7 @@ def _validate_new_assignment_groups(
 
 class AssignmentRuleRequest(RequestSchema):
     expected_updated_at: str | None = None
+    expected_lifecycle_revision: int | None = Field(default=None, ge=0)
     include_all: bool | None = None
     include_match_mode: Literal["all", "any"] | None = None
     include_groups: list[AssignmentGroup] | None = None
@@ -148,6 +149,7 @@ class SavedAssignmentGroupResponse(ApiSchema):
 
 
 class CourseAssignmentResponse(ApiSchema):
+    lifecycle_revision: int = 0
     rule: AssignmentRuleRecord
     match_count: int
     preview_employees: list[EmployeeResponse] = Field(default_factory=list)

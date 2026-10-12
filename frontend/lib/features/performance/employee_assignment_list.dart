@@ -144,7 +144,7 @@ class _TableRow extends StatelessWidget {
                 flex: 13,
                 child: Align(
                     alignment: Alignment.centerLeft,
-                    child: _StatusPill(status: status))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_StatusPill(status: status), if (row['access_available'] == false) Text('Access unavailable · ${row['course_status'] ?? 'excluded'}', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary))]))),
             const Icon(Icons.chevron_right,
                 size: 18, color: AppTheme.textSecondary),
           ]),
@@ -191,7 +191,7 @@ class _CompactRow extends StatelessWidget {
                         style: const TextStyle(
                             color: AppTheme.textSecondary, fontSize: 12)),
                   ])),
-              _StatusPill(status: status),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_StatusPill(status: status), if (row['access_available'] == false) Text('Access unavailable · ${row['course_status'] ?? 'excluded'}', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary))]),
               const SizedBox(width: 2),
               const Icon(Icons.chevron_right,
                   size: 18, color: AppTheme.textSecondary),

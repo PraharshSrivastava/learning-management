@@ -323,7 +323,7 @@ def test_stale_observer_identity_does_not_block_replacement_employee(workspace_d
     assert observer_ids("course") == set()
 
 
-def test_completed_employee_is_preserved_and_not_reported_removed(workspace_db):
+def test_completed_employee_access_is_removed_but_learning_is_preserved(workspace_db):
     assignments.api_publish_course_assignment(
         "course",
         AssignmentRuleRequest(include_all=False, include_groups=[{"employee_ids": ["a", "b"]}]),
@@ -340,8 +340,9 @@ def test_completed_employee_is_preserved_and_not_reported_removed(workspace_db):
         AssignmentRuleRequest(include_all=False, include_groups=[{"employee_ids": ["b"]}]),
         "creator",
     )
-    assert result["removed_count"] == 0
-    assert result["total_assigned_count"] == 2
+    assert result["removed_count"] == 1
+    assert result["total_assigned_count"] == 1
+    assert get_employee_course_progress("a", "course")["revoked_at"] is not None
     assert get_employee_course_progress("a", "course")["status"] == "completed"
 
 

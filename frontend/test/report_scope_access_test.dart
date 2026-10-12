@@ -7,14 +7,20 @@ import 'package:frontend/features/performance/report_access_guard.dart';
 final accessContext = StateProvider<String>((ref) => 'account-1:observed:v1');
 
 void main() {
-  testWidgets('Open detail hides data when identity or permissions change', (tester) async {
-    await tester.pumpWidget(ProviderScope(overrides: [
-      reportContextProvider.overrideWith((ref) => ref.watch(accessContext)),
-    ], child: const MaterialApp(home: ReportAccessGuard(
-      expected: 'account-1:observed:v1', child: Text('Private employee detail'),
-    ))));
+  testWidgets('Open detail hides data when identity or permissions change',
+      (tester) async {
+    await tester.pumpWidget(ProviderScope(
+        overrides: [
+          reportContextProvider.overrideWith((ref) => ref.watch(accessContext)),
+        ],
+        child: const MaterialApp(
+            home: ReportAccessGuard(
+          expected: 'account-1:observed:v1',
+          child: Text('Private employee detail'),
+        ))));
     expect(find.text('Private employee detail'), findsOneWidget);
-    final container = ProviderScope.containerOf(tester.element(find.byType(ReportAccessGuard)));
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReportAccessGuard)));
     container.read(accessContext.notifier).state = 'account-2:observed:v2';
     await tester.pump();
     expect(find.text('Private employee detail'), findsNothing);
@@ -26,7 +32,8 @@ void main() {
       performanceReportProvider.overrideWith((ref) => _Report(ref)),
     ]);
     addTearDown(container.dispose);
-    final report = container.read(performanceReportProvider.notifier) as _Report;
+    final report =
+        container.read(performanceReportProvider.notifier) as _Report;
     report.seed();
     report.setReportView('observed');
     final state = container.read(performanceReportProvider);
@@ -36,14 +43,39 @@ void main() {
     expect(state.filter.department, isNull);
     expect(state.page, 1);
   });
+  test(
+      'historical course links retain availability and status changes reset filters',
+      () {
+    final container = ProviderContainer(overrides: [
+      performanceReportProvider.overrideWith((ref) => _Report(ref))
+    ]);
+    addTearDown(container.dispose);
+    final report = container.read(performanceReportProvider.notifier);
+    report.setCourseStatus('archived');
+    report.openLinkedReport(courseId: 'archived-course', status: 'completed');
+    expect(container.read(performanceReportProvider).filter.courseStatus,
+        'archived');
+    report.setCourseStatus('all');
+    final state = container.read(performanceReportProvider);
+    expect(state.filter.courseId, isNull);
+    expect(state.page, 1);
+    expect(state.status, isNull);
+  });
 }
 
 class _Report extends PerformanceReportNotifier {
   _Report(super.ref);
-  void seed() { state = const PerformanceReportState(
-    filter: PerformanceFilter(department: 'Finance'), page: 3,
-    overview: {'private': 'old cohort'}, assignments: {'rows': ['old cohort']},
-  ); }
+  void seed() {
+    state = const PerformanceReportState(
+      filter: PerformanceFilter(department: 'Finance'),
+      page: 3,
+      overview: {'private': 'old cohort'},
+      assignments: {
+        'rows': ['old cohort']
+      },
+    );
+  }
+
   @override
   Future<void> refresh() async {}
 }

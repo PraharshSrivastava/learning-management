@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.repositories.database import get_connection
 
 TABLES = (
+    "course_lifecycle_audit",
     "lms_report_access_audit",
     "course_observer_employees",
     "course_observer_departments",
@@ -477,6 +478,9 @@ def _create_tables(cursor) -> None:
         )
         """
     )
+
+    from app.repositories.course_lifecycle_migrations import apply_course_lifecycle_migration
+    apply_course_lifecycle_migration(cursor)
 
 
 def _create_indexes(cursor) -> None:

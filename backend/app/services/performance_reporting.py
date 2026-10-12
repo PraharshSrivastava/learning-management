@@ -39,14 +39,15 @@ def _decorate(row: dict, now: datetime) -> dict[str, Any]:
     completed_at = _local_datetime(row.get("completed_at"))
     learner_activity = _local_datetime(row.get("last_learner_activity_at"))
     assigned_at = _local_datetime(row.get("assigned_at"))
+    available = row.get("status") != "revoked" and not row.get("revoked_at") and row.get("course_status", "published") == "published" and row.get("rule_active", True)
     completed = row["status"] == "completed"
-    overdue = not completed and deadline is not None and now > deadline
+    overdue = available and not completed and deadline is not None and now > deadline
     due_soon = (
-        not completed
+        available and not completed
         and deadline is not None
         and now < deadline <= now + timedelta(days=settings.email_due_soon_days)
     )
-    inactive = not completed and (
+    inactive = available and not completed and (
         (learner_activity is not None and learner_activity < now - timedelta(days=INACTIVE_DAYS))
         or (
             learner_activity is None
@@ -76,9 +77,12 @@ def _decorate(row: dict, now: datetime) -> dict[str, Any]:
         "course_id": row["course_id"],
         "course_name": row["course_name"],
         "status": status,
+        "course_status": "archived" if row.get("course_status") == "archived" else "disabled" if not row.get("rule_active", True) else "active",
+        "access_available": available,
+        "access_reason": row.get("revoked_reason") or ("course_archived" if row.get("course_status") == "archived" else "assignment_rule_disabled" if not row.get("rule_active", True) else None),
         "due_soon": due_soon,
         "inactive": inactive,
-        "repeated_failures": not completed
+        "repeated_failures": available and not completed
         and int(row.get("failed_attempts") or 0) >= FAILURE_THRESHOLD,
         "failed_attempts": int(row.get("failed_attempts") or 0),
         "assigned_at": row.get("assigned_at"),
@@ -122,6 +126,8 @@ def _summary(rows: list[dict], now: datetime) -> dict:
     score_count = sum(count for _, count in scored)
     return {
         "assigned": assigned,
+        "current_assignments": sum(row.get("access_available", True) for row in rows),
+        "historical_assignments": sum(not row.get("access_available", True) for row in rows),
         "unique_learners": len({row["employee_id"] for row in rows}),
         "pending": counts["pending"],
         "started": counts["started"],

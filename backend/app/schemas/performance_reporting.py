@@ -32,10 +32,15 @@ class AssignmentReportRow(ApiSchema):
     total_attempts: int
     average_score: float | None = None
     scored_modules: int
+    course_status: str = "active"
+    access_available: bool = True
+    access_reason: str | None = None
     on_time: bool
 
 
 class ReportSummary(ApiSchema):
+    current_assignments: int = 0
+    historical_assignments: int = 0
     assigned: int
     unique_learners: int
     pending: int

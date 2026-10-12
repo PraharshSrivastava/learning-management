@@ -218,6 +218,8 @@ def test_export_streams_bounded_pages_for_large_report(monkeypatch):
     assert response.headers["X-Report-Assignment-Count"] == "205"
     records = list(csv.reader(io.StringIO(response.text)))
     assert len(records) == 206
+    assert all(len(record) == len(records[0]) for record in records)
+    assert records[0][5:8] == ["course_status", "access_available", "access_reason"]
     assert records[1][1] == "'=unsafe"
     assert calls == [(1, 100), (2, 100), (3, 100)]
 

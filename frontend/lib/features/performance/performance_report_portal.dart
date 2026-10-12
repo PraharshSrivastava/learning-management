@@ -58,6 +58,9 @@ class _PerformanceReportPortalState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String>(reportContextProvider, (previous, next) {
+      if (previous != next) searchDelay?.cancel();
+    });
     final state = ref.watch(performanceReportProvider);
     final report = ref.read(performanceReportProvider.notifier);
     return Container(
@@ -130,8 +133,8 @@ class _PerformanceReportPortalState
       'observed': 'Observed Employees',
       'combined': 'Combined'
     };
-    final allowed =
-        views.isEmpty ? <String>['all_courses', 'my_courses'] : views;
+    final allowed = views;
+    if (allowed.isEmpty) return const Text('Performance access unavailable');
     if (!allowed.contains(state.reportView)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) report.setReportView(allowed.first);
@@ -240,7 +243,35 @@ class _PerformanceReportPortalState
                   : 1;
           final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
           return Wrap(spacing: 12, runSpacing: 12, children: [
+            SizedBox(
+                width: width,
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey(filter.courseStatus),
+                  initialValue: filter.courseStatus,
+                  decoration: const InputDecoration(
+                      labelText: 'Course availability',
+                      border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'active', child: Text('Active')),
+                    DropdownMenuItem(
+                        value: 'disabled', child: Text('Disabled')),
+                    DropdownMenuItem(
+                        value: 'archived', child: Text('Archived')),
+                    DropdownMenuItem(
+                        value: 'all', child: Text('All · includes history')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      searchDelay?.cancel();
+                      search.clear();
+                      joined.clear();
+                      report.setCourseStatus(value);
+                    }
+                  },
+                )),
             SearchableReportFilter(
+                isCurrent: () =>
+                    mounted && ref.read(reportContextProvider) == guard,
                 guard: (child) =>
                     ReportAccessGuard(expected: guard, child: child),
                 label: 'Course',
@@ -255,6 +286,8 @@ class _PerformanceReportPortalState
                 onChanged: (value) => report.setFilter(filter.copyWith(
                     courseId: value, clearCourse: value == null))),
             SearchableReportFilter(
+                isCurrent: () =>
+                    mounted && ref.read(reportContextProvider) == guard,
                 guard: (child) =>
                     ReportAccessGuard(expected: guard, child: child),
                 label: 'Department',
@@ -268,6 +301,8 @@ class _PerformanceReportPortalState
                 onChanged: (value) => report.setFilter(filter.copyWith(
                     department: value, clearDepartment: value == null))),
             SearchableReportFilter(
+                isCurrent: () =>
+                    mounted && ref.read(reportContextProvider) == guard,
                 guard: (child) =>
                     ReportAccessGuard(expected: guard, child: child),
                 label: 'Mailing list',
@@ -349,6 +384,10 @@ class _PerformanceReportPortalState
     final departments = _list(breakdowns['departments']);
     final mailingLists = _list(breakdowns['mailing_lists']);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+              '${summary['current_assignments'] ?? 0} current assignments · ${summary['historical_assignments'] ?? 0} retained historical records')),
       LayoutBuilder(builder: (context, constraints) {
         final columns = constraints.maxWidth >= 1100
             ? 4
@@ -634,9 +673,12 @@ class _PerformanceReportPortalState
                         border: OutlineInputBorder()),
                     onChanged: (value) {
                       searchDelay?.cancel();
+                      final expected = ref.read(reportContextProvider);
                       searchDelay =
                           Timer(const Duration(milliseconds: 350), () {
-                        if (mounted) report.setSearch(value.trim());
+                        if (mounted &&
+                            ref.read(reportContextProvider) == expected)
+                          report.setSearch(value.trim());
                       });
                     },
                     onSubmitted: (value) {
