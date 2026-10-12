@@ -514,7 +514,7 @@ COPY security/poppler-bounds.patch /src/
 RUN echo '2a9396c466741958b159bb608b53f1d7983397f522b3b2abfcfe94b10ae5fb43  poppler-bounds.patch' | sha256sum -c - \
     && curl --fail --location --retry 2 -o poppler.tar.xz https://archive.ubuntu.com/ubuntu/pool/main/p/poppler/poppler_26.01.0.orig.tar.xz \
     && echo '1cb944a4b88847f5fb6551683bc799db59f04990f5d8be07aba2acbf38601089  poppler.tar.xz' | sha256sum -c - \
-    && curl --fail --location --retry 2 -o poppler-debian.tar.xz https://archive.ubuntu.com/ubuntu/pool/main/p/poppler/poppler_26.01.0-2ubuntu0.1.debian.tar.xz \
+    && curl --fail --location --retry 2 -o poppler-debian.tar.xz https://snapshot.ubuntu.com/ubuntu/20261008T000000Z/pool/main/p/poppler/poppler_26.01.0-2ubuntu0.1.debian.tar.xz \
     && echo 'e2452b927bd68bcb3e17a7d487580005800536af5c144f25f294de76882df19f  poppler-debian.tar.xz' | sha256sum -c - \
     && tar -xf poppler.tar.xz && cd poppler-26.01.0 \
     && tar -xf /src/poppler-debian.tar.xz && QUILT_PATCHES=debian/patches quilt push -a \
