@@ -115,6 +115,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   Timer? _previewTimer;
   String? _baseline;
   String? _expectedUpdatedAt;
+  int? _expectedLifecycleRevision;
   void dismissMessage() {
     state = state.copyWith(error: state.error);
   }
@@ -125,6 +126,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     _previewTimer?.cancel();
     _baseline = null;
     _expectedUpdatedAt = null;
+    _expectedLifecycleRevision = null;
     state = const AssignmentState();
   }
 
@@ -178,6 +180,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     if (initial) {
       _baseline = null;
       _expectedUpdatedAt = null;
+      _expectedLifecycleRevision = null;
     }
     state = initial
         ? AssignmentState(loadedCourseId: courseId, isLoading: true)
@@ -225,6 +228,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
       }(),
       () async {
         try {
+          await ref.read(courseListProvider.notifier).fetchCourses();
           await ref.read(assignableCourseListProvider.notifier).fetchCourses();
           if (ref.read(assignableCourseListProvider).error != null)
             errors.add('Course status could not be refreshed.');
@@ -252,6 +256,8 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         freshRule = _ruleForEditor(saved!['rule'] as Map<String, dynamic>);
         _baseline = baseline;
         _expectedUpdatedAt = saved!['rule']['updated_at']?.toString();
+        _expectedLifecycleRevision =
+            (saved!['lifecycle_revision'] as num?)?.toInt();
       }
     }
     state = state.copyWith(
@@ -488,6 +494,8 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         },
         body: jsonEncode({
           ...ruleToSave.toJson(),
+          if (_expectedLifecycleRevision != null)
+            'expected_lifecycle_revision': _expectedLifecycleRevision,
           if (_expectedUpdatedAt != null)
             'expected_updated_at': _expectedUpdatedAt
         }),
@@ -519,7 +527,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
     }
   }
 
-  Future<void> publish(String courseId) async {
+  Future<void> publish(String courseId, {int? expectedRevision}) async {
     final operationRequest = _request;
     if (state.loadedCourseId != courseId ||
         state.isSaving ||
@@ -566,6 +574,9 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
         },
         body: jsonEncode({
           ...ruleToPublish.toJson(),
+          if (expectedRevision != null || _expectedLifecycleRevision != null)
+            'expected_lifecycle_revision':
+                expectedRevision ?? _expectedLifecycleRevision,
           if (_expectedUpdatedAt != null)
             'expected_updated_at': _expectedUpdatedAt
         }),
@@ -590,6 +601,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
           assignedCount: (decoded['assigned_count'] as num?)?.toInt(),
         );
         try {
+          await ref.read(courseListProvider.notifier).fetchCourses();
           await ref.read(assignableCourseListProvider.notifier).fetchCourses();
           await ref.read(performanceReportProvider.notifier).refresh();
         } catch (_) {
@@ -713,6 +725,7 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
           message: 'Course disabled for employees. Progress is preserved.',
         );
         try {
+          await ref.read(courseListProvider.notifier).fetchCourses();
           await ref.read(assignableCourseListProvider.notifier).fetchCourses();
           await ref.read(performanceReportProvider.notifier).refresh();
         } catch (_) {
@@ -758,6 +771,8 @@ class AssignmentNotifier extends StateNotifier<AssignmentState> {
   }) {
     _baseline = jsonEncode(decoded['rule']);
     _expectedUpdatedAt = decoded['rule']['updated_at']?.toString();
+    _expectedLifecycleRevision =
+        (decoded['lifecycle_revision'] as num?)?.toInt();
     state = state.copyWith(
       rule: _ruleForEditor(decoded['rule'] as Map<String, dynamic>),
       dirty: false,

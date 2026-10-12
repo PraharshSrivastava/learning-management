@@ -1,12 +1,13 @@
 """Course blueprint and authoring endpoints."""
 
-from fastapi import APIRouter, Header, Request, Response
+from fastapi import APIRouter, Header, Query, Request, Response
 
 from app.core.exceptions import NotFoundError
 from app.repositories.courses import get_course_creator_name
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.common import MessageResponse
 from app.schemas.course import (
+    CourseLifecycleRequest,
     CourseResponse,
     CourseSummaryResponse,
     CourseUpdateRequest,
@@ -84,11 +85,15 @@ def update_course(
 def delete_course(
     course_id: str,
     request: Request,
+    expected_revision: int | None = Query(default=None, ge=0),
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
     require_course_creator(course_id, trainer)
-    service.delete_course(course_id, trainer["trainer_id"])
+    if expected_revision is None:
+        service.delete_course(course_id, trainer["trainer_id"])
+    else:
+        service.delete_course(course_id, trainer["trainer_id"], expected_revision)
     return MessageResponse(message="Course deleted successfully")
 
 
@@ -103,3 +108,12 @@ def update_module_quiz(
     trainer = current_trainer_from_request(request, authorization)
     require_course_creator(course_id, trainer)
     return service.update_module_quiz(course_id, module_number, payload, trainer["trainer_id"])
+
+
+@router.post("/{course_id}/lifecycle", response_model=CourseResponse)
+def course_lifecycle(course_id: str, payload: CourseLifecycleRequest, request: Request,
+    authorization: str | None = Header(default=None)):
+    trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
+    from app.services.course_lifecycle import change_lifecycle
+    return change_lifecycle(course_id, trainer["trainer_id"], payload.action, payload.expected_revision)

@@ -53,6 +53,8 @@ def oversight(monkeypatch):
         # Fail before any irreversible service side effect; confirms original trainer ID.
         raise AssertionError("creator reached mutation service")
 
+    from app.services import course_lifecycle
+    monkeypatch.setattr(course_lifecycle, "change_lifecycle", lambda course_id, trainer_id, action, revision: write(course_id, action, revision, trainer_id))
     monkeypatch.setattr(courses.service, "get_course", course_read)
     monkeypatch.setattr(courses, "get_course_creator_name", lambda *_: "Other trainer")
     monkeypatch.setattr(assignments, "api_get_course_assignment", assignment_read)
@@ -99,6 +101,7 @@ def test_job_read_checks_course_and_current_grant(oversight):
 
 
 MUTATIONS = [
+    ("POST", "/api/courses/c-2/lifecycle", {"action": "archive", "expected_revision": 0}),
     ("PUT", "/api/courses/c-2", {}),
     ("DELETE", "/api/courses/c-2", None),
     ("PUT", "/api/courses/c-2/modules/1/quiz", {"questions": [{

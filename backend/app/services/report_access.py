@@ -9,12 +9,15 @@ from app.services.lms_access import _employee_for_trainer
 
 
 def current_report_scope(request, authorization, *, app):
+    course_status = request.query_params.get("course_status", "active")
+    if course_status not in ("active", "disabled", "archived", "all"):
+        raise AuthorizationError("Choose a valid course status filter")
     default = "all_courses" if app == "trainer" else "combined"
     view = request.query_params.get("view", default)
     if app == "trainer":
         trainer = current_trainer_from_request(request, authorization)
         if view in ("all_courses", "my_courses"):
-            return TrainerPerformanceScope(trainer["trainer_id"], all_courses=view == "all_courses")
+            return TrainerPerformanceScope(trainer["trainer_id"], all_courses=view == "all_courses", course_status=course_status)
         employee = _employee_for_trainer(trainer)
     else:
         employee = current_employee_from_request(request, authorization)
@@ -28,4 +31,4 @@ def current_report_scope(request, authorization, *, app):
         permitted.add("combined")
     if view not in permitted:
         raise AuthorizationError("You do not have access to this Performance view")
-    return EmployeePerformanceScope(employee["employee_id"], identity_key(employee), view)
+    return EmployeePerformanceScope(employee["employee_id"], identity_key(employee), view, course_status)

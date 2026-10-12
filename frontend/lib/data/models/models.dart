@@ -712,6 +712,9 @@ class PerformanceDashboard {
 
 // Model for Generated Course Outline
 class Course {
+  final String lifecycleState;
+  final int lifecycleRevision;
+  final bool canDelete;
   final String courseId;
   final String trainerId;
   final bool canManage;
@@ -735,6 +738,9 @@ class Course {
   final bool isAssignable;
 
   Course({
+    this.lifecycleState = '',
+    this.lifecycleRevision = 0,
+    this.canDelete = false,
     required this.courseId,
     this.trainerId = '',
     this.canManage = false,
@@ -785,6 +791,9 @@ class Course {
           return questions != null && questions.isNotEmpty;
         });
     return Course(
+      lifecycleState: json['lifecycle_state']?.toString() ?? '',
+      lifecycleRevision: (json['lifecycle_revision'] as num?)?.toInt() ?? 0,
+      canDelete: json['can_delete'] == true,
       courseId: json['course_id']?.toString() ?? '',
       trainerId: json['trainer_id']?.toString() ?? '',
       canManage: json['can_manage'] == true,
@@ -815,6 +824,9 @@ class Course {
   }
 
   Course copyWith({
+    String? lifecycleState,
+    int? lifecycleRevision,
+    bool? canDelete,
     String? courseId,
     String? trainerId,
     bool? canManage,
@@ -839,6 +851,9 @@ class Course {
   }) {
     final nextModules = modules ?? this.modules;
     return Course(
+      lifecycleState: lifecycleState ?? this.lifecycleState,
+      lifecycleRevision: lifecycleRevision ?? this.lifecycleRevision,
+      canDelete: canDelete ?? this.canDelete,
       courseId: courseId ?? this.courseId,
       trainerId: trainerId ?? this.trainerId,
       canManage: canManage ?? this.canManage,

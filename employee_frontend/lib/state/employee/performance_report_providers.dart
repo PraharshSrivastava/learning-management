@@ -97,7 +97,11 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
 
   Uri _uri(String path, Map<String, String> params) =>
       Uri.parse('${AppConstants.apiBaseUrl}/api/employee/performance/$path')
-          .replace(queryParameters: {'view': state.reportView, ...params});
+          .replace(queryParameters: {
+        'view': state.reportView,
+        'course_status': state.filter.courseStatus,
+        ...params
+      });
 
   Future<Map<String, dynamic>> _get(
       String path, Map<String, String> params) async {
@@ -112,13 +116,20 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
       throw Exception(
           'Unable to load performance data (${response.statusCode})');
     }
-    if (!mounted || serial != _request || view != state.reportView) throw StateError('Report access changed. Refresh the view.');
+    if (!mounted || serial != _request || view != state.reportView)
+      throw StateError('Report access changed. Refresh the view.');
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<void> refresh() async {
     final request = ++_request;
-    state = state.copyWith(isLoading: true, error: null, overview: const {}, courses: const {}, assignments: const {}, options: const {});
+    state = state.copyWith(
+        isLoading: true,
+        error: null,
+        overview: const {},
+        courses: const {},
+        assignments: const {},
+        options: const {});
     try {
       final scope = _scope;
       final result = await Future.wait([
@@ -151,7 +162,19 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
 
   void setReportView(String view) {
     _request++;
-    state = PerformanceReportState(reportView: view, employeeResetVersion: state.employeeResetVersion + 1);
+    state = PerformanceReportState(
+        reportView: view, employeeResetVersion: state.employeeResetVersion + 1);
+    refresh();
+  }
+
+  void setCourseStatus(String status) {
+    _request++;
+    state = state.copyWith(
+        filter: PerformanceFilter(courseStatus: status),
+        page: 1,
+        search: '',
+        clearStatus: true,
+        employeeResetVersion: state.employeeResetVersion + 1);
     refresh();
   }
 
@@ -159,7 +182,8 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
 
   void openLinkedReport({String? courseId, String? status}) {
     state = state.copyWith(
-      filter: PerformanceFilter(courseId: courseId),
+      filter: PerformanceFilter(
+          courseId: courseId, courseStatus: state.filter.courseStatus),
       status: status,
       clearStatus: status == null,
       view: 2,
@@ -250,7 +274,8 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
     if (response.statusCode != 200) {
       throw Exception('Unable to export report (${response.statusCode})');
     }
-    if (!mounted || serial != _request) throw StateError('Report access changed. Export again.');
+    if (!mounted || serial != _request)
+      throw StateError('Report access changed. Export again.');
     return response.body;
   }
 
@@ -269,7 +294,8 @@ class PerformanceReportNotifier extends StateNotifier<PerformanceReportState> {
     if (response.statusCode != 200) {
       throw Exception('Unable to export employees (${response.statusCode})');
     }
-    if (!mounted || serial != _request) throw StateError('Report access changed. Export again.');
+    if (!mounted || serial != _request)
+      throw StateError('Report access changed. Export again.');
     return response.body;
   }
 }
@@ -288,6 +314,16 @@ final reportContextProvider = Provider<String>((ref) {
   final auth = ref.watch(employeeAuthProvider);
   final access = ref.watch(lmsAccessProvider);
   final report = ref.watch(performanceReportProvider);
-  return jsonEncode([auth.employee?.employeeId, auth.token, access['permissions_version'], access['report_scope_version'], report.reportView,
-    report.filter.courseId, report.filter.employeeId, report.filter.department, report.filter.mailingList]);
+  return jsonEncode([
+    auth.employee?.employeeId,
+    auth.token,
+    access['permissions_version'],
+    access['report_scope_version'],
+    report.reportView,
+    report.filter.courseStatus,
+    report.filter.courseId,
+    report.filter.employeeId,
+    report.filter.department,
+    report.filter.mailingList
+  ]);
 });

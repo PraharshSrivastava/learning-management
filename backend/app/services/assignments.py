@@ -68,7 +68,9 @@ def _reactivated_progress(
     next_progress.setdefault("attempts", {})
     revoked_at = next_progress.get("revoked_at")
     deadline = next_progress.get("deadline")
-    if revoked_at and deadline:
+    if progress.get("status") == "completed":
+        pass
+    elif revoked_at and deadline:
         try:
             remaining = datetime.fromisoformat(deadline) - datetime.fromisoformat(revoked_at)
             if remaining.total_seconds() < 0:
@@ -78,7 +80,7 @@ def _reactivated_progress(
             next_progress["deadline"] = (now + timedelta(days=deadline_days)).isoformat()
     elif not deadline:
         next_progress["deadline"] = (now + timedelta(days=deadline_days)).isoformat()
-    if rule and rule.get("deadline_mode") == "fixed":
+    if progress.get("status") != "completed" and rule and rule.get("deadline_mode") == "fixed":
         next_progress["deadline"] = resolve_deadline(rule, now)
     next_progress["status"] = _status_for_reactivation(next_progress, now)
     next_progress["revoked_at"] = None
@@ -90,9 +92,7 @@ def _reactivated_progress(
 
 def _revoked_progress(progress: dict, now: datetime, reason: str) -> dict:
     next_progress = dict(progress)
-    if next_progress.get("status") == "completed":
-        return next_progress
-    next_progress["status"] = "revoked"
+    # Learning status is independent of access; keep completed results intact.
     next_progress["revoked_at"] = next_progress.get("revoked_at") or now.isoformat()
     next_progress["revoked_reason"] = reason
     next_progress["last_activity_at"] = now.isoformat()
@@ -108,41 +108,39 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
     assigned = 0
     removed = 0
     reactivated = 0
-    published_courses = {
-        course["course_id"]: course
-        for course in _courses.list("published")
-        if course.get("course_id")
-    }
-
     for course_id, course_progress in list(existing.items()):
-        if course_progress.get("status") in {"completed", "revoked"}:
-            continue
-        reason = None
-        if not employee or employee.get("status") != "active":
-            reason = (
-                "directory_leaver"
-                if employee and employee.get("source") == "hub"
-                else "employee_inactive"
-            )
-        elif course_id not in published_courses:
-            reason = "course_no_longer_published"
-        else:
-            rule = _assignments.get(course_id)
-            if (
-                not rule.get("published_at")
-                or not rule.get("is_active", True)
-                or not _assignments.matches_employee(employee, rule, now)
-            ):
-                reason = "assignment_rule_no_longer_matches"
-        if reason:
-            _save_progress(
-                employee_id,
-                course_id,
-                _revoked_progress(course_progress, now, reason),
-            )
-            removed += 1
-            if notify:
-                schedule_employee_broadcast(employee_id)
+        with course_transaction(course_id):
+            course_progress = _progress.get_for_employee(employee_id).get(course_id)
+            if not course_progress:
+                continue
+            if course_progress.get("revoked_at") or course_progress.get("status") == "revoked":
+                continue
+            reason = None
+            if not employee or employee.get("status") != "active":
+                reason = (
+                    "directory_leaver"
+                    if employee and employee.get("source") == "hub"
+                    else "employee_inactive"
+                )
+            elif not _courses.is_published(course_id):
+                reason = "course_no_longer_published"
+            else:
+                rule = _assignments.get_applied(course_id)
+                if (
+                    not rule.get("published_at")
+                    or not rule.get("is_active", True)
+                    or not _assignments.matches_employee(employee, rule, now)
+                ):
+                    reason = "assignment_rule_no_longer_matches"
+            if reason:
+                _save_progress(
+                    employee_id,
+                    course_id,
+                    _revoked_progress(course_progress, now, reason),
+                )
+                removed += 1
+                if notify:
+                    schedule_employee_broadcast(employee_id)
 
     if not employee or employee.get("status") != "active":
         return {"assigned": assigned, "removed": removed, "reactivated": reactivated}
@@ -152,7 +150,9 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
         if not course_id:
             continue
         with course_transaction(course_id):
-            rule = _assignments.get(course_id)
+            if not _courses.is_published(course_id):
+                continue
+            rule = _assignments.get_applied(course_id)
             if not rule.get("published_at") or not rule.get("is_active", True):
                 continue
             rule = {
@@ -168,7 +168,7 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
             current_progress = _progress.get_for_employee(employee_id).get(course_id)
             if current_progress is not None:
                 course_progress = current_progress
-                if course_progress.get("status") == "revoked":
+                if course_progress.get("revoked_at") or course_progress.get("status") == "revoked":
                     _save_progress(
                         employee_id,
                         course_id,
@@ -246,10 +246,7 @@ def assign_published_course_to_matching_employees(
     deadline_updates = 0
 
     for employee_id, course_progress in list(existing_progress.items()):
-        if employee_id not in matched_by_id and course_progress.get("status") not in {
-            "completed",
-            "revoked",
-        }:
+        if employee_id not in matched_by_id and not course_progress.get("revoked_at") and course_progress.get("status") != "revoked":
             _save_progress(
                 employee_id,
                 course_id,
@@ -262,7 +259,7 @@ def assign_published_course_to_matching_employees(
         employee_id = employee["employee_id"]
         if employee_id in existing_progress:
             course_progress = existing_progress[employee_id]
-            if course_progress.get("status") == "revoked":
+            if course_progress.get("revoked_at") or course_progress.get("status") == "revoked":
                 _save_progress(
                     employee_id,
                     course_id,
@@ -348,13 +345,16 @@ def api_assignable_courses(trainer_id: str | None = None):
     return [
         course
         for course in courses
-        if course.get("status") in {"ready", "published"} and course_is_publishable(course)
+        if course.get("status") == "archived" or (course.get("status") in {"ready", "published"} and course_is_publishable(course))
     ]
 
 
 def _assignment_response(rule: dict) -> dict:
+    with get_connection() as db:
+        lifecycle = db.execute("SELECT lifecycle_revision FROM courses WHERE course_id=?", (rule["course_id"],)).fetchone()
     matches = _assignments.matching_employees(rule, limit=10)
     return {
+        "lifecycle_revision": lifecycle["lifecycle_revision"],
         "rule": rule,
         "match_count": len(_assignments.matching_employees(rule)),
         "preview_employees": matches,
@@ -379,6 +379,8 @@ def api_save_course_assignment(
     if trainer_id:
         _owned_draft_course(course_id, trainer_id)
     existing = _assignments.get(course_id)
+    from app.services.course_lifecycle import require_editable_course
+    require_editable_course(course_id, payload.expected_lifecycle_revision)
     if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get(
         "updated_at"
     ):
@@ -401,6 +403,8 @@ def api_publish_course_assignment(
 ):
     if trainer_id:
         _owned_draft_course(course_id, trainer_id)
+    from app.services.course_lifecycle import require_editable_course
+    require_editable_course(course_id, payload.expected_lifecycle_revision)
     existing = _assignments.get(course_id)
     if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get(
         "updated_at"
@@ -429,6 +433,8 @@ def api_publish_course_assignment(
         )
     rule = _assignments.save(course_id, rule, publish=True)
     update_course_status(course_id, "published")
+    from app.services.course_lifecycle import record_action
+    record_action(course_id, trainer_id or "system", "enable" if not existing.get("is_active", True) else "publish_assignments")
     deadline_changed = (
         existing.get("applied_deadline_days") != rule["deadline_days"]
         or existing.get("applied_deadline_mode", "relative")
@@ -453,6 +459,8 @@ def api_publish_course_assignment(
 @atomic_course
 def api_disable_course_assignment(course_id: str, trainer_id: str):
     _owned_draft_course(course_id, trainer_id)
+    from app.services.course_lifecycle import require_editable_course
+    require_editable_course(course_id)
     rule = _assignments.save(
         course_id,
         _assignments.get(course_id),
@@ -463,9 +471,11 @@ def api_disable_course_assignment(course_id: str, trainer_id: str):
     from app.services.notifications import schedule_employee_broadcast
 
     suspend_course(course_id, trainer_id)
+    from app.services.course_lifecycle import record_action
+    record_action(course_id, trainer_id, "disable")
     now = datetime.now()
     for employee_id, course_progress in _progress.get_for_course(course_id).items():
-        if course_progress.get("status") != "revoked":
+        if not course_progress.get("revoked_at") and course_progress.get("status") != "revoked":
             _save_progress(
                 employee_id,
                 course_id,

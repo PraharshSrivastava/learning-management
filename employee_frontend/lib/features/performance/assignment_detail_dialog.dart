@@ -104,6 +104,7 @@ class _AssignmentContent extends StatelessWidget {
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: AppTheme.primaryBlue)),
+                    if (row['access_available'] == false) Text('Access unavailable: ${row['access_reason'] ?? row['course_status']}', style: const TextStyle(color: AppTheme.textSecondary)),
                     const SizedBox(height: 7),
                     Text(
                         '${_int(row['completed_modules'])}/${_int(row['total_modules'])} modules completed',

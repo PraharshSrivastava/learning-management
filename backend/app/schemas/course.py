@@ -96,6 +96,9 @@ class CourseResponse(ApiSchema):
     target_audience: str = ""
     thumbnail_path: str | None = None
     status: CourseStatus
+    lifecycle_state: str = ""
+    lifecycle_revision: int = 0
+    can_delete: bool = False
     created_at: str = ""
     updated_at: str = ""
     published_at: str | None = None
@@ -116,6 +119,9 @@ class CourseSummaryResponse(ApiSchema):
     target_audience: str = ""
     thumbnail_path: str | None = None
     status: CourseStatus
+    lifecycle_state: str = ""
+    lifecycle_revision: int = 0
+    can_delete: bool = False
     created_at: str = ""
     updated_at: str = ""
     published_at: str | None = None
@@ -139,9 +145,17 @@ class CourseRecord(ApiSchema):
     target_audience: str = ""
     thumbnail_path: str | None = None
     status: CourseStatus = "draft"
+    lifecycle_state: str = ""
+    lifecycle_revision: int = 0
+    can_delete: bool = False
     created_at: str = ""
     updated_at: str = ""
     published_at: str | None = None
     modules: list[ModuleResponse] = Field(default_factory=list)
     thumbnail_prompt_hash: str | None = None
     generation: GenerationState | None = None
+
+
+class CourseLifecycleRequest(RequestSchema):
+    action: Literal["disable", "archive", "restore"]
+    expected_revision: int = Field(ge=0)

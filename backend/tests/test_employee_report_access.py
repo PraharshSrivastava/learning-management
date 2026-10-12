@@ -73,3 +73,15 @@ def test_normal_trainer_optional_own_view_preserves_default(employee_reports, mo
     monkeypatch.setattr(analytics.reports, "overview", read)
     with pytest.raises(ScopeRead):
         client.get("/api/trainer/performance/overview?view=my_courses", headers={"Authorization": "Bearer trainer"})
+
+
+@pytest.mark.parametrize("status", ["active", "disabled", "archived", "all"])
+def test_history_filter_is_part_of_verified_employee_scope(employee_reports, monkeypatch, status):
+    client, _ = employee_reports
+    def read(scope, *args, **kwargs):
+        assert scope == EmployeePerformanceScope("e-1", "directory:uuid-1", "combined", status)
+        raise ScopeRead()
+    monkeypatch.setattr(analytics.reports, "overview", read)
+    with pytest.raises(ScopeRead):
+        client.get("/api/employee/performance/overview?course_status="+status, headers={"Authorization": "Bearer employee"})
+    assert client.get("/api/employee/performance/overview?course_status=invalid", headers={"Authorization": "Bearer employee"}).status_code == 403

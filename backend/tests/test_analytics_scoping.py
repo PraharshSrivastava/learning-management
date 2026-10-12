@@ -240,3 +240,19 @@ def test_due_soon_filter_uses_configured_window(monkeypatch):
     )
 
     assert result["summary"]["assigned"] == 1
+
+def test_legacy_report_omits_withdrawn_assignments_with_retained_learning_status(monkeypatch):
+    class WithdrawnProgress(_Progress):
+        def list(self):
+            rows = super().list()
+            rows[0]["revoked_at"] = "2026-10-01T12:00:00"
+            rows[0]["status"] = "completed"
+            return rows
+
+    monkeypatch.setattr(analytics, "_employees", _Employees())
+    monkeypatch.setattr(analytics, "_courses", _Courses())
+    monkeypatch.setattr(analytics, "_progress", WithdrawnProgress())
+    monkeypatch.setattr(analytics, "_assignments", _Assignments())
+    result = analytics.api_trainer_performance(manager_employee_id="hod-1")
+    assert result["summary"]["assigned"] == 0
+    assert result["rows"] == []

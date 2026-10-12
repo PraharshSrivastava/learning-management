@@ -7,6 +7,7 @@ from dataclasses import dataclass
 class TrainerPerformanceScope:
     trainer_id: str
     all_courses: bool = False
+    course_status: str = "active"
 
     def __post_init__(self) -> None:
         if not isinstance(self.trainer_id, str) or not self.trainer_id.strip():
@@ -20,6 +21,7 @@ class EmployeePerformanceScope:
     employee_id: str
     identity_key: str
     view: str
+    course_status: str = "active"
 
     def __post_init__(self):
         if not self.employee_id or not self.identity_key or self.view not in ("my_departments", "observed", "combined"):

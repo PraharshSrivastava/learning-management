@@ -1,6 +1,7 @@
 part of '../employee_providers.dart';
 
 class PerformanceFilter {
+  final String courseStatus;
   final String? courseId;
   final String? employeeId;
   final String? department;
@@ -9,6 +10,7 @@ class PerformanceFilter {
   final int? joinedLessThanDaysAgo;
 
   const PerformanceFilter({
+    this.courseStatus = 'active',
     this.courseId,
     this.employeeId,
     this.department,
@@ -18,6 +20,7 @@ class PerformanceFilter {
   });
 
   PerformanceFilter copyWith({
+    String? courseStatus,
     String? courseId,
     String? employeeId,
     String? department,
@@ -32,6 +35,7 @@ class PerformanceFilter {
     bool clearJoined = false,
   }) {
     return PerformanceFilter(
+      courseStatus: courseStatus ?? this.courseStatus,
       courseId: clearCourse ? null : (courseId ?? this.courseId),
       employeeId: clearEmployee ? null : (employeeId ?? this.employeeId),
       department: clearDepartment ? null : (department ?? this.department),

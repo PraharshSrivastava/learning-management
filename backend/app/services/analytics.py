@@ -161,7 +161,7 @@ def api_trainer_performance(
     scores = []
 
     for progress in _progress.list():
-        if progress.get("status") == "revoked":
+        if progress.get("revoked_at") or progress.get("status") == "revoked":
             continue
         employee = employees.get(progress["employee_id"])
         course = courses.get(progress["course_id"])

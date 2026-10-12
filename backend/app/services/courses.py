@@ -66,6 +66,8 @@ class CourseService:
         if course is None:
             raise NotFoundError("Course not found")
 
+        if course.get("status") == "archived":
+            raise ConflictError("Restore the archived course before editing its content.")
         updated_fields = payload.model_dump(exclude_unset=True)
         blueprint_changed = False
         for field in (
@@ -115,6 +117,8 @@ class CourseService:
         )
         if course is None:
             raise NotFoundError("Course not found")
+        if course.get("status") == "archived":
+            raise ConflictError("Restore the archived course before editing its content.")
         module = next(
             (
                 item
@@ -131,8 +135,8 @@ class CourseService:
         self.repository.save_draft(course)
         return course
 
-    def delete_course(self, course_id: str, trainer_id: str) -> None:
-        result = self.repository.delete_for_trainer(course_id, trainer_id)
+    def delete_course(self, course_id: str, trainer_id: str, expected_revision: int | None = None) -> None:
+        result = (self.repository.delete_for_trainer(course_id, trainer_id) if expected_revision is None else self.repository.delete_for_trainer(course_id, trainer_id, expected_revision))
         if result is None:
             raise NotFoundError("Course not found")
         if not result.get("deleted"):

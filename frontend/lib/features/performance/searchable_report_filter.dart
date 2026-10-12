@@ -13,6 +13,7 @@ class SearchableReportFilter extends StatelessWidget {
   final Widget Function(Widget)? guard;
   final bool allowAll;
   final bool enabled;
+  final bool Function()? isCurrent;
   const SearchableReportFilter(
       {super.key,
       required this.label,
@@ -23,7 +24,7 @@ class SearchableReportFilter extends StatelessWidget {
       required this.onChanged,
       this.guard,
       this.allowAll = true,
-      this.enabled = true});
+      this.enabled = true, this.isCurrent});
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +57,7 @@ class SearchableReportFilter extends StatelessWidget {
                                   allowAll: allowAll);
                               return guard?.call(dialog) ?? dialog;
                             });
-                        if (context.mounted && picked != null) {
+                        if (context.mounted && picked != null && (isCurrent?.call() ?? true)) {
                           onChanged(picked.value);
                         }
                       },

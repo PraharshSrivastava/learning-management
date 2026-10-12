@@ -9,6 +9,7 @@ from fastapi import Request
 from app.core.exceptions import DomainValidationError, NotFoundError
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
+from app.repositories.database import course_transaction
 from app.repositories.employees import EmployeeRepository
 from app.repositories.progress import ProgressRepository
 from app.schemas.progress import (
@@ -162,7 +163,7 @@ def get_enriched_employee_courses(employee_id: str) -> list[dict]:
 
     for course in _courses.list("published"):
         course_id = course["course_id"]
-        rule = _assignments.get(course_id)
+        rule = _assignments.get_applied(course_id)
         if (
             not rule.get("published_at")
             or not rule.get("is_active", True)
@@ -170,7 +171,7 @@ def get_enriched_employee_courses(employee_id: str) -> list[dict]:
         ):
             continue
         course_progress = progress_by_course.get(course_id)
-        if not course_progress:
+        if not course_progress or course_progress.get("revoked_at") or course_progress.get("status") == "revoked":
             continue
 
         changed = False
@@ -218,9 +219,12 @@ def _assigned_progress_for_employee(employee: dict, course_id: str, now: datetim
     if course_id not in progress:
         raise NotFoundError("Course not assigned to employee")
     course_progress = progress[course_id]
-    if course_progress.get("status") == "revoked":
+    course = next((item for item in _courses.list("published") if item["course_id"] == course_id), None)
+    if course is None:
         raise NotFoundError("Course not assigned to employee")
-    rule = _assignments.get(course_id)
+    if course_progress.get("revoked_at") or course_progress.get("status") == "revoked":
+        raise NotFoundError("Course not assigned to employee")
+    rule = _assignments.get_applied(course_id)
     if (
         not rule.get("published_at")
         or not rule.get("is_active", True)
@@ -240,32 +244,33 @@ async def update_course_status(
     employee_id = employee["employee_id"]
     ensure_assignments_for_employee(employee_id)
 
-    now = datetime.now().isoformat()
-    course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
-    if course_progress.get("status") == "completed" and payload.status != "completed":
-        raise DomainValidationError("A completed course cannot be reset through this endpoint")
-    if payload.status == "completed":
-        published_course = next(
-            (course for course in _courses.list("published") if course["course_id"] == course_id),
-            None,
-        )
-        modules = (published_course or {}).get("modules") or []
-        if not modules or not all(
-            _module_is_complete(
-                module,
-                (course_progress.get("modules") or {}).get(str(module.get("module_number")), {}),
+    with course_transaction(course_id):
+        now = datetime.now().isoformat()
+        course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
+        if course_progress.get("status") == "completed" and payload.status != "completed":
+            raise DomainValidationError("A completed course cannot be reset through this endpoint")
+        if payload.status == "completed":
+            published_course = next(
+                (course for course in _courses.list("published") if course["course_id"] == course_id),
+                None,
             )
-            for module in modules
-        ):
-            raise DomainValidationError("Complete all modules before marking the course completed")
-    course_progress["status"] = payload.status
-    course_progress["last_activity_at"] = now
-    course_progress["last_learner_activity_at"] = now
-    if payload.status == "started" and not course_progress.get("started_at"):
-        course_progress["started_at"] = now
-    if payload.status == "completed":
-        course_progress["completed_at"] = now
-    _progress.save(employee_id, course_id, course_progress)
+            modules = (published_course or {}).get("modules") or []
+            if not modules or not all(
+                _module_is_complete(
+                    module,
+                    (course_progress.get("modules") or {}).get(str(module.get("module_number")), {}),
+                )
+                for module in modules
+            ):
+                raise DomainValidationError("Complete all modules before marking the course completed")
+        course_progress["status"] = payload.status
+        course_progress["last_activity_at"] = now
+        course_progress["last_learner_activity_at"] = now
+        if payload.status == "started" and not course_progress.get("started_at"):
+            course_progress["started_at"] = now
+        if payload.status == "completed":
+            course_progress["completed_at"] = now
+        _progress.save(employee_id, course_id, course_progress)
     await broadcast_employee_courses(employee_id)
     return CourseStatusUpdateResponse(message="Status updated", status=payload.status)
 
@@ -288,85 +293,86 @@ async def update_module_progress(
     employee_id = employee["employee_id"]
     ensure_assignments_for_employee(employee_id)
 
-    now = datetime.now().isoformat()
-    course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
-    course_progress.setdefault("modules", {})
-    course_progress.setdefault("attempts", {})
-    course_progress["last_activity_at"] = now
-    course_progress["last_learner_activity_at"] = now
-    if course_progress["status"] == "pending":
-        course_progress["status"] = "started"
-        course_progress["started_at"] = now
+    with course_transaction(course_id):
+        now = datetime.now().isoformat()
+        course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
+        course_progress.setdefault("modules", {})
+        course_progress.setdefault("attempts", {})
+        course_progress["last_activity_at"] = now
+        course_progress["last_learner_activity_at"] = now
+        if course_progress["status"] == "pending":
+            course_progress["status"] = "started"
+            course_progress["started_at"] = now
 
-    module_progress = course_progress["modules"].get(module_number, {})
-    updates = payload.model_dump(exclude_unset=True)
-    if "video_watched" in updates:
-        module_progress["video_watched"] = updates["video_watched"]
-        module_progress["video_watched_at"] = now if updates["video_watched"] else None
-    grading_result = None
-    if "selected_answers" in updates:
-        if updates["selected_answers"] is None:
-            raise DomainValidationError("Selected answers are required for quiz submission")
+        module_progress = course_progress["modules"].get(module_number, {})
+        updates = payload.model_dump(exclude_unset=True)
+        if "video_watched" in updates:
+            module_progress["video_watched"] = updates["video_watched"]
+            module_progress["video_watched_at"] = now if updates["video_watched"] else None
+        grading_result = None
+        if "selected_answers" in updates:
+            if updates["selected_answers"] is None:
+                raise DomainValidationError("Selected answers are required for quiz submission")
+            published_course = next(
+                (course for course in _courses.list("published") if course["course_id"] == course_id),
+                None,
+            )
+            published_module = next(
+                (
+                    module
+                    for module in (published_course or {}).get("modules", [])
+                    if str(module.get("module_number")) == str(module_number)
+                ),
+                None,
+            )
+            if published_module is None:
+                raise NotFoundError("Course module not found")
+            if not module_progress.get("video_watched"):
+                raise DomainValidationError("Complete the video lesson before submitting the quiz")
+
+            grading_result = _grade_quiz(published_module, updates["selected_answers"])
+            module_progress["quiz_passed"] = grading_result["quiz_passed"]
+            module_progress["quiz_score"] = grading_result["quiz_score"]
+            module_progress["selected_answers"] = (
+                grading_result["selected_answers"] if grading_result["quiz_passed"] else None
+            )
+            if not grading_result["quiz_passed"]:
+                module_progress["video_watched"] = False
+                module_progress["video_watched_at"] = None
+
+            attempt = course_progress["attempts"].get(module_number, {"count": 0})
+            attempt.update(
+                {
+                    "count": int(attempt.get("count", 0)) + 1,
+                    "last_attempt_at": now,
+                    "last_score": grading_result["quiz_score"],
+                    "last_passed": grading_result["quiz_passed"],
+                }
+            )
+            course_progress["attempts"][module_number] = attempt
+        course_progress["modules"][module_number] = module_progress
+
         published_course = next(
             (course for course in _courses.list("published") if course["course_id"] == course_id),
             None,
         )
-        published_module = next(
-            (
-                module
-                for module in (published_course or {}).get("modules", [])
-                if str(module.get("module_number")) == str(module_number)
-            ),
-            None,
-        )
-        if published_module is None:
-            raise NotFoundError("Course module not found")
-        if not module_progress.get("video_watched"):
-            raise DomainValidationError("Complete the video lesson before submitting the quiz")
-
-        grading_result = _grade_quiz(published_module, updates["selected_answers"])
-        module_progress["quiz_passed"] = grading_result["quiz_passed"]
-        module_progress["quiz_score"] = grading_result["quiz_score"]
-        module_progress["selected_answers"] = (
-            grading_result["selected_answers"] if grading_result["quiz_passed"] else None
-        )
-        if not grading_result["quiz_passed"]:
-            module_progress["video_watched"] = False
-            module_progress["video_watched_at"] = None
-
-        attempt = course_progress["attempts"].get(module_number, {"count": 0})
-        attempt.update(
-            {
-                "count": int(attempt.get("count", 0)) + 1,
-                "last_attempt_at": now,
-                "last_score": grading_result["quiz_score"],
-                "last_passed": grading_result["quiz_passed"],
-            }
-        )
-        course_progress["attempts"][module_number] = attempt
-    course_progress["modules"][module_number] = module_progress
-
-    published_course = next(
-        (course for course in _courses.list("published") if course["course_id"] == course_id),
-        None,
-    )
-    if published_course:
-        modules = published_course.get("modules", [])
-        completed = sum(
-            _module_is_complete(
-                module,
-                course_progress["modules"].get(
-                    str(module.get("module_number", "")),
-                    {},
-                ),
+        if published_course:
+            modules = published_course.get("modules", [])
+            completed = sum(
+                _module_is_complete(
+                    module,
+                    course_progress["modules"].get(
+                        str(module.get("module_number", "")),
+                        {},
+                    ),
+                )
+                for module in modules
             )
-            for module in modules
-        )
-        if modules and completed == len(modules):
-            course_progress["status"] = "completed"
-            course_progress["completed_at"] = now
+            if modules and completed == len(modules):
+                course_progress["status"] = "completed"
+                course_progress["completed_at"] = now
 
-    _progress.save(employee_id, course_id, course_progress)
+        _progress.save(employee_id, course_id, course_progress)
     await broadcast_employee_courses(employee_id)
     response = {"message": "Module progress updated"}
     if grading_result is not None:

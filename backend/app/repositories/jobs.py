@@ -115,6 +115,9 @@ class GenerationJobRepository:
             with get_connection() as connection:
                 advisory_xact_lock(connection, f"course_generation:{job.course_id}")
                 self._ensure_course(connection, job.course_id)
+                course = connection.execute("SELECT status FROM courses WHERE course_id=?", (job.course_id,)).fetchone()
+                if course and course["status"] == "archived":
+                    raise ValueError("Restore the archived course before generating content.")
                 active = connection.execute(
                     """
                     SELECT worker_id FROM course_generation_status

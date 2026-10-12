@@ -119,6 +119,9 @@ class CourseListNotifier extends StateNotifier<CourseListState> {
       targetAudience: summary.targetAudience,
       thumbnailPath: summary.thumbnailPath,
       status: summary.status,
+      lifecycleState: summary.lifecycleState,
+      lifecycleRevision: summary.lifecycleRevision,
+      canDelete: summary.canDelete,
       generationStatus: summary.generationStatus,
       failedCheckpoint: summary.failedCheckpoint,
       currentCheckpoint: summary.currentCheckpoint,
@@ -347,7 +350,7 @@ class AssignableCourseListNotifier extends StateNotifier<CourseListState> {
     final source = ref.read(courseListProvider);
     final trainerId = _currentTrainerId;
     state = CourseListState(
-      courses: courses.where((course) => course.isAssignable).toList(),
+      courses: courses.where((course) => course.isAssignable || course.lifecycleState == 'archived').toList(),
       isLoading: false,
       hasLoaded: source.hasLoaded && source.ownerTrainerId == trainerId,
       ownerTrainerId: trainerId,

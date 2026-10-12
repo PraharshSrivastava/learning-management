@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../courses/course_actions_menu.dart';
 import 'package:frontend/features/assignments/observer_include_panel.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -227,6 +228,7 @@ class _AssignableCoursesSidebar extends ConsumerWidget {
                                             fontWeight: FontWeight.bold,
                                           ),
                                     ),
+                                    CourseLifecycleBadge(course: course),
                                     Text(
                                       '${course.modules.length} module${course.modules.length == 1 ? '' : 's'}',
                                       style:
@@ -277,6 +279,41 @@ class AssignmentRuleView extends ConsumerStatefulWidget {
 class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
   final TextEditingController _deadlineController = TextEditingController();
   String? _loadedCourseId;
+
+  Future<void> _confirmPublish(Course course) async {
+    final notifier = ref.read(assignmentProvider.notifier);
+    await notifier.fetchEmployeePreview();
+    if (!mounted || widget.course?.courseId != course.courseId) return;
+    final assignment = ref.read(assignmentProvider);
+    if (assignment.previewStale ||
+        assignment.isLoading ||
+        assignment.isPublishing) return;
+    final label = course.lifecycleState == 'active'
+        ? 'Update Assignments'
+        : course.lifecycleState == 'disabled'
+            ? 'Enable'
+            : 'Publish & Assign';
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: Text('$label?'),
+              content: Text(
+                  '${assignment.matchCount} employees match the selection. Deadline: ${assignment.rule.deadlineMode == 'fixed' ? assignment.rule.deadlineDate ?? 'not selected' : '${assignment.rule.deadlineDays} days after assignment'}. Excluded employees lose access; completed results and progress are retained. Review the selected deadline. Apply Observers separately after this operation.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text(label))
+              ],
+            ));
+    if (confirmed == true &&
+        mounted &&
+        widget.course?.courseId == course.courseId)
+      await notifier.publish(course.courseId,
+          expectedRevision: course.lifecycleRevision);
+  }
 
   @override
   void dispose() {
@@ -341,7 +378,8 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                     ),
                   ),
                   OutlinedButton.icon(
-                    onPressed: assignment.isLoading ||
+                    onPressed: course.lifecycleState == 'archived' ||
+                            assignment.isLoading ||
                             assignment.isSaving ||
                             assignment.isPublishing
                         ? null
@@ -359,7 +397,8 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                   ),
                   IconButton.outlined(
                     tooltip: 'Refresh assignment data',
-                    onPressed: assignment.isLoading ||
+                    onPressed: course.lifecycleState == 'archived' ||
+                            assignment.isLoading ||
                             assignment.isSaving ||
                             assignment.isPublishing
                         ? null
@@ -369,17 +408,20 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                     icon: const Icon(Icons.refresh),
                   ),
                   FilledButton.icon(
-                    onPressed: assignment.isLoading ||
+                    onPressed: course.lifecycleState == 'archived' ||
+                            assignment.isLoading ||
                             assignment.isSaving ||
                             assignment.isPublishing
                         ? null
-                        : () => ref
-                            .read(assignmentProvider.notifier)
-                            .publish(course.courseId),
+                        : () => _confirmPublish(course),
                     icon: const Icon(Icons.send_outlined, size: 18),
                     label: Text(assignment.isPublishing
                         ? 'Publishing…'
-                        : 'Publish & Assign'),
+                        : course.lifecycleState == 'active'
+                            ? 'Update Assignments'
+                            : course.lifecycleState == 'disabled'
+                                ? 'Enable'
+                                : 'Publish & Assign'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.primaryBlue,
                       foregroundColor: Colors.white,
@@ -387,216 +429,226 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
                           borderRadius: BorderRadius.circular(999)),
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: assignment.isLoading ||
-                            assignment.isSaving ||
-                            assignment.isPublishing ||
-                            !assignment.rule.isActive
-                        ? null
-                        : () => ref
-                            .read(assignmentProvider.notifier)
-                            .disable(course.courseId),
-                    icon: const Icon(Icons.visibility_off_outlined, size: 18),
-                    label: const Text('Disable'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.accentRed,
-                      side: const BorderSide(color: AppTheme.accentRed),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999)),
-                    ),
-                  ),
+                  CourseActionsMenu(
+                      course: course, onEnable: () => _confirmPublish(course)),
                 ],
               ),
-              if (!assignment.rule.isActive) ...[
-                const SizedBox(height: 16),
+              if (course.lifecycleState == 'archived')
                 const _Notice(
-                  text:
-                      'This course is disabled for employees. Publish & Assign again to restore access using the selected deadline.',
-                  isError: false,
-                ),
-              ],
-              if (assignment.error != null) ...[
-                const SizedBox(height: 16),
-                _Notice(text: assignment.error!, isError: true),
-                if (assignment.error!.contains('changed'))
-                  TextButton.icon(
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reload saved employee rule'),
-                      onPressed: () async {
-                        final discard = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                                    title: const Text(
-                                        'Reload saved employee rule?'),
-                                    content: const Text(
-                                        'Your unsaved employee selections and deadline edits will be discarded. Observer edits will be retained.'),
-                                    actions: [
-                                      TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text('Keep editing')),
-                                      FilledButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child:
-                                              const Text('Reload saved rule'))
-                                    ]));
-                        if (discard == true && mounted)
-                          await ref
-                              .read(assignmentProvider.notifier)
-                              .reloadSavedRule(course.courseId);
-                      }),
-              ],
-              if (assignment.message != null) ...[
-                const SizedBox(height: 16),
-                _Notice(
-                    text: assignment.message!,
-                    isError: false,
-                    onDismiss: () =>
-                        ref.read(assignmentProvider.notifier).dismissMessage()),
-              ],
-              const SizedBox(height: 24),
-              _Section(
-                title: 'Target Employees',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('All active employees'),
-                      subtitle: const Text(
-                          'Start from everyone, then apply exclusions.'),
-                      value: rule.includeAll,
-                      onChanged: (value) =>
-                          _update(rule.copyWith(includeAll: value)),
-                    ),
-                    if (!rule.includeAll) ...[
-                      const SizedBox(height: 12),
-                      _GroupList(
-                        groups: rule.includeGroups,
-                        savedGroups: assignment.savedGroups
-                            .where((group) => group.groupType == 'include')
-                            .toList(),
-                        options: assignment.options,
-                        onChanged: (groups) =>
-                            _update(rule.copyWith(includeGroups: groups)),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              _Section(
-                  title: 'Performance Observers',
-                  child: ObserverIncludePanel(
-                      key: ValueKey(
-                        '${course.courseId}:${ref.watch(trainerAuthProvider).trainer?.trainerId}:${ref.watch(lmsAccessProvider)['permissions_version']}',
-                      ),
-                      course: course,
-                      employees: assignment.options.employees,
-                      refreshGeneration: assignment.refreshGeneration,
-                      isAssignmentActive: rule.isActive)),
-              const SizedBox(height: 20),
-              _Section(
-                title: 'Employee Exclusions',
-                child: _GroupList(
-                  groups: rule.excludeGroups,
-                  savedGroups: assignment.savedGroups
-                      .where((group) => group.groupType == 'exclude')
-                      .toList(),
-                  options: assignment.options,
-                  allowJoinedFilter: false,
-                  onChanged: (groups) =>
-                      _update(rule.copyWith(excludeGroups: groups)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              _Section(
-                title: 'Completion Deadline',
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(spacing: 12, children: [
-                        ChoiceChip(
-                            label: const Text('Days after assignment'),
-                            selected: rule.deadlineMode == 'relative',
-                            onSelected: assignment.isLoading
-                                ? null
-                                : (_) => _update(
-                                    rule.copyWith(deadlineMode: 'relative'))),
-                        ChoiceChip(
-                            label: const Text('Specific date'),
-                            selected: rule.deadlineMode == 'fixed',
-                            onSelected: assignment.isLoading
-                                ? null
-                                : (_) => _update(
-                                    rule.copyWith(deadlineMode: 'fixed'))),
-                      ]),
-                      const SizedBox(height: 12),
-                      if (rule.deadlineMode == 'relative')
-                        SizedBox(
-                            width: 260,
-                            child: TextField(
-                              controller: _deadlineController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
+                    text:
+                        'Archived · Restore first, then review assignments and Enable.',
+                    isError: false),
+              AbsorbPointer(
+                  absorbing: course.lifecycleState == 'archived',
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (!assignment.rule.isActive) ...[
+                          const SizedBox(height: 16),
+                          const _Notice(
+                            text:
+                                'Employee access is disabled. Review the selections and deadline, then Enable. Apply Observers separately.',
+                            isError: false,
+                          ),
+                        ],
+                        if (assignment.error != null) ...[
+                          const SizedBox(height: 16),
+                          _Notice(text: assignment.error!, isError: true),
+                          if (assignment.error!.contains('changed'))
+                            TextButton.icon(
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Reload saved employee rule'),
+                                onPressed: () async {
+                                  final discard = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                              title: const Text(
+                                                  'Reload saved employee rule?'),
+                                              content: const Text(
+                                                  'Your unsaved employee selections and deadline edits will be discarded. Observer edits will be retained.'),
+                                              actions: [
+                                                TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                            context, false),
+                                                    child: const Text(
+                                                        'Keep editing')),
+                                                FilledButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                            context, true),
+                                                    child: const Text(
+                                                        'Reload saved rule'))
+                                              ]));
+                                  if (discard == true && mounted)
+                                    await ref
+                                        .read(assignmentProvider.notifier)
+                                        .reloadSavedRule(course.courseId);
+                                }),
+                        ],
+                        if (assignment.message != null) ...[
+                          const SizedBox(height: 16),
+                          _Notice(
+                              text: assignment.message!,
+                              isError: false,
+                              onDismiss: () => ref
+                                  .read(assignmentProvider.notifier)
+                                  .dismissMessage()),
+                        ],
+                        const SizedBox(height: 24),
+                        _Section(
+                          title: 'Target Employees',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('All active employees'),
+                                subtitle: const Text(
+                                    'Start from everyone, then apply exclusions.'),
+                                value: rule.includeAll,
+                                onChanged: (value) =>
+                                    _update(rule.copyWith(includeAll: value)),
+                              ),
+                              if (!rule.includeAll) ...[
+                                const SizedBox(height: 12),
+                                _GroupList(
+                                  groups: rule.includeGroups,
+                                  savedGroups: assignment.savedGroups
+                                      .where((group) =>
+                                          group.groupType == 'include')
+                                      .toList(),
+                                  options: assignment.options,
+                                  onChanged: (groups) => _update(
+                                      rule.copyWith(includeGroups: groups)),
+                                ),
                               ],
-                              decoration: const InputDecoration(
-                                  labelText: 'Due days after assignment',
-                                  border: OutlineInputBorder(),
-                                  isDense: true),
-                              onChanged: (value) => _update(rule.copyWith(
-                                  deadlineDays: int.tryParse(value) ?? 1)),
-                            ))
-                      else
-                        OutlinedButton.icon(
-                            icon: const Icon(Icons.calendar_month_outlined),
-                            label: Text(
-                                rule.deadlineDate ?? 'Select completion date'),
-                            onPressed: assignment.isLoading
-                                ? null
-                                : () async {
-                                    final local = DateTime.now().toUtc().add(
-                                        const Duration(hours: 5, minutes: 30));
-                                    final today = DateTime(
-                                        local.year, local.month, local.day);
-                                    final stored = DateTime.tryParse(
-                                        rule.deadlineDate ?? '');
-                                    final initial =
-                                        stored == null || stored.isBefore(today)
-                                            ? today
-                                            : stored;
-                                    final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: initial,
-                                        firstDate: today,
-                                        lastDate: DateTime(today.year + 10));
-                                    if (picked != null &&
-                                        mounted &&
-                                        ref
-                                                .read(assignmentProvider)
-                                                .loadedCourseId ==
-                                            course.courseId) {
-                                      final value =
-                                          '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-                                      _update(ref
-                                          .read(assignmentProvider)
-                                          .rule
-                                          .copyWith(
-                                              deadlineDate: value,
-                                              deadlineMode: 'fixed'));
-                                    }
-                                  }),
-                      if (rule.deadlineMode == 'fixed')
-                        const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                                'Due by the end of this date (Asia/Kolkata).')),
-                    ]),
-              ),
-              const SizedBox(height: 20),
-              const _PreviewCard(),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _Section(
+                            title: 'Performance Observers',
+                            child: ObserverIncludePanel(
+                                key: ValueKey(
+                                  '${course.courseId}:${ref.watch(trainerAuthProvider).trainer?.trainerId}:${ref.watch(lmsAccessProvider)['permissions_version']}',
+                                ),
+                                course: course,
+                                employees: assignment.options.employees,
+                                refreshGeneration: assignment.refreshGeneration,
+                                isAssignmentActive: rule.isActive)),
+                        const SizedBox(height: 20),
+                        _Section(
+                          title: 'Employee Exclusions',
+                          child: _GroupList(
+                            groups: rule.excludeGroups,
+                            savedGroups: assignment.savedGroups
+                                .where((group) => group.groupType == 'exclude')
+                                .toList(),
+                            options: assignment.options,
+                            allowJoinedFilter: false,
+                            onChanged: (groups) =>
+                                _update(rule.copyWith(excludeGroups: groups)),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _Section(
+                          title: 'Completion Deadline',
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(spacing: 12, children: [
+                                  ChoiceChip(
+                                      label:
+                                          const Text('Days after assignment'),
+                                      selected: rule.deadlineMode == 'relative',
+                                      onSelected: assignment.isLoading
+                                          ? null
+                                          : (_) => _update(rule.copyWith(
+                                              deadlineMode: 'relative'))),
+                                  ChoiceChip(
+                                      label: const Text('Specific date'),
+                                      selected: rule.deadlineMode == 'fixed',
+                                      onSelected: assignment.isLoading
+                                          ? null
+                                          : (_) => _update(rule.copyWith(
+                                              deadlineMode: 'fixed'))),
+                                ]),
+                                const SizedBox(height: 12),
+                                if (rule.deadlineMode == 'relative')
+                                  SizedBox(
+                                      width: 260,
+                                      child: TextField(
+                                        controller: _deadlineController,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly
+                                        ],
+                                        decoration: const InputDecoration(
+                                            labelText:
+                                                'Due days after assignment',
+                                            border: OutlineInputBorder(),
+                                            isDense: true),
+                                        onChanged: (value) => _update(
+                                            rule.copyWith(
+                                                deadlineDays:
+                                                    int.tryParse(value) ?? 1)),
+                                      ))
+                                else
+                                  OutlinedButton.icon(
+                                      icon: const Icon(
+                                          Icons.calendar_month_outlined),
+                                      label: Text(rule.deadlineDate ??
+                                          'Select completion date'),
+                                      onPressed: assignment.isLoading
+                                          ? null
+                                          : () async {
+                                              final local = DateTime.now()
+                                                  .toUtc()
+                                                  .add(const Duration(
+                                                      hours: 5, minutes: 30));
+                                              final today = DateTime(local.year,
+                                                  local.month, local.day);
+                                              final stored = DateTime.tryParse(
+                                                  rule.deadlineDate ?? '');
+                                              final initial = stored == null ||
+                                                      stored.isBefore(today)
+                                                  ? today
+                                                  : stored;
+                                              final picked =
+                                                  await showDatePicker(
+                                                      context: context,
+                                                      initialDate: initial,
+                                                      firstDate: today,
+                                                      lastDate: DateTime(
+                                                          today.year + 10));
+                                              if (picked != null &&
+                                                  mounted &&
+                                                  ref
+                                                          .read(
+                                                              assignmentProvider)
+                                                          .loadedCourseId ==
+                                                      course.courseId) {
+                                                final value =
+                                                    '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                                                _update(ref
+                                                    .read(assignmentProvider)
+                                                    .rule
+                                                    .copyWith(
+                                                        deadlineDate: value,
+                                                        deadlineMode: 'fixed'));
+                                              }
+                                            }),
+                                if (rule.deadlineMode == 'fixed')
+                                  const Padding(
+                                      padding: EdgeInsets.only(top: 8),
+                                      child: Text(
+                                          'Due by the end of this date (Asia/Kolkata).')),
+                              ]),
+                        ),
+                        const SizedBox(height: 20),
+                        const _PreviewCard(),
+                      ])),
             ],
           ),
         ),

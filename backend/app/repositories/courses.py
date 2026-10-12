@@ -77,6 +77,28 @@ def _module_to_record(course_id: str, index: int, module: dict) -> dict:
     }
 
 
+def _lifecycle_fields(row, connection=None):
+    if "rule_published_at" not in row:
+        if connection is None:
+            with get_connection() as db:
+                return _lifecycle_fields(row, db)
+        fields = connection.execute("""SELECT ar.is_active AS rule_active,
+            ar.published_at AS rule_published_at,
+            EXISTS(SELECT 1 FROM course_assignments ca WHERE ca.course_id=c.course_id) AS has_history,
+            g.status AS generation_status
+            FROM courses c LEFT JOIN assignment_rules ar ON ar.course_id=c.course_id
+            LEFT JOIN course_generation_status g ON g.course_id=c.course_id WHERE c.course_id=?""",
+            (row["course_id"],)).fetchone()
+        row = {**row, **fields}
+    status = row["status"]
+    lifecycle = "archived" if status == "archived" else (
+        "active" if status == "published" and row["rule_published_at"] and row["rule_active"] else
+        "disabled" if status == "published" and row["rule_published_at"] else status)
+    return {"lifecycle_state": lifecycle, "lifecycle_revision": row.get("lifecycle_revision", 0),
+            "can_delete": status in ("draft", "ready") and not row["has_history"] and
+                row["generation_status"] not in ("pending", "running")}
+
+
 def _row_to_course(connection, row) -> dict:
     course_id = row["course_id"]
     metadata = _json_loads(row["metadata_json"], {})
@@ -97,6 +119,7 @@ def _row_to_course(connection, row) -> dict:
         "published_at": row["published_at"],
         "modules": [],
     }
+    course.update(_lifecycle_fields(row, connection))
     course.update({key: metadata[key] for key in COURSE_METADATA_FIELDS if key in metadata})
     modules = connection.execute(
         "SELECT * FROM course_modules WHERE course_id = ? ORDER BY module_number",
@@ -197,6 +220,7 @@ def _row_to_course_summary(row) -> dict:
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
         "published_at": row["published_at"],
+        **_lifecycle_fields(row),
         "module_count": int(row["module_count"] or 0),
         "is_assignable": bool(row["is_assignable"]),
         "thumbnail_prompt_hash": metadata.get("thumbnail_prompt_hash"),
@@ -211,7 +235,8 @@ def list_course_summaries_for_trainer(trainer_id: str) -> list[dict]:
         rows = connection.execute(
             """
             SELECT
-                c.*,
+                c.*, ar.is_active AS rule_active, ar.published_at AS rule_published_at,
+                EXISTS(SELECT 1 FROM course_assignments ca WHERE ca.course_id=c.course_id) AS has_history,
                 COUNT(cm.module_id) AS module_count,
                 bool_or(
                     cm.video_path IS NOT NULL
@@ -245,10 +270,11 @@ def list_course_summaries_for_trainer(trainer_id: str) -> list[dict]:
                     ) FILTER (WHERE cm.module_id IS NOT NULL), false)
                 ) AS is_assignable
             FROM courses c
+            LEFT JOIN assignment_rules ar ON ar.course_id=c.course_id
             LEFT JOIN course_modules cm ON cm.course_id = c.course_id
             LEFT JOIN course_generation_status g ON g.course_id = c.course_id
             WHERE c.trainer_id = ?
-            GROUP BY c.course_id, g.status, g.checkpoint, g.stages_json, g.error, g.updated_at
+            GROUP BY c.course_id, ar.course_id, g.status, g.checkpoint, g.stages_json, g.error, g.updated_at
             ORDER BY c.created_at
             """,
             (trainer_id,),
@@ -268,6 +294,10 @@ def save_course(course: dict, status: str) -> None:
     created_at = course.get("created_at") if isinstance(course.get("created_at"), str) else now
     metadata = {key: course[key] for key in COURSE_METADATA_FIELDS if key in course}
     with get_connection() as connection:
+        existing = connection.execute("SELECT status FROM courses WHERE course_id=? FOR UPDATE", (course_id,)).fetchone()
+        if existing and existing["status"] == "archived":
+            from app.core.exceptions import ConflictError
+            raise ConflictError("Restore the archived course before editing its content.")
         document_id = course.get("document_id")
         connection.execute(
             """
@@ -632,7 +662,7 @@ def delete_course(course_id: str) -> None:
         connection.commit()
 
 
-def delete_course_for_trainer(course_id: str, trainer_id: str) -> dict | None:
+def delete_course_for_trainer(course_id: str, trainer_id: str, expected_revision: int | None = None) -> dict | None:
     """Atomically remove a trainer-owned course and return cleanup context.
 
     The generation lock prevents a pipeline write and a trainer deletion from
@@ -643,7 +673,7 @@ def delete_course_for_trainer(course_id: str, trainer_id: str) -> dict | None:
         advisory_xact_lock(connection, f"course_generation:{course_id}")
         course = connection.execute(
             """
-            SELECT c.course_id, c.course_name, c.status, c.thumbnail_path,
+            SELECT c.course_id, c.course_name, c.status, c.lifecycle_revision, c.thumbnail_path,
                    g.status AS generation_status
             FROM courses c
             LEFT JOIN course_generation_status g ON g.course_id = c.course_id
@@ -655,16 +685,26 @@ def delete_course_for_trainer(course_id: str, trainer_id: str) -> dict | None:
         if course is None:
             return None
 
+        if expected_revision is not None and course["lifecycle_revision"] != expected_revision:
+            from app.core.exceptions import ConflictError
+            raise ConflictError("Course availability changed. Refresh before continuing.")
         result = dict(course)
         if result.get("generation_status") in {"pending", "running"}:
             result["deleted"] = False
             return result
 
+        if course["status"] not in ("draft", "ready") or connection.execute(
+            "SELECT 1 FROM course_assignments WHERE course_id = ? LIMIT 1", (course_id,)
+        ).fetchone():
+            from app.core.exceptions import ConflictError
+            raise ConflictError("Courses with publication or assignment history cannot be deleted. Use Archive instead.")
         employee_rows = connection.execute(
             "SELECT employee_id FROM course_assignments WHERE course_id = ?",
             (course_id,),
         ).fetchall()
         result["affected_employee_ids"] = [row["employee_id"] for row in employee_rows]
+        connection.execute("""INSERT INTO course_lifecycle_audit(audit_id,course_id,actor,action,revision)
+            VALUES (?, ?, ?, 'delete', ?)""", (str(uuid.uuid4()), course_id, trainer_id, course["lifecycle_revision"] + 1))
         connection.execute(
             "DELETE FROM courses WHERE course_id = ? AND trainer_id = ?",
             (course_id, trainer_id),
@@ -679,6 +719,11 @@ class CourseRepository:
     def _validated(course: dict) -> dict:
         CourseRecord.model_validate(course)
         return course
+
+    def is_published(self, course_id: str) -> bool:
+        with get_connection() as db:
+            row = db.execute("SELECT status FROM courses WHERE course_id=?", (course_id,)).fetchone()
+        return bool(row and row["status"] == "published")
 
     def list(self, status: str | None = None) -> list[dict]:
         return [self._validated(course) for course in get_all_courses(status)]
@@ -709,8 +754,8 @@ class CourseRepository:
         self._validated(course)
         save_course(course, "draft")
 
-    def delete_for_trainer(self, course_id: str, trainer_id: str) -> dict | None:
-        return delete_course_for_trainer(course_id, trainer_id)
+    def delete_for_trainer(self, course_id: str, trainer_id: str, expected_revision: int | None = None) -> dict | None:
+        return delete_course_for_trainer(course_id, trainer_id, expected_revision)
 
 
 def get_course_owner(course_id: str) -> str | None:

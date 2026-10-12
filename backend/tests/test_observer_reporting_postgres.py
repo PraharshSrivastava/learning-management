@@ -189,3 +189,22 @@ def test_verified_directory_adapter_partial_revoke_rename_and_full_reconciliatio
     assert ids(scope("my_departments", "hod")) == set()
     directory_report_access.reconcile_verified_departments([], source_key="verified-fixture", full_snapshot=True)
     assert report_db.execute("SELECT COUNT(*) AS n FROM lms_departments WHERE source='directory' AND active").fetchone()["n"] == 0
+
+
+@pytest.mark.parametrize("course_status", ["disabled", "archived", "all"])
+def test_historical_filter_cannot_restore_suspended_observer_scope(report_db, course_status):
+    observers.save_config("course-1", "t-1", payload(employees=["a", "b"]))
+    observers.apply_config("course-1", "t-1", 1)
+    assert len(ids(scope())) == 2
+    observers.suspend_course("course-1", "t-1")
+    report_db.execute("UPDATE assignment_rules SET is_active=FALSE WHERE course_id='course-1'")
+    if course_status == "archived":
+        report_db.execute("UPDATE courses SET status='archived' WHERE course_id='course-1'")
+    selected = EmployeePerformanceScope("observer", "directory:uuid-observer", "observed", course_status)
+    assert ids(selected) == set()
+    assert performance_reporting.get_assignment_detail(selected, "course-1a") is None
+    assert performance_reporting.list_scope_options(selected) == {"courses": [], "departments": [], "mailing_lists": []}
+    # Independent HOD authority continues to cover only the authorized department.
+    report_db.execute("INSERT INTO hod_department_access(hod_employee_id,department_id,identity_key,source,source_key) VALUES ('observer','finance','directory:uuid-observer','directory','verified-fixture')")
+    combined = EmployeePerformanceScope("observer", "directory:uuid-observer", "combined", course_status)
+    assert ids(combined) == ({"course-1a", "course-1c", "course-2a", "course-2c"} if course_status=="all" else {"course-1a", "course-1c"})

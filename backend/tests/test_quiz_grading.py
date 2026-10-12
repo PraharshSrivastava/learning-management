@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import nullcontext
 
 import pytest
 from pydantic import ValidationError
@@ -9,6 +10,12 @@ from app.core.exceptions import DomainValidationError
 from app.schemas.progress import CourseStatusUpdateRequest, ModuleProgressUpdateRequest
 from app.services import learning
 from app.services.learning import QUIZ_PASS_MARK, _grade_quiz, _learner_modules
+
+
+@pytest.fixture(autouse=True)
+def isolated_course_lock(monkeypatch):
+    # These are grading unit tests; SQL locking is exercised by PostgreSQL tests.
+    monkeypatch.setattr(learning, "course_transaction", lambda _: nullcontext())
 
 
 def _module(question_count: int = 3) -> dict:
