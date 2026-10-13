@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Run only from the separate VM checkout. Never uses the live Compose project.
+# Run from a separate VM or WSL checkout. Never uses the live Compose project.
 set -euo pipefail
 pilot_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
-if [[ "$pilot_root" != /home/karphi/lms-document-builder-pilot ]]; then
-  echo 'Run from /home/karphi/lms-document-builder-pilot only.' >&2
+if [[ "$(basename -- "$pilot_root")" != lms-document-builder-pilot ]]; then
+  echo 'Run from a separate checkout named lms-document-builder-pilot.' >&2
   exit 1
 fi
 cd -- "$pilot_root"
@@ -13,15 +13,19 @@ pilot() {
 }
 case "${1:-status}" in
   prepare)
-    python3 - <<'PY'
+    python3 - "${2:-/home/karphi/intelligence_layer/.env}" <<'PY'
 from pathlib import Path
 import secrets
 import subprocess
+import sys
 root = Path.cwd()
 target = root / '.env.pilot'
 if not target.exists():
-    source = Path('/home/karphi/intelligence_layer/.env')
+    source = Path(sys.argv[1]).expanduser().resolve()
+    if not source.is_file():
+        raise SystemExit('Provider env file not found. Use: prepare /absolute/path/to/.env')
     values = {}
+    fallback_llm_key = ''
     for raw in source.read_text().splitlines():
         line = raw.strip()
         if line.startswith('export '):
@@ -31,8 +35,10 @@ if not target.exists():
         key, value = line.split('=', 1)
         if key.startswith(('LLM_', 'TTS_', 'COURSE_THUMBNAIL_', 'CAPTION_')):
             values[key] = value
-        elif key == 'LITELLM_API_KEY' and 'LLM_API_KEY' not in values:
-            values['LLM_API_KEY'] = value
+        elif key == 'LITELLM_API_KEY':
+            fallback_llm_key = value
+    if not values.get('LLM_API_KEY', '').strip('"\' '):
+        values['LLM_API_KEY'] = fallback_llm_key
     missing = [key for key in ('LLM_BASE_URL', 'LLM_API_KEY', 'TTS_ENDPOINT', 'COURSE_THUMBNAIL_ENDPOINT')
                if not values.get(key, '').strip('"\' ')]
     if missing:
@@ -97,5 +103,5 @@ PY
   status) pilot ps ;;
   logs) pilot logs --tail=100 backend ;;
   stop) pilot down ;;
-  *) echo 'Usage: document-builder-pilot.sh prepare|start|status|logs|stop' >&2; exit 1 ;;
+  *) echo 'Usage: document-builder-pilot.sh prepare [provider-env-file]|start|status|logs|stop' >&2; exit 1 ;;
 esac
