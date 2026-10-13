@@ -57,6 +57,7 @@ class ModelResult:
     model: str
     prompt_version: str
     attempts: int
+    evidence_flag_normalized: bool = False
 
 
 class WorkflowModel:
@@ -176,10 +177,12 @@ class WorkflowModel:
             try:
                 raw = self._content(response)
                 parsed = self._parse(raw, response_type)
-                self._validate(task, parsed, settings, references)
+                evidence_flag_normalized = self._validate(task, parsed, settings, references)
                 if task == "revise" and len(parsed.replacements) != len(context["originalTexts"]):
                     raise ValueError("wrong_replacement_count")
-                return ModelResult(parsed, self.model, PROMPT_VERSION, attempts)
+                return ModelResult(
+                    parsed, self.model, PROMPT_VERSION, attempts, evidence_flag_normalized
+                )
             except (InvalidModelResponse, ValidationError, ValueError) as exc:
                 last_code = self._category(exc)
                 # Do not include untrusted malformed output or proprietary content
@@ -243,6 +246,19 @@ class WorkflowModel:
                 raise ValueError("unknown_source_reference")
         if task == "module" and not any(block.type == "paragraph" for block in result.blocks):
             raise ValueError("missing_module_explanation")
+        if task == "answer" and not result.insufficientEvidence:
+            # Conservative English-only presentation guard: a response declaring
+            # missing evidence must never carry a confident/supported label.
+            # This does not verify the answer's facts or rewrite its content.
+            missing = re.search(
+                r"\b(?:no\b[^.!?]{0,100}\b(?:specified|provided|available)|not\s+(?:specified|provided|available)|does\s+not\s+(?:specify|provide|state|contain|mention)|cannot\s+(?:determine|confirm)|insufficient\s+(?:evidence|information))\b",
+                result.answer,
+                re.I,
+            )
+            if missing:
+                result.insufficientEvidence = True
+                return True
+        return False
 
     @staticmethod
     def _category(exc: Exception) -> str:

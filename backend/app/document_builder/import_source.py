@@ -26,7 +26,7 @@ class SourceImporter:
     def __init__(self, repository):
         self.repository = repository
 
-    def load(self, draft_id, owner, request):
+    def load(self, draft_id, owner, request, operation_id=None, heartbeat=lambda: None):
         draft = self.repository.get(draft_id, owner)
         if draft.revision != request.expectedRevision:
             from app.core.exceptions import ConflictError
@@ -60,6 +60,7 @@ class SourceImporter:
             name = "Pasted content"
 
         def text(value, location, kind="paragraph"):
+            heartbeat()
             if not value.strip():
                 return
             lines = value.splitlines()
@@ -85,6 +86,7 @@ class SourceImporter:
                 )
 
         def image(data, location):
+            heartbeat()
             from PIL import Image
 
             try:
@@ -241,7 +243,7 @@ class SourceImporter:
         )
         if request.referenceOnly:
             return self.repository.import_content(
-                draft_id, owner, request.expectedRevision, draft.content, resources
+                draft_id, owner, request.expectedRevision, draft.content, resources, operation_id
             )
         modules = []
         current = None
@@ -288,5 +290,5 @@ class SourceImporter:
             if metadata.get(key):
                 setattr(content.metadata, field, metadata[key])
         return self.repository.import_content(
-            draft_id, owner, request.expectedRevision, content, resources
+            draft_id, owner, request.expectedRevision, content, resources, operation_id
         )

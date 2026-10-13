@@ -1,6 +1,7 @@
 """Owned, revision-bound background operations with durable results/proposals."""
 
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from uuid import uuid4
@@ -28,6 +29,14 @@ class WorkflowJobs:
 
     def start(self, draft_id, owner, request):
         current = self.repository.get(draft_id, owner)
+        if request.task == "import":
+            if (
+                request.sourceImport is None
+                or request.sourceImport.expectedRevision != request.expectedRevision
+            ):
+                raise ValueError("Source import must capture the current draft revision")
+            if current.content.modules and not request.sourceImport.referenceOnly:
+                raise ValueError("Import into an empty draft to avoid overwriting existing work")
         if request.task == "outline" and any(
             not getattr(current.content.metadata, key).strip()
             for key in ("courseName", "courseObjective", "targetAudience")
@@ -84,6 +93,28 @@ class WorkflowJobs:
             if current.revision != request.expectedRevision:
                 raise ConflictError("Draft changed before generation started")
             self.repository.update_operation(draft_id, owner, operation_id, status="running")
+            if request.task == "import":
+                from app.document_builder.import_source import SourceImporter
+
+                last_heartbeat = 0
+
+                def heartbeat():
+                    nonlocal last_heartbeat
+                    if time.monotonic() - last_heartbeat >= 5:
+                        if cancelled():
+                            raise ValueError("Source import cancelled")
+                        self.repository.update_operation(
+                            draft_id,
+                            owner,
+                            operation_id,
+                            progress="Extracting source content for review",
+                        )
+                        last_heartbeat = time.monotonic()
+
+                SourceImporter(self.repository).load(
+                    draft_id, owner, request.sourceImport, operation_id, heartbeat
+                )
+                return
             model = self.model_factory()
             sources = self.repository.resources(draft_id, owner, "source")
             excerpts = [

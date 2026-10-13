@@ -65,6 +65,24 @@ def run(client, task="outline", **kwargs):
     )
 
 
+def test_missing_evidence_answer_never_displays_a_supported_label():
+    client = Client(
+        completion(
+            json.dumps(
+                {
+                    "answer": "No refund deadline is specified.",
+                    "insufficientEvidence": False,
+                    "sourceReferences": [{"sourceId": "s", "spanId": "p"}],
+                }
+            )
+        )
+    )
+    result = run(client, "answer", allowed_references=[SourceReference(sourceId="s", spanId="p")])
+    assert result.content.insufficientEvidence is True
+    assert result.evidence_flag_normalized is True
+    assert result.content.answer == "No refund deadline is specified."
+
+
 def test_outline_uses_metadata_and_settings_and_has_no_full_rewrite_prompt():
     client = Client(completion(outline()))
     result = run(client)

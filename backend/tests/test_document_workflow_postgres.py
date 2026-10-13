@@ -157,3 +157,30 @@ def test_source_reference_spoofing_and_cancelled_operation_cannot_write(reposito
     with pytest.raises(ConflictError):
         repo.save_generated(draft.id, owner, 1, content(), operation["id"])
     assert repo.get(draft.id, owner).revision == 1
+
+
+def test_background_import_commits_completed_state_atomically(repository):
+    repo, owner = repository
+    initial = content().model_copy(deep=True)
+    initial.modules = []
+    draft = repo.create(owner, initial)
+    request = OperationRequest(
+        task="import",
+        expectedRevision=1,
+        key=uuid4().hex,
+        sourceImport=ImportRequest(
+            expectedRevision=1, text="Module 1: Listening\nListen before offering a solution."
+        ),
+    )
+    operation, _ = repo.start_operation(draft.id, owner, request)
+    WorkflowJobs(repo, lambda: (_ for _ in ()).throw(AssertionError("No model needed"))).run(
+        draft.id, owner, operation["id"]
+    )
+    completed = repo.operation(draft.id, owner, operation["id"])
+    assert completed["status"] == "completed"
+    assert completed["result"]["revision"] == repo.get(draft.id, owner).revision == 2
+    assert (
+        repo.get(draft.id, owner).content.modules[0].blocks[0].text
+        == "Listen before offering a solution."
+    )
+    assert len(repo.resources(draft.id, owner, "source")) == 1

@@ -997,6 +997,10 @@ class _DocumentWorkflowPortalState
             controller.operation?['request']['task'] == 'answer') ...[
           const Divider(height: 32),
           Text(controller.operation!['result']['answer']),
+          if (controller.operation!['result']['insufficientEvidence'] == true)
+            const Text(
+                'The available source evidence is incomplete for this question.',
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
           ...((controller.operation!['result']['sourceReferences'] as List? ??
                   [])
               .map((reference) {

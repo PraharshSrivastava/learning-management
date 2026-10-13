@@ -8,13 +8,71 @@ from app.schemas.document_workflow import (
     DraftMetadata,
     DraftModule,
     GeneratedTextBlock,
+    ImportRequest,
     ModuleResponse,
     OperationRequest,
-    TextBlock,
     RevisionResponse,
+    TextBlock,
 )
 
 pytest_plugins = ["test_document_draft_repository"]
+
+
+def test_background_import_commits_source_revision_and_operation_together(
+    repo, monkeypatch, tmp_path
+):
+    from app.core.settings import settings
+
+    monkeypatch.setattr(settings, "derived_document_dir", tmp_path)
+    draft = repo.create("owner", DraftContent(entryMode="existing"))
+    request = OperationRequest(
+        task="import",
+        expectedRevision=1,
+        key=uuid4().hex,
+        sourceImport=ImportRequest(
+            expectedRevision=1, text="Module 1: Listening\nListen before offering a solution."
+        ),
+    )
+    operation, _ = repo.start_operation(draft.id, "owner", request)
+    WorkflowJobs(
+        repo, lambda: (_ for _ in ()).throw(AssertionError("Import must not call a model"))
+    ).run(draft.id, "owner", operation["id"])
+    assert repo.operation(draft.id, "owner", operation["id"])["status"] == "completed"
+    assert repo.get(draft.id, "owner").revision == 2
+    assert repo.get(draft.id, "owner").content.modules[0].title == "Listening"
+    assert len(repo.resources(draft.id, "owner", "source")) == 1
+    repo.update_operation(draft.id, "owner", operation["id"], status="cancelled")
+    assert repo.operation(draft.id, "owner", operation["id"])["status"] == "completed"
+
+
+def test_cancelled_import_cannot_commit_extracted_resources(repo):
+    draft = repo.create("owner", DraftContent(entryMode="existing"))
+    operation, _ = repo.start_operation(
+        draft.id,
+        "owner",
+        OperationRequest(
+            task="import",
+            expectedRevision=1,
+            key=uuid4().hex,
+            sourceImport=ImportRequest(expectedRevision=1, text="Listen first."),
+        ),
+    )
+    repo.update_operation(draft.id, "owner", operation["id"], status="cancelled")
+    import pytest
+
+    from app.core.exceptions import ConflictError
+
+    with pytest.raises(ConflictError):
+        repo.import_content(
+            draft.id,
+            "owner",
+            1,
+            draft.content,
+            [{"id": "source1", "kind": "source", "body": {"spans": []}}],
+            operation["id"],
+        )
+    assert repo.get(draft.id, "owner").revision == 1
+    assert repo.resources(draft.id, "owner") == []
 
 
 def test_revision_is_proposal_until_accept_and_preserves_other_modules(repo):

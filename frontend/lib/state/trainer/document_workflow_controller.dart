@@ -125,6 +125,7 @@ class DocumentWorkflowController extends ChangeNotifier {
         announce();
       }
       draft = Map<String, dynamic>.from(await api.call('/drafts/$draftId'));
+      sources = await api.call('/drafts/$draftId/sources');
       if (operation!['status'] == 'failed') error = operation!['error'];
       announce();
     }
@@ -200,13 +201,12 @@ class DocumentWorkflowController extends ChangeNotifier {
   Future<void> importSource(
       {String? documentId, String? text, bool referenceOnly = false}) async {
     await flush();
-    draft = Map<String, dynamic>.from(
-        await api.call('/drafts/$id/import', method: 'POST', body: {
+    await start('import', sourceImport: {
       'expectedRevision': revision,
       'referenceOnly': referenceOnly,
       if (documentId != null) 'documentId': documentId,
       if (text != null) 'text': text
-    }));
+    });
     sources = await api.call('/drafts/$id/sources');
     announce();
   }
@@ -234,6 +234,7 @@ class DocumentWorkflowController extends ChangeNotifier {
       {String instruction = '',
       Map<String, dynamic>? target,
       String scope = 'selected',
+      Map<String, dynamic>? sourceImport,
       String? moduleId}) async {
     await flush();
     operation = Map<String, dynamic>.from(
@@ -241,6 +242,7 @@ class DocumentWorkflowController extends ChangeNotifier {
       'task': task,
       'instruction': instruction,
       'scope': scope,
+      if (sourceImport != null) 'sourceImport': sourceImport,
       if (moduleId != null) 'moduleId': moduleId,
       'expectedRevision': revision,
       'key': 'r_${DateTime.now().microsecondsSinceEpoch}',
@@ -255,7 +257,7 @@ class DocumentWorkflowController extends ChangeNotifier {
           await api.call('/drafts/$id/operations/$operationId'));
       announce();
     }
-    if (task == 'draft') {
+    if (task == 'draft' || task == 'import') {
       draft = Map<String, dynamic>.from(await api.call('/drafts/$id'));
       announce();
     }

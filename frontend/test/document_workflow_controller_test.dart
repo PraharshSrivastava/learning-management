@@ -18,7 +18,8 @@ Map<String, dynamic> record(int revision, String title) => {
     };
 
 void main() {
-  setUp(() => dotenv.loadFromString(envString: 'API_BASE_URL=http://localhost'));
+  setUp(
+      () => dotenv.loadFromString(envString: 'API_BASE_URL=http://localhost'));
   test('Autosave preserves edits made while an earlier save is in flight',
       () async {
     final first = Completer<http.Response>();
@@ -73,5 +74,44 @@ void main() {
   test('Selection fingerprint matches backend Unicode JSON hashing', () async {
     expect(await DocumentWorkflowController.textHash('Ask 😀'),
         '850c305551ad58442630fc812987a621f851619bf5642aaa742021d97a951c16');
+  });
+  test('Reopen reloads imported sources after a durable job completes',
+      () async {
+    var finished = false;
+    final client = MockClient((request) async {
+      final path = request.url.path;
+      if (path.endsWith('/operations/job_1')) {
+        finished = true;
+        return http.Response(
+            jsonEncode({'id': 'job_1', 'status': 'completed'}), 200);
+      }
+      if (path.endsWith('/operations')) {
+        return http.Response(
+            jsonEncode([
+              {
+                'id': 'job_1',
+                'status': 'running',
+                'request': {'task': 'import'}
+              }
+            ]),
+            200);
+      }
+      if (path.endsWith('/sources')) {
+        return http.Response(
+            jsonEncode(finished
+                ? [
+                    {'id': 'source_1', 'name': 'Imported source'}
+                  ]
+                : []),
+            200);
+      }
+      return http.Response(jsonEncode(record(finished ? 2 : 1, 'Import')), 200);
+    });
+    final controller =
+        DocumentWorkflowController(WorkflowApi(() => {}, client: client));
+    await controller.open('draft_1');
+    expect(controller.revision, 2);
+    expect(controller.sources.single['id'], 'source_1');
+    controller.dispose();
   });
 }

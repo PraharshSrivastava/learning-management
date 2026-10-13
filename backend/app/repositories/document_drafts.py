@@ -78,15 +78,36 @@ def _record(row):
 
 
 class DocumentDraftRepository:
-    def import_content(self, draft_id, trainer_id, expected, content, resources):
+    def import_content(self, draft_id, trainer_id, expected, content, resources, operation_id=None):
         with get_connection() as connection:
             current = self._locked(connection, draft_id, trainer_id, expected)
+            operation = None
+            if operation_id:
+                row = connection.execute(
+                    "SELECT body_json FROM document_builder_operations WHERE draft_id = ? AND operation_id = ? FOR UPDATE",
+                    (draft_id, operation_id),
+                ).fetchone()
+                operation = (
+                    json.loads(row["body_json"])
+                    if isinstance(row["body_json"], str)
+                    else row["body_json"]
+                )
+                if operation["status"] != "running":
+                    raise ConflictError("Import was cancelled or interrupted; draft is unchanged")
             for resource in resources:
                 connection.execute(
                     "INSERT INTO document_builder_resources (resource_id, draft_id, kind, body_json) VALUES (?, ?, ?, ?::jsonb)",
                     (resource["id"], draft_id, resource["kind"], json.dumps(resource["body"])),
                 )
             updated = self._write(connection, current, content, None, "source imported")
+            if operation is not None:
+                operation.update(
+                    status="completed", result={"revision": updated.revision}, updatedAt=_now()
+                )
+                connection.execute(
+                    "UPDATE document_builder_operations SET body_json = ?::jsonb WHERE operation_id = ?",
+                    (json.dumps(operation), operation_id),
+                )
             connection.commit()
             return updated
 
@@ -362,6 +383,11 @@ class DocumentDraftRepository:
                 else row["body_json"]
             )
             if value["status"] in {"cancelled", "accepted", "rejected"}:
+                return value
+            if changes.get("status") == "cancelled" and value["status"] not in {
+                "queued",
+                "running",
+            }:
                 return value
             value.update(changes, updatedAt=_now())
             connection.execute(

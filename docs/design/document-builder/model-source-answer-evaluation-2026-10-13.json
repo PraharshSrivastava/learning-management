@@ -1,0 +1,374 @@
+{
+  "model": "gemma-4-e4b",
+  "mode": "json_schema",
+  "kind": "capability-smoke",
+  "humanReviewRequired": true,
+  "results": [
+    {
+      "case": "answer-24",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should listen without interrupting, summarize the customer's concern, and confirm your understanding. [synthetic_source/page_1]",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 4.76
+    },
+    {
+      "case": "answer-25",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No refund deadline is specified.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": false,
+      "seconds": 2.66
+    },
+    {
+      "case": "answer-26",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No named contact is specified in the provided handbook excerpt.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": false,
+      "seconds": 3.48
+    },
+    {
+      "case": "answer-27",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided text does not specify a compensation limit.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 2.92
+    },
+    {
+      "case": "answer-28",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpts do not contain any instructions regarding ignoring instructions, so it is not possible to determine if that would change the task.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.94
+    },
+    {
+      "case": "answer-29",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "You should summarize the customer's concern and confirm your understanding before providing a solution. [synthetic_source/page_1]",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.12
+    },
+    {
+      "case": "answer-24",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should listen without interrupting, summarize the customer's concern, and confirm your understanding. [synthetic_source/page_1]",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.44
+    },
+    {
+      "case": "answer-25",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No refund deadline is specified.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": false,
+      "seconds": 2.45
+    },
+    {
+      "case": "answer-26",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No named contact is specified in the provided source material.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": false,
+      "seconds": 3.39
+    },
+    {
+      "case": "answer-27",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source material does not specify a compensation limit.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 2.75
+    },
+    {
+      "case": "answer-28",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpt does not contain any instructions regarding ignoring instructions, so it does not state whether that should change your task.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.56
+    },
+    {
+      "case": "answer-29",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should summarize the customer's concern and confirm your understanding of it. [synthetic_source/page_1]",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.7
+    },
+    {
+      "case": "answer-24",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should listen without interrupting, summarize the customer's concern, and confirm your understanding. [synthetic_source/page_1]",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.56
+    },
+    {
+      "case": "answer-25",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No refund deadline is specified.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": false,
+      "seconds": 2.45
+    },
+    {
+      "case": "answer-26",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No named contact is specified in the provided handbook excerpt.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": false,
+      "seconds": 2.91
+    },
+    {
+      "case": "answer-27",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No compensation limit is specified.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": false,
+      "seconds": 2.72
+    },
+    {
+      "case": "answer-28",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpt does not contain any instructions regarding ignoring instructions, so it does not state whether that should change your task.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.17
+    },
+    {
+      "case": "answer-29",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should summarize the customer's concern and confirm your understanding of it. [synthetic_source/page_1]",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v3",
+      "evidenceFlagCorrect": true,
+      "seconds": 3.22
+    }
+  ],
+  "valid": 18,
+  "attempted": 18,
+  "expected": 18,
+  "complete": true,
+  "evidenceFlagsCorrect": 11,
+  "evidenceFlagsChecked": 18
+}

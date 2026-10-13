@@ -1,6 +1,6 @@
 """Task-specific prompts; imported text is evidence, never instructions."""
 
-PROMPT_VERSION = "document-workflow-v2"
+PROMPT_VERSION = "document-workflow-v3"
 
 SYSTEM = """You help corporate trainers prepare training documents.
 Follow the TASK and OUTPUT_SCHEMA supplied by the application. Return one valid
@@ -44,5 +44,9 @@ concise summary of the proposed change. Do not change surrounding content.""",
     "answer": """Answer the question using only supplied source excerpts.
 Cite sourceId/spanId records that directly support the answer. If the evidence
 does not answer the question, set insufficientEvidence=true and explain what
-is missing; do not guess. This task never edits the document.""",
+is missing; do not guess. Set insufficientEvidence=false when the excerpts
+directly provide the requested answer. For an absent deadline, contact or limit,
+set insufficientEvidence=true even when an excerpt explicitly says it is absent.
+Do not mark a supported answer as insufficient. Never infer a full-document
+absence from retrieved excerpts. This task never edits the document.""",
 }

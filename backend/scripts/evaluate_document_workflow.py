@@ -119,6 +119,9 @@ def scenarios():
             },
         ]
     )
+    for case in cases:
+        if case["task"] == "answer":
+            case["expectedInsufficientEvidence"] = case["id"] not in {"answer-24", "answer-29"}
     return cases
 
 
@@ -204,7 +207,12 @@ def main():
                     attempts=result.attempts,
                     response=result.content.model_dump(),
                     promptVersion=result.prompt_version,
+                    evidenceFlagNormalized=result.evidence_flag_normalized,
                 )
+                if "expectedInsufficientEvidence" in case:
+                    record["evidenceFlagCorrect"] = (
+                        result.content.insufficientEvidence == case["expectedInsufficientEvidence"]
+                    )
             except ProviderError as exc:
                 record.update(status="failed", code=exc.code, message=exc.message)
                 if exc.code == "invalid_model_response":
@@ -223,6 +231,10 @@ def main():
         attempted=len(report["results"]),
         expected=len(cases) * args.repeats,
         complete=len(report["results"]) == len(cases) * args.repeats,
+        evidenceFlagsCorrect=sum(
+            item.get("evidenceFlagCorrect") is True for item in report["results"]
+        ),
+        evidenceFlagsChecked=sum("evidenceFlagCorrect" in item for item in report["results"]),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -234,7 +246,13 @@ def main():
             }
         )
     )
-    return 0 if report["complete"] and valid == report["expected"] else 1
+    return (
+        0
+        if report["complete"]
+        and valid == report["expected"]
+        and report["evidenceFlagsCorrect"] == report["evidenceFlagsChecked"]
+        else 1
+    )
 
 
 if __name__ == "__main__":

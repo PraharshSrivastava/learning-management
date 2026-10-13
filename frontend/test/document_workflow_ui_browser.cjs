@@ -48,6 +48,7 @@ const server = http.createServer((request,response) => {
        const opId=`op_${operations.size+1}`;
        result={id:opId,draftId:id,request:body,status:body.task==='outline'?'proposed':'completed',result:body.task==='outline'?{modules:[{title:'Customer needs',objective:'Listen first',sections:['Explanation']},{title:'Follow-up',objective:'Confirm next step',sections:['Practice']}]}:{}};
        if(body.task==='draft'){draft.content.modules=modules();draft.revision++;}
+       if(body.task==='import'){draft.content.modules=modules();draft.content.metadata.courseName='Customer Service Essentials';draft.revision++;}
        operations.set(opId,result);
       }else result=parts[5]?operations.get(parts[5]):[...operations.values()].filter(o=>o.draftId===id);
      }else if(suffix==='proposals'){draft.content.modules=modules().map(m=>({...m,blocks:[]}));draft.revision++;operations.get(parts[5]).status='accepted';result=draft;}

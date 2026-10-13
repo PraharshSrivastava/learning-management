@@ -241,7 +241,8 @@ class RestoreDraft(RevisionRequest):
 
 
 class OperationRequest(RevisionRequest):
-    task: Literal["outline", "draft", "edit", "answer", "revise", "insert"]
+    task: Literal["outline", "draft", "edit", "answer", "revise", "insert", "import"]
+    sourceImport: ImportRequest | None = None
     scope: Literal["selected", "module", "document"] = "selected"
     moduleId: Identity | None = None
     insertAfter: Identity | None = None

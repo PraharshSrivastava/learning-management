@@ -193,13 +193,13 @@ class WorkflowEditorAdapter {
     final prefix = html.document.createRange()
       ..selectNodeContents(block)
       ..setEnd(range.startContainer, range.startOffset);
-    final text = block.text ?? '';
     String rangeText(html.Node node) {
       if (node is html.Text) return node.text ?? '';
       if (node is html.Element && node.localName == 'br') return '\n';
       return node.nodes.map(rangeText).join();
     }
 
+    final text = rangeText(block);
     final selectedText = rangeText(range.cloneContents());
     final start = rangeText(prefix.cloneContents()).length;
     final end = start + selectedText.length;
