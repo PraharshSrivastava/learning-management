@@ -16,6 +16,12 @@ def _trainer(request: Request, authorization: str | None) -> dict:
     return current_trainer_from_request(request, authorization)
 
 
+@router.get("/capabilities")
+def document_capabilities(request: Request, authorization: str | None = Header(default=None)):
+    _trainer(request, authorization)
+    return {"workflowEnabled": settings.document_builder_workflow_enabled, "languages": ["English"]}
+
+
 @router.post("/build-document")
 def build_document(
     request: Request,

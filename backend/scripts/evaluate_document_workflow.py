@@ -94,6 +94,31 @@ def scenarios():
                 },
             }
         )
+    cases.extend(
+        [
+            {
+                "id": "revise-module",
+                "task": "revise",
+                "context": {
+                    "instruction": "Simplify for new employees without changing policy.",
+                    "module": "Listening",
+                    "originalTexts": [
+                        "Listen carefully without interrupting.",
+                        "Confirm the concern before offering a solution.",
+                    ],
+                },
+            },
+            {
+                "id": "insert-scenario",
+                "task": "insert",
+                "context": {
+                    "instruction": "Add an illustrative scenario about listening to a complaint.",
+                    "module": "Listening",
+                    "surroundingText": "Listen without interrupting and confirm the customer's concern.",
+                },
+            },
+        ]
+    )
     return cases
 
 
@@ -101,6 +126,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--full", action="store_true")
+    parser.add_argument("--case", action="append", help="Run specific synthetic scenario IDs")
+    parser.add_argument("--output-mode", choices=("prompt", "json_object", "json_schema"))
     parser.add_argument(
         "--env-file",
         type=Path,
@@ -131,12 +158,18 @@ def main():
         )
     config = config.model_copy(
         update={
-            "document_builder_model_timeout_seconds": 20,
-            "document_builder_operation_deadline_seconds": 60,
+            "document_builder_model_timeout_seconds": config.document_builder_model_timeout_seconds,
+            "document_builder_operation_deadline_seconds": config.document_builder_operation_deadline_seconds,
         }
     )
     all_cases = scenarios()
     cases = all_cases if args.full else [all_cases[0], all_cases[9], all_cases[18], all_cases[24]]
+    if args.case:
+        cases = [case for case in all_cases if case["id"] in args.case]
+        if len(cases) != len(set(args.case)):
+            raise SystemExit("Unknown evaluation case")
+    if args.output_mode:
+        config = config.model_copy(update={"document_builder_output_mode": args.output_mode})
     report = {
         "model": config.document_builder_model or config.llm_model_name,
         "mode": config.document_builder_output_mode,
@@ -174,6 +207,8 @@ def main():
                 )
             except ProviderError as exc:
                 record.update(status="failed", code=exc.code, message=exc.message)
+                if exc.code == "invalid_model_response":
+                    record["validationCategory"] = str(exc.__cause__)
                 if exc.code == "provider_error":
                     interrupted = True
             record["seconds"] = round(time.monotonic() - started, 2)

@@ -4,121 +4,79 @@ Date: 13 October 2026
 Branch: `codex/document-builder-workflow`
 Plan: [Combined implementation plan](document-builder-combined-implementation-plan.md)
 
-## Current milestone
+## Current checkpoint
 
-The initial contracts, strict model adapter, persistent draft backend foundation,
-and an isolated browser editor spike are implemented. This is an implementation
-milestone, not completion of the combined workflow. The new workflow remains
-disabled by default; the existing Documents and course-generation screens remain
-in use. The existing metadata missing-field reporting bug has been fixed.
+The three creation paths and their backend integrations are implemented for internal validation. The workflow remains disabled by default while the remaining release gates are completed. This checkpoint is not a production rollout.
 
-| Phase | State | Remaining work |
+| Phase | Current state | Outstanding acceptance |
 |---|---|---|
-| 0 — baseline/contracts/model/editor spikes | In progress | Live completion capability/quality evaluation; full paste/IME/grapheme/editor acceptance |
-| 1 — persistent draft foundation | Backend foundation implemented and locally tested | Real PostgreSQL upgrade/locking acceptance, frontend autosave/reopen/conflict integration, immutable sources/assets and operation persistence |
-| 2 — existing content/course adapter | Pending | Extraction review and accepted-revision handoff |
-| 3 — Generate with AI | Model adapter implemented; orchestration pending | Owned background jobs, approved outline/module orchestration, deployed-model release evaluation |
-| 4 — corporate editor/AI Assistant | Selection adapter spike implemented | Final product screens, formatting/structure editor, proposal storage/acceptance, Start blank integration |
-| 5 — export/integration/rollout | Pending | Canonical PDF and all-path course-generation acceptance |
+| 0 — contracts/model/editor | Strict contracts and browser adapter verified; deployed model now responding | Broader semantic/source-injection and large-content evaluation; real keyboard/paste/undo stress checks |
+| 1 — persistent drafts | Autosave/reopen/conflicts, revisions/restore, separate-copy recovery, owned immutable resources and durable jobs implemented | Multi-worker recovery/queue load and full refresh-during-generation acceptance |
+| 2 — existing content/course adapter | PDF/DOCX/PPTX and pasted content import, extraction warnings, review/split/merge, direct and editor handoffs implemented | Complex document fidelity; AI boundary proposals for ambiguous documents; asynchronous source extraction |
+| 3 — Generate with AI | Metadata/preferences → proposed outline → approval → incremental module drafting, cancellation and partial retry implemented | Human content-quality review and long/source-bound scenarios |
+| 4 — editor/assistant | Corporate editor, text marks, images/list/table properties, selected/module/document proposals, scenario insertion and source answers implemented | Broader rich content/undo/mobile accessibility testing; collapsible assistant polish |
+| 5 — export/integration/rollout | Canonical PDF and idempotent approved revision handoff into normal courses implemented | Full live videos/quizzes pipeline across all entry paths; legacy image-slide regression; internal pilot and rollout |
 
-## Implemented
+## Implemented behavior
 
-- Created the branch from the existing checkout and preserved unrelated workspace changes.
-- Added strict canonical schema contracts for course details, settings, ordered modules,
-  text/list/table/image blocks, text marks, source references, draft revisions, and selections.
-- Stable module/block identities and source references are separate from model-generated content.
-- Structural approval fingerprints invalidate on metadata/settings/outline changes, while body
-  edits retain structural approval. Course-content acceptance will be a separate handoff check.
-- Added separate outline, module, selected-edit, and source-question prompts, without
-  chain-of-thought fields or full-document replacement semantics.
-- Added a workflow model adapter that receives metadata/settings, checks context budgets,
-  validates schemas and source references, rejects truncated/empty/wrong-count responses,
-  and supports cancellation and a bounded operation deadline.
-- A maximum of four physical model requests per task, with no nested legacy transport retries.
-  Tests include the existing provider's `PipelineStageError` wrapping.
-- Builder model override is optional and does not modify other generation models.
-  Structured-output mode is configured; it is not presumed supported by the deployed alias.
-- Added trainer-scoped PostgreSQL draft/revision tables through additive schema initialization,
-  and feature-gated create/list/read/save/approve/revision/restore routes.
-- Saves use `SELECT ... FOR UPDATE`, expected revisions, atomic snapshots and approval updates.
-  Restore creates a new head revision; cross-trainer reads/writes return not found.
-- The early manual-draft endpoints reject image/source claims and generation statuses until
-  owned source/asset/job infrastructure is implemented. Do not enable the feature yet.
-- Added an isolated editor adapter and browser harness proving a single-block selection edit
-  can preserve neighboring content, stable IDs, image order/caption, and outside formatting.
-  Fixed range extraction to read cloned DOM fragment text rather than Dart `Range.toString()`.
-- Fixed existing frontend metadata validation so identical empty values report every missing field.
+- Entry order: **Use Existing Content**, **Generate with AI**, **Start blank**.
+- Existing content is copied to immutable owned storage. Source spans and images remain associated with the draft; exports never overwrite originals.
+- PDF text/images, DOCX paragraphs/tables/images, PPTX slide content and pasted notes are imported without creating a course as a side effect. Explicit module headings are retained as reviewed titles. Ambiguous content uses a manual-review module rather than speculative boundaries.
+- Extraction limitations are shown and require acknowledgment before outline approval. Scanned PDFs report missing text; OCR is not provided by this release.
+- Outline review allows titles/objectives, inclusion/order, split and merge. After approval, imported content can go directly to Create Course or through the editor.
+- AI setup includes audience/objectives/difficulty, module count/detail, tone/focus, requested scenarios/comparisons/takeaways/mistakes, and optional source references.
+- AI outline and assistant results remain proposals until accepted. Backend assigns trusted IDs, validates model output, rechecks revisions, and blocks stale/cancelled writes.
+- Module drafting saves valid completed modules independently. Retry skips populated modules. Model requests have bounded timeouts/context and at most four physical calls per task.
+- Assistant supports a selected range, current module, or explicitly confirmed whole-document scope. Larger revisions are split into ordered batches. A practical scenario is a separate insertion proposal. Source Q&A never edits the document.
+- Revision acceptance is atomic and recoverable. Selection edits preserve outside text marks; rewritten interiors use plain text. Images and structured blocks remain intact during text revision.
+- Autosave retains edits made during an in-flight save; conflicts preserve local content and offer reload or a separate copy with remapped owned references.
+- Canonical PDF preview/export uses the same saved revision. English is the validated baseline language.
+- Create Course validates details, included bodies, assets and approval, freezes a revision/hash, preserves reviewed titles/order/text/images, and retries idempotently. Existing downstream generation controls are retained. Accepted blueprint recovery avoids re-extraction.
 
 ## Verification evidence
 
 | Check | Result |
 |---|---|
-| New backend contract/model/repository/API tests | **53 passed** |
-| Metadata regression tests using matching workspace Flutter SDK | **2 passed** |
-| Standalone headless Chrome editor spike | **Passed**: DOM selection, Unicode offsets, scoped replacement, outside marks, images, neighboring text, stale rejection |
-| Focused Flutter analysis of new adapter/models/tests | **No issues found** |
-| Focused backend Ruff lint | **Passed** |
-| Git whitespace check | **Passed** |
-| Existing generation regression baseline | **35 passed, 1 failed** |
-| Deployed model catalog | HTTP **200**; configured `gemma-4-e4b` alias listed |
-| Minimal synthetic deployed chat completion | HTTP **404**; no usable completion |
-| Workflow synthetic smoke suite | **0 valid / 1 attempted / 4 expected**, stopped on provider failure |
-| Real PostgreSQL upgrade/concurrency | **Not run**: Docker daemon unavailable locally |
+| Backend contract/model/repository/source/jobs tests | 63 passed after added Unicode/copy checks |
+| Generation handoff/recovery routing tests | 2 passed |
+| Real PostgreSQL on isolated `big-coding` container | 4 passed; repeated additive schema initialization, competing revisions, acceptance/restore, direct handoff idempotency, cancellation |
+| Frontend controller tests | 4 passed: in-flight save, conflicts, gateway errors, Unicode hash |
+| Compiled Trainer UI in headless Chrome | All three creation paths passed: pasted source review/editor, AI outline approval/module drafting, blank content autosave |
+| Standalone browser editor | Selection/emoji/outside formatting/images/stale proposal, IME autosave suppression and stable new-paragraph identities passed |
+| Focused Flutter analysis | No issues found |
+| Release Flutter web build | Passed |
+| Focused backend Ruff checks | Passed |
+| Canonical PDF visual review | Basic metadata/module sample rendered and inspected; no clipping or layout overlap |
+| Live model, prompt-only output | 78 valid / 90; insufficient for release |
+| Live model, structured JSON schema | **90 valid / 90, all first attempt**, configured alias `gemma-4-e4b` |
+| Live module revision/scenario insertion | **2 valid / 2** synthetic probes |
+| Existing generation baseline | 35 passed, 1 pre-existing image-slide failure |
 
-The existing regression failure is
-`test_image_slide_flow.py::test_splits_third_landscape_image_to_separate_slide`
-(expected 3 slides, received 4). Neither the image-slide implementation nor this test
-was changed by this milestone. Keep it separate from new builder tests and resolve
-its expected behavior before final course-generation acceptance.
+The 90-case result establishes structured response compatibility and schema validity, not perfect factual quality. Spot review found inconsistent `insufficientEvidence` flags on some source answers. Evidence support, missing-fact behavior and content-quality review remain release gates. The current suite does not establish long-source coverage or complex import fidelity.
 
-Repository behavior tests use an explicitly documented SQLite SQL adapter in tests
-only. Production remains PostgreSQL. These tests establish save/restore/ownership
-behavior; they do not establish PostgreSQL locking or migration correctness.
+The existing unchanged failure is `test_image_slide_flow.py::test_splits_third_landscape_image_to_separate_slide` (expected 3 slides, received 4). It remains a separate downstream acceptance issue.
 
-The standard Flutter Chrome test runner stalled in this environment. The isolated
-Dart adapter was compiled directly to JavaScript and tested in headless Chrome using
-Playwright instead. Full Flutter editor integration/browser checks remain pending.
+Model evaluation artifacts are in `docs/design/document-builder/`: `model-schema-evaluation-2026-10-13.json`, `model-assistant-scopes-2026-10-13.json`, and earlier prompt-mode comparison reports. All live probes used synthetic customer-service content; no trainer uploads were submitted.
 
-The initially selected older Flutter SDK was incompatible with the workspace's
-existing package configuration. Subsequent checks used `tmp/captions/flutter`, which
-matches that configuration; no dependency files were changed for this milestone.
+The actual compiled editor screenshot is `docs/design/document-builder/implemented-editor-preview.png`.
 
-## Model gate and configuration
-
-Synthetic checks use only Customer Service Essentials fixture prompts. They do not
-read or send trainer uploads. The evaluation runner supports a deployment env file
-and only consumes model-related settings, including the existing `LITELLM_API_KEY`
-alias. It does not print credentials or raw provider failures.
-
-The catalog result does not establish the actual upstream model version or a
-functioning completion route. Resolve the HTTP 404 and verify the proxy/upstream
-deployment before claiming AI generation works. Do not change the shared model or
-enable the new workflow to bypass this gate.
-
-Smoke results are in
-`docs/design/document-builder/model-smoke-2026-10-13.json`.
-The runner has 30 synthetic scenarios and a three-repeat release mode; human content
-review, additional edge-case fixtures, and deployment capability checks are still
-required by the plan. The current fixture set is a foundation, not the complete
-release evidence (long-source/prompt-injection/language cases need expansion).
-
-New optional settings:
+## Configuration and rollout
 
 ```text
 DOCUMENT_BUILDER_WORKFLOW_ENABLED=false
 DOCUMENT_BUILDER_MODEL=
-DOCUMENT_BUILDER_OUTPUT_MODE=prompt
+DOCUMENT_BUILDER_OUTPUT_MODE=json_schema
 DOCUMENT_BUILDER_MODEL_TIMEOUT_SECONDS=90
 DOCUMENT_BUILDER_OPERATION_DEADLINE_SECONDS=240
 ```
 
-No live database migrations, new course generation, publication, or deployment were
-performed. The new model adapter has not replaced the legacy builder calls.
+An empty builder model uses the configured shared model alias. The schema output mode was selected after live proxy capability verification. Other providers/tasks retain their existing behavior.
 
-## Next implementation work
+No production migration, deployment, publication or assignment was performed. Database acceptance used only a temporary PostgreSQL container with no volume and a dedicated database name. No live LMS data was changed.
 
-1. Finish editor normalization/paste/IME/grapheme acceptance and implement full Dart draft contracts.
-2. Finish Phase 1 frontend draft API integration with acknowledged autosave/reopen/conflicts.
-3. Add immutable owned sources/assets and durable builder-operation tracking.
-4. Implement reviewed extraction and the approved-revision course adapter, preserving existing generation behavior.
-5. Complete AI orchestration and final screens; keep model release gated until deployment checks pass.
+## Remaining work
+
+1. Finish grounded-answer semantic evaluation, ambiguous-source boundaries, source extraction jobs and richer editor round-trip/undo/paste acceptance.
+2. Verify complex documents and multi-worker recovery, load, mobile/accessibility behavior.
+3. Run a synthetic full course through videos/quizzes and recovery for each entry path; resolve the separate image-slide baseline expectation.
+4. Enable an isolated internal pilot only after critical invariants pass, then perform the planned rollout.

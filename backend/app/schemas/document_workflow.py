@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -63,7 +64,13 @@ class TextMark(StrictModel):
         return self
 
 
+class SourceReference(StrictModel):
+    sourceId: Identity
+    spanId: Identity
+
+
 class TextBlock(StrictModel):
+    sourceReferences: list[SourceReference] = Field(default_factory=list, max_length=100)
     id: Identity
     type: Literal["paragraph", "heading", "scenario", "takeaway"] = "paragraph"
     text: str = Field(default="", max_length=20000)
@@ -78,6 +85,7 @@ class TextBlock(StrictModel):
 
 
 class ListBlock(StrictModel):
+    sourceReferences: list[SourceReference] = Field(default_factory=list, max_length=100)
     id: Identity
     type: Literal["list"] = "list"
     ordered: bool = False
@@ -85,6 +93,7 @@ class ListBlock(StrictModel):
 
 
 class TableBlock(StrictModel):
+    sourceReferences: list[SourceReference] = Field(default_factory=list, max_length=100)
     id: Identity
     type: Literal["table"] = "table"
     rows: list[list[str]] = Field(min_length=1, max_length=100)
@@ -100,6 +109,7 @@ class TableBlock(StrictModel):
 
 
 class ImageBlock(StrictModel):
+    sourceReferences: list[SourceReference] = Field(default_factory=list, max_length=100)
     id: Identity
     type: Literal["image"] = "image"
     assetId: Identity
@@ -109,11 +119,6 @@ class ImageBlock(StrictModel):
 
 
 Block = Annotated[TextBlock | ListBlock | TableBlock | ImageBlock, Field(discriminator="type")]
-
-
-class SourceReference(StrictModel):
-    sourceId: Identity
-    spanId: Identity
 
 
 class SourceSpan(StrictModel):
@@ -171,6 +176,12 @@ def outline_fingerprint(content: DraftContent) -> str:
         {
             "metadata": content.metadata.model_dump(),
             "settings": content.settings.model_dump(),
+            "sourceBlocks": [
+                {"id": block.id, "references": [ref.model_dump() for ref in block.sourceReferences]}
+                for module in content.modules
+                for block in module.blocks
+                if block.sourceReferences
+            ],
             "modules": [
                 {
                     key: module.model_dump()[key]
@@ -217,12 +228,42 @@ class SaveDraft(StrictModel):
     content: DraftContent
 
 
+class CopyDraft(StrictModel):
+    content: DraftContent
+
+
 class RevisionRequest(StrictModel):
     expectedRevision: int = Field(ge=1)
 
 
 class RestoreDraft(RevisionRequest):
     restoreRevision: int = Field(ge=1)
+
+
+class OperationRequest(RevisionRequest):
+    task: Literal["outline", "draft", "edit", "answer", "revise", "insert"]
+    scope: Literal["selected", "module", "document"] = "selected"
+    moduleId: Identity | None = None
+    insertAfter: Identity | None = None
+    instruction: str = Field(default="", max_length=4000)
+    target: SelectionTarget | None = None
+    key: Identity
+
+
+class ImportRequest(RevisionRequest):
+    referenceOnly: bool = False
+    documentId: str | None = Field(default=None, max_length=100)
+    text: str | None = Field(default=None, max_length=100000)
+
+    @model_validator(mode="after")
+    def one_source(self):
+        if bool(self.documentId) == bool(self.text and self.text.strip()):
+            raise ValueError("Provide one uploaded document or pasted text")
+        return self
+
+
+class SourceAcknowledgement(RevisionRequest):
+    acknowledged: bool
 
 
 # These schemas describe model content, deliberately without trusted IDs.
@@ -271,6 +312,12 @@ class AnswerResponse(StrictModel):
         return self
 
 
+class RevisionResponse(StrictModel):
+    replacements: list[Text] = Field(min_length=1, max_length=20)
+    summary: Title
+    sourceReferences: list[SourceReference] = Field(default_factory=list, max_length=100)
+
+
 class SelectionTarget(StrictModel):
     moduleId: Identity
     blockId: Identity
@@ -290,6 +337,27 @@ def validate_selection(content: DraftContent, target: SelectionTarget) -> str:
     block = next((b for b in module.blocks if b.id == target.blockId), None) if module else None
     if not isinstance(block, TextBlock) or target.end > len(block.text):
         raise ValueError("Selection is not within a supported text block")
+    for boundary in (target.start, target.end):
+        if 0 < boundary < len(block.text):
+            next_char, previous = block.text[boundary], block.text[boundary - 1]
+            if (
+                unicodedata.category(next_char).startswith("M")
+                or ord(next_char) in range(0x1F3FB, 0x1F400)
+                or next_char == "\u200d"
+                or previous == "\u200d"
+                or unicodedata.combining(previous) == 9
+            ):
+                raise ValueError(
+                    "Selection splits a combined character; select the whole character"
+                )
+            if 0x1F1E6 <= ord(next_char) <= 0x1F1FF:
+                preceding = 0
+                for char in reversed(block.text[:boundary]):
+                    if not 0x1F1E6 <= ord(char) <= 0x1F1FF:
+                        break
+                    preceding += 1
+                if preceding % 2:
+                    raise ValueError("Selection splits a flag character")
     selected = block.text[target.start : target.end]
     if fingerprint(selected) != target.textHash:
         raise ValueError("Selection text changed")
@@ -310,3 +378,6 @@ def utf16_to_codepoint(text: str, offset: int) -> int:
     if units == offset:
         return len(text)
     raise ValueError("UTF-16 offset exceeds text")
+
+
+OperationRequest.model_rebuild()

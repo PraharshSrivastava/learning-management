@@ -9,7 +9,7 @@ import 'package:frontend/features/document_builder/document_builder_models.dart'
 import 'package:frontend/features/document_builder/document_html_editor.dart';
 import 'package:frontend/state/trainer/document_builder_provider.dart';
 
-final documentBuilderVisibleProvider = StateProvider<bool>((ref) => false);
+export 'package:frontend/state/trainer/document_builder_provider.dart' show documentBuilderVisibleProvider;
 
 class DocumentBuilderPortal extends ConsumerStatefulWidget {
   final VoidCallback onClose;

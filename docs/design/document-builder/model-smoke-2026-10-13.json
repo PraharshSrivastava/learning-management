@@ -8,14 +8,126 @@
       "case": "outline-2-short",
       "task": "outline",
       "repeat": 1,
-      "status": "failed",
-      "code": "provider_error",
-      "message": "Document model is unavailable; your draft is unchanged",
-      "seconds": 0.73
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Hearing What the Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to fully understand customer issues.",
+            "sections": [
+              "Introduction to Active Listening in Support",
+              "Techniques for Effective Listening (e.g., paraphrasing, summarizing)",
+              "Identifying Customer Needs vs. Stated Problems",
+              "Scenario Practice: Listening for the Core Issue",
+              "Key Takeaways: The Power of Paying Attention",
+              "Common Mistakes to Avoid When Listening"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "New support employees will be able to confirm clear, actionable next steps with customers to ensure mutual understanding.",
+            "sections": [
+              "Why Confirming Next Steps is Crucial",
+              "Phrasing for Confirmation (e.g., 'To confirm, we will...')",
+              "Handling Ambiguity: When the Next Step Isn't Clear",
+              "Scenario Practice: Confirming Resolution Paths (Good vs. Bad Examples)",
+              "Mistakes in Setting Expectations",
+              "Action Plan: Documenting Agreed-Upon Next Steps",
+              "Key Takeaways: Closing the Loop Successfully"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v1",
+      "seconds": 10.95
+    },
+    {
+      "case": "module-9",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 2,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer is upset, your primary goal is to acknowledge their feelings and clearly confirm what will happen next. This shows empathy and professionalism, even when the situation is difficult."
+          },
+          {
+            "type": "heading",
+            "text": "Key Steps for Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective complaint handling involves three main stages: Acknowledging the concern, Investigating/Resolving, and Confirming next steps."
+          },
+          {
+            "type": "paragraph",
+            "text": "First, always acknowledge the customer's concern. Use empathetic language to validate their feelings. Second, gather the necessary information to understand the issue fully. Third, clearly state what action you will take and when they can expect an update."
+          },
+          {
+            "type": "scenario",
+            "text": "Scenario: A customer calls because a recent order arrived damaged. \n\nGood Response: \"I am so sorry to hear that your order arrived damaged. I understand how frustrating that must be. Let me look into this right away and we can arrange a replacement for you immediately. I will email you the tracking for the new item within the hour.\""
+          },
+          {
+            "type": "scenario",
+            "text": "Scenario: A customer calls because a recent order arrived damaged. \n\nCommon Mistake: \"Well, the damage is the customer's responsibility. You need to send us photos first.\""
+          },
+          {
+            "type": "paragraph",
+            "text": "The common mistake is immediately shifting blame or focusing only on policy without first validating the customer's experience. Always lead with empathy."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before attempting to solve the problem. Confirming the next steps prevents the customer from feeling uncertain or ignored."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v1",
+      "seconds": 32.56
+    },
+    {
+      "case": "edit-18",
+      "task": "edit",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Briefly summarize what the customer is concerned about and confirm the next steps together.",
+        "summary": "Simplified the instruction to be more direct and supportive for new staff.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v1",
+      "seconds": 2.88
+    },
+    {
+      "case": "answer-24",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should listen without interrupting, summarize the customer's concern, and confirm your understanding. [synthetic_source/page_1]",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v1",
+      "seconds": 3.38
     }
   ],
-  "valid": 0,
-  "attempted": 1,
+  "valid": 4,
+  "attempted": 4,
   "expected": 4,
-  "complete": false
+  "complete": true
 }

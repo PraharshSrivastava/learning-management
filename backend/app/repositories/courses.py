@@ -13,6 +13,7 @@ from app.repositories.database import advisory_xact_lock, get_connection
 from app.schemas.course import CourseRecord
 
 COURSE_METADATA_FIELDS = {
+    "document_builder",
     "images",
     "thumbnail_prompt_hash",
 }

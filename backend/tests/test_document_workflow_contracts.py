@@ -122,3 +122,18 @@ def test_source_question_requires_citation_or_explicit_missing_evidence():
         insufficientEvidence=True,
         sourceReferences=[],
     )
+
+
+@pytest.mark.parametrize(
+    "text,start,end", [("Cafe\u0301", 3, 4), ("👩‍💻", 0, 1), ("🇮🇳", 0, 1), ("👍🏽", 0, 1)]
+)
+def test_selection_cannot_split_combined_characters(text, start, end):
+    content = DraftContent(
+        entryMode="blank",
+        modules=[DraftModule(id="m", title="Unicode", blocks=[TextBlock(id="b", text=text)])],
+    )
+    target = SelectionTarget(
+        moduleId="m", blockId="b", start=start, end=end, textHash=fingerprint(text[start:end])
+    )
+    with pytest.raises(ValueError, match="character"):
+        validate_selection(content, target)

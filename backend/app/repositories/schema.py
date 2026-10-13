@@ -6,6 +6,8 @@ from app.repositories.database import get_connection
 from app.repositories.document_drafts import create_draft_tables
 
 TABLES = (
+    "document_builder_operations",
+    "document_builder_resources",
     "document_builder_revisions",
     "document_builder_drafts",
     "module_progress",

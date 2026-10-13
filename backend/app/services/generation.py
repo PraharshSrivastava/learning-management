@@ -126,6 +126,15 @@ class GenerationService:
         state = generation_state(course)
         checkpoint = state.get("failed_checkpoint") or state.get("current_checkpoint")
         if checkpoint == "blueprint":
+            if course.get("document_builder", {}).get("origin") == "accepted_revision":
+                # Builder inputs already are the trainer-approved blueprint;
+                # recovery must not re-extract their exported PDF.
+                from app.generation.runtime import mark_stage
+                from app.repositories.courses import save_course
+                mark_stage(course, "blueprint", "completed")
+                save_course(course, "draft")
+                with generation_queue.run(course_id=course_id, operation="continue:accepted_blueprint"):
+                    return run_full_course_generation(course_id, restart_from_blueprint=True)
             document = get_document(course.get("document_id", ""))
             if not document:
                 raise ValueError("Blueprint checkpoint has no source document")

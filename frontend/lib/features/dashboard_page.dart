@@ -7,6 +7,7 @@ import 'package:frontend/data/models/models.dart';
 import 'package:frontend/state/trainer_providers.dart';
 import 'package:frontend/features/documents/document_portal.dart';
 import 'package:frontend/features/document_builder/document_builder_portal.dart';
+import 'package:frontend/features/document_builder/document_workflow_portal.dart';
 import 'package:frontend/features/courses/course_portal.dart';
 import 'package:frontend/features/training/training_portal.dart';
 import 'package:frontend/features/assignments/assignment_portal.dart';
@@ -290,7 +291,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     if (showBuilder) {
       return Padding(
         padding: EdgeInsets.all(isMobile ? 12 : 20),
-        child: DocumentBuilderPortal(
+        child: DocumentBuilderEntry(
             onClose: () => ref
                 .read(documentBuilderVisibleProvider.notifier)
                 .state = false),

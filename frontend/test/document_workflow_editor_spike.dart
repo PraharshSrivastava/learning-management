@@ -73,6 +73,19 @@ void main() {
       splitRejected = true;
     }
     check(splitRejected, 'Surrogate split must be rejected');
+    var changes = 0;
+    editor.onChanged = () => changes++;
+    editor.root.dispatchEvent(html.Event('compositionstart'));
+    editor.root.dispatchEvent(html.Event('input'));
+    check(editor.isComposing && changes == 0, 'IME input must not save an incomplete character');
+    editor.root.dispatchEvent(html.Event('compositionend'));
+    check(!editor.isComposing && changes == 1, 'IME completion must notify autosave');
+    final inserted = html.DivElement()..text = 'New paragraph after Enter';
+    editor.root.append(inserted);
+    final normalized = editor.snapshot();
+    check(normalized.last.id.isNotEmpty && normalized.last.text == inserted.text, 'New DOM paragraphs must receive stable canonical identity');
+    final normalizedAgain = editor.snapshot();
+    check(normalizedAgain.last.id == normalized.last.id, 'Paragraph identity must survive repeated snapshots');
     editor.dispose();
     html.document.documentElement!.setAttribute('data-spike-result', 'passed');
   } catch (error) {

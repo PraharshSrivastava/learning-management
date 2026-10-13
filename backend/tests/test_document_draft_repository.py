@@ -139,3 +139,31 @@ def test_other_trainer_cannot_save_approve_restore_or_read_revisions(repo):
     ):
         with pytest.raises(NotFoundError):
             operation()
+
+
+def test_separate_copy_remaps_owned_source_references(repo):
+    original = repo.create("owner", content())
+    repo.put_resource(
+        original.id,
+        "owner",
+        "source1",
+        "source",
+        {
+            "spans": [{"id": "span1", "text": "Listen first.", "location": "page 1"}],
+            "name": "Source",
+            "issues": [],
+            "acknowledged": True,
+        },
+    )
+    edited = original.content.model_copy(deep=True)
+    from app.schemas.document_workflow import SourceReference
+
+    edited.modules[0].sourceReferences = [SourceReference(sourceId="source1", spanId="span1")]
+    edited.modules[0].blocks[0].sourceReferences = [
+        SourceReference(sourceId="source1", spanId="span1")
+    ]
+    copied = repo.copy(original.id, "owner", edited)
+    assert copied.id != original.id
+    assert copied.content.modules[0].sourceReferences[0].sourceId != "source1"
+    repo.validate_resources(copied.id, "owner", copied.content)
+    assert repo.get(original.id, "owner") == original

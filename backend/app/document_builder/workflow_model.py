@@ -26,17 +26,20 @@ from app.schemas.document_workflow import (
     EditResponse,
     ModuleResponse,
     OutlineResponse,
+    RevisionResponse,
     SourceReference,
     StrictModel,
     WritingSettings,
 )
 
-Task = Literal["outline", "module", "edit", "answer"]
+Task = Literal["outline", "module", "edit", "answer", "revise", "insert"]
 RESPONSES = {
     "outline": OutlineResponse,
     "module": ModuleResponse,
     "edit": EditResponse,
     "answer": AnswerResponse,
+    "revise": RevisionResponse,
+    "insert": EditResponse,
 }
 
 
@@ -70,6 +73,8 @@ class WorkflowModel:
             max_output_tokens=config.llm_max_output_tokens,
             timeout_seconds=config.document_builder_model_timeout_seconds,
         )
+        if hasattr(self.client, "enable_thinking"):
+            self.client.enable_thinking = getattr(config, "llm_enable_thinking", None)
 
     def complete(
         self,
@@ -96,7 +101,9 @@ class WorkflowModel:
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
-        output_budget = min(6000 if task == "module" else 3000, self.config.llm_max_output_tokens)
+        output_budget = min(
+            6000 if task in {"module", "revise"} else 3000, self.config.llm_max_output_tokens
+        )
         mode = self.config.document_builder_output_mode
         response_format = None
         if mode == "json_object":
@@ -170,9 +177,11 @@ class WorkflowModel:
                 raw = self._content(response)
                 parsed = self._parse(raw, response_type)
                 self._validate(task, parsed, settings, references)
+                if task == "revise" and len(parsed.replacements) != len(context["originalTexts"]):
+                    raise ValueError("wrong_replacement_count")
                 return ModelResult(parsed, self.model, PROMPT_VERSION, attempts)
             except (InvalidModelResponse, ValidationError, ValueError) as exc:
-                last_code = str(exc)[:160]
+                last_code = self._category(exc)
                 # Do not include untrusted malformed output or proprietary content
                 # in repair prompts/logs. Ask for a complete new object from context.
                 if logical == 0:
@@ -238,7 +247,22 @@ class WorkflowModel:
     @staticmethod
     def _category(exc: Exception) -> str:
         if isinstance(exc, ValidationError):
-            return "schema_mismatch"
+            return "schema_mismatch: " + "; ".join(
+                ".".join(str(part) for part in error["loc"]) + "=" + error["type"]
+                for error in exc.errors(include_input=False)[:8]
+            )
         if isinstance(exc, json.JSONDecodeError):
             return "invalid_json"
-        return "semantic_or_completion_validation"
+        if isinstance(exc, InvalidModelResponse):
+            return exc.message
+        return (
+            str(exc)
+            if str(exc)
+            in {
+                "wrong_module_count",
+                "unknown_source_reference",
+                "missing_module_explanation",
+                "duplicate_json_key",
+            }
+            else "semantic_validation"
+        )

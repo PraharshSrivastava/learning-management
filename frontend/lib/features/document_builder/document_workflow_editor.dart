@@ -7,16 +7,73 @@ import 'document_workflow_models.dart';
 class WorkflowEditorAdapter {
   final html.DivElement root = html.DivElement();
   List<WorkflowBlock> _blocks = [];
+  html.Range? _savedRange;
+  void Function()? onChanged;
+  void Function(String id)? onProperties;
+  bool _composing = false;
+  bool get isComposing => _composing;
   final String Function(String assetId) resolveOwnedAsset;
 
   WorkflowEditorAdapter({required this.resolveOwnedAsset}) {
     root
       ..contentEditable = 'true'
       ..setAttribute('aria-label', 'Training document editor');
+    root.style
+      ..padding = '22px'
+      ..fontFamily = 'Arial, sans-serif'
+      ..fontSize = '16px'
+      ..lineHeight = '1.65'
+      ..height = '100%'
+      ..overflowY = 'auto';
+    root.onInput.listen((_) {
+      if (!_composing) onChanged?.call();
+    });
+    root.addEventListener('compositionstart', (_) {
+      _composing = true;
+    });
+    root.addEventListener('compositionend', (_) {
+      _composing = false;
+      onChanged?.call();
+    });
+    void remember(html.Event _) {
+      final selection = html.window.getSelection();
+      if (selection != null && (selection.rangeCount ?? 0) > 0) {
+        final range = selection.getRangeAt(0);
+        if (root.contains(range.commonAncestorContainer)) {
+          _savedRange = range.cloneRange();
+        }
+      }
+    }
+
+    root.onMouseUp.listen(remember);
+    root.onKeyUp.listen(remember);
+    root.onPaste.listen((event) {
+      event.preventDefault();
+      html.document.execCommand('insertText', false,
+          event.clipboardData?.getData('text/plain') ?? '');
+      onChanged?.call();
+    });
+    root.onDrop.listen((event) => event.preventDefault());
+  }
+
+  void format(String command) {
+    if (!['bold', 'italic', 'insertUnorderedList', 'insertOrderedList']
+        .contains(command)) {
+      return;
+    }
+    root.focus();
+    if (_savedRange != null) {
+      html.window.getSelection()!
+        ..removeAllRanges()
+        ..addRange(_savedRange!);
+    }
+    html.document.execCommand(command);
+    onChanged?.call();
   }
 
   void load(List<WorkflowBlock> blocks) {
     _blocks = List.of(blocks);
+    _savedRange = null;
     root.children.clear();
     for (final block in blocks) {
       final value = block.toJson();
@@ -24,10 +81,18 @@ class WorkflowEditorAdapter {
         ..dataset['blockId'] = block.id
         ..dataset['blockType'] = block.type;
       if (block.type == 'image') {
+        final image = html.ImageElement(
+            src: resolveOwnedAsset(value['assetId'] as String))
+          ..alt = value['caption'] as String? ?? 'Document image';
+        image.style
+          ..width = '${value['width'] ?? 60}%'
+          ..maxWidth = '100%'
+          ..display = 'block';
+        image.style.marginLeft = value['align'] == 'left' ? '0' : 'auto';
+        image.style.marginRight = value['align'] == 'right' ? '0' : 'auto';
         element
           ..contentEditable = 'false'
-          ..append(html.ImageElement(
-              src: resolveOwnedAsset(value['assetId'] as String)))
+          ..append(image)
           ..append(
               html.SpanElement()..text = value['caption'] as String? ?? '');
       } else if (const ['list', 'table'].contains(block.type)) {
@@ -42,7 +107,25 @@ class WorkflowEditorAdapter {
                   .join('\n');
       } else {
         _renderText(element, block.text, value['marks'] as List? ?? []);
+        if (block.type == 'heading') {
+          element.style
+            ..fontSize = '22px'
+            ..fontWeight = 'bold';
+        }
+        if (block.type == 'scenario' || block.type == 'takeaway') {
+          element.style
+            ..backgroundColor = '#edf3ff'
+            ..padding = '14px';
+        }
       }
+      if (['image', 'list', 'table'].contains(block.type)) {
+        final control = html.ButtonElement()
+          ..type = 'button'
+          ..text = 'Edit ${block.type}'
+          ..onClick.listen((_) => onProperties?.call(block.id));
+        element.append(control);
+      }
+      element.style.marginBottom = '14px';
       root.append(element);
     }
   }
@@ -94,12 +177,12 @@ class WorkflowEditorAdapter {
 
   WorkflowSelection? selection() {
     final selected = html.window.getSelection();
-    if (selected == null ||
-        (selected.rangeCount ?? 0) == 0 ||
-        selected.isCollapsed == true) {
-      return null;
-    }
-    final range = selected.getRangeAt(0);
+    final range = selected != null &&
+            (selected.rangeCount ?? 0) > 0 &&
+            root.contains(selected.getRangeAt(0).commonAncestorContainer)
+        ? selected.getRangeAt(0)
+        : _savedRange;
+    if (range == null || range.collapsed == true) return null;
     final block = _blockFor(range.startContainer);
     if (block == null ||
         block != _blockFor(range.endContainer) ||
@@ -111,8 +194,14 @@ class WorkflowEditorAdapter {
       ..selectNodeContents(block)
       ..setEnd(range.startContainer, range.startOffset);
     final text = block.text ?? '';
-    final selectedText = range.cloneContents().text ?? '';
-    final start = (prefix.cloneContents().text ?? '').length;
+    String rangeText(html.Node node) {
+      if (node is html.Text) return node.text ?? '';
+      if (node is html.Element && node.localName == 'br') return '\n';
+      return node.nodes.map(rangeText).join();
+    }
+
+    final selectedText = rangeText(range.cloneContents());
+    final start = rangeText(prefix.cloneContents()).length;
     final end = start + selectedText.length;
     return WorkflowSelection(
         block.dataset['blockId']!,
@@ -122,7 +211,28 @@ class WorkflowEditorAdapter {
   }
 
   List<WorkflowBlock> snapshot() {
-    return _blocks.map((block) {
+    final existing = {for (final block in _blocks) block.id: block};
+    final seen = <String>{};
+    final live = <WorkflowBlock>[];
+    for (final node in root.nodes.toList()) {
+      if (node is html.Text) {
+        final element = html.DivElement()..text = node.text;
+        root.insertBefore(element, node);
+        node.remove();
+      }
+    }
+    for (final element in root.children) {
+      var id = element.dataset['blockId'];
+      if (id == null || seen.contains(id)) {
+        id = 'b_${DateTime.now().microsecondsSinceEpoch}_${seen.length}';
+        element.dataset['blockId'] = id;
+      }
+      seen.add(id);
+      element.dataset['blockType'] = existing[id]?.type ?? 'paragraph';
+      live.add(existing[id] ?? WorkflowBlock.paragraph(id, element.text ?? ''));
+    }
+    _blocks = live;
+    return live.map((block) {
       if (!const ['paragraph', 'heading', 'scenario', 'takeaway']
           .contains(block.type)) {
         return block;
@@ -139,6 +249,10 @@ class WorkflowEditorAdapter {
         }
         if (node is! html.Element) return '';
         final start = points;
+        if (node.localName == 'br') {
+          points++;
+          return '\n';
+        }
         final value = node.nodes.map(visit).join();
         final tag = node.localName;
         final type = ['b', 'strong'].contains(tag)
