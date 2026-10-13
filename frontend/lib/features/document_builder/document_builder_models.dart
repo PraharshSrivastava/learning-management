@@ -19,17 +19,17 @@ class DocumentBuilderMetadata {
         'courseType': courseType.trim()
       };
   List<String> get missingFields => {
-        courseName: 'Course name',
-        courseDescription: 'Course description',
-        courseObjective: 'Course objective',
-        courseDifficulty: 'Course difficulty',
-        language: 'Language',
-        targetAudience: 'Target audience',
-        courseType: 'Course type'
+        'Course name': courseName,
+        'Course description': courseDescription,
+        'Course objective': courseObjective,
+        'Course difficulty': courseDifficulty,
+        'Language': language,
+        'Target audience': targetAudience,
+        'Course type': courseType
       }
           .entries
-          .where((entry) => entry.key.trim().isEmpty)
-          .map((entry) => entry.value)
+          .where((entry) => entry.value.trim().isEmpty)
+          .map((entry) => entry.key)
           .toList();
 }
 

@@ -6,6 +6,7 @@ import json
 import os
 from email.utils import getaddresses
 from pathlib import Path
+from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -76,6 +77,13 @@ class Settings(BaseModel):
     llm_context_window: int = Field(default=100000, ge=256)
     llm_max_input_tokens: int = Field(default=87000, ge=256)
     llm_max_output_tokens: int = Field(default=12000, ge=256)
+
+    # New workflow stays disabled until model/editor/handoff acceptance gates pass.
+    document_builder_workflow_enabled: bool = False
+    document_builder_model: str | None = None
+    document_builder_output_mode: Literal["prompt", "json_object", "json_schema"] = "prompt"
+    document_builder_model_timeout_seconds: float = Field(default=90, gt=0, le=600)
+    document_builder_operation_deadline_seconds: float = Field(default=240, gt=0, le=1200)
 
     langfuse_enabled: bool = False
     langfuse_host: str | None = None
@@ -338,6 +346,11 @@ class Settings(BaseModel):
                 "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "100000"),
                 "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "87000"),
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),
+                "document_builder_workflow_enabled": values.get("DOCUMENT_BUILDER_WORKFLOW_ENABLED", "false"),
+                "document_builder_model": values.get("DOCUMENT_BUILDER_MODEL") or None,
+                "document_builder_output_mode": values.get("DOCUMENT_BUILDER_OUTPUT_MODE", "prompt"),
+                "document_builder_model_timeout_seconds": values.get("DOCUMENT_BUILDER_MODEL_TIMEOUT_SECONDS", "90"),
+                "document_builder_operation_deadline_seconds": values.get("DOCUMENT_BUILDER_OPERATION_DEADLINE_SECONDS", "240"),
                 "langfuse_enabled": values.get("LANGFUSE_ENABLED", "false"),
                 "langfuse_host": values.get("LANGFUSE_BASE_URL")
                 or values.get("LANGFUSE_HOST")

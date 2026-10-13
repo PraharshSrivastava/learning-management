@@ -1,0 +1,21 @@
+{
+  "model": "gemma-4-e4b",
+  "mode": "prompt",
+  "kind": "capability-smoke",
+  "humanReviewRequired": true,
+  "results": [
+    {
+      "case": "outline-2-short",
+      "task": "outline",
+      "repeat": 1,
+      "status": "failed",
+      "code": "provider_error",
+      "message": "Document model is unavailable; your draft is unchanged",
+      "seconds": 0.73
+    }
+  ],
+  "valid": 0,
+  "attempted": 1,
+  "expected": 4,
+  "complete": false
+}
