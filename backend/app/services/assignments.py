@@ -72,7 +72,11 @@ def _reactivated_progress(
         pass
     elif revoked_at and deadline:
         try:
-            remaining = datetime.fromisoformat(deadline) - datetime.fromisoformat(revoked_at)
+            # Normalize old naive timestamps and PostgreSQL offset timestamps together.
+            remaining = (
+                datetime.fromisoformat(deadline).astimezone()
+                - datetime.fromisoformat(revoked_at).astimezone()
+            )
             if remaining.total_seconds() < 0:
                 remaining = timedelta(0)
             next_progress["deadline"] = (now + remaining).isoformat()

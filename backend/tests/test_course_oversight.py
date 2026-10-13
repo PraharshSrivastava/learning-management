@@ -101,7 +101,7 @@ def test_job_read_checks_course_and_current_grant(oversight):
 
 
 MUTATIONS = [
-    ("POST", "/api/courses/c-2/lifecycle", {"action": "archive", "expected_revision": 0}),
+    ("POST", "/api/courses/c-2/lifecycle", {"action": "disable", "expected_revision": 0}),
     ("PUT", "/api/courses/c-2", {}),
     ("DELETE", "/api/courses/c-2", None),
     ("PUT", "/api/courses/c-2/modules/1/quiz", {"questions": [{

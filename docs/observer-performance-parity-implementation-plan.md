@@ -1,5 +1,7 @@
 # LMS Performance parity and course lifecycle: implementation plan
 
+> Local follow-up implemented (not pushed/deployed): the user approved simplifying the trainer workflow to Enable/Disable. See [Enable/Disable simplification plan](enable-disable-simplification-plan.md); it supersedes the Archive/Restore recommendations below. The deployed baseline still has the original lifecycle UI.
+
 Status: implementation completed on this branch; automated verification recorded below. Live authenticated browser UAT and release sign-off remain pending.
 Updated: 12 October 2026.
 Branch: `codex/observer-performance-parity`.

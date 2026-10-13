@@ -157,5 +157,5 @@ class CourseRecord(ApiSchema):
 
 
 class CourseLifecycleRequest(RequestSchema):
-    action: Literal["disable", "archive", "restore"]
+    action: Literal["disable"]
     expected_revision: int = Field(ge=0)

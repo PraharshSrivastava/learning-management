@@ -1,3 +1,4 @@
+import 'report_filter_row.dart';
 // This trainer application is deployed as Flutter Web; CSV downloads use the browser.
 // ignore_for_file: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
@@ -235,102 +236,94 @@ class _PerformanceReportPortalState
           ),
         ]),
         const SizedBox(height: 12),
-        LayoutBuilder(builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 960
-              ? 4
-              : constraints.maxWidth >= 540
-                  ? 2
-                  : 1;
-          final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
-          return Wrap(spacing: 12, runSpacing: 12, children: [
-            SizedBox(
-                width: width,
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey(filter.courseStatus),
-                  initialValue: filter.courseStatus,
-                  decoration: const InputDecoration(
-                      labelText: 'Course availability',
-                      border: OutlineInputBorder()),
-                  items: const [
-                    DropdownMenuItem(value: 'active', child: Text('Active')),
-                    DropdownMenuItem(
-                        value: 'disabled', child: Text('Disabled')),
-                    DropdownMenuItem(
-                        value: 'archived', child: Text('Archived')),
-                    DropdownMenuItem(
-                        value: 'all', child: Text('All · includes history')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      searchDelay?.cancel();
-                      search.clear();
-                      joined.clear();
-                      report.setCourseStatus(value);
-                    }
-                  },
-                )),
-            SearchableReportFilter(
-                isCurrent: () =>
-                    mounted && ref.read(reportContextProvider) == guard,
-                guard: (child) =>
-                    ReportAccessGuard(expected: guard, child: child),
-                label: 'Course',
-                value: filter.courseId,
-                width: width,
-                icon: Icons.menu_book_outlined,
-                items: {
-                  for (final value in _list(options['courses']))
-                    _map(value)['course_id'].toString():
-                        _map(value)['course_name'].toString()
-                },
-                onChanged: (value) => report.setFilter(filter.copyWith(
-                    courseId: value, clearCourse: value == null))),
-            SearchableReportFilter(
-                isCurrent: () =>
-                    mounted && ref.read(reportContextProvider) == guard,
-                guard: (child) =>
-                    ReportAccessGuard(expected: guard, child: child),
-                label: 'Department',
-                value: filter.department,
-                width: width,
-                icon: Icons.apartment_outlined,
-                items: {
-                  for (final value in _list(options['departments']))
-                    value.toString(): value.toString()
-                },
-                onChanged: (value) => report.setFilter(filter.copyWith(
-                    department: value, clearDepartment: value == null))),
-            SearchableReportFilter(
-                isCurrent: () =>
-                    mounted && ref.read(reportContextProvider) == guard,
-                guard: (child) =>
-                    ReportAccessGuard(expected: guard, child: child),
-                label: 'Mailing list',
-                value: filter.mailingList,
-                width: width,
-                icon: Icons.group_outlined,
-                items: {
-                  for (final value in _list(options['mailing_lists']))
-                    value.toString(): value.toString()
-                },
-                onChanged: (value) => report.setFilter(filter.copyWith(
-                    mailingList: value, clearMailingList: value == null))),
-            SizedBox(
-                width: width,
-                child: TextField(
-                    controller: joined,
-                    keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.done,
-                    decoration: _scopeFieldDecoration(
-                        'Joined within days', Icons.event_outlined),
-                    onSubmitted: (text) {
-                      final days = int.tryParse(text);
-                      report.setFilter(filter.copyWith(
-                          joinedLessThanDaysAgo: days,
-                          clearJoined: days == null));
-                    })),
-          ]);
-        }),
+        ReportFilterRow(
+            builder: (width) => [
+                  Tooltip(
+                      message:
+                          'Includes active and disabled courses and retained learning records.',
+                      child: SearchableReportFilter(
+                        label: 'Course availability',
+                        value: filter.courseStatus == 'archived'
+                            ? 'disabled'
+                            : filter.courseStatus,
+                        width: width,
+                        icon: Icons.visibility_outlined,
+                        allowAll: false,
+                        items: const {
+                          'all': 'All courses',
+                          'active': 'Active',
+                          'disabled': 'Disabled'
+                        },
+                        isCurrent: () =>
+                            mounted && ref.read(reportContextProvider) == guard,
+                        guard: (child) =>
+                            ReportAccessGuard(expected: guard, child: child),
+                        onChanged: (value) {
+                          if (value != null) {
+                            searchDelay?.cancel();
+                            search.clear();
+                            joined.clear();
+                            report.setCourseStatus(value);
+                          }
+                        },
+                      )),
+                  SearchableReportFilter(
+                      isCurrent: () =>
+                          mounted && ref.read(reportContextProvider) == guard,
+                      guard: (child) =>
+                          ReportAccessGuard(expected: guard, child: child),
+                      label: 'Course',
+                      value: filter.courseId,
+                      width: width,
+                      icon: Icons.menu_book_outlined,
+                      items: {
+                        for (final value in _list(options['courses']))
+                          _map(value)['course_id'].toString():
+                              _map(value)['course_name'].toString()
+                      },
+                      onChanged: (value) => report.setFilter(filter.copyWith(
+                          courseId: value, clearCourse: value == null))),
+                  SearchableReportFilter(
+                      isCurrent: () =>
+                          mounted && ref.read(reportContextProvider) == guard,
+                      guard: (child) =>
+                          ReportAccessGuard(expected: guard, child: child),
+                      label: 'Department',
+                      value: filter.department,
+                      width: width,
+                      icon: Icons.apartment_outlined,
+                      items: {
+                        for (final value in _list(options['departments']))
+                          value.toString(): value.toString()
+                      },
+                      onChanged: (value) => report.setFilter(filter.copyWith(
+                          department: value, clearDepartment: value == null))),
+                  SearchableReportFilter(
+                      isCurrent: () =>
+                          mounted && ref.read(reportContextProvider) == guard,
+                      guard: (child) =>
+                          ReportAccessGuard(expected: guard, child: child),
+                      label: 'Mailing list',
+                      value: filter.mailingList,
+                      width: width,
+                      icon: Icons.group_outlined,
+                      items: {
+                        for (final value in _list(options['mailing_lists']))
+                          value.toString(): value.toString()
+                      },
+                      onChanged: (value) => report.setFilter(filter.copyWith(
+                          mailingList: value,
+                          clearMailingList: value == null))),
+                  JoinedDaysReportFilter(
+                      width: width,
+                      controller: joined,
+                      onSubmitted: (text) {
+                        final days = int.tryParse(text);
+                        report.setFilter(filter.copyWith(
+                            joinedLessThanDaysAgo: days,
+                            clearJoined: days == null));
+                      }),
+                ]),
       ]),
     );
   }
@@ -1413,24 +1406,6 @@ class _Drop extends StatelessWidget {
           ],
           onChanged: (next) => onChanged(next == '' ? null : next)));
 }
-
-InputDecoration _scopeFieldDecoration(String label, IconData icon) =>
-    InputDecoration(
-      labelText: label,
-      isDense: true,
-      filled: true,
-      fillColor: Colors.white,
-      prefixIcon: Icon(icon, size: 19, color: AppTheme.primaryBlue),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFD2E0F0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
-      ),
-    );
 
 class _Bar extends StatelessWidget {
   final Map<String, dynamic> item;

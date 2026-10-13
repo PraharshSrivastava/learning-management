@@ -65,7 +65,7 @@ def completed():
     return get_employee_course_progress("a", "course")
 
 
-def test_disable_archive_restore_enable_preserves_completion(workspace_db):
+def test_disable_enable_preserves_completion(workspace_db):
     publish()
     original = completed()
     observers.save_config(
@@ -79,18 +79,13 @@ def test_disable_archive_restore_enable_preserves_completion(workspace_db):
     disabled = change_lifecycle("course", "creator", "disable", 1)
     assert disabled["lifecycle_state"] == "disabled"
     assert observers.get_config("course")["observers"][0]["is_active"] is False
-    archived = change_lifecycle("course", "creator", "archive", disabled["lifecycle_revision"])
-    assert archived["lifecycle_state"] == "archived"
-    with pytest.raises(DomainValidationError):
-        assignments.api_save_course_assignment("course", AssignmentRuleRequest(), "creator")
-    with pytest.raises(DomainValidationError):
-        publish()
-    restored = change_lifecycle("course", "creator", "restore", archived["lifecycle_revision"])
-    assert restored["lifecycle_state"] == "disabled"
+    for action in ("archive", "restore"):
+        with pytest.raises(DomainValidationError, match="no longer available"):
+            change_lifecycle("course", "creator", action, disabled["lifecycle_revision"])
     progress = get_employee_course_progress("a", "course")
     assert progress["revoked_at"] and progress["status"] == "completed"
     assert progress["completed_at"] == original["completed_at"]
-    publish(revision=restored["lifecycle_revision"])
+    publish(revision=disabled["lifecycle_revision"])
     progress = get_employee_course_progress("a", "course")
     assert progress["revoked_at"] is None
     assert progress["status"] == "completed"
@@ -232,7 +227,9 @@ def test_archived_course_cannot_be_reopened_by_stale_content_or_generation(works
 
     publish()
     stale = get_course("course")
-    change_lifecycle("course", "creator", "archive", 1)
+    with database.get_connection() as db:
+        db.execute("UPDATE courses SET status='archived' WHERE course_id='course'")
+        db.commit()
     with pytest.raises(ConflictError):
         save_course(stale, "ready")
     job = GenerationJobResponse(
@@ -253,9 +250,62 @@ def test_lifecycle_uses_one_pool_connection_and_preserves_lock_order(workspace_d
     original_max_size = pool.max_size
     pool.resize(min_size=0, max_size=1)
     try:
-        result = change_lifecycle("course", "creator", "archive", 1)
-        assert result["lifecycle_state"] == "archived"
-        result = change_lifecycle("course", "creator", "restore", result["lifecycle_revision"])
+        result = change_lifecycle("course", "creator", "disable", 1)
         assert result["lifecycle_state"] == "disabled"
+        publish(revision=result["lifecycle_revision"])
+        assert get_course("course")["lifecycle_state"] == "active"
     finally:
         pool.resize(min_size=0, max_size=original_max_size)
+
+
+def test_archived_migration_preserves_history_and_never_reopens_access(workspace_db):
+    from app.repositories.availability_migrations import VERSION, apply_availability_migration
+    publish()
+    original = completed()
+    observers.save_config("course", "creator", ObserverSaveRequest(
+        revision=0, observers=[{"observer_employee_id": "observer", "employee_ids": ["a"]}]))
+    observers.apply_config("course", "creator", 1)
+    with database.get_connection() as db:
+        db.execute("UPDATE courses SET status='archived' WHERE course_id='course'")
+        apply_availability_migration(db.cursor())
+        apply_availability_migration(db.cursor())
+        assert db.execute("SELECT count(*) AS n FROM lms_schema_migrations WHERE version=?", (VERSION,)).fetchone()["n"] == 1
+        assert db.execute("SELECT count(*) AS n FROM course_lifecycle_audit WHERE action='archived_to_disabled'").fetchone()["n"] == 1
+        db.commit()
+    result = get_course("course")
+    assert result["lifecycle_state"] == "disabled"
+    assert result["lifecycle_revision"] == 2
+    progress = get_employee_course_progress("a", "course")
+    assert progress["revoked_at"]
+    for key in ("status", "modules", "attempts", "deadline", "completed_at"):
+        assert progress[key] == original[key]
+    assert not observers.get_config("course")["observers"][0]["is_active"]
+    assert len(performance_reporting.list_assignment_summaries(TrainerPerformanceScope("creator", course_status="disabled"))) == 2
+    with pytest.raises(ConflictError):
+        publish(revision=1)
+    publish(revision=2)
+    assert get_course("course")["lifecycle_state"] == "active"
+    assert not observers.get_config("course")["observers"][0]["is_active"]
+
+
+def test_archived_migration_rejects_missing_publication_evidence(workspace_db):
+    from app.repositories.availability_migrations import apply_availability_migration
+    with database.get_connection() as db:
+        db.execute("UPDATE courses SET status='archived' WHERE course_id='course'")
+        with pytest.raises(RuntimeError, match="administrator review"):
+            apply_availability_migration(db.cursor())
+        assert db.execute("SELECT status FROM courses WHERE course_id='course'").fetchone()["status"] == 'archived'
+        db.rollback()
+
+
+def test_normal_startup_records_migration_once_without_changing_active_access(workspace_db):
+    from app.repositories import schema
+    from app.repositories.availability_migrations import VERSION
+    publish()
+    original = completed()
+    schema.init_db()
+    schema.init_db()
+    assert get_course("course")["lifecycle_state"] == "active"
+    assert get_employee_course_progress("a", "course") == original
+    with database.get_connection() as db:
+        assert db.execute("SELECT count(*) AS n FROM lms_schema_migrations WHERE version=?", (VERSION,)).fetchone()["n"] == 1

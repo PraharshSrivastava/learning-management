@@ -436,7 +436,7 @@ class _AssignmentRuleViewState extends ConsumerState<AssignmentRuleView> {
               if (course.lifecycleState == 'archived')
                 const _Notice(
                     text:
-                        'Archived · Restore first, then review assignments and Enable.',
+                        'This course requires an availability update. Refresh or contact your administrator.',
                     isError: false),
               AbsorbPointer(
                   absorbing: course.lifecycleState == 'archived',

@@ -56,7 +56,6 @@ class CoursesSidebar extends ConsumerWidget {
                   'all',
                   'active',
                   'disabled',
-                  'archived',
                   'ready',
                   'draft'
                 ]
@@ -411,7 +410,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
             ]),
             const SizedBox(height: 12),
             const Text(
-                'Archived · course content and learning records are preserved. Restore returns this course to Disabled.'),
+                'This course requires an availability update. Refresh or contact your administrator. Learning records are preserved.'),
             const SizedBox(height: 20),
             Text(widget.course.courseDescription),
             const SizedBox(height: 12),
