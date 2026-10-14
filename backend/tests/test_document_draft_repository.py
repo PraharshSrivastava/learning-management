@@ -4,6 +4,7 @@ Real PostgreSQL migration/locking tests remain required before workflow rollout.
 The adapter exercises the actual repository methods and transactional snapshots.
 """
 
+import json
 import sqlite3
 from contextlib import contextmanager
 
@@ -29,6 +30,7 @@ class Connection:
 def repo(monkeypatch):
     raw = sqlite3.connect(":memory:")
     raw.row_factory = sqlite3.Row
+    raw.create_function("jsonb_array_length", 1, lambda value: len(json.loads(value)))
     raw.execute("PRAGMA foreign_keys = ON")
     raw.execute("CREATE TABLE trainers (trainer_id TEXT PRIMARY KEY)")
     raw.executemany("INSERT INTO trainers VALUES (?)", [("owner",), ("other",)])
@@ -167,3 +169,50 @@ def test_separate_copy_remaps_owned_source_references(repo):
     assert copied.content.modules[0].sourceReferences[0].sourceId != "source1"
     repo.validate_resources(copied.id, "owner", copied.content)
     assert repo.get(original.id, "owner") == original
+
+
+def test_remove_and_undo_preserve_content_revisions_and_owned_resources(repo):
+    draft = repo.create("owner", content())
+    repo.put_resource(draft.id, "owner", "asset", "asset", {"path": "owned/image.png"})
+    assert repo.list("owner")[0]["module_count"] == 1
+    repo.remove(draft.id, "owner", draft.revision)
+    assert repo.list("owner") == []
+    with pytest.raises(NotFoundError):
+        repo.get(draft.id, "owner")
+    with pytest.raises(NotFoundError):
+        repo.save(draft.id, "owner", draft.revision, draft.content)
+    restored = repo.undo_remove(draft.id, "owner", draft.revision)
+    assert restored == draft
+    assert len(repo.revisions(draft.id, "owner")) == 1
+    assert repo.resources(draft.id, "owner")[0]["id"] == "asset"
+    assert repo.list("owner")[0]["draft_id"] == draft.id
+
+
+def test_remove_and_undo_are_owner_scoped_and_revision_checked(repo):
+    draft = repo.create("owner", content())
+    with pytest.raises(NotFoundError):
+        repo.remove(draft.id, "other", 1)
+    with pytest.raises(ConflictError):
+        repo.remove(draft.id, "owner", 99)
+    assert repo.get(draft.id, "owner") == draft
+    repo.remove(draft.id, "owner", 1)
+    with pytest.raises(NotFoundError):
+        repo.undo_remove(draft.id, "other", 1)
+    with pytest.raises(ConflictError):
+        repo.undo_remove(draft.id, "owner", 99)
+    assert repo.list("owner") == []
+    repo.undo_remove(draft.id, "owner", 1)
+    assert repo.get(draft.id, "owner") == draft
+
+
+def test_remove_rejects_active_generation(repo):
+    draft = repo.create("owner", content())
+    with document_drafts.get_connection() as connection:
+        connection.execute(
+            "INSERT INTO document_builder_operations (operation_id, draft_id, request_key, body_json) VALUES (?, ?, ?, ?::jsonb)",
+            ("active", draft.id, "active", '{"status":"running"}'),
+        )
+        connection.commit()
+    with pytest.raises(ConflictError, match="generation"):
+        repo.remove(draft.id, "owner", 1)
+    assert repo.get(draft.id, "owner") == draft

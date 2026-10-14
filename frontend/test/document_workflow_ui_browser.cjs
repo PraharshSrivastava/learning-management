@@ -45,10 +45,12 @@ const server = http.createServer((request,response) => {
     const id=parts[3], suffix=parts[4];
     if(!id && request.method()==='POST') {
      const newId=`draft_${++nextId}`;result={id:newId,revision:1,content:{schemaVersion:1,entryMode:body.entryMode,metadata:{...metadata},settings:{...settings},modules:[]},approvedOutline:null,createdAt:'2026-10-13',updatedAt:'2026-10-13'};drafts.set(newId,result);
-    } else if(!id) result=[...drafts.values()].map(d=>({draft_id:d.id,title:d.content.metadata.courseName,revision:d.revision}));
+    } else if(!id) result=[...drafts.values()].filter(d=>!d.removed).map(d=>({draft_id:d.id,title:d.content.metadata.courseName,revision:d.revision,module_count:d.content.modules.length,updated_at:d.updatedAt}));
     else {
      const draft=drafts.get(id);
      if(request.method()==='PATCH'){draft.content=body.content;draft.revision++;draft.approvedOutline=null;result=draft;}
+     else if(suffix==='remove'){draft.removed=true;result={};}
+     else if(suffix==='undo-remove'){draft.removed=false;result=draft;}
      else if(suffix==='sources')result=[];
      else if(suffix==='import'){draft.content.modules=modules();draft.content.metadata.courseName='Customer Service Essentials';draft.revision++;result=draft;}
      else if(suffix==='approve-outline'){draft.approvedOutline='approved';draft.revision++;result=draft;}
@@ -72,7 +74,7 @@ const server = http.createServer((request,response) => {
   await page.getByText('Create a training document',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'Open Document Builder'}).count(),0);
   await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-simplified-documents.png')});
-  await page.getByRole('button',{name:'Create course from document',exact:true}).click();
+  await page.getByRole('button',{name:'Create course',exact:true}).click();
   await page.waitForTimeout(1500);await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-ready-document-blueprint.png')});
   assert.deepEqual(readyBlueprints,['customer-service.pdf']);
   assert.equal(drafts.size,0);
@@ -89,7 +91,7 @@ const server = http.createServer((request,response) => {
   assert.equal(drafts.size,0);
   assert.equal(operations.size,0);
   await page.reload();await page.locator('flt-semantics-placeholder').waitFor();await page.locator('flt-semantics-placeholder').evaluate(e=>e.click());await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
-  await page.getByRole('button',{name:'Edit first',exact:true}).click();
+  await page.getByRole('button',{name:/More actions for/}).click();await page.getByRole('menuitem',{name:'Edit first',exact:true}).click();
   await page.getByRole('button',{name:'Approve outline',exact:true}).waitFor();
   assert.equal([...operations.values()].at(-1).request.sourceImport.documentId,'owned_upload');
   assert.equal(readyBlueprints.length,2);
@@ -135,6 +137,21 @@ const server = http.createServer((request,response) => {
   await page.locator('[aria-label="Training document editor"] [data-block-id]').first().fill('A trainer-written paragraph.');
   await page.getByText('← Documents',{exact:true}).click();await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
   assert.equal([...drafts.values()].at(-1).content.modules[0].blocks[0].text,'A trainer-written paragraph.');
+  await enter('Search documents','no-match');
+  await page.getByRole('group',{name:/Your documents No documents match your search/}).waitFor();
+  await enter('Search documents','');
+  const beforeRemove=[...drafts.values()].filter(d=>!d.removed).length;
+  await page.getByRole('button',{name:'Remove',exact:true}).first().click();
+  await page.getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.equal([...drafts.values()].filter(d=>!d.removed).length,beforeRemove);
+  await page.getByRole('button',{name:'Remove',exact:true}).first().click();
+  await page.getByRole('button',{name:'Remove draft',exact:true}).click();
+  await page.getByText('Draft removed',{exact:true}).waitFor();
+  assert.equal([...drafts.values()].filter(d=>!d.removed).length,beforeRemove-1);
+  await page.getByRole('button',{name:'Undo',exact:true}).click();
+  await page.waitForTimeout(400);
+  assert.equal([...drafts.values()].filter(d=>!d.removed).length,beforeRemove);
+  await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-option-a-documents.png')});
   for(const width of [1024,736,390]) {
     await page.setViewportSize({width,height:1000});await page.waitForTimeout(300);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);

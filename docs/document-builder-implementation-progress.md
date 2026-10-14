@@ -87,3 +87,20 @@ No production migration, deployment, publication or assignment was performed. Da
 The approved direct Documents landing, three-field AI setup, title-only blank flow, single editable outline review, explicit approval/preflight, focused editor and optional contextual assistant are implemented. Details and actual browser screenshots are recorded in document-builder-simplified-implementation-plan.md. Verification: 111 backend checks, 17 Trainer tests, 9 Employee/Observer tests, changed-file analysis/Ruff, both release web builds and compiled browser acceptance passed. Live VM model/video/quiz acceptance is still outstanding; the original localhost demo is no longer the only simplified UI implementation.
 
 Ready-made file follow-up: default upload/library actions now go directly through the original course-generation service to Blueprint. Builder approval/details remain only on optional edited copies and authored documents. No empty draft is created by merely choosing Use existing content.
+
+
+## 14 October 2026 — Approved Option A Documents home
+
+Implemented the approved corporate Documents layout in the actual Trainer app:
+three compact ordered creation cards, three recent drafts with View all drafts,
+readable display names and local dates, module counts, document search and type
+filtering, primary Create course, Preview, and Edit first in the overflow menu.
+Original stored filenames and IDs remain intact for uploads, preview and Blueprint.
+
+Draft Remove requires confirmation and supports Undo for 10 seconds. Removal is
+server-side and reversible, retains draft content/revisions/assets, and does not
+delete source uploads or courses. Owner and revision checks prevent cross-trainer
+access; active generation must finish or be cancelled before removal. An additive
+removed-drafts table is initialized on backend startup; no destructive migration.
+
+Validation: 85 backend regression checks, 52 Trainer tests, clean changed-file analysis, successful JavaScript release build, and compiled browser checks for search, removal cancellation, Remove/Undo, direct Blueprint upload/library routing, optional editing, AI, blank documents, responsive widths and feature-off fallback. The committed Option A screenshot is from the compiled app with synthetic fixtures. VM PostgreSQL acceptance and deployment follow these local checks.

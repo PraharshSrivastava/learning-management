@@ -184,3 +184,18 @@ def test_background_import_commits_completed_state_atomically(repository):
         == "Listen before offering a solution."
     )
     assert len(repo.resources(draft.id, owner, "source")) == 1
+
+
+def test_postgres_remove_undo_preserves_draft_and_owner_scope(repository):
+    repo, owner = repository
+    draft = repo.create(owner, content())
+    repo.remove(draft.id, owner, draft.revision)
+    assert all(item["draft_id"] != draft.id for item in repo.list(owner))
+    with pytest.raises(NotFoundError):
+        repo.get(draft.id, owner)
+    with pytest.raises(NotFoundError):
+        repo.undo_remove(draft.id, "other", draft.revision)
+    with pytest.raises(NotFoundError):
+        repo.save(draft.id, owner, draft.revision, draft.content)
+    assert repo.undo_remove(draft.id, owner, draft.revision) == draft
+    assert len(repo.revisions(draft.id, owner)) == 1

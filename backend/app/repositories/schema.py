@@ -6,6 +6,7 @@ from app.repositories.database import get_connection
 from app.repositories.document_drafts import create_draft_tables
 
 TABLES = (
+    "document_builder_removed_drafts",
     "document_builder_operations",
     "document_builder_resources",
     "document_builder_revisions",

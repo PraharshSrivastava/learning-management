@@ -53,3 +53,32 @@ def test_client_cannot_claim_image_assets_or_generation_status(monkeypatch):
             "/api/document-builder/drafts", json={"entryMode": "blank", "modules": [module]}
         )
         assert response.status_code == 422
+
+
+def test_remove_routes_are_feature_gated_and_authenticated(monkeypatch):
+    for enabled, expected in [(False, 404), (True, 401)]:
+        api = client(monkeypatch, enabled)
+        for action in ["remove", "undo-remove"]:
+            assert (
+                api.post(
+                    f"/api/document-builder/drafts/draft/{action}", json={"expectedRevision": 1}
+                ).status_code
+                == expected
+            )
+
+
+def test_remove_and_undo_use_authenticated_owner(monkeypatch):
+    api = client(monkeypatch, True)
+    monkeypatch.setattr(document_drafts, "_owner", lambda *args: "verified-owner")
+    calls = []
+    monkeypatch.setattr(document_drafts.repository, "remove", lambda *args: calls.append(args))
+    response = api.post("/api/document-builder/drafts/owned/remove", json={"expectedRevision": 7})
+    assert response.status_code == 204
+    assert calls == [("owned", "verified-owner", 7)]
+    assert (
+        api.post(
+            "/api/document-builder/drafts/owned/remove",
+            json={"expectedRevision": 7, "trainer_id": "attacker"},
+        ).status_code
+        == 422
+    )

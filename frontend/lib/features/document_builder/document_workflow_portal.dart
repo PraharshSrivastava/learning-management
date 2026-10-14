@@ -84,6 +84,9 @@ class _DocumentWorkflowPortalState
   final assetUrls = <String, String>{};
   final objectUrls = <String>[];
   List<dynamic> drafts = [];
+  bool showAllDrafts = false;
+  String documentQuery = '';
+  String documentType = 'all';
   bool disposed = false;
   @override
   void initState() {
@@ -597,137 +600,438 @@ class _DocumentWorkflowPortalState
                 ]))));
   }
 
+  String readableName(String value) {
+    var name = value.replaceFirst(RegExp(r'^\d{13,16}[-_]'), '');
+    name = name.replaceFirst(
+        RegExp(r'\.(pdf|docx|pptx)$', caseSensitive: false), '');
+    name = name.replaceAll('_', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    return name.isEmpty ? 'Untitled document' : name;
+  }
+
+  String readableDate(dynamic value, {bool relative = false}) {
+    final date = DateTime.tryParse(value?.toString() ?? '')?.toLocal();
+    if (date == null) return 'Date unavailable';
+    if (relative) {
+      final elapsed = DateTime.now().difference(date);
+      if (elapsed.inMinutes < 1) return 'Just now';
+      if (elapsed.inHours < 1) return '${elapsed.inMinutes} minutes ago';
+      if (elapsed.inHours < 24) {
+        return '${elapsed.inHours} ${elapsed.inHours == 1 ? 'hour' : 'hours'} ago';
+      }
+      if (elapsed.inDays == 1) return 'Yesterday';
+    }
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  Future<void> openDraft(dynamic d) => guarded(() async {
+        await controller.open(d['draft_id']);
+        active = 0;
+        loadedModule = null;
+        proposedOperation = null;
+        assistantVisible = false;
+        if (controller.operation?['request']['task'] == 'outline' &&
+            controller.operation?['status'] == 'proposed') {
+          setState(() => step = 'outline');
+        } else if (controller.modules.isEmpty) {
+          setState(() => step = controller.content['entryMode'] == 'existing'
+              ? 'source'
+              : 'setup');
+        } else {
+          await showEditor(sync: false);
+        }
+      });
+
+  Future<void> removeDraft(dynamic d) async {
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: const Text('Remove draft?'),
+              content: Text(
+                  'Remove “${readableName(d['title']?.toString() ?? '')}” from your drafts? Your uploaded documents and courses will remain available.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Remove draft'))
+              ],
+            ));
+    if (confirmed != true || !mounted) return;
+    await guarded(() async {
+      await controller.api.call('/drafts/${d['draft_id']}/remove',
+          method: 'POST', body: {'expectedRevision': d['revision']});
+      await refreshDrafts();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Draft removed'),
+        duration: const Duration(seconds: 10),
+        action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => guarded(() async {
+                  await controller.api.call(
+                      '/drafts/${d['draft_id']}/undo-remove',
+                      method: 'POST',
+                      body: {'expectedRevision': d['revision']});
+                  await refreshDrafts();
+                })),
+      ));
+    });
+  }
+
   Widget home() {
     final files = ref.watch(fileListProvider).files;
-    return ListView(children: [
-      const Text('Create a training document',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 16),
-      LayoutBuilder(builder: (context, box) {
-        final choices = [
-          (
-            'Use existing content',
-            'Upload a document, choose an existing file, or paste notes.',
-            'existing',
-            Icons.description_outlined
-          ),
-          (
-            'Generate with AI',
-            'Describe the topic, audience, and learning goals. Review an AI draft.',
-            'ai',
-            Icons.auto_awesome_outlined
-          ),
-          (
-            'Start blank',
-            'Name your document and start writing.',
-            'blank',
-            Icons.note_add_outlined
-          ),
-        ];
-        return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: choices
-                .map((c) => SizedBox(
-                      width: box.maxWidth < 700
-                          ? box.maxWidth
-                          : (box.maxWidth - 32) / 3,
-                      child: Semantics(
-                          button: true,
-                          label: c.$1,
-                          child: InkWell(
-                            onTap: controller.busy ? null : () => start(c.$3),
-                            borderRadius: BorderRadius.circular(12),
-                            child: panel(Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(c.$4,
-                                      color: AppTheme.primaryBlue, size: 24),
-                                  const SizedBox(height: 20),
-                                  Text(c.$1,
+    final visibleFiles = files
+        .where((f) =>
+            (documentType == 'all' ||
+                f.fileType.toLowerCase() == documentType) &&
+            '${readableName(f.displayName)} ${f.fileName}'
+                .toLowerCase()
+                .contains(documentQuery.toLowerCase()))
+        .toList();
+    final visibleDrafts = showAllDrafts ? drafts : drafts.take(3).toList();
+    const titleStyle = TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
+    return Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1240),
+            child: ListView(children: [
+              const Text('Create a training document',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 14),
+              LayoutBuilder(builder: (context, box) {
+                final choices = [
+                  (
+                    'Use existing content',
+                    'Upload a ready document and open Blueprint.',
+                    'existing',
+                    Icons.upload_file_outlined
+                  ),
+                  (
+                    'Generate with AI',
+                    'Describe your topic. Review an AI draft.',
+                    'ai',
+                    Icons.auto_awesome_outlined
+                  ),
+                  (
+                    'Start blank',
+                    'Write your own training document.',
+                    'blank',
+                    Icons.note_add_outlined
+                  ),
+                ];
+                return Wrap(
+                    spacing: 14,
+                    runSpacing: 14,
+                    children: choices
+                        .map(
+                          (c) => SizedBox(
+                              height: box.maxWidth < 760 ? null : 120,
+                              width: box.maxWidth < 760
+                                  ? box.maxWidth
+                                  : (box.maxWidth - 28) / 3,
+                              child: Semantics(
+                                button: true,
+                                label: c.$1,
+                                child: InkWell(
+                                    onTap: controller.busy
+                                        ? null
+                                        : () => start(c.$3),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
+                                          color: c.$3 == 'existing'
+                                              ? const Color(0xFFF0F6FF)
+                                              : Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: const Color(0xFFDCE5F2))),
+                                      child: Row(children: [
+                                        Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: const BoxDecoration(
+                                                color: Color(0xFFE8F0FD),
+                                                shape: BoxShape.circle),
+                                            child: Icon(c.$4,
+                                                color: AppTheme.primaryBlue,
+                                                size: 24)),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                            child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                              Text(c.$1,
+                                                  style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w600)),
+                                              const SizedBox(height: 6),
+                                              Text(c.$2,
+                                                  style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: AppTheme
+                                                          .textSecondary)),
+                                            ])),
+                                        const SizedBox(width: 8),
+                                        const Icon(Icons.arrow_forward,
+                                            size: 18,
+                                            color: AppTheme.primaryBlue)
+                                      ]),
+                                    )),
+                              )),
+                        )
+                        .toList());
+              }),
+              const SizedBox(height: 20),
+              panel(Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          const Text('Recent drafts', style: titleStyle),
+                          if (drafts.length > 3)
+                            TextButton(
+                                onPressed: () => setState(
+                                    () => showAllDrafts = !showAllDrafts),
+                                child: Text(showAllDrafts
+                                    ? 'Show recent drafts'
+                                    : 'View all drafts (${drafts.length})')),
+                        ]),
+                    if (drafts.isEmpty)
+                      const Padding(
+                          padding: EdgeInsets.only(top: 16),
+                          child: Text(
+                              'Your unfinished documents will appear here.')),
+                    ...visibleDrafts.map((d) => Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: const BoxDecoration(
+                            border: Border(
+                                bottom: BorderSide(color: Color(0xFFEEF1F6)))),
+                        child: LayoutBuilder(builder: (context, box) {
+                          final info = Row(children: [
+                            const Icon(Icons.description_outlined,
+                                color: AppTheme.primaryBlue),
+                            const SizedBox(width: 14),
+                            Expanded(
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                  Text(
+                                      readableName(
+                                          d['title']?.toString() ?? ''),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                          fontSize: 17,
                                           fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 8),
-                                  Text(c.$2,
+                                  const SizedBox(height: 5),
+                                  Text(
+                                      '${(d['module_count'] as num? ?? 0) == 0 ? 'Empty draft' : '${d['module_count']} modules'} · Edited ${readableDate(d['updated_at'], relative: true)}',
                                       style: const TextStyle(
+                                          fontSize: 12,
                                           color: AppTheme.textSecondary)),
-                                ])),
-                          )),
-                    ))
-                .toList());
-      }),
-      const SizedBox(height: 24),
-      panel(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Continue your drafts',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        if (drafts.isEmpty)
-          const Padding(
-              padding: EdgeInsets.only(top: 14),
-              child: Text('Your unfinished documents will appear here.')),
-        ...drafts.map((d) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text((d['title'] as String?)?.isNotEmpty == true
-                  ? d['title']
-                  : 'Untitled document'),
-              subtitle:
-                  Text('Last edited: ${d['updated_at'] ?? 'Saved draft'}'),
-              trailing: button(
-                  'Open draft',
-                  () => guarded(() async {
-                        await controller.open(d['draft_id']);
-                        active = 0;
-                        loadedModule = null;
-                        proposedOperation = null;
-                        assistantVisible = false;
-                        if (controller.operation?['request']['task'] ==
-                                'outline' &&
-                            controller.operation?['status'] == 'proposed') {
-                          setState(() => step = 'outline');
-                        } else if (controller.modules.isEmpty) {
-                          setState(() => step =
-                              controller.content['entryMode'] == 'existing'
-                                  ? 'source'
-                                  : 'setup');
-                        } else {
-                          await showEditor(sync: false);
-                        }
-                      })),
-            )),
-      ])),
-      const SizedBox(height: 20),
-      panel(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Your documents',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        if (files.isEmpty)
-          const Padding(
-              padding: EdgeInsets.only(top: 14),
-              child: Text(
-                  'Uploaded documents will appear here. Start with Use existing content.')),
-        ...files.map((f) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Icon(Icons.description_outlined,
-                      color: AppTheme.primaryBlue),
-                  SizedBox(
-                      width: 280,
-                      child: Text(f.displayName,
-                          maxLines: 2, overflow: TextOverflow.ellipsis)),
-                  button('Preview', () => previewFile(f)),
-                  button(
-                      'Create course from document', () => useReadyDocument(f)),
-                  TextButton(
-                      onPressed: controller.busy
-                          ? null
-                          : () => importDocument(f.documentId),
-                      child: const Text('Edit first')),
-                ]))),
-      ])),
-    ]);
+                                ]))
+                          ]);
+                          final actions = Wrap(
+                              spacing: 12,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                button('Open', () => openDraft(d)),
+                                TextButton.icon(
+                                    onPressed: controller.busy
+                                        ? null
+                                        : () => removeDraft(d),
+                                    icon: const Icon(Icons.delete_outline,
+                                        size: 18),
+                                    label: const Text('Remove'),
+                                    style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            AppTheme.textSecondary)),
+                              ]);
+                          return box.maxWidth < 560
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                      info,
+                                      const SizedBox(height: 8),
+                                      actions
+                                    ])
+                              : Row(children: [
+                                  Expanded(child: info),
+                                  const SizedBox(width: 16),
+                                  actions
+                                ]);
+                        }))),
+                  ])),
+              const SizedBox(height: 20),
+              panel(Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    LayoutBuilder(builder: (context, box) {
+                      final tools =
+                          Wrap(spacing: 12, runSpacing: 10, children: [
+                        SizedBox(
+                            width: box.maxWidth < 560 ? box.maxWidth : 290,
+                            child: TextField(
+                                decoration: const InputDecoration(
+                                    hintText: 'Search documents',
+                                    prefixIcon: Icon(Icons.search),
+                                    border: OutlineInputBorder(),
+                                    isDense: true),
+                                onChanged: (v) =>
+                                    setState(() => documentQuery = v))),
+                        SizedBox(
+                            width: 130,
+                            child: DropdownButtonFormField<String>(
+                                initialValue: documentType,
+                                decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    isDense: true),
+                                items: const [
+                                  DropdownMenuItem(
+                                      value: 'all', child: Text('All types')),
+                                  DropdownMenuItem(
+                                      value: 'pdf', child: Text('PDF')),
+                                  DropdownMenuItem(
+                                      value: 'docx', child: Text('DOCX')),
+                                  DropdownMenuItem(
+                                      value: 'pptx', child: Text('PPTX'))
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => documentType = v ?? 'all'))),
+                      ]);
+                      return box.maxWidth < 850
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                  const Text('Your documents',
+                                      style: titleStyle),
+                                  const SizedBox(height: 14),
+                                  tools
+                                ])
+                          : Row(children: [
+                              const Expanded(
+                                  child: Text('Your documents',
+                                      style: titleStyle)),
+                              tools
+                            ]);
+                    }),
+                    const SizedBox(height: 14),
+                    if (visibleFiles.isEmpty)
+                      Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Text(files.isEmpty
+                              ? 'Uploaded documents will appear here. Start with Use existing content.'
+                              : 'No documents match your search.')),
+                    ...visibleFiles.map((f) => Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: const BoxDecoration(
+                            border: Border(
+                                top: BorderSide(color: Color(0xFFEEF1F6)))),
+                        child: LayoutBuilder(builder: (context, box) {
+                          final info = Row(children: [
+                            Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                    color: (f.isPptx
+                                            ? Colors.orange
+                                            : f.isDocx
+                                                ? Colors.blue
+                                                : Colors.red)
+                                        .withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(6)),
+                                child: Icon(
+                                    f.isPptx
+                                        ? Icons.slideshow_outlined
+                                        : Icons.description_outlined,
+                                    color: f.isPptx
+                                        ? Colors.deepOrange
+                                        : f.isDocx
+                                            ? Colors.blue
+                                            : Colors.red,
+                                    size: 22)),
+                            const SizedBox(width: 14),
+                            Expanded(
+                                child: Tooltip(
+                                    message: f.displayName,
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(readableName(f.displayName),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w600)),
+                                          const SizedBox(height: 5),
+                                          Text(
+                                              '${f.fileType.toUpperCase()} · ${f.formattedSize} · Uploaded ${readableDate(f.createdAt)}',
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      AppTheme.textSecondary)),
+                                        ])))
+                          ]);
+                          final actions = Wrap(
+                              spacing: 12,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                button(
+                                    'Create course', () => useReadyDocument(f),
+                                    primary: true),
+                                TextButton(
+                                    onPressed: controller.busy
+                                        ? null
+                                        : () => previewFile(f),
+                                    child: const Text('Preview')),
+                                PopupMenuButton<String>(
+                                    tooltip:
+                                        'More actions for ${readableName(f.displayName)}',
+                                    enabled: !controller.busy,
+                                    onSelected: (_) =>
+                                        importDocument(f.documentId),
+                                    itemBuilder: (_) => const [
+                                          PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit first'))
+                                        ]),
+                              ]);
+                          return box.maxWidth < 760
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                      info,
+                                      const SizedBox(height: 10),
+                                      actions
+                                    ])
+                              : Row(children: [
+                                  Expanded(child: info),
+                                  const SizedBox(width: 16),
+                                  actions
+                                ]);
+                        }))),
+                  ])),
+              const SizedBox(height: 24),
+            ])));
   }
 
   Widget formPage(Widget child) => ListView(children: [
@@ -1642,7 +1946,14 @@ class _DocumentWorkflowPortalState
       color: const Color(0xFFF3F5F9),
       child: Column(children: [
         Padding(
-            padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+            padding: EdgeInsets.fromLTRB(
+                step == 'home'
+                    ? ((MediaQuery.sizeOf(context).width - 1240) / 2)
+                        .clamp(24.0, double.infinity)
+                    : 24,
+                22,
+                24,
+                18),
             child: SizedBox(
                 width: double.infinity,
                 child: Wrap(

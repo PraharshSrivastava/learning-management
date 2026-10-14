@@ -24,6 +24,12 @@ def create_draft_tables(cursor):
         )
     """)
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS document_builder_removed_drafts (
+            draft_id TEXT PRIMARY KEY REFERENCES document_builder_drafts(draft_id) ON DELETE CASCADE,
+            removed_at TEXT NOT NULL
+        )
+    """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS document_builder_revisions (
             draft_id TEXT NOT NULL REFERENCES document_builder_drafts(draft_id) ON DELETE CASCADE,
             revision INTEGER NOT NULL CHECK (revision >= 1),
@@ -449,6 +455,8 @@ class DocumentDraftRepository:
                 connection.execute(
                     """
                 SELECT * FROM document_builder_drafts WHERE draft_id = ? AND trainer_id = ?
+                AND NOT EXISTS (SELECT 1 FROM document_builder_removed_drafts r
+                                WHERE r.draft_id = document_builder_drafts.draft_id)
             """,
                     (draft_id, trainer_id),
                 ).fetchone()
@@ -459,13 +467,54 @@ class DocumentDraftRepository:
             rows = connection.execute(
                 """
                 SELECT draft_id, revision, content_json->'metadata'->>'courseName' AS title,
-                       content_json->>'entryMode' AS entry_mode, updated_at
+                       content_json->>'entryMode' AS entry_mode,
+                       jsonb_array_length(content_json->'modules') AS module_count, updated_at
                 FROM document_builder_drafts WHERE trainer_id = ?
+                AND NOT EXISTS (SELECT 1 FROM document_builder_removed_drafts r
+                                WHERE r.draft_id = document_builder_drafts.draft_id)
                 ORDER BY updated_at DESC LIMIT 100
             """,
                 (trainer_id,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def remove(self, draft_id, trainer_id, expected):
+        with get_connection() as connection:
+            self._locked(connection, draft_id, trainer_id, expected)
+            rows = connection.execute(
+                "SELECT body_json FROM document_builder_operations WHERE draft_id = ?", (draft_id,)
+            ).fetchall()
+            for row in rows:
+                operation = (
+                    json.loads(row["body_json"])
+                    if isinstance(row["body_json"], str)
+                    else row["body_json"]
+                )
+                if operation["status"] in {"queued", "running"}:
+                    raise ConflictError(
+                        "Wait for generation to finish or cancel it before removing this draft."
+                    )
+            connection.execute(
+                "INSERT INTO document_builder_removed_drafts (draft_id, removed_at) VALUES (?, ?)",
+                (draft_id, _now()),
+            )
+            connection.commit()
+
+    def undo_remove(self, draft_id, trainer_id, expected):
+        with get_connection() as connection:
+            current = _record(
+                connection.execute(
+                    "SELECT * FROM document_builder_drafts WHERE draft_id = ? AND trainer_id = ? FOR UPDATE",
+                    (draft_id, trainer_id),
+                ).fetchone()
+            )
+            if current.revision != expected:
+                raise ConflictError("Draft changed. Reload before restoring it.")
+            connection.execute(
+                "DELETE FROM document_builder_removed_drafts WHERE draft_id = ?", (draft_id,)
+            )
+            connection.commit()
+            return current
 
     def save(
         self, draft_id: str, trainer_id: str, expected: int, content: DraftContent
@@ -542,11 +591,19 @@ class DocumentDraftRepository:
             connection.execute(
                 """
             SELECT * FROM document_builder_drafts
-            WHERE draft_id = ? AND trainer_id = ? FOR UPDATE
+            WHERE draft_id = ? AND trainer_id = ?
+            AND NOT EXISTS (SELECT 1 FROM document_builder_removed_drafts r
+                            WHERE r.draft_id = document_builder_drafts.draft_id) FOR UPDATE
         """,
                 (draft_id, trainer_id),
             ).fetchone()
         )
+        # Use a fresh statement after acquiring the row lock: removal in another
+        # transaction may have committed while this request waited for the lock.
+        if connection.execute(
+            "SELECT 1 FROM document_builder_removed_drafts WHERE draft_id = ?", (draft_id,)
+        ).fetchone():
+            raise NotFoundError("Document draft not found")
         if current.revision != expected:
             raise ConflictError("Draft changed in another request. Reload before saving.")
         return current

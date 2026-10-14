@@ -120,6 +120,29 @@ def list_drafts(request: Request, authorization: str | None = Header(default=Non
     return repository.list(_owner(request, authorization))
 
 
+@router.post("/{draft_id}/remove", status_code=204)
+def remove_draft(
+    draft_id: str,
+    payload: RevisionRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    repository.remove(draft_id, _owner(request, authorization), payload.expectedRevision)
+    return Response(status_code=204)
+
+
+@router.post("/{draft_id}/undo-remove", response_model=DraftRecord)
+def undo_remove_draft(
+    draft_id: str,
+    payload: RevisionRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    return repository.undo_remove(
+        draft_id, _owner(request, authorization), payload.expectedRevision
+    )
+
+
 @router.get("/{draft_id}", response_model=DraftRecord)
 def get_draft(draft_id: str, request: Request, authorization: str | None = Header(default=None)):
     return repository.get(draft_id, _owner(request, authorization))
