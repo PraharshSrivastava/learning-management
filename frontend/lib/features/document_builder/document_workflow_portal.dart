@@ -680,7 +680,9 @@ class _DocumentWorkflowPortalState
               decoration: const InputDecoration(labelText: 'Number of modules'),
               items: [
                 for (var i = 2; i <= 8; i++)
-                  DropdownMenuItem(value: i, child: Text('$i'))
+                  DropdownMenuItem(
+                      value: i,
+                      child: Text(i == 4 ? 'Default — 4 modules' : '$i modules'))
               ],
               onChanged: controller.busy
                   ? null
