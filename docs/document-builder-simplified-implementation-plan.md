@@ -2,7 +2,7 @@
 
 Date: 14 October 2026
 Branch: `codex/document-builder-workflow`
-Status: Planned. Localhost design demo available; production Flutter/API changes described here are not yet implemented.
+Status: Implemented in the Flutter application and supporting API for coding-VM acceptance. Actual compiled browser journeys and local regression checks passed; deployment of this revision is still required.
 
 This plan supersedes the product layout and setup flows in the earlier combined plan. Its canonical-content, ownership, autosave, immutable-source, structured-model-response and downstream course protections remain applicable. The earlier baseline describes the pre-workflow code; use the current implementation progress report for completed work.
 
@@ -171,7 +171,7 @@ Local demo: `http://127.0.0.1:18764/` (also `http://localhost:18764/`).
 Export: `docs/design/document-builder/simplified-local-demo/index.html`.
 Source: thread visualization `documents-tab-simplified.html`.
 
-This demo opens on Documents directly, including draft continuation, a sample library item, source preview and source-specific outline shortcut. It simulates AI/course outputs locally and does not connect to the existing pilot backend or replace `localhost:16969`. Application implementation begins with Step 1 after this plan; a local demo is not evidence of a deployed Flutter change.
+This demo opens on Documents directly, including draft continuation, a sample library item, source preview and source-specific outline shortcut. It simulates AI/course outputs locally and does not connect to the existing pilot backend or replace `localhost:16969`. The separate demo remains a design reference. The actual application implementation below has now passed compiled browser acceptance; a local demo alone is not evidence of deployment.
 
 Local review verification, 14 October 2026: Chrome loaded the HTTP demo and passed all three entry journeys, library preview/direct outline shortcut, explicit approval, AI accept/dismiss, current-content preview, content-preserving reorder, example course handoff and quiz review. No JavaScript runtime errors were reported. Layout checks at 1024, 736, 390 and 320 pixels had no horizontal overflow. These checks validate the prototype only, not live RunPod responses or real video/quiz generation.
 
@@ -182,3 +182,13 @@ Implementation checkpoint: the module selector wording is now implemented in the
 The isolated integration checkout merges origin/main at 1e76ba1 into the Document Builder history. Both 7402617 (Trainer Performance/Observer selection) and 5b9e67e (Observer parity and availability filters) are verified ancestors; relevant Performance/report access files match current main. Merge resolutions retain both draft tables and access/lifecycle migration initialization, and both caption bootstrap and mount-scoped service-worker cleanup. Pilot prepare accepts the maintained Flutter 3.44 Dockerfile as well as the original 3.24 patch path.
 
 Combined focused verification: 95 backend tests, 17 Trainer tests, 9 Employee/Observer tests passed; both JavaScript release web builds passed. Live VM database/model/full generation acceptance is still required. The shared VM routes are http://35.238.33.238:8006/lms/trainer/ and /lms/employee/, with existing intelligence_layer Compose project, path-routing/edge-network overlays and /opt/lms/storage. Do not confuse these with the standalone local design demo or isolated loopback pilot. The complete simplified Documents layout remains planned; this integration includes the implemented builder and default-label change.
+
+## Simplified application checkpoint — 14 October 2026
+
+The approved workspace is now implemented in Flutter and the API, not only in the HTML demo. Enabled Documents opens directly to the three choices, drafts and library, with the original feature-disabled layout preserved. AI setup has three essentials and optional generation settings; blank setup has one title field. The old navy toolbar and text stepper are removed. The editor uses one module heading, compact Insert/More controls and a collapsed assistant. Source questions use an independent input and source locations open readable evidence excerpts.
+
+Edited AI titles, goals, inclusion and ordering are validated and accepted through an optional typed edited-outline payload; the single approval action then approves and drafts. Pending proposal edits commit at approval. Imported/manual structure approval permits incomplete final metadata, while handoff still checks complete metadata, included bodies, assets and current approval. Handoff never approves silently. Course details completion expands when needed, and description is suggested from confirmed learning goals while preserving a manually edited description. A title-only draft can be previewed. New AI module drafting is a scoped proposal for an empty module and cannot overwrite populated content.
+
+Verification: 111 focused backend/repository/model/reporting tests; 17 Trainer controller/editor/Performance tests; 9 Employee/Observer tests passed. Changed builder Dart analysis and backend Ruff checks passed. Both JavaScript release web builds passed. The compiled Trainer browser check covers the direct landing, existing-library shortcut, pasted import, explicit preflight approval, optional editor, three-field AI setup, edited outline acceptance, title-only blank draft and autosave. Responsive landing checks at 1024/736/390 pixels and feature-disabled legacy fallback passed. Screenshots under docs/design/document-builder/implemented-simplified-*.png show the actual compiled application. Browser AI/course responses use synthetic fixtures; real deployed-model and video/quiz checks remain VM acceptance, not claimed completed by these UI checks.
+
+Performance and Observer ancestry includes 7402617 and 5b9e67e. No new Performance/Observer application files or model/provider/deployment secrets are changed by this UI implementation. Original shared-checkout uncommitted work was preserved.

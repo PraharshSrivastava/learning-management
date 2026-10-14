@@ -11,7 +11,9 @@ from app.core.settings import settings
 from app.document_builder.workflow_model import WorkflowModel
 from app.schemas.document_workflow import (
     DraftModule,
+    ModuleResponse,
     OperationRequest,
+    OutlineResponse,
     SourceReference,
     TextBlock,
     outline_fingerprint,
@@ -50,6 +52,19 @@ class WorkflowJobs:
             raise ConflictError("Approve the outline before drafting modules")
         if request.task == "outline" and any(module.blocks for module in current.content.modules):
             raise ConflictError("Outline regeneration cannot overwrite an existing document")
+        if request.task == "draft_module":
+            module = next((m for m in current.content.modules if m.id == request.moduleId), None)
+            if module is None or not module.included:
+                raise ValueError("Choose an included module")
+            if any(not isinstance(b, TextBlock) or b.text.strip() for b in module.blocks):
+                raise ConflictError("Drafting cannot overwrite populated content")
+            if (
+                not current.content.metadata.targetAudience.strip()
+                or not current.content.metadata.courseObjective.strip()
+            ):
+                raise ValueError(
+                    "Add audience and learning goals in Training details before AI drafting"
+                )
         if request.task == "edit":
             if request.target is None or not request.instruction.strip():
                 raise ValueError("Select text and describe the requested change")
@@ -280,6 +295,24 @@ class WorkflowJobs:
                     "changes": changes,
                     "summary": "Review all proposed text replacements before accepting.",
                 }
+            elif request.task == "draft_module":
+                module = next(m for m in current.content.modules if m.id == request.moduleId)
+                result = complete(
+                    "module",
+                    {
+                        "approvedOutline": [
+                            {"title": m.title, "objective": m.objective, "sections": m.sections}
+                            for m in current.content.modules
+                            if m.included
+                        ],
+                        "module": {
+                            "title": module.title,
+                            "objective": module.objective,
+                            "sections": module.sections,
+                        },
+                        "instruction": request.instruction,
+                    },
+                )
             elif request.task == "insert":
                 module = next(m for m in current.content.modules if m.id == request.moduleId)
                 result = complete(
@@ -327,8 +360,17 @@ class WorkflowJobs:
             if any(module.blocks for module in content.modules):
                 raise ConflictError("Outline suggestion cannot overwrite document content")
             content.modules = [
-                DraftModule(id=uuid4().hex, **module) for module in operation["result"]["modules"]
+                DraftModule(id=uuid4().hex, **module.model_dump())
+                for module in OutlineResponse.model_validate(operation["result"]).modules
             ]
+        elif request.task == "draft_module":
+            module = next(m for m in content.modules if m.id == request.moduleId)
+            if any(not isinstance(b, TextBlock) or b.text.strip() for b in module.blocks):
+                raise ConflictError("Drafting cannot overwrite populated content")
+            result = ModuleResponse.model_validate(operation["result"])
+            module.blocks = [TextBlock(id=uuid4().hex, **b.model_dump()) for b in result.blocks]
+            module.sourceReferences = result.sourceReferences
+            module.status = "ready"
         elif request.task == "edit":
             target = request.target
             validate_selection(content, target)

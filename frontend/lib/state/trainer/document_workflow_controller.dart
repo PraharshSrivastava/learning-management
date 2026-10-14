@@ -89,7 +89,14 @@ class DocumentWorkflowController extends ChangeNotifier {
 
   Future<void> create(String mode) async {
     draft = Map<String, dynamic>.from(
-        await api.call('/drafts', method: 'POST', body: {'entryMode': mode}));
+        await api.call('/drafts', method: 'POST', body: {
+      'entryMode': mode,
+      'settings': {
+        'writingFocus': 'practical',
+        'includeBadGood': false,
+        'includeMistakes': false
+      }
+    }));
     sources = [];
     operation = null;
     _epoch = 0;
@@ -273,12 +280,15 @@ class DocumentWorkflowController extends ChangeNotifier {
     }
   }
 
-  Future<void> accept() async {
+  Future<void> accept({List<Map<String, dynamic>>? outline}) async {
     await flush();
     draft = Map<String, dynamic>.from(await api.call(
         '/drafts/$id/proposals/${operation!['id']}/accept',
         method: 'POST',
-        body: {'expectedRevision': revision}));
+        body: {
+          'expectedRevision': revision,
+          if (outline != null) 'outline': {'modules': outline}
+        }));
     operation = null;
     announce();
   }

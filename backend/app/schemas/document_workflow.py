@@ -31,6 +31,12 @@ class DraftMetadata(StrictModel):
     targetAudience: str = Field(default="", max_length=1000)
     courseType: str = Field(default="Training guide", max_length=120)
 
+    def outline_missing_fields(self, entry_mode: str) -> list[str]:
+        required = ["courseName"]
+        if entry_mode == "ai":
+            required += ["targetAudience", "courseObjective"]
+        return [name for name in required if not getattr(self, name).strip()]
+
     def missing_fields(self) -> list[str]:
         return [name for name, value in self.model_dump().items() if not value.strip()]
 
@@ -241,7 +247,9 @@ class RestoreDraft(RevisionRequest):
 
 
 class OperationRequest(RevisionRequest):
-    task: Literal["outline", "draft", "edit", "answer", "revise", "insert", "import"]
+    task: Literal[
+        "outline", "draft", "draft_module", "edit", "answer", "revise", "insert", "import"
+    ]
     sourceImport: ImportRequest | None = None
     scope: Literal["selected", "module", "document"] = "selected"
     moduleId: Identity | None = None
@@ -283,6 +291,10 @@ class OutlineResponse(StrictModel):
         if len(titles) != len(set(titles)):
             raise ValueError("Outline module titles must be distinct")
         return self
+
+
+class AcceptProposal(RevisionRequest):
+    outline: OutlineResponse | None = None
 
 
 class GeneratedTextBlock(StrictModel):

@@ -296,6 +296,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> with WidgetsBindi
   }
 
   Widget _buildDocumentsPortal(BuildContext context, WidgetRef ref,
+          PDFFile? selectedFile, bool isMobile) =>
+      DocumentBuilderEntry(
+        onClose: () =>
+            ref.read(documentBuilderVisibleProvider.notifier).state = false,
+        legacy:
+            _buildLegacyDocumentsPortal(context, ref, selectedFile, isMobile),
+      );
+
+  Widget _buildLegacyDocumentsPortal(BuildContext context, WidgetRef ref,
       PDFFile? selectedFile, bool isMobile) {
     final showBuilder = ref.watch(documentBuilderVisibleProvider);
     if (showBuilder) {

@@ -20,7 +20,7 @@ class WorkflowEditorAdapter {
       ..setAttribute('aria-label', 'Training document editor');
     root.style
       ..padding = '22px'
-      ..fontFamily = 'Arial, sans-serif'
+      ..fontFamily = 'Segoe UI, Arial, sans-serif'
       ..fontSize = '16px'
       ..lineHeight = '1.65'
       ..height = '100%'
@@ -71,7 +71,7 @@ class WorkflowEditorAdapter {
     onChanged?.call();
   }
 
-  void load(List<WorkflowBlock> blocks) {
+  void load(List<WorkflowBlock> blocks, {String? moduleTitle}) {
     _blocks = List.of(blocks);
     _savedRange = null;
     root.children.clear();
@@ -126,6 +126,11 @@ class WorkflowEditorAdapter {
         element.append(control);
       }
       element.style.marginBottom = '14px';
+      if (block.type == 'heading' &&
+          moduleTitle != null &&
+          block.text.trim().toLowerCase() == moduleTitle.trim().toLowerCase()) {
+        element.style.display = 'none';
+      }
       root.append(element);
     }
   }

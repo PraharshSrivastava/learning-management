@@ -42,8 +42,8 @@ class WorkflowExport:
         draft = self.drafts.get(draft_id, owner)
         if draft.revision != expected:
             raise ConflictError("Save the latest document before preview")
-        if draft.content.metadata.missing_fields():
-            raise ValueError("Complete course details before export")
+        if not draft.content.metadata.courseName.strip():
+            raise ValueError("Add a document title before preview")
         if draft.content.metadata.language.casefold() != "english":
             raise ValueError(
                 "This release supports English PDF export; other language fonts are not validated"

@@ -489,8 +489,9 @@ class DocumentDraftRepository:
             raise ValueError("Review and acknowledge source extraction issues before approval")
         with get_connection() as connection:
             current = self._locked(connection, draft_id, trainer_id, expected)
-            if current.content.metadata.missing_fields():
-                raise ValueError("Complete course details before approving the outline")
+            missing = current.content.metadata.outline_missing_fields(current.content.entryMode)
+            if missing:
+                raise ValueError("Complete outline details: " + ", ".join(missing))
             if not any(module.included for module in current.content.modules):
                 raise ValueError("Include at least one module before approval")
             approved = outline_fingerprint(current.content)

@@ -4,10 +4,12 @@ const path = require('node:path');
 const http = require('node:http');
 const assert = require('node:assert/strict');
 const { chromium } = require(require.resolve('playwright', {paths: [process.env.NODE_PATH || 'C:/Users/LPUSER/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules']}));
-const root = path.resolve(__dirname, '../../tmp/document-builder-web');
+const root = path.resolve(process.env.DOCUMENT_BUILDER_WEB_ROOT || path.join(__dirname, '../build/web'));
 const drafts = new Map();
 const operations = new Map();
 let nextId = 0;
+let workflowEnabled=true;
+let handoffs=0;
 const metadata = {courseName:'',courseDescription:'',courseObjective:'',courseDifficulty:'Beginner',language:'English',targetAudience:'',courseType:'Training guide'};
 const settings = {moduleCount:4,detailLevel:'standard',tone:'Clear and professional',writingFocus:'balanced',includeScenarios:true,includeBadGood:true,includeTakeaways:true,includeMistakes:true};
 const modules = () => [{id:'module_a',title:'Customer needs',objective:'Listen first',included:true,sections:['Explanation'],blocks:[{id:'text_a',type:'paragraph',text:'Listen before proposing a solution.',marks:[]}],sourceReferences:[],status:'ready'}, {id:'module_b',title:'Follow-up',objective:'Confirm the next step',included:true,sections:['Practice'],blocks:[{id:'text_b',type:'paragraph',text:'Confirm the next step.',marks:[]}],sourceReferences:[],status:'ready'}];
@@ -24,13 +26,14 @@ const server = http.createServer((request,response) => {
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
  try {
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
-  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const errors=[];page.on('pageerror',error=>errors.push(error.message)); const enter=async(name,text)=>{const el=page.getByRole('textbox',{name:new RegExp(name.replace(/[.*+?^\$\{\}()|[\]\\]/g,'\\\$&')+'$')});await el.click();await page.waitForTimeout(200);await page.keyboard.press('Control+A');await page.waitForTimeout(100);await page.keyboard.insertText(text);await page.keyboard.press('Tab');await page.waitForTimeout(100);};
   await page.route('**/assets/.env',route=>route.fulfill({body:`API_BASE_URL=${origin}`}));
   await page.route('**/api/**',async route=>{
    const request=route.request(), url=new URL(request.url()), parts=url.pathname.split('/').filter(Boolean);
    let result=[]; let body={};try{body=request.postDataJSON()||{};}catch(_){}
    if(url.pathname.endsWith('/session/trainer'))result={authenticated:true,local_dev_mode:false,trainer:{trainer_id:'fixture_owner',name:'Synthetic Trainer',status:'active'}};
-   else if(url.pathname.endsWith('/capabilities'))result={workflowEnabled:true,languages:['English']};
+   else if(url.pathname.endsWith('/capabilities'))result={workflowEnabled,languages:['English']};
+   else if(url.pathname==='/api/files')result=[{document_id:'owned_upload',file_name:'customer-service.pdf',display_name:'Customer service training brief',file_type:'pdf',size:1200,created_at:'2026-10-14'}];
    else if(url.pathname.includes('/assignment/options'))result={departments:[],designations:[],groups:[],employees:[]};
    else if(parts[1]==='document-builder' && parts[2]==='drafts') {
     const id=parts[3], suffix=parts[4];
@@ -47,12 +50,12 @@ const server = http.createServer((request,response) => {
       if(request.method()==='POST'){
        const opId=`op_${operations.size+1}`;
        result={id:opId,draftId:id,request:body,status:body.task==='outline'?'proposed':'completed',result:body.task==='outline'?{modules:[{title:'Customer needs',objective:'Listen first',sections:['Explanation']},{title:'Follow-up',objective:'Confirm next step',sections:['Practice']}]}:{}};
-       if(body.task==='draft'){draft.content.modules=modules();draft.revision++;}
+       if(body.task==='draft'){draft.content.modules=draft.content.modules.map((m,i)=>({...m,blocks:modules()[i%2].blocks.map(b=>({...b,id:'text_'+i}))}));draft.revision++;}
        if(body.task==='import'){draft.content.modules=modules();draft.content.metadata.courseName='Customer Service Essentials';draft.revision++;}
        operations.set(opId,result);
       }else result=parts[5]?operations.get(parts[5]):[...operations.values()].filter(o=>o.draftId===id);
-     }else if(suffix==='proposals'){draft.content.modules=modules().map(m=>({...m,blocks:[]}));draft.revision++;operations.get(parts[5]).status='accepted';result=draft;}
-     else if(suffix==='create-course')result={course_id:`course_${id}`,trainer_id:'fixture_owner',status:'draft',course_name:draft.content.metadata.courseName,course_description:draft.content.metadata.courseDescription,course_objective:draft.content.metadata.courseObjective,course_difficulty:'Beginner',language:'English',target_audience:'New staff',created_at:'2026-10-13',modules:draft.content.modules.map((m,i)=>({module_number:i+1,title:m.title,source_text:(m.blocks||[]).map(b=>b.text||'').join('\n'),num_questions:3}))};
+     }else if(suffix==='proposals'){draft.content.modules=(body.outline?.modules||modules()).map((m,i)=>({...m,id:'module_'+i,included:true,blocks:[],sourceReferences:[],status:'empty'}));draft.revision++;operations.get(parts[5]).status='accepted';result=draft;}
+     else if(suffix==='create-course'){handoffs++;result={course_id:`course_${id}`,trainer_id:'fixture_owner',status:'draft',course_name:draft.content.metadata.courseName,course_description:draft.content.metadata.courseDescription,course_objective:draft.content.metadata.courseObjective,course_difficulty:'Beginner',language:'English',target_audience:'New staff',created_at:'2026-10-13',modules:draft.content.modules.map((m,i)=>({module_number:i+1,title:m.title,source_text:(m.blocks||[]).map(b=>b.text||'').join('\n'),num_questions:3}))};}
      else result=draft;
     }
    }
@@ -60,37 +63,65 @@ const server = http.createServer((request,response) => {
   });
   await page.goto(origin);await page.locator('flt-semantics-placeholder').waitFor({timeout:45000});
   await page.locator('flt-semantics-placeholder').evaluate(e=>e.click());
-  await page.getByRole('button',{name:'Open Document Builder'}).click({timeout:30000});
-  await page.getByText('What would you like to create?',{exact:true}).waitFor();
-  await page.getByRole('button',{name:/Use Existing Content/}).click();
-  await page.getByRole('textbox',{name:'Or paste existing content'}).fill('Module 1: Customer needs\nListen first.');
-  await page.getByRole('button',{name:'Review pasted content'}).click();
-  await page.getByRole('button',{name:'Review in editor first'}).waitFor();
-  await page.getByRole('button',{name:'Review in editor first'}).click();
+  await page.getByText('Create a training document',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Open Document Builder'}).count(),0);
+  await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-simplified-documents.png')});
+  await page.getByRole('button',{name:'Create course from document',exact:true}).click();
+  await page.getByRole('button',{name:'Approve outline',exact:true}).waitFor();
+  assert.equal([...operations.values()].at(-1).request.sourceImport.documentId,'owned_upload');
+  assert.equal(handoffs,0);
+  await page.getByText('← Documents',{exact:true}).click();await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
+  await page.getByRole('button',{name:/Use existing content/}).click();
+  await page.getByText('Paste content instead',{exact:true}).click();
+  await page.getByRole('textbox',{name:'Existing notes'}).fill('Module 1: Customer needs\nListen first.');
+  await page.getByRole('button',{name:'Review outline',exact:true}).click();
+  await page.getByRole('button',{name:'Approve outline',exact:true}).click();
+  await page.getByRole('button',{name:'Create course',exact:true}).click();
+  assert.equal(handoffs,0);
+  await enter('Who is this for?','New employees');
+  await enter('What should employees be able to do?','Listen and confirm next steps');
+  await page.waitForTimeout(1000);
+  await page.getByRole('checkbox',{name:'I approve the current outline and included module structure'}).evaluate(e=>e.click());
+  await page.waitForTimeout(300);
+  assert.equal([...drafts.values()].at(-1).approvedOutline,'approved');
+  await page.getByRole('button',{name:'Review in editor',exact:true}).click();
   await page.locator('[aria-label="Training document editor"]').waitFor();
   assert.match(await page.locator('[aria-label="Training document editor"]').textContent(),/Listen before/);
-  await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-editor-preview.png')});
-  await page.getByRole('button',{name:'Saved drafts',exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:'Suggest changes'}).count(),0);
+  await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-simplified-editor.png')});
+  await page.getByText('← Documents',{exact:true}).click();await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
   await page.getByRole('button',{name:/Generate with AI/}).click();
-  await page.getByRole('textbox',{name:'Course name',exact:true}).fill('Customer Service Essentials');
-  await page.getByRole('textbox',{name:'Description',exact:true}).fill('Practical service training');
-  await page.getByRole('textbox',{name:'Learning objective',exact:true}).fill('Listen and confirm next steps');
-  await page.getByRole('textbox',{name:'Audience',exact:true}).fill('New employees');
-  await page.getByRole('button',{name:'Generate outline',exact:true}).click();
-  await page.getByRole('button',{name:'Use this outline',exact:true}).click();
-  await page.getByRole('button',{name:'Approve outline',exact:true}).click();
-  await page.getByRole('button',{name:'Write modules & open editor',exact:true}).click();
+  await enter('Topic or title','Customer Service Essentials');
+  await enter('Who is this for?','New employees');
+  await enter('What should employees be able to do?','Listen and confirm next steps');  await page.waitForTimeout(1000);
+  assert.equal(await page.getByRole('textbox',{name:'Description',exact:true}).count(),0);
+  await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-simplified-ai-setup.png')});
+  await page.getByRole('button',{name:'Generate outline',exact:true}).evaluate(e=>e.click()); await page.waitForTimeout(1800);
+  await enter('Module 1 title','Reviewed customer needs');
+  await page.getByRole('button',{name:'Approve & generate document',exact:true}).click();
   await page.locator('[aria-label="Training document editor"]').waitFor();
+  assert.equal([...drafts.values()].at(-1).content.modules[0].title,'Reviewed customer needs');
   assert.match(await page.locator('[aria-label="Training document editor"]').textContent(),/Listen before/);
   assert.equal([...operations.values()].filter(o=>o.request.task==='draft').length,1);
-  await page.getByRole('button',{name:'Saved drafts',exact:true}).click();
-  await page.getByRole('button',{name:/Start blank/}).click();
-  await page.getByRole('button',{name:'Open blank editor',exact:true}).click();
+  await page.getByText('← Documents',{exact:true}).click();await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
+  await page.getByRole('button',{name:/Start blank/}).evaluate(e=>e.click());await page.waitForTimeout(500);
+  await enter('Topic or title','Trainer guide');
+  assert.equal(await page.getByRole('textbox').count(),1);
+  await page.getByRole('button',{name:'Open editor',exact:true}).click();
   await page.locator('[aria-label="Training document editor"]').waitFor();
   await page.locator('[aria-label="Training document editor"] [data-block-id]').first().fill('A trainer-written paragraph.');
-  await page.getByRole('button',{name:'Saved drafts',exact:true}).click();
+  await page.getByText('← Documents',{exact:true}).click();await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
   assert.equal([...drafts.values()].at(-1).content.modules[0].blocks[0].text,'A trainer-written paragraph.');
+  for(const width of [1024,736,390]) {
+    await page.setViewportSize({width,height:1000});await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+  }
+  await page.setViewportSize({width:1440,height:1000});
+  workflowEnabled=false;
+  await page.reload();
+  await page.locator('flt-semantics-placeholder').evaluate(e=>e.click()).catch(()=>{});
+  await page.getByRole('button',{name:'Open Document Builder',exact:true}).waitFor();
   assert.deepEqual(errors,[]);
   console.log('Compiled Trainer UI passed: all three entry paths, source review, optional editor, approved AI outline/module generation, blank draft autosave.');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
-})().catch(error=>{console.error(error.message);server.close();process.exitCode=1;});
+})().catch(error=>{console.error(error.stack);server.close();process.exitCode=1;});

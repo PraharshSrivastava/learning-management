@@ -9,6 +9,7 @@ from app.document_builder.workflow_export import WorkflowExport, owned_path
 from app.document_builder.workflow_jobs import WorkflowJobs
 from app.repositories.document_drafts import DocumentDraftRepository
 from app.schemas.document_workflow import (
+    AcceptProposal,
     CopyDraft,
     DraftContent,
     DraftRecord,
@@ -300,12 +301,23 @@ def cancel_operation(
 def accept_proposal(
     draft_id: str,
     operation_id: str,
-    payload: RevisionRequest,
+    payload: AcceptProposal,
     request: Request,
     authorization: str | None = Header(default=None),
 ):
+    def apply_reviewed(content, operation):
+        if payload.outline is not None:
+            if operation["request"]["task"] != "outline":
+                raise ValueError("Edited outline is valid only for an outline proposal")
+            operation = {**operation, "result": payload.outline.model_dump()}
+        return jobs.apply(content, operation)
+
     return repository.accept_operation(
-        draft_id, _owner(request, authorization), operation_id, payload.expectedRevision, jobs.apply
+        draft_id,
+        _owner(request, authorization),
+        operation_id,
+        payload.expectedRevision,
+        apply_reviewed,
     )
 
 
