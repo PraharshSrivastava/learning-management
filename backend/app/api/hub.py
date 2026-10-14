@@ -12,6 +12,7 @@ from app.schemas.common import ApiSchema
 from app.schemas.employee import EmployeeResponse
 from app.schemas.trainer import TrainerResponse
 from app.security.hub_launch import OPEN_THROUGH_HUB, HubApp, hub_launch_verifier
+from app.security.public_mount import lms_public_mount
 from app.services.auth import current_employee_from_request, current_trainer_from_request
 
 router = APIRouter(prefix="/api/hub", tags=["hub"])
@@ -37,11 +38,13 @@ def _launch(request: Request, app: HubApp) -> RedirectResponse:
     session = hub_launch_verifier.verify(token, app)
     if session is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=OPEN_THROUGH_HUB)
-    response = RedirectResponse("/", status_code=302)
+    mount = lms_public_mount(request, app)
+    response = RedirectResponse(mount, status_code=302)
     hub_launch_verifier.set_cookie(
         response,
         app,
         hub_launch_verifier.issue_session_token(session),
+        path=mount,
     )
     return response
 
@@ -64,9 +67,9 @@ def _session(request: Request, app: HubApp) -> HubSessionResponse:
     return HubSessionResponse.model_validate(payload)
 
 
-def _logout(app: HubApp) -> Response:
+def _logout(request: Request, app: HubApp) -> Response:
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    hub_launch_verifier.clear_cookie(response, app)
+    hub_launch_verifier.clear_cookie(response, app, path=lms_public_mount(request, app))
     return response
 
 
@@ -91,10 +94,10 @@ def employee_session(request: Request) -> HubSessionResponse:
 
 
 @router.post("/logout/trainer", status_code=status.HTTP_204_NO_CONTENT)
-def logout_trainer() -> Response:
-    return _logout("trainer")
+def logout_trainer(request: Request) -> Response:
+    return _logout(request, "trainer")
 
 
 @router.post("/logout/employee", status_code=status.HTTP_204_NO_CONTENT)
-def logout_employee() -> Response:
-    return _logout("employee")
+def logout_employee(request: Request) -> Response:
+    return _logout(request, "employee")

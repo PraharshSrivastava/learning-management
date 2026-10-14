@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -13,6 +14,9 @@ part 'trainer/file_providers.dart';
 part 'trainer/course_providers.dart';
 part 'trainer/assignment_providers.dart';
 part 'trainer/performance_providers.dart';
+part 'trainer/performance_report_providers.dart';
 part 'trainer/upload_providers.dart';
 part 'trainer/course_authoring_providers.dart';
 part 'trainer/generation_providers.dart';
+
+part 'trainer/lms_access_providers.dart';

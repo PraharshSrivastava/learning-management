@@ -20,6 +20,11 @@ class AuthenticationError(ApplicationError):
     code = "authentication_error"
 
 
+class AuthorizationError(ApplicationError):
+    status_code = 403
+    code = "authorization_error"
+
+
 class NotFoundError(ApplicationError):
     status_code = 404
     code = "not_found"

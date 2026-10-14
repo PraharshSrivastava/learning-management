@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.generation import generation_jobs
+from app.api.media import PrivateCourseStaticFiles
 from app.api.router import api_router
 from app.core.exceptions import install_exception_handlers
 from app.core.logging import configure_logging
@@ -74,6 +75,13 @@ def create_app() -> FastAPI:
     )
     app.middleware("http")(request_context_middleware)
     install_exception_handlers(app)
+
+    @app.middleware("http")
+    async def access_cache_headers(request, call_next):
+        response = await call_next(request)
+        if "/performance" in request.url.path or request.url.path.startswith("/api/lms/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
     public_directories = {
         "audio": settings.audio_dir,
         "brand": settings.static_dir / "brand",
@@ -82,10 +90,17 @@ def create_app() -> FastAPI:
         "slides": settings.slide_dir,
         "videos": settings.video_dir,
     }
+    def _asset_files(asset_name, directory):
+        if asset_name in {"brand", "layouts"}:
+            return StaticFiles(directory=str(directory), check_dir=False)
+        # Videos are authorized here, then sent by the frontend nginx via X-Accel-Redirect.
+        accel = "/_lms_private_videos/" if asset_name == "videos" else None
+        return PrivateCourseStaticFiles(directory=str(directory), check_dir=False, accel_location=accel)
+
     for asset_name, directory in public_directories.items():
         app.mount(
             f"/assets/{asset_name}",
-            StaticFiles(directory=str(directory), check_dir=False),
+            _asset_files(asset_name, directory),
             name=f"assets-{asset_name}",
         )
     app.include_router(api_router)

@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-08",
+  "base_commit": "e5c42dae92de314f13ee87e25b055b5360e18b20",
+  "feature_commits_preserved": [
+    "6aa5b7b",
+    "7402617"
+  ],
+  "original_sbom_base": "16adda05f58ca0a6babbd2f3b1a6e621c4a5e3f3",
+  "snapshot_sha256": "8cd5841d205641f7e1042d167b6540279e1ae92f1518b6bfd77f47f428c29a08",
+  "big_coding_checkout": "e5c42dae92de314f13ee87e25b055b5360e18b20",
+  "running_image_ids": {
+    "backend": "sha256:bebbb7378bdb958285a249496be943077d97ace2a4fcf858cc1fbe009b7b8ad0",
+    "trainer": "sha256:19e7315541eabcde488fbe01a0b6614e324785fb67626d5f41c3840b4ed828ac",
+    "employee": "sha256:7eb18443220c0b4a3c8e6f444a90dcbb6c6114ea444952e256bf378d0db29a45",
+    "postgres": "sha256:95206741a5b214807675e14165369d05b93a9cf692223b616d07cca227e74b0b"
+  },
+  "postgres_remediation": "DEFERRED; preserve runtime deployment",
+  "pdf_source_experiment": "EXCLUDED",
+  "integration": "Compose combines trusted edge settings and cap_drop/no-new-privileges; current main application source unchanged",
+  "uat_baseline": "not inspected",
+  "release_approval": "not granted by this record"
+}

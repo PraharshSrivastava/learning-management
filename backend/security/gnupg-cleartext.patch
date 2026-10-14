@@ -1,0 +1,11 @@
+--- a/g10/armor.c
++++ b/g10/armor.c
+@@ -687,6 +687,8 @@
+ 	}
+ 	if( !maxlen )
+           {
++            /* Never verify plaintext after lossy line truncation. */
++            log_fatal ("invalid armor: truncated cleartext line\n");
+ 	    afx->truncated++;
+             this_truncated = 1;
+           }

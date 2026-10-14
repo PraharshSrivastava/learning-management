@@ -10,6 +10,19 @@ TABLES = (
     "document_builder_resources",
     "document_builder_revisions",
     "document_builder_drafts",
+    "course_lifecycle_audit",
+    "lms_report_access_audit",
+    "course_observer_employees",
+    "course_observer_departments",
+    "course_observer_grants",
+    "course_observer_configs",
+    "hod_department_access",
+    "lms_departments",
+    "lms_access_audit",
+    "lms_authoring_roles",
+    "lms_access_versions",
+    "lms_schema_migrations",
+    "learning_events",
     "module_progress",
     "email_notification_items",
     "email_notifications",
@@ -34,6 +47,12 @@ def init_db() -> None:
         _create_tables(cursor)
         create_draft_tables(cursor)
         _create_indexes(cursor)
+        from app.repositories.access_migrations import apply_access_migrations
+
+        apply_access_migrations(connection)
+        from app.repositories.availability_migrations import apply_availability_migration
+
+        apply_availability_migration(cursor)
         connection.commit()
 
 
@@ -46,6 +65,12 @@ def recreate_db() -> None:
         _create_tables(cursor)
         create_draft_tables(cursor)
         _create_indexes(cursor)
+        from app.repositories.access_migrations import apply_access_migrations
+
+        apply_access_migrations(connection)
+        from app.repositories.availability_migrations import apply_availability_migration
+
+        apply_availability_migration(cursor)
         connection.commit()
 
 
@@ -225,6 +250,7 @@ def _create_tables(cursor) -> None:
             started_at TEXT,
             completed_at TEXT,
             last_activity_at TEXT,
+            last_learner_activity_at TEXT,
             revoked_at TEXT,
             assigned_department TEXT,
             revoked_reason TEXT,
@@ -242,6 +268,12 @@ def _create_tables(cursor) -> None:
         """
         ALTER TABLE course_assignments
         ADD COLUMN IF NOT EXISTS notification_lifecycle INTEGER NOT NULL DEFAULT 1
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE course_assignments
+        ADD COLUMN IF NOT EXISTS last_learner_activity_at TEXT
         """
     )
     cursor.execute(
@@ -430,6 +462,20 @@ def _create_tables(cursor) -> None:
     )
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS learning_events (
+            event_id TEXT PRIMARY KEY,
+            assignment_id TEXT NOT NULL REFERENCES course_assignments(assignment_id) ON DELETE CASCADE,
+            module_id TEXT REFERENCES course_modules(module_id) ON DELETE SET NULL,
+            event_type TEXT NOT NULL CHECK (event_type IN ('video_watched', 'quiz_attempt', 'course_started', 'course_completed')),
+            occurred_at TEXT NOT NULL,
+            score REAL,
+            passed BOOLEAN,
+            CHECK (score IS NULL OR (score >= 0 AND score <= 100))
+        )
+        """
+    )
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS course_generation_status (
             course_id TEXT PRIMARY KEY,
             status TEXT NOT NULL DEFAULT 'pending',
@@ -445,6 +491,9 @@ def _create_tables(cursor) -> None:
         )
         """
     )
+
+    from app.repositories.course_lifecycle_migrations import apply_course_lifecycle_migration
+    apply_course_lifecycle_migration(cursor)
 
 
 def _create_indexes(cursor) -> None:
@@ -468,6 +517,9 @@ def _create_indexes(cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_assignments_employee ON course_assignments(employee_id)",
         "CREATE INDEX IF NOT EXISTS idx_assignments_status ON course_assignments(status)",
         "CREATE INDEX IF NOT EXISTS idx_course_assignments_deadline ON course_assignments(deadline)",
+        "CREATE INDEX IF NOT EXISTS idx_course_assignments_learner_activity ON course_assignments(last_learner_activity_at)",
+        "CREATE INDEX IF NOT EXISTS idx_learning_events_assignment_time ON learning_events(assignment_id, occurred_at)",
+        "CREATE INDEX IF NOT EXISTS idx_learning_events_type_time ON learning_events(event_type, occurred_at)",
         "CREATE INDEX IF NOT EXISTS idx_email_notifications_status_next "
         "ON email_notifications(status, next_attempt_at)",
         "CREATE INDEX IF NOT EXISTS idx_email_notifications_assignment "

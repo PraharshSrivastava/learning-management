@@ -1,4 +1,5 @@
 import 'dart:html' as html;
+import 'course_actions_menu.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,10 @@ class CoursesSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final courseListState = ref.watch(courseListProvider);
+    final availability = ref.watch(courseAvailabilityFilterProvider);
+    final courses = courseListState.courses
+        .where((c) => availability == 'all' || c.lifecycleState == availability)
+        .toList();
 
     return Container(
       decoration: AppTheme.cardDecoration(),
@@ -36,15 +41,39 @@ class CoursesSidebar extends ConsumerWidget {
                       ),
                 ),
                 Text(
-                  '${courseListState.courses.length} courses',
+                  '${courses.length} courses',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
           ),
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DropdownButton<String>(
+                value: availability,
+                isExpanded: true,
+                items: const [
+                  'all',
+                  'active',
+                  'disabled',
+                  'ready',
+                  'draft'
+                ]
+                    .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s == 'all'
+                            ? 'All courses'
+                            : '${s[0].toUpperCase()}${s.substring(1)}')))
+                    .toList(),
+                onChanged: (s) {
+                  if (s != null)
+                    ref.read(courseAvailabilityFilterProvider.notifier).state =
+                        s;
+                },
+              )),
           const Divider(height: 1, color: AppTheme.lightGray),
           Expanded(
-            child: courseListState.isLoading && courseListState.courses.isEmpty
+            child: courseListState.isLoading && courses.isEmpty
                 ? const Center(
                     child: CircularProgressIndicator(
                       valueColor:
@@ -76,7 +105,7 @@ class CoursesSidebar extends ConsumerWidget {
                           ),
                         ),
                       )
-                    : courseListState.courses.isEmpty
+                    : courses.isEmpty
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(32.0),
@@ -107,11 +136,11 @@ class CoursesSidebar extends ConsumerWidget {
                             ),
                           )
                         : ListView.separated(
-                            itemCount: courseListState.courses.length,
+                            itemCount: courses.length,
                             separatorBuilder: (context, index) => const Divider(
                                 height: 1, color: AppTheme.lightGray),
                             itemBuilder: (context, index) {
-                              final course = courseListState.courses[index];
+                              final course = courses[index];
                               final isSelected =
                                   selectedCourse?.courseId == course.courseId;
 
@@ -152,6 +181,7 @@ class CoursesSidebar extends ConsumerWidget {
                                             fontWeight: FontWeight.bold,
                                           ),
                                     ),
+                                    CourseLifecycleBadge(course: course),
                                     if (courseListState.isLoading)
                                       const SizedBox(
                                         width: 12,
@@ -359,103 +389,6 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
     _moduleData.clear();
   }
 
-  Future<void> _confirmAndDeleteCourse() async {
-    final course = widget.course;
-    final isPublished = course.status.toLowerCase() == 'published';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: AppTheme.accentRed),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Delete course?',
-                style: GoogleFonts.inter(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '“${course.courseName}” will be permanently deleted.',
-                style: GoogleFonts.barlow(fontSize: 15),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Its modules, quizzes, generated slides, audio, videos and images will also be removed. The uploaded source document will remain available.',
-                style: GoogleFonts.barlow(
-                  fontSize: 14,
-                  color: AppTheme.gray,
-                  height: 1.4,
-                ),
-              ),
-              if (isPublished) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentRed.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppTheme.accentRed.withOpacity(0.35)),
-                  ),
-                  child: Text(
-                    'This course is published. Employee assignments and learning progress for it will also be permanently deleted.',
-                    style: GoogleFonts.barlow(
-                      fontSize: 13,
-                      color: AppTheme.accentRed,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentRed,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Delete Course'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    final deleted = await ref
-        .read(courseDeletionProvider.notifier)
-        .deleteCourse(course.courseId, ref);
-    if (!mounted) return;
-    final deletionState = ref.read(courseDeletionProvider);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          deleted
-              ? 'Course deleted successfully'
-              : deletionState.error ?? 'Failed to delete course.',
-        ),
-        backgroundColor: deleted ? AppTheme.accentGreen : AppTheme.accentRed,
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _disposeControllers();
@@ -464,6 +397,29 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.course.lifecycleState == 'archived') {
+      return Container(
+          decoration: AppTheme.cardDecoration(),
+          padding: const EdgeInsets.all(24),
+          child: ListView(children: [
+            Row(children: [
+              Expanded(
+                  child: Text(widget.course.courseName,
+                      style: Theme.of(context).textTheme.headlineSmall)),
+              CourseActionsMenu(course: widget.course)
+            ]),
+            const SizedBox(height: 12),
+            const Text(
+                'This course requires an availability update. Refresh or contact your administrator. Learning records are preserved.'),
+            const SizedBox(height: 20),
+            Text(widget.course.courseDescription),
+            const SizedBox(height: 12),
+            Text(widget.course.courseObjective),
+            for (final module in widget.course.modules)
+              ListTile(
+                  title: Text(module.title), subtitle: Text(module.sourceText)),
+          ]));
+    }
     if (widget.course.modules.isEmpty && widget.course.moduleCount > 0) {
       return Container(
         decoration: AppTheme.cardDecoration(),
@@ -535,45 +491,9 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              Consumer(
-                                builder: (context, ref, _) {
-                                  final deletion =
-                                      ref.watch(courseDeletionProvider);
-                                  final isDeleting = deletion
-                                      .isDeleting(widget.course.courseId);
-                                  return ElevatedButton.icon(
-                                    icon: isDeleting
-                                        ? const SizedBox(
-                                            width: 14,
-                                            height: 14,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      Colors.white),
-                                            ),
-                                          )
-                                        : const Icon(Icons.delete_outline,
-                                            size: 14),
-                                    label: Text(isDeleting
-                                        ? 'Deleting...'
-                                        : 'Delete Course'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.accentRed,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 8),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(999),
-                                      ),
-                                    ),
-                                    onPressed: isDeleting
-                                        ? null
-                                        : _confirmAndDeleteCourse,
-                                  );
-                                },
-                              ),
+                              CourseActionsMenu(
+                                  course: widget.course,
+                                  foregroundColor: Colors.white),
                               TextButton(
                                 style: TextButton.styleFrom(
                                     foregroundColor: Colors.white),
@@ -1172,7 +1092,7 @@ class _CourseDetailsViewState extends ConsumerState<CourseDetailsView> {
                                     color: AppTheme.lightGray.withOpacity(0.3),
                                     child: Center(
                                       child: Image.network(
-                                        '${AppConstants.apiBaseUrl}/${img.filePath}',
+                                        AppConstants.assetUrl(img.filePath),
                                         fit: BoxFit.contain,
                                         errorBuilder:
                                             (context, error, stackTrace) =>

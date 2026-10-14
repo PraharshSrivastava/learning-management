@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:employee_frontend/features/performance/performance_report_portal.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,19 +20,19 @@ class EmployeeDashboardPage extends ConsumerStatefulWidget {
       _EmployeeDashboardPageState();
 }
 
-class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
+class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> with WidgetsBindingObserver {
   bool _navigationExpanded = true;
   String _selectedFilter = 'Assigned';
   int _activeNavigationIndex = 0;
   String? _openCourseId;
   bool _showTeamPerformance = false;
-  bool _teamReportLoaded = false;
   String? _teamReportStatus;
   final Set<String> _seenNotifications = <String>{};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final query = Uri.base.queryParameters;
     _openCourseId = query['view'] == 'course' ? query['course_id'] : null;
     _showTeamPerformance = query['view'] == 'team-performance';
@@ -44,21 +45,17 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) ref.read(lmsAccessProvider.notifier).refresh();
+  }
+  @override
+  void dispose() { WidgetsBinding.instance.removeObserver(this); super.dispose(); }
+  @override
   Widget build(BuildContext context) {
+    final access = ref.watch(lmsAccessProvider);
+    final canReport = (access['performance_views'] as List? ?? []).isNotEmpty;
     final courseState = ref.watch(employeeCourseListProvider);
     final authState = ref.watch(employeeAuthProvider);
-    if (_showTeamPerformance &&
-        authState.isAuthenticated &&
-        !_teamReportLoaded) {
-      _teamReportLoaded = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ref
-              .read(teamPerformanceProvider.notifier)
-              .fetch(status: _teamReportStatus);
-        }
-      });
-    }
     final width = MediaQuery.sizeOf(context).width;
     final isCompact = width < 840;
     const usingPreviewData = false; // courseState.courses.isEmpty;
@@ -88,6 +85,7 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
           ? Drawer(
               child: _LmsNavigation(
                 expanded: true,
+                canReport: canReport,
                 selectedIndex: _activeNavigationIndex,
                 onSelect: _handleNavigation,
                 onToggle: () => Navigator.of(context).pop(),
@@ -101,6 +99,7 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
             if (!isCompact)
               _LmsNavigation(
                 expanded: _navigationExpanded,
+                canReport: canReport,
                 selectedIndex: _activeNavigationIndex,
                 onSelect: _handleNavigation,
                 onToggle: () =>
@@ -120,12 +119,8 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
                     ),
                   ),
                   Expanded(
-                    child: _showTeamPerformance
-                        ? _TeamPerformanceView(
-                            status: _teamReportStatus,
-                            onBack: () =>
-                                setState(() => _showTeamPerformance = false),
-                          )
+                    child: (_showTeamPerformance || _activeNavigationIndex == 3) && canReport
+                        ? PerformanceReportPortal(key: ValueKey('${authState.employee?.employeeId}:${authState.token}:${access['permissions_version']}:${access['report_scope_version']}'), initialCourseId: _showTeamPerformance ? Uri.base.queryParameters['course_id'] : null, initialStatus: _showTeamPerformance ? _teamReportStatus : null)
                         : openCourse == null
                             ? _buildActiveView(
                                 courses: courses,
@@ -250,140 +245,6 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> {
   }
 }
 
-class _TeamPerformanceView extends ConsumerWidget {
-  final String? status;
-  final VoidCallback onBack;
-
-  const _TeamPerformanceView({required this.status, required this.onBack});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(teamPerformanceProvider);
-    final rows = (state.data['rows'] as List<dynamic>? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .toList();
-    final summary = state.data['summary'] as Map<String, dynamic>? ?? const {};
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
-              const SizedBox(width: 8),
-              Text('Team learning report',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
-              IconButton(
-                tooltip: 'Refresh report',
-                onPressed: () => ref
-                    .read(teamPerformanceProvider.notifier)
-                    .fetch(status: status),
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (state.isLoading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else if (state.error != null)
-            Expanded(child: Center(child: Text(state.error!)))
-          else ...[
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _TeamMetric(label: 'Assigned', value: summary['assigned']),
-                _TeamMetric(label: 'Completed', value: summary['completed']),
-                _TeamMetric(label: 'Overdue', value: summary['overdue']),
-                _TeamMetric(
-                    label: 'Completion rate',
-                    value: '${summary['completion_rate'] ?? 0}%'),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: rows.isEmpty
-                  ? const Center(child: Text('No matching team assignments.'))
-                  : SingleChildScrollView(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('Employee')),
-                            DataColumn(label: Text('Course')),
-                            DataColumn(label: Text('Deadline')),
-                            DataColumn(label: Text('Progress')),
-                            DataColumn(label: Text('Status')),
-                          ],
-                          rows: rows.map((row) {
-                            final employee =
-                                row['employee'] as Map<String, dynamic>? ??
-                                    const {};
-                            final course =
-                                row['course'] as Map<String, dynamic>? ??
-                                    const {};
-                            final status =
-                                row['status'] as Map<String, dynamic>? ??
-                                    const {};
-                            return DataRow(cells: [
-                              DataCell(
-                                  Text(employee['name']?.toString() ?? '')),
-                              DataCell(Text(
-                                  course['course_name']?.toString() ?? '')),
-                              DataCell(
-                                  Text(_teamDate(row['deadline']?.toString()))),
-                              DataCell(
-                                  Text('${row['completion_percent'] ?? 0}%')),
-                              DataCell(Text(status['label']?.toString() ?? '')),
-                            ]);
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TeamMetric extends StatelessWidget {
-  final String label;
-  final Object? value;
-
-  const _TeamMetric({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 160,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E7EC)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Color(0xFF667085))),
-            const SizedBox(height: 6),
-            Text('${value ?? 0}',
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-          ],
-        ),
-      );
-}
-
-String _teamDate(String? value) {
-  final parsed = value == null ? null : DateTime.tryParse(value);
-  if (parsed == null) return '';
-  return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
-}
-
 class _DashboardAppBar extends StatelessWidget {
   final bool isCompact;
   final int activeIndex;
@@ -490,12 +351,14 @@ const _appBarLabels = ['Dashboard', 'My Courses', 'Notifications'];
 
 class _LmsNavigation extends StatelessWidget {
   final bool expanded;
+  final bool canReport;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onToggle;
 
   const _LmsNavigation({
     required this.expanded,
+    this.canReport = false,
     required this.selectedIndex,
     required this.onSelect,
     required this.onToggle,
@@ -507,6 +370,7 @@ class _LmsNavigation extends StatelessWidget {
       (icon: Icons.dashboard_outlined, label: 'Dashboard'),
       (icon: Icons.menu_book_outlined, label: 'My Courses'),
       (icon: Icons.notifications_outlined, label: 'Notifications'),
+      if (canReport) (icon: Icons.analytics_outlined, label: 'Performance'),
     ];
     return Container(
       width: expanded ? 262 : 76,

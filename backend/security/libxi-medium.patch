@@ -1,0 +1,982 @@
+diff --git a/src/XExtInt.c b/src/XExtInt.c
+index cdf557913410fd35976f0c7dcc69a10849fc0b04..a166d5a14df0cd37224a9ff34bbb583e7861368a 100644
+--- a/src/XExtInt.c
++++ b/src/XExtInt.c
+@@ -56,6 +56,7 @@ SOFTWARE.
+ 
+ #include <stdio.h>
+ #include <stdint.h>
++#include <limits.h>
+ #include <X11/extensions/XI.h>
+ #include <X11/extensions/XI2.h>
+ #include <X11/extensions/XIproto.h>
+@@ -73,8 +74,8 @@ SOFTWARE.
+ #define DONT_ENQUEUE	False
+ #define FP1616toDBL(x) ((x) * 1.0 / (1 << 16))
+ 
+-int copy_classes(XIDeviceInfo *to, xXIAnyInfo* from, int *nclasses);
+-int size_classes(xXIAnyInfo* from, int nclasses);
++int copy_classes(XIDeviceInfo *to, xXIAnyInfo* from, int *nclasses, char *end);
++int size_classes(xXIAnyInfo* from, int nclasses, char *end);
+ 
+ static XExtensionInfo *xinput_info;
+ static const char *xinput_extension_name = INAME;
+@@ -110,28 +111,33 @@ static Bool XInputCopyCookie(
+ );
+ 
+ static int
+-wireToDeviceEvent(xXIDeviceEvent *in, XGenericEventCookie* out);
++wireToDeviceEvent(xXIDeviceEvent *in, size_t event_bytes,
++                  XGenericEventCookie* out);
+ static int
+-wireToDeviceChangedEvent(xXIDeviceChangedEvent *in, XGenericEventCookie *cookie);
++wireToDeviceChangedEvent(xXIDeviceChangedEvent *in, size_t event_bytes,
++                         XGenericEventCookie *cookie);
+ static int
+-wireToHierarchyChangedEvent(xXIHierarchyEvent *in, XGenericEventCookie *cookie);
++wireToHierarchyChangedEvent(xXIHierarchyEvent *in, size_t event_bytes,
++                            XGenericEventCookie *cookie);
+ static int
+-wireToRawEvent(XExtDisplayInfo *info, xXIRawEvent *in, XGenericEventCookie *cookie);
++wireToRawEvent(XExtDisplayInfo *info, xXIRawEvent *in, size_t event_bytes,
++               XGenericEventCookie *cookie);
+ static int
+-wireToEnterLeave(xXIEnterEvent *in, XGenericEventCookie *cookie);
++wireToEnterLeave(xXIEnterEvent *in, size_t event_bytes,
++                 XGenericEventCookie *cookie);
+ static int
+ wireToPropertyEvent(xXIPropertyEvent *in, XGenericEventCookie *cookie);
+ static int
+-wireToTouchOwnershipEvent(xXITouchOwnershipEvent *in,
++wireToTouchOwnershipEvent(xXITouchOwnershipEvent *in, size_t event_bytes,
+                           XGenericEventCookie *cookie);
+ static int
+-wireToBarrierEvent(xXIBarrierEvent *in,
++wireToBarrierEvent(xXIBarrierEvent *in, size_t event_bytes,
+                    XGenericEventCookie *cookie);
+ static int
+-wireToPinchEvent(xXIGesturePinchEvent *in,
++wireToPinchEvent(xXIGesturePinchEvent *in, size_t event_bytes,
+                  XGenericEventCookie *cookie);
+ static int
+-wireToSwipeEvent(xXIGestureSwipeEvent *in,
++wireToSwipeEvent(xXIGestureSwipeEvent *in, size_t event_bytes,
+                  XGenericEventCookie *cookie);
+ 
+ static /* const */ XEvent emptyevent;
+@@ -985,7 +991,9 @@ XInputWireToCookie(
+         case XI_TouchUpdate:
+         case XI_TouchEnd:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToDeviceEvent((xXIDeviceEvent*)event, cookie))
++            if (!wireToDeviceEvent((xXIDeviceEvent*)event,
++                                   sizeof(xEvent) + ((size_t)ge->length * 4),
++                                   cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -994,7 +1002,9 @@ XInputWireToCookie(
+             return ENQUEUE_EVENT;
+         case XI_DeviceChanged:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToDeviceChangedEvent((xXIDeviceChangedEvent*)event, cookie))
++            if (!wireToDeviceChangedEvent((xXIDeviceChangedEvent*)event,
++                                          sizeof(xEvent) + ((size_t)ge->length * 4),
++                                          cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -1003,7 +1013,9 @@ XInputWireToCookie(
+             return ENQUEUE_EVENT;
+         case XI_HierarchyChanged:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToHierarchyChangedEvent((xXIHierarchyEvent*)event, cookie))
++            if (!wireToHierarchyChangedEvent((xXIHierarchyEvent*)event,
++                                             sizeof(xEvent) + ((size_t)ge->length * 4),
++                                             cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -1013,6 +1025,7 @@ XInputWireToCookie(
+         case XI_TouchOwnership:
+             *cookie = *(XGenericEventCookie*)save;
+             if (!wireToTouchOwnershipEvent((xXITouchOwnershipEvent*)event,
++                                           sizeof(xEvent) + ((size_t)ge->length * 4),
+                                            cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+@@ -1030,7 +1043,9 @@ XInputWireToCookie(
+         case XI_RawTouchUpdate:
+         case XI_RawTouchEnd:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToRawEvent(info, (xXIRawEvent*)event, cookie))
++            if (!wireToRawEvent(info, (xXIRawEvent*)event,
++                                sizeof(xEvent) + ((size_t)ge->length * 4),
++                                cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -1042,7 +1057,9 @@ XInputWireToCookie(
+         case XI_FocusIn:
+         case XI_FocusOut:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToEnterLeave((xXIEnterEvent*)event, cookie))
++            if (!wireToEnterLeave((xXIEnterEvent*)event,
++                                  sizeof(xEvent) + ((size_t)ge->length * 4),
++                                  cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -1061,7 +1078,9 @@ XInputWireToCookie(
+         case XI_BarrierHit:
+         case XI_BarrierLeave:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToBarrierEvent((xXIBarrierEvent*)event, cookie))
++            if (!wireToBarrierEvent((xXIBarrierEvent*)event,
++                                    sizeof(xEvent) + ((size_t)ge->length * 4),
++                                    cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -1072,7 +1091,9 @@ XInputWireToCookie(
+         case XI_GesturePinchUpdate:
+         case XI_GesturePinchEnd:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToPinchEvent((xXIGesturePinchEvent*)event, cookie))
++            if (!wireToPinchEvent((xXIGesturePinchEvent*)event,
++                                  sizeof(xEvent) + ((size_t)ge->length * 4),
++                                  cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -1083,7 +1104,9 @@ XInputWireToCookie(
+         case XI_GestureSwipeUpdate:
+         case XI_GestureSwipeEnd:
+             *cookie = *(XGenericEventCookie*)save;
+-            if (!wireToSwipeEvent((xXIGestureSwipeEvent*)event, cookie))
++            if (!wireToSwipeEvent((xXIGestureSwipeEvent*)event,
++                                  sizeof(xEvent) + ((size_t)ge->length * 4),
++                                  cookie))
+             {
+                 printf("XInputWireToCookie: CONVERSION FAILURE!  evtype=%d\n",
+                         ge->evtype);
+@@ -1609,17 +1632,36 @@ XInputCopyCookie(Display *dpy, XGenericEventCookie *in, XGenericEventCookie *out
+ }
+ 
+ static int
+-wireToDeviceEvent(xXIDeviceEvent *in, XGenericEventCookie* cookie)
++wireToDeviceEvent(xXIDeviceEvent *in, size_t event_bytes,
++                  XGenericEventCookie* cookie)
+ {
+     int len, i;
+     unsigned char *ptr;
+     void *ptr_lib;
+     FP3232 *values;
+     XIDeviceEvent *out;
++    size_t buttons_bytes, valuators_bytes, trailing, values_bytes;
++    int nvals;
++
++    if (event_bytes < sizeof(*in))
++        return 0;
+ 
+-    ptr = (unsigned char*)&in[1] + in->buttons_len * 4;
++    buttons_bytes = (size_t) in->buttons_len * 4;
++    valuators_bytes = (size_t) in->valuators_len * 4;
++    trailing = event_bytes - sizeof(*in);
+ 
+-    len = sizeDeviceEvent(in->buttons_len * 4, in->valuators_len * 4, ptr);
++    if (buttons_bytes > trailing ||
++        valuators_bytes > trailing - buttons_bytes)
++        return 0;
++
++    /* valuator mask follows the button mask */
++    ptr = (unsigned char *) &in[1] + buttons_bytes;
++    nvals = count_bits(ptr, (int) valuators_bytes);
++    values_bytes = (size_t) nvals * sizeof(FP3232);
++    if (values_bytes > trailing - buttons_bytes - valuators_bytes)
++        return 0;
++
++    len = sizeDeviceEvent((int) buttons_bytes, (int) valuators_bytes, ptr);
+ 
+     cookie->data = ptr_lib = malloc(len);
+     if (!ptr_lib)
+@@ -1652,26 +1694,25 @@ wireToDeviceEvent(xXIDeviceEvent *in, XGenericEventCookie* cookie)
+     out->group.locked = in->group.locked_group;
+     out->group.latched = in->group.latched_group;
+     out->group.effective = in->group.effective_group;
+-    out->buttons.mask_len = in->buttons_len * 4;
+-    out->valuators.mask_len = in->valuators_len * 4;
++    out->buttons.mask_len = (int) buttons_bytes;
++    out->valuators.mask_len = (int) valuators_bytes;
+ 
+     out->buttons.mask = next_block(&ptr_lib, out->buttons.mask_len);
+ 
+     /* buttons */
+     ptr = (unsigned char*)&in[1];
+     memcpy(out->buttons.mask, ptr, out->buttons.mask_len);
+-    ptr += in->buttons_len * 4;
++    ptr += buttons_bytes;
+ 
+     /* valuators */
+     out->valuators.mask = next_block(&ptr_lib, out->valuators.mask_len);
+     memcpy(out->valuators.mask, ptr, out->valuators.mask_len);
+-    ptr += in->valuators_len * 4;
++    ptr += valuators_bytes;
+ 
+-    len = count_bits(out->valuators.mask, out->valuators.mask_len);
+-    out->valuators.values = next_block(&ptr_lib, len * sizeof(double));
++    out->valuators.values = next_block(&ptr_lib, nvals * sizeof(double));
+ 
+     values = (FP3232*)ptr;
+-    for (i = 0; i < len; i++, values++)
++    for (i = 0; i < nvals; i++, values++)
+     {
+         out->valuators.values[i] = values->integral;
+         out->valuators.values[i] += ((double)values->frac / (1 << 16) / (1 << 16));
+@@ -1681,20 +1722,126 @@ wireToDeviceEvent(xXIDeviceEvent *in, XGenericEventCookie* cookie)
+     return 1;
+ }
+ 
++static int
++validate_class_header(char *ptr, char *end, xXIAnyInfo **any_out)
++{
++    xXIAnyInfo *any;
++    size_t remaining;
++
++    if (ptr + sizeof(xXIAnyInfo) > end)
++        return -1;
++
++    any = (xXIAnyInfo *) ptr;
++    if (any->length == 0)
++        return -1;
++
++    remaining = (size_t) (end - ptr);
++    if ((size_t) any->length > remaining / 4)
++        return -1;
++
++    *any_out = any;
++
++    return 0;
++}
++
++/*
++ * Reject class records whose type-specific header or payload cannot fit in
++ * the declared wire length (length is in 4-byte units).
++ */
++static int
++validate_class_payload(xXIAnyInfo *any)
++{
++    size_t cls_len = (size_t) any->length * 4;
++
++    switch (any->type) {
++    case XIButtonClass:
++        {
++            xXIButtonInfo *b = (xXIButtonInfo *) any;
++            size_t mask_size, labels_size, need;
++
++            if (cls_len < sizeof(xXIButtonInfo))
++                return -1;
++
++            mask_size = ((size_t) b->num_buttons + 7) / 8;
++            mask_size = (mask_size + 3) / 4 * 4;
++            if (b->num_buttons >
++                (SIZE_MAX - sizeof(xXIButtonInfo) - mask_size) / 4)
++                return -1;
++
++            labels_size = (size_t) b->num_buttons * 4;
++            need = sizeof(xXIButtonInfo) + mask_size + labels_size;
++            if (need > cls_len)
++                return -1;
++
++            break;
++        }
++    case XIKeyClass:
++        {
++            xXIKeyInfo *k = (xXIKeyInfo *) any;
++
++            if (cls_len < sizeof(xXIKeyInfo))
++                return -1;
++
++            /* copy_classes reads num_keycodes bytes from the wire */
++            if ((size_t) k->num_keycodes > (cls_len - sizeof(xXIKeyInfo)) / 4)
++                return -1;
++
++            break;
++        }
++    case XIValuatorClass:
++        if (cls_len < sizeof(xXIValuatorInfo))
++            return -1;
++        break;
++    case XIScrollClass:
++        if (cls_len < sizeof(xXIScrollInfo))
++            return -1;
++        break;
++    case XITouchClass:
++        if (cls_len < sizeof(xXITouchInfo))
++            return -1;
++        break;
++    case XIGestureClass:
++        if (cls_len < sizeof(xXIGestureInfo))
++            return -1;
++        break;
++    default:
++        break;
++    }
++
++    return 0;
++}
++
+ _X_HIDDEN int
+-size_classes(xXIAnyInfo* from, int nclasses)
++size_classes(xXIAnyInfo* from, int nclasses, char *end)
+ {
+-    int len, i;
++    size_t len;
++    size_t ptr_bytes;
++    int i;
+     xXIAnyInfo *any_wire;
+     char *ptr_wire;
+ 
++    if (nclasses < 0)
++        return -1;
++    if ((size_t) nclasses > SIZE_MAX / sizeof(XIAnyClassInfo *))
++        return -1;
++
++    ptr_bytes = (size_t) nclasses * sizeof(XIAnyClassInfo *);
++    if (ptr_bytes > (size_t) INT_MAX)
++        return -1;
++
+     /* len for to->classes */
+-    len = pad_to_double(nclasses * sizeof(XIAnyClassInfo*));
++    len = (size_t) pad_to_double((int) ptr_bytes);
+     ptr_wire = (char*)from;
+     for (i = 0; i < nclasses; i++)
+     {
+         int l = 0;
+-        any_wire = (xXIAnyInfo*)ptr_wire;
++
++        if (validate_class_header(ptr_wire, end, &any_wire) < 0)
++            return -1;
++
++        if (validate_class_payload(any_wire) < 0)
++            return -1;
++
+         switch(any_wire->type)
+         {
+             case XIButtonClass:
+@@ -1719,11 +1866,15 @@ size_classes(xXIAnyInfo* from, int nclasses)
+                 break;
+         }
+ 
+-        len += l;
++        if (l < 0 || len > SIZE_MAX - (size_t) l)
++            return -1;
++        len += (size_t) l;
+         ptr_wire += any_wire->length * 4;
+     }
+ 
+-    return len;
++    if (len > (size_t) INT_MAX)
++        return -1;
++    return (int) len;
+ }
+ 
+ #define FP3232_TO_DOUBLE(x) ((double) (x).integral + (double) (x).frac / (1ULL << 32))
+@@ -1735,7 +1886,7 @@ size_classes(xXIAnyInfo* from, int nclasses)
+  *             |______________________^
+  */
+ _X_HIDDEN int
+-copy_classes(XIDeviceInfo* to, xXIAnyInfo* from, int *nclasses)
++copy_classes(XIDeviceInfo* to, xXIAnyInfo* from, int *nclasses, char *end)
+ {
+     XIAnyClassInfo *any_lib;
+     xXIAnyInfo *any_wire;
+@@ -1757,7 +1908,12 @@ copy_classes(XIDeviceInfo* to, xXIAnyInfo* from, int *nclasses)
+     for (i = 0; i < *nclasses; i++)
+     {
+         any_lib = (XIAnyClassInfo*)ptr_lib;
+-        any_wire = (xXIAnyInfo*)ptr_wire;
++
++        if (validate_class_header(ptr_wire, end, &any_wire) < 0)
++            return -1;
++
++        if (validate_class_payload(any_wire) < 0)
++            return -1;
+ 
+         switch(any_wire->type)
+         {
+@@ -1907,14 +2063,22 @@ copy_classes(XIDeviceInfo* to, xXIAnyInfo* from, int *nclasses)
+ 
+ 
+ static int
+-wireToDeviceChangedEvent(xXIDeviceChangedEvent *in, XGenericEventCookie *cookie)
++wireToDeviceChangedEvent(xXIDeviceChangedEvent *in, size_t event_bytes,
++                         XGenericEventCookie *cookie)
+ {
+     XIDeviceChangedEvent *out;
+     XIDeviceInfo info;
+     int len;
+     int nclasses = in->num_classes;
++    char *end;
++
++    if (event_bytes < sizeof(*in))
++        return 0;
++    end = (char *)in + event_bytes;
+ 
+-    len = size_classes((xXIAnyInfo*)&in[1], in->num_classes);
++    len = size_classes((xXIAnyInfo*)&in[1], in->num_classes, end);
++    if (len < 0 || (size_t)len > SIZE_MAX - sizeof(XIDeviceChangedEvent))
++        return 0;
+ 
+     cookie->data = out = malloc(sizeof(XIDeviceChangedEvent) + len);
+     if (!out)
+@@ -1935,21 +2099,41 @@ wireToDeviceChangedEvent(xXIDeviceChangedEvent *in, XGenericEventCookie *cookie)
+ 
+     info.classes = out->classes;
+ 
+-    copy_classes(&info, (xXIAnyInfo*)&in[1], &nclasses);
++    if (copy_classes(&info, (xXIAnyInfo*)&in[1], &nclasses, end) < 0) {
++        free(out);
++        cookie->data = NULL;
++        return 0;
++    }
+     out->num_classes = nclasses;
+ 
+     return 1;
+ }
+ 
+ static int
+-wireToHierarchyChangedEvent(xXIHierarchyEvent *in, XGenericEventCookie *cookie)
++wireToHierarchyChangedEvent(xXIHierarchyEvent *in, size_t event_bytes,
++                            XGenericEventCookie *cookie)
+ {
+     int i;
+     XIHierarchyInfo *info_out;
+     xXIHierarchyInfo *info_in;
+     XIHierarchyEvent *out;
++    size_t info_bytes;
++
++    if (event_bytes < sizeof(*in))
++        return 0;
+ 
+-    cookie->data = out = malloc(sizeof(XIHierarchyEvent) + in->num_info * sizeof(XIHierarchyInfo));
++    info_bytes = (size_t) in->num_info * sizeof(xXIHierarchyInfo);
++    if (sizeof(xXIHierarchyInfo) != 0 &&
++        info_bytes / sizeof(xXIHierarchyInfo) != (size_t) in->num_info)
++        return 0;
++    if (info_bytes > event_bytes - sizeof(*in))
++        return 0;
++    if ((size_t) in->num_info >
++        (SIZE_MAX - sizeof(XIHierarchyEvent)) / sizeof(XIHierarchyInfo))
++        return 0;
++
++    cookie->data = out = malloc(sizeof(XIHierarchyEvent) +
++                                in->num_info * sizeof(XIHierarchyInfo));
+     if (!out)
+         return 0;
+ 
+@@ -1980,16 +2164,31 @@ wireToHierarchyChangedEvent(xXIHierarchyEvent *in, XGenericEventCookie *cookie)
+ }
+ 
+ static int
+-wireToRawEvent(XExtDisplayInfo *info, xXIRawEvent *in, XGenericEventCookie *cookie)
++wireToRawEvent(XExtDisplayInfo *info, xXIRawEvent *in, size_t event_bytes,
++               XGenericEventCookie *cookie)
+ {
+     int len, i, bits;
+     FP3232 *values;
+     XIRawEvent *out;
+     void *ptr;
++    size_t valuators_bytes, values_bytes, trailing;
++
++    if (event_bytes < sizeof(*in))
++        return 0;
++
++    valuators_bytes = (size_t) in->valuators_len * 4;
++    trailing = event_bytes - sizeof(*in);
++    if (valuators_bytes > trailing)
++        return 0;
++
++    bits = count_bits((unsigned char*)&in[1], (int) valuators_bytes);
++    /* normal + raw valuator arrays follow the mask */
++    values_bytes = (size_t) bits * sizeof(FP3232) * 2;
++    if (values_bytes > trailing - valuators_bytes)
++        return 0;
+ 
+     len = pad_to_double(sizeof(XIRawEvent))
+-        + pad_to_double(in->valuators_len * 4);
+-    bits = count_bits((unsigned char*)&in[1], in->valuators_len * 4);
++        + pad_to_double((int) valuators_bytes);
+     len += bits * sizeof(double) * 2; /* raw + normal */
+ 
+     cookie->data = ptr = calloc(1, len);
+@@ -2014,7 +2213,7 @@ wireToRawEvent(XExtDisplayInfo *info, xXIRawEvent *in, XGenericEventCookie *cook
+     else
+         out->sourceid       = 0;
+ 
+-    out->valuators.mask_len = in->valuators_len * 4;
++    out->valuators.mask_len = (int) valuators_bytes;
+     out->valuators.mask
+         = next_block(&ptr, pad_to_double(out->valuators.mask_len));
+     memcpy(out->valuators.mask, &in[1], out->valuators.mask_len);
+@@ -2022,7 +2221,7 @@ wireToRawEvent(XExtDisplayInfo *info, xXIRawEvent *in, XGenericEventCookie *cook
+     out->valuators.values = next_block(&ptr, bits * sizeof(double));
+     out->raw_values = next_block(&ptr, bits * sizeof(double));
+ 
+-    values = (FP3232*)(((char*)&in[1]) + in->valuators_len * 4);
++    values = (FP3232*)(((char*)&in[1]) + valuators_bytes);
+     for (i = 0; i < bits; i++)
+     {
+         out->valuators.values[i] = values->integral;
+@@ -2039,12 +2238,20 @@ wireToRawEvent(XExtDisplayInfo *info, xXIRawEvent *in, XGenericEventCookie *cook
+    [event][modifiers][group][button]
+  */
+ static int
+-wireToEnterLeave(xXIEnterEvent *in, XGenericEventCookie *cookie)
++wireToEnterLeave(xXIEnterEvent *in, size_t event_bytes,
++                 XGenericEventCookie *cookie)
+ {
+-    int len;
++    size_t mask_len, len;
+     XIEnterEvent *out;
+ 
+-    len = sizeof(XIEnterEvent) + in->buttons_len * 4;
++    mask_len = (size_t)in->buttons_len * 4;
++
++    if (event_bytes < sizeof(*in) || mask_len > event_bytes - sizeof(*in))
++        return 0;
++    if (mask_len > SIZE_MAX - sizeof(XIEnterEvent))
++        return 0;
++
++    len = sizeof(XIEnterEvent) + mask_len;
+ 
+     cookie->data = out = malloc(len);
+     if (!out)
+@@ -2082,8 +2289,8 @@ wireToEnterLeave(xXIEnterEvent *in, XGenericEventCookie *cookie)
+     out->group.latched = in->group.latched_group;
+     out->group.effective = in->group.effective_group;
+ 
+-    out->buttons.mask_len = in->buttons_len * 4;
+-    memcpy(out->buttons.mask, &in[1], out->buttons.mask_len);
++    out->buttons.mask_len = (int) mask_len;
++    memcpy(out->buttons.mask, &in[1], mask_len);
+ 
+     return 1;
+ }
+@@ -2111,10 +2318,15 @@ wireToPropertyEvent(xXIPropertyEvent *in, XGenericEventCookie *cookie)
+ }
+ 
+ static int
+-wireToTouchOwnershipEvent(xXITouchOwnershipEvent *in,
++wireToTouchOwnershipEvent(xXITouchOwnershipEvent *in, size_t event_bytes,
+                           XGenericEventCookie *cookie)
+ {
+-    XITouchOwnershipEvent *out = malloc(sizeof(XITouchOwnershipEvent));
++    XITouchOwnershipEvent *out;
++
++    if (event_bytes < sizeof(*in))
++        return 0;
++
++    out = malloc(sizeof(XITouchOwnershipEvent));
+ 
+     cookie->data = out;
+     if (!out)
+@@ -2139,9 +2351,15 @@ wireToTouchOwnershipEvent(xXITouchOwnershipEvent *in,
+ }
+ 
+ static int
+-wireToBarrierEvent(xXIBarrierEvent *in, XGenericEventCookie *cookie)
++wireToBarrierEvent(xXIBarrierEvent *in, size_t event_bytes,
++                   XGenericEventCookie *cookie)
+ {
+-    XIBarrierEvent *out = malloc(sizeof(XIBarrierEvent));
++    XIBarrierEvent *out;
++
++    if (event_bytes < sizeof(*in))
++        return 0;
++
++    out = malloc(sizeof(XIBarrierEvent));
+ 
+     cookie->data = out;
+     if (!out)
+@@ -2171,11 +2389,14 @@ wireToBarrierEvent(xXIBarrierEvent *in, XGenericEventCookie *cookie)
+ }
+ 
+ static int
+-wireToPinchEvent(xXIGesturePinchEvent *in,
++wireToPinchEvent(xXIGesturePinchEvent *in, size_t event_bytes,
+                  XGenericEventCookie *cookie)
+ {
+     XIGesturePinchEvent *out;
+ 
++    if (event_bytes < sizeof(*in))
++        return 0;
++
+     cookie->data = out = malloc(sizeof(XIGesturePinchEvent));
+     if (!out)
+         return 0;
+@@ -2218,11 +2439,14 @@ wireToPinchEvent(xXIGesturePinchEvent *in,
+ }
+ 
+ static int
+-wireToSwipeEvent(xXIGestureSwipeEvent *in,
++wireToSwipeEvent(xXIGestureSwipeEvent *in, size_t event_bytes,
+                  XGenericEventCookie *cookie)
+ {
+     XIGestureSwipeEvent *out;
+ 
++    if (event_bytes < sizeof(*in))
++        return 0;
++
+     cookie->data = out = malloc(sizeof(XIGestureSwipeEvent));
+     if (!out)
+         return 0;
+diff --git a/src/XIQueryDevice.c b/src/XIQueryDevice.c
+index c89c4bc181862f7703b4cc2c827caf728a920b3e..0da746ef4d28e63d09407a8ffeb54e03a3ac563b 100644
+--- a/src/XIQueryDevice.c
++++ b/src/XIQueryDevice.c
+@@ -34,8 +34,9 @@
+ #include <X11/extensions/extutil.h>
+ #include "XIint.h"
+ 
+-extern int copy_classes(XIDeviceInfo* to, xXIAnyInfo* from, int *nclasses);
+-extern int size_classes(xXIAnyInfo* from, int nclasses);
++extern int copy_classes(XIDeviceInfo* to, xXIAnyInfo* from, int *nclasses,
++                        char *end);
++extern int size_classes(xXIAnyInfo* from, int nclasses, char *end);
+ 
+ XIDeviceInfo*
+ XIQueryDevice(Display *dpy, int deviceid, int *ndevices_return)
+@@ -88,9 +89,11 @@ XIQueryDevice(Display *dpy, int deviceid, int *ndevices_return)
+     for (i = 0; i < reply.num_devices; i++)
+     {
+         int             nclasses;
+-        size_t          sz;
++        int             sz;
++        int             wire_len;
+         XIDeviceInfo    *lib = &info[i];
+         xXIDeviceInfo   *wire = (xXIDeviceInfo*)ptr;
++        size_t          name_bytes;
+ 
+         if (ptr + sizeof(xXIDeviceInfo) > end)
+             goto error_loop;
+@@ -102,25 +105,39 @@ XIQueryDevice(Display *dpy, int deviceid, int *ndevices_return)
+         nclasses         = wire->num_classes;
+ 
+         ptr += sizeof(xXIDeviceInfo);
++        name_bytes = ((size_t) wire->name_len + 3) / 4 * 4;
+ 
+-        if (ptr + wire->name_len > end)
++        if (ptr + name_bytes > end)
+             goto error_loop;
+ 
+         lib->name = Xcalloc(wire->name_len + 1, 1);
+         if (lib->name == NULL)
+             goto error_loop;
++
+         strncpy(lib->name, ptr, wire->name_len);
+         lib->name[wire->name_len] = '\0';
+-        ptr += ((wire->name_len + 3)/4) * 4;
++        ptr += name_bytes;
+ 
+-        sz = size_classes((xXIAnyInfo*)ptr, nclasses);
++        sz = size_classes((xXIAnyInfo*)ptr, nclasses, end);
++        if (sz < 0)
++        {
++            Xfree(lib->name);
++            goto error_loop;
++        }
+         lib->classes = Xmalloc(sz);
+         if (lib->classes == NULL)
+         {
+             Xfree(lib->name);
+             goto error_loop;
+         }
+-        ptr += copy_classes(lib, (xXIAnyInfo*)ptr, &nclasses);
++        wire_len = copy_classes(lib, (xXIAnyInfo*)ptr, &nclasses, end);
++        if (wire_len < 0 || ptr + wire_len > end)
++        {
++            Xfree(lib->name);
++            Xfree(lib->classes);
++            goto error_loop;
++        }
++        ptr += wire_len;
+         /* We skip over unused classes */
+         lib->num_classes = nclasses;
+     }
+diff --git a/src/XListDev.c b/src/XListDev.c
+index db71e0e26519b8ff61ee16b5588b3ebb5bfd2412..5d76a234926a8dd015e7f0ef50ed2d25dee7b029 100644
+--- a/src/XListDev.c
++++ b/src/XListDev.c
+@@ -78,32 +78,47 @@ SizeClassInfo(xAnyClassPtr *any, size_t len, int num_classes, size_t *size)
+ {
+     int j;
+     size_t sz = 0;
++    int clen;
+ 
+     for (j = 0; j < num_classes; j++) {
++        if (len < sizeof(xAnyClassInfo))
++            return 1;
++        clen = (*any)->length;
++        if (clen < (int)sizeof(xAnyClassInfo) || (size_t)clen > len)
++            return 1;
++
+         switch ((*any)->class) {
+             case KeyClass:
++                if (clen < (int)sizeof(xKeyInfo))
++                    return 1;
+                 sz += pad_to_xid(sizeof(XKeyInfo));
+                 break;
+             case ButtonClass:
++                if (clen < (int)sizeof(xButtonInfo))
++                    return 1;
+                 sz += pad_to_xid(sizeof(XButtonInfo));
+                 break;
+             case ValuatorClass:
+                 {
+                     xValuatorInfoPtr v;
++                    size_t need;
+ 
+-                    if (len < sizeof(v))
++                    if (clen < (int)sizeof(xValuatorInfo))
+                         return 1;
+                     v = (xValuatorInfoPtr) *any;
++                    need = sizeof(xValuatorInfo) +
++                        ((size_t)v->num_axes * sizeof(xAxisInfo));
++                    if (need > (size_t)clen)
++                        return 1;
+                     sz += pad_to_xid(sizeof(XValuatorInfo) +
+                         (v->num_axes * sizeof(XAxisInfo)));
+                     break;
+                 }
+             default:
+-                break;
++                return 1;
+         }
+-        if ((*any)->length > len)
+-            return 1;
+-        *any = (xAnyClassPtr) ((char *)(*any) + (*any)->length);
++        *any = (xAnyClassPtr) ((char *)(*any) + clen);
++        len -= (size_t)clen;
+     }
+ 
+     *size = sz;
+@@ -111,12 +126,20 @@ SizeClassInfo(xAnyClassPtr *any, size_t len, int num_classes, size_t *size)
+     return 0;
+ }
+ 
+-static void
+-ParseClassInfo(xAnyClassPtr *any, XAnyClassPtr *Any, int num_classes)
++static int
++ParseClassInfo(xAnyClassPtr *any, XAnyClassPtr *Any, int num_classes,
++               char *end)
+ {
+     int j;
++    int clen;
+ 
+     for (j = 0; j < num_classes; j++) {
++        if ((char *)(*any) + sizeof(xAnyClassInfo) > end)
++            return 1;
++        clen = (*any)->length;
++        if (clen < (int)sizeof(xAnyClassInfo) || (char *)(*any) + clen > end)
++            return 1;
++
+         switch ((*any)->class) {
+             case KeyClass:
+                 {
+@@ -165,11 +188,12 @@ ParseClassInfo(xAnyClassPtr *any, XAnyClassPtr *Any, int num_classes)
+                     break;
+                 }
+             default:
+-                break;
++                return 1;
+         }
+-        *any = (xAnyClassPtr) ((char *)(*any) + (*any)->length);
++        *any = (xAnyClassPtr) ((char *)(*any) + clen);
+         *Any = (XAnyClassPtr) ((char *)(*Any) + (*Any)->length);
+     }
++    return 0;
+ }
+ 
+ XDeviceInfo *
+@@ -191,6 +215,7 @@ XListInputDevices(
+     unsigned long rlen;
+     XExtDisplayInfo *info = XInput_find_display(dpy);
+     int ndevices;
++    Bool free_sclist = False;
+ 
+     LockDisplay(dpy);
+     if (_XiCheckExtInit(dpy, XInput_Initial_Release, info) == -1)
+@@ -224,17 +249,21 @@ XListInputDevices(
+ 	sav_any = any;
+ 	end = (char *)list + rlen;
+ 	for (i = 0; i < ndevices; i++, list++) {
+-            if(SizeClassInfo(&any, end - (char *)any, (int)list->num_classes, &s))
+-                goto out;
+-            size += s;
++	    if (SizeClassInfo(&any, end - (char *)any, (int)list->num_classes, &s))
++		goto out;
++	    size += s;
+ 	}
+ 
+-	Nptr = ((unsigned char *)list) + rlen;
+ 	for (i = 0, nptr = (unsigned char *)any; i < ndevices; i++) {
+-	    if (nptr >= Nptr)
++	    size_t name_len;
++
++	    if (nptr >= (unsigned char *)end)
++		goto out;
++	    name_len = *nptr;
++	    if (name_len > (size_t)((unsigned char *)end - nptr - 1))
+ 		goto out;
+-	    size += *nptr + 1;
+-	    nptr += (*nptr + 1);
++	    size += name_len + 1;
++	    nptr += name_len + 1;
+ 	}
+ 
+ 	clist = (XDeviceInfoPtr) Xmalloc(size);
+@@ -256,24 +285,42 @@ XListInputDevices(
+ 	    clist->num_classes = list->num_classes;
+ 	    clist->inputclassinfo = Any;
+ 
+-            ParseClassInfo(&any, &Any, (int)list->num_classes);
++	    if (ParseClassInfo(&any, &Any, (int)list->num_classes, end)) {
++		free_sclist = True;
++		goto out;
++	    }
+ 	}
+ 
+ 	clist = sclist;
+ 	nptr = (unsigned char *)any;
+ 	Nptr = (unsigned char *)Any;
+ 	for (i = 0; i < ndevices; i++, clist++) {
++	    size_t name_len;
++
++	    if (nptr >= (unsigned char *)end) {
++		free_sclist = True;
++		goto out;
++	    }
++	    name_len = *nptr;
++	    if (name_len > (size_t)((unsigned char *)end - nptr - 1)) {
++		free_sclist = True;
++		goto out;
++	    }
+ 	    clist->name = (char *)Nptr;
+-	    memcpy(Nptr, nptr + 1, *nptr);
+-	    Nptr += (*nptr);
++	    memcpy(Nptr, nptr + 1, name_len);
++	    Nptr += name_len;
+ 	    *Nptr++ = '\0';
+-	    nptr += (*nptr + 1);
++	    nptr += name_len + 1;
+ 	}
+     }
+ 
+     *ndevices_return = ndevices;
+ 
+   out:
++    if (free_sclist) {
++	XFree((char *)sclist);
++	sclist = NULL;
++    }
+     XFree((char *)slist);
+     UnlockDisplay(dpy);
+     SyncHandle();
+diff --git a/src/XQueryDv.c b/src/XQueryDv.c
+index 7ee227221737078aab1d32089151fd7c91bcf2e2..c67e5e6b532b364b880455f42d44642e3f21c7e1 100644
+--- a/src/XQueryDv.c
++++ b/src/XQueryDv.c
+@@ -108,20 +108,45 @@ XQueryDeviceState(
+ 
+ 	    switch (any->class) {
+ 	    case KeyClass:
++		if (any->length < sizeof(xKeyState) ||
++		    (char *)any + sizeof(xKeyState) > end)
++		    goto out;
+ 		size += sizeof(XKeyState);
+ 		break;
+ 	    case ButtonClass:
++		if (any->length < sizeof(xButtonState) ||
++		    (char *)any + sizeof(xButtonState) > end)
++		    goto out;
+ 		size += sizeof(XButtonState);
+ 		break;
+ 	    case ValuatorClass:
+ 	    {
+ 		xValuatorState *v = (xValuatorState *) any;
++		size_t nvals;
++		size_t needed;
++
++		if (any->length < sizeof(xValuatorState))
++		    goto out;
++
+ 		if ((char *)any + sizeof(xValuatorState) > end)
+ 		    goto out;
+-		size += (sizeof(XValuatorState) +
+-			 (v->num_valuators * sizeof(int)));
++
++		nvals = v->num_valuators;
++		/* valuators follow the header; must fit in class length */
++		if (nvals > (any->length - sizeof(xValuatorState)) / sizeof(CARD32))
++		    goto out;
++
++		needed = sizeof(xValuatorState) + nvals * sizeof(CARD32);
++		if ((char *)any + needed > end)
++		    goto out;
++
++		size += sizeof(XValuatorState) + nvals * sizeof(int);
+ 	    }
+ 		break;
++	    default:
++		/* Unknown classes are not represented in state->data; rejecting
++		 * keeps num_classes consistent with the populated entries. */
++		goto out;
+ 	    }
+ 	    any = (XInputClass *) ((char *)any + any->length);
+ 	}
+@@ -165,30 +190,37 @@ XQueryDeviceState(
+ 		xValuatorState *v = (xValuatorState *) any;
+ 		XValuatorState *V = (XValuatorState *) Any;
+ 		CARD32 *valuators = (CARD32 *) (v + 1);
++		size_t nvals = v->num_valuators;
+ 
+ 		V->class = v->class;
+-		V->length = sizeof(XValuatorState) +
+-			    v->num_valuators * sizeof(int);
++		V->length = sizeof(XValuatorState) + nvals * sizeof(int);
+ 		V->num_valuators = v->num_valuators;
+ 		V->mode = v->mode;
+ 		Any = (XInputClass *) (V + 1);
+ 		V->valuators = (int *)Any;
+-		for (j = 0; j < (int)V->num_valuators; j++)
++		for (j = 0; j < (int)nvals; j++)
+ 		    *(V->valuators + j) = *valuators++;
+-		Any = (XInputClass *) ((char *)Any +
+-				       V->num_valuators * sizeof(int));
++		Any = (XInputClass *) ((char *)Any + nvals * sizeof(int));
+ 	    }
+ 		break;
++	    default:
++		goto out;
+ 	    }
+ 	    any = (XInputClass *) ((char *)any + any->length);
+ 	}
+     }
+-out:
++
+     Xfree(data);
++    UnlockDisplay(dpy);
++    SyncHandle();
++    return state;
+ 
++out:
++    Xfree(data);
++    Xfree(state);
+     UnlockDisplay(dpy);
+     SyncHandle();
+-    return (state);
++    return NULL;
+ }
+ 
+ void

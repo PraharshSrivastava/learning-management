@@ -64,17 +64,15 @@ class EmployeeCourseListNotifier
   EmployeeCourseListNotifier({required this.token})
       : super(EmployeeCourseListState()) {
     fetchCourses();
-    if (token != null) {
-      _connectWebSocket();
-    }
+    _connectWebSocket();
   }
 
   void _connectWebSocket() {
-    if (_isDisposed || token == null) return;
+    if (_isDisposed) return;
 
     state = EmployeeCourseListState(courses: state.courses, isLoading: true);
     try {
-      final wsUrl = Uri.parse(AppConstants.myCoursesWsEndpoint(token!));
+      final wsUrl = Uri.parse(AppConstants.myCoursesWsEndpoint(token ?? ''));
       _channel = WebSocketChannel.connect(wsUrl);
 
       _channel!.stream.listen(
@@ -124,7 +122,7 @@ class EmployeeCourseListNotifier
   }
 
   void _scheduleReconnect() {
-    if (_isDisposed || token == null) return;
+    if (_isDisposed) return;
     Future.delayed(const Duration(seconds: 5), () {
       _connectWebSocket();
     });

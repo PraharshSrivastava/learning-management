@@ -1,0 +1,2006 @@
+{
+  "date": "2026-10-07",
+  "state": "ISOLATED CANDIDATES TESTED; RELEASE GATES OPEN; NOT DEPLOYED",
+  "branch": "codex/lms-sbom-remediation",
+  "source_base_commit": "16adda0",
+  "excluded_scope": {
+    "postgresql": "Deferred by user; preserve completed evidence, no further fixes or deployment."
+  },
+  "scanner_image": "aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa",
+  "scanner_version": "0.75.0",
+  "advisory_database": {
+    "Version": 2,
+    "NextUpdate": "2026-10-08T00:53:05.111120177Z",
+    "UpdatedAt": "2026-10-07T00:53:05.111120428Z",
+    "DownloadedAt": "2026-10-07T03:48:42.221382178Z"
+  },
+  "components": [
+    {
+      "component": "backend",
+      "candidate_tag": "lms-sbom-backend:candidate-20261007-25",
+      "image_id": "sha256:0c799be7d178d617340cd8dd0edb339a1dbd1180581e434b29a9a4ca7ceeef45",
+      "report_created": "2026-10-07T09:58:26.618397788Z",
+      "severity": {
+        "MEDIUM": 27,
+        "LOW": 12
+      },
+      "occurrences": 39,
+      "inherited_open_severity": {
+        "LOW": 195,
+        "MEDIUM": 40,
+        "HIGH": 6,
+        "UNKNOWN": 20
+      },
+      "current_open_severity": {
+        "MEDIUM": 15,
+        "LOW": 12
+      },
+      "evidence_directory": "/home/karphi/lms-security/evidence/backend-priority1-20261007",
+      "detected_sbom_components": 406,
+      "enriched_sbom_components": 409,
+      "validation": {
+        "native_document_media": "PASS",
+        "import_health_without_lifespan": "PASS",
+        "native_identity_lock": "PASS:69 artifacts",
+        "guard_negative_controls": "PASS",
+        "native_files_identical_to_candidate24": 1316,
+        "application_files_matched": 102,
+        "parent_patch_and_application_tests": "Inherited from candidate24 through byte identity; not rerun",
+        "inherited_high_coverage_assessments": "6 remain OPEN",
+        "deployed": false,
+        "vm_local_evidence_checksums_matched": 41
+      },
+      "evidence_sha256": {
+        "backend-candidate.json": "94e91755cdbfbdc33380d527b94b4769d3a462b3143c3f3cfc604ed5ccd91d47",
+        "backend.enriched.cdx.json": "2373e3029e2f9980615d9dcf5ff853ae8f7bef404c97e9c1b068c21183042ceb",
+        "backend.raw.cdx.json": "4ca6d1edf5fc937207512d2475b6e77101462d116f9064882f3731ae8d04cbf2",
+        "backend_bundle_inventory.py": "cc0c3f0e1846574c0e6e88407a7d36231c5622371e042cb1dd12ec478188746e",
+        "build-metadata.json": "f09ccda5558e68426a0ac8e55469fff102551a6d3a7d952cc9bb414346466cb9",
+        "build25-first.log": "782daf7b412a5f5b46c05c70cdc15199c46538e7ef147442a60f426b50d63868",
+        "build25.log": "9d769718719ef41d1ecf4b88a6c99017a95ac133e266b87e885fe1cf9579389c",
+        "bundle-inventory.json": "5a50c770252697e6ff2196c4d9028abeee656c288d81115152f33483807ba7d8",
+        "check_native_bundle_lock.py": "7e12e3c5d7454695c2135e89ec329e5e87088602a2679226b3f535efed3b88f9",
+        "comparison.json": "cbd6b066a54e9e0b35b74119233e414cde07da88f2ed36dade93683aa47bb9a1",
+        "current-register.csv": "fc30ddd3690c3c2040e9dc72bed7bbfc073d6f5132a82352454de2dbb53a9fb9",
+        "Dockerfile": "f77d3016ea7ed462804392c0a5998551fbbc9de19cdcd890feba8c0ca188508c",
+        "enrich_backend_bundles.py": "38cf2eb8135147a80c8717e2141ab5e171b3a6a7d0631979b941bdc8e60ad814",
+        "guard-controls.json": "f8a1e3710d83f9c25aaffcce3ed9e4051b28f621dcdb89ce0eff985c4c95083e",
+        "identity-guard.json": "4a99bc38a193abab9a8ac1d7e23d8a86aadc859d4258ae3832d19fdad36caf73",
+        "image-id.txt": "62418654839446e3792223e64bd0e89c9efaa3fa48105eb6a2c776d94074094c",
+        "image-inspect.json": "e3e734b91da9e5bfc335c2ffd2e227a6313922947f5a284e6bd61119a3b7f3ce",
+        "import-health.log": "c4feaf2455db3efc6981b9bc20c65015ec1e79593a11d443f6df56d79c1897c1",
+        "inherited-register.csv": "80f38570b094fe940b364b3c3bb8ed806b56cc546d424db726a6eafcc01fb0f1",
+        "inventory-controls.json": "322737abfe71cc35131d5ce677620e659423179cb3a1048539fc2fe842e3de71",
+        "media-smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+        "native-attribution.csv": "302d9da0fbe18b5e3fc664c9ed500413e1924d8c93da90249ce0cb1e5bae7ea6",
+        "native-bundle-lock.json": "4d50563d9be48b39eef227116dee2670d33e80f0375c799c37acdb246dfa9d7f",
+        "native-identity-equivalence.json": "4c2cfa960ba8ded367a10dda0654c08f7fbb4cc77e5deaf4e619c3bc8cc699c0",
+        "priority1-report.md": "601e62861059baeef1eeddbb2931f161d3bf4efeaeb1952a066e976c77f82ecc",
+        "removed-components.json": "769aaae836b7ebcb63ddcbafc15393a776ad4bc6fb92dd8de2060991f7f6fa34",
+        "sbom-convert.log": "68886e4a9b5891d0123e70ebaa605ab421ca65b8b1b53bff2580df8ed41e1a7b",
+        "scan.log": "f87e3877ff0fab00178f7488ca4a11e4efc43c291e2002df0d88d17ca59f87a3",
+        "sources/chromium-deps-decoded.txt": "9b3b7db0bb23ac4e8211ebdedd06f3582d74d43132d07f5bb4440530f9d069b8",
+        "sources/chromium-deps.txt": "d9b7c1b5fba9f5b737485cfb2b6bc53916f62f07c49adfbd714416cdc9532d3a",
+        "sources/chromium-third-party.json": "0c500207f7ba3f6f60ed491a08e5f9881b4116fe1cfda320a2ea589af1d3a0f9",
+        "sources/index.json": "e0c8f74914175347576534153bc6294d3f21181eb56d772849d3a8728407028a",
+        "sources/mupdf-source-availability.json": "e770942f8e06b070902de925ed147dfe411305f1c66fb6359a5be89b334c4710",
+        "sources/mupdf-tree.json": "a2c6f60d0b3411b8574aa4c6bf45361af82ed8d79dce7840f5b30fb8aec5e5e3",
+        "sources/node-deps.json": "6927d4bbbe05f2ef603ff7075194091296931c3fce869018c952422ee5b4cd61",
+        "sources/pdfium-third-party.json": "c688e8062a243641f8c0dc8ec4f4940ffb5231ee254c53602532d541f377c6ee",
+        "sources/playwright-tree.json": "1e73e96996942f148c729bbbe2a6484d836c8c057efe9c214a768dfceadb443b",
+        "sources/pymupdf-pypi.json": "52dd8621a118c9feb3b76e8b4afd58f5cf5fe0afe4686329071a997425258d10",
+        "sources/pymupdf-source-review.json": "5e838aa5897f11364064880dc5262c0a2c4d4d01be6ac67b11d4cfc2d2a095d5",
+        "sources/setup.py": "99302528d6dd4bb62dc79bf463a3ce9166139a10d88cceb1a7c1f238f639dce5",
+        "vulnerability-db-metadata.json": "0dd0dd36160ff2e4bc5bd9160b4c41028df7a6c4e69d9ace9b6db446d7eb8722"
+      },
+      "pymupdf_origin_review": {
+        "published_wheel": "pymupdf-1.28.0-cp310-abi3-manylinux_2_28_x86_64.whl",
+        "wheel_sha256": "44f0973f5e5edbaec95bc34b64e71d1959d4ee90b1328de1b4f4f5b4fa78673f",
+        "matched_payload_files": 114,
+        "matched_native_files": 5,
+        "pypi_attestation_available": false,
+        "compiled_source_provenance": "OPEN",
+        "new_advisory_closures": 0,
+        "evidence_directory": "/home/karphi/lms-security/evidence/pymupdf-origin-20261007",
+        "evidence_sha256": {
+          "check_controls.py": "3e26949ac4b658d7ed2ae0ed0b20f94ee6e9f2bcf59a611036f62e00be860a23",
+          "console-script.json": "8ce1be269437958474b686945ab0d211eb315e9a0509dffb00692921c6f42d71",
+          "fetch_release.py": "60c55371f89c03fd79d1a7db8409656ea482e76c1c2058289597be43e694bcb2",
+          "installed-inventory.json": "8590c745d271f0dfa0a99acdfbedae737abb43e8b2c067a875f811248e4988f0",
+          "origin-report.md": "fca1476f5ada5c361b289b935a3de5f46e19deadc5d1a5654e5d4857d546d262",
+          "pymupdf_installed_inventory.py": "f4e57bed190f279097f40f6d6b476787427cec18fa3245a77663f2ecac9b2e34",
+          "pypi-release.json": "52dd8621a118c9feb3b76e8b4afd58f5cf5fe0afe4686329071a997425258d10",
+          "release-check.json": "d0fdde329b02ed332a0a69e64b4d9e02ca5406c07b7e8ba2bbde1e821208264a",
+          "verifier-controls.json": "52206ca1065ed797ed01a89c4e584cb3f57bda8f6d135e5ca1671a33051fc255",
+          "verify_pymupdf_wheel.py": "61e388455271e05fc29dba49ba3fdca8c66938e07a5101f972afb3b921840886",
+          "wheel-comparison-before-console-check.json": "4e33510fcfa221d30cc2305bb78e34757b155c19fd4e0dedbefa18fe2869f573",
+          "wheel-comparison.json": "54b024dffc634210993b2d99f7a135e5d6c162e981928b127ed2862032684a42"
+        }
+      },
+      "pymupdf_source_trace": {
+        "state": "PARTIAL_SOURCE_MATCH; EXACT_COMPILED_PROVENANCE_OPEN",
+        "pymupdf_public_commit": "e9cdfc9e7fe3260efcc9d28713903f075ab05bce",
+        "pymupdf_setup_matches_verified_sdist": true,
+        "mupdf_public_header_snapshot": "39101dd8179599d5b9653e7a33f157c08e5614eb",
+        "matched_public_headers": 84,
+        "generated_headers_without_tree_entry": 6,
+        "new_advisory_closures": 0,
+        "vm_free_gib": 2.7,
+        "evidence_directory": "/home/karphi/lms-security/evidence/pymupdf-source-trace-20261007",
+        "provenance_corrected_sbom": "backend.provenance-corrected.cdx.json",
+        "evidence_sha256": {
+          "aptest-historical.py": "192ed781fb0136c07b4e577b1ea2b2cdf8b3651570e2281a9f855aafc564d0e5",
+          "aptest-release-runs.json": "756ef115ae7b0edb9fcddd32e95101df8efdd8ef70bc922a358ddc426f8e5a46",
+          "aptest-runs.json": "8594b768c53465afb95110ef89f9ba70f53d29cd24d642262c23d94d291ad251",
+          "aptest-tree.json": "93a8630616c749af685848ae0697d7222eeee29539a0af5d18bcbe65e46a9919",
+          "aptest.json": "aed8bccb015d257898dff6348b888670cb767ca1e534be367f3d2eb1acd2f3d6",
+          "aptest.py": "a6a0f2e20622d0a0e1216a40738beeab5eecdd3356f8b4dc33cd7dabbe304fca",
+          "backend.provenance-corrected.cdx.json": "2c7c030e8652a05ae55e3f32adb7f9ea75c5189fcc2280430127781686de3b2a",
+          "build-index.json": "c7b315ba71d353e5dca7041142fc6eb4b402acdb4c41fc884d53c44df278a36b",
+          "build_wheels.yml": "3f1780eefd42cdd7767c3ce52b56aa3e461920d3a99da49965645c8adf07875e",
+          "commit.json": "f134946beb8f9a852b78fcf422025b883059f1080eaea50c76a3794257952241",
+          "development-index.json": "5cde150e929c44933be499c8277ea327e6cd2cb83b391bdf8f8d786f8ae4f58b",
+          "engine-index.json": "3482e8bbf4a05f9b831aac78dab6242883d988e9e3b51da9a26427737e36fbc2",
+          "header-comparison.json": "dd6ec14f409f186a9789f5ab011d0c01bd08f0e8513a41373475680ad378750a",
+          "historical-index.json": "76d416d6f39372c6044c969acecd2f8bc7f2e6239eda1222695aa6e9bb010a9b",
+          "index.json": "d255948d538d2a797d8a245b4e362f16ca15121569b31248a5732b059715377a",
+          "log-index.json": "e47a125ac6460525203579960cb7b054c0997495d5d673328f610061b39a2d63",
+          "mupdf-development-version.h": "b1d4ffb614ec8a351b309a323adf142cc657eea1ee5010f0a33cc4d7c99f9ab5",
+          "mupdf-prepublication-tree.json": "8a756b2ff4fa32a00fe8d4e2246bcb709aa6d6bd19f5e80ce3c262a01246ede1",
+          "mupdf-prepublication.json": "ac88b421660e5709663823672566dcc175faf4b646146988606b9650b9585801",
+          "mupdf-version-bump.json": "7258cd74e995965b5a3f757100256aa4cfa54206ad3989f4347da53056addbcb",
+          "mupdf-version-history.json": "6e93159eb088365cb9e983bfc604720a60b882994cd55addb523a98e2a64cbe3",
+          "publication-test.yml": "a1bfa7bcab4e586b9f57cb0a7e125362d729a0cffaf272371d52eaa438c687de",
+          "release-artifacts.json": "244563f989470892c537c9a4622920af0d228ee4528f7d00c64a06d6cd95856c",
+          "release-index.json": "78908f065d0297e5a4eab0e6a182fdbb213291fdbea7073b1a60e9cfb680a1a1",
+          "release-jobs.json": "12b37d3a544d6019bd4124105e9a4c890bc99f78db8542019e48bf5791c1a538",
+          "review.json": "893589b414df9b432bf52a8118391951216924d73b19c612468da374816905cb",
+          "runs.json": "de92f20a466258b872be0c58167c4c162d3e7b4e43277bc1c846ea9db9b62439",
+          "setup.py": "99302528d6dd4bb62dc79bf463a3ce9166139a10d88cceb1a7c1f238f639dce5",
+          "source-trace-report.md": "6acff7eae1b8403a5859fa45cac07cb577499cc8e7dd9a230303a8b39eb0d84e",
+          "test-release-historical.yml": "de73a4f67dd2f8b38b88f8025dc6c1421bc76c520264127959aaf327a6b97907",
+          "test_release.yml": "1d3c72bb37f8ef99bac33cadfc985606ac70326c77bf4c23811e6fba2b83c8da",
+          "trace-index.json": "69a362dddbb522c8c85f9ea95bf0029406e93317461d4f1618d4007f9ba4c404",
+          "tree.json": "a0742861c8fefc9b0bfb54bd7137089ea4bc9757ededf78f2a58d34c520c1e9e",
+          "validate_source_trace.py": "0b4b696f2153c525ceccd8e499043aeab4dc1bbe4137783e98ed566f8d9ad045",
+          "version.h": "81f3b9be2d8dc62308fa3db4438390a9519733e8de37b25f1d7f4a577d615026",
+          "wheel-runs.json": "a2790a384d7d281e7395679000c35d27768d89dbd7052f725b8f4688beb59915",
+          "wheel-source-markers.json": "03be14a791dc8c5cd74a335bf850ae21b8f67c50e90e33033e956bf5a488fb33"
+        },
+        "vm_local_evidence_checksums_matched": 37
+      }
+    },
+    {
+      "component": "frontend",
+      "candidate_tag": "lms-sbom-frontend:candidate-20261006-03",
+      "image_id": "sha256:c88f10f7f0575b71aebec69a3facb605e41f9dec0243e8bf9535e8a20ec5776d",
+      "occurrences": 0,
+      "severity": {},
+      "with_listed_fix": 0,
+      "detected_sbom_components": 71,
+      "report_created": "2026-10-06T05:09:30.413892145Z",
+      "report_sha256": "adef0b1519ba0487184725c9d3fff971ce6a17a14674340e6db291f1d4d777e0",
+      "evidence_directory": "/home/karphi/lms-security/evidence/frontend-candidates-20261006-03",
+      "advisory_database": {
+        "Version": 2,
+        "NextUpdate": "2026-10-07T01:08:27.805176349Z",
+        "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
+        "DownloadedAt": "2026-10-06T04:26:58.756905245Z"
+      },
+      "refreshed_frontend_review": {
+        "review_date": "2026-10-07",
+        "database": {
+          "Version": 2,
+          "NextUpdate": "2026-10-08T00:53:05.111120177Z",
+          "UpdatedAt": "2026-10-07T00:53:05.111120428Z",
+          "DownloadedAt": "2026-10-07T06:16:13.89609659Z"
+        },
+        "evidence_directory": "/home/karphi/lms-security/evidence/frontend-review-20261007",
+        "browser_results": [
+          {
+            "component": "trainer",
+            "accessible_text": "PC\nTrainer access\nOpen this application from the Hub dashboard.\nCheck again",
+            "external_requests": [],
+            "browser_errors": []
+          },
+          {
+            "component": "employee",
+            "accessible_text": "PC\nEmployee learning access\nOpen this application from the Hub dashboard.\nCheck again",
+            "external_requests": [],
+            "browser_errors": []
+          }
+        ],
+        "public_dart_versions_queried": 57,
+        "public_dart_advisories": 0,
+        "evidence_sha256": {
+          "1-lms-sbom-frontend_candidate-20261006-03-image.txt": "0d0deb7f52bb980935397cb472ffe32d98f609312435753d1e09c9dcafefbcdc",
+          "1-lms-sbom-frontend_candidate-20261006-03-scan.log": "84e8a930acc3c26be7dd2d049bd0ccacee121b426234423e1c1c54d47169a80c",
+          "1-lms-sbom-frontend_candidate-20261006-03.json": "fdfe9e2d0866c42530fce03ea77be95dc43831fb679db56b877f39b6c1bc960f",
+          "2-lms-sbom-employee_frontend_candidate-20261006-03-image.txt": "00143e5678c8f906af6fc9a3adf8dba2ffe29bd0341c020a23d4a896c32d646f",
+          "2-lms-sbom-employee_frontend_candidate-20261006-03-scan.log": "6034fb07f412175bc64a1533433d672684c4c2a6ef1a29688d776b016db8a395",
+          "2-lms-sbom-employee_frontend_candidate-20261006-03.json": "7e7d9426c33e03124b384063d4f2dd4428427f005f9d6aa2314dee620ac08d0e",
+          "db-download.log": "3daeb506319fd87b831c6a4b575b7058d6b5bcff84a134e154e74c3d3e19c0e9",
+          "employee.png": "c79e5cfa5da367c0ca393fdb7934295fee609ff4fed19b7692f36d761cb45421",
+          "frontend-probe.py": "eb3216b5b4ec9221672df3320049949f5757cf31ca8041638d8250eea4e4968e",
+          "frontend-results.json": "d3bd3f34af2adbf7cae989d25935dbc350c8aeb27f1792692c2f624c01c168d5",
+          "frontend-stub.py": "d08f286f275fe5a87a80c13f64e7170ba74b6413a8699f982c04347d984698eb",
+          "frontend-validation.sh": "6990423c39268c2249ef8ffd497aaf50604b2821ef2f7b5197de4906988ee848",
+          "lms-sbom-employee-test-20261007.log": "7b316f9bad27abb8d21c86a312374e8e0fbdd687a526f95e9cf840153c2ba788",
+          "lms-sbom-frontends-probe-20261007.log": "0a709881594b5ac69aacbefe63f488a10e800c30487f6def3df8e44b61d4a4ee",
+          "lms-sbom-frontends-stub-20261007.log": "b9231283d48c48f19e2f3e7ccb05113f1b0ac3afbe8f55661638325d165c6a30",
+          "lms-sbom-trainer-test-20261007.log": "f0e34bfde1cadf609ced3a4b0ce13c5b27aa8af6faa521a8f10611a3be4ce14c",
+          "scanner-image.txt": "1ff68cda222047063a21e3713275c0ad2e9ccc8c329ec5aa06dd9ca7e0d8484a",
+          "trainer.png": "8ddaae4c975ea2ea06f8be2c92c150dbc5d7039f4f7f68d307cf83c0178bd214",
+          "vulnerability-db-metadata.json": "0365168ec5bc04aa32dee5d970695adb8c15ea73130055dfb2ec1e2835a728bb"
+        },
+        "pub_audit_sha256": "74e51116428ffe026f2b735b44f127004677f9c70a5fbf279d72087fac8214aa",
+        "deployed": false
+      }
+    },
+    {
+      "component": "employee_frontend",
+      "candidate_tag": "lms-sbom-employee_frontend:candidate-20261006-03",
+      "image_id": "sha256:1450b4384f5473e8dfa401677da8afbaf5255bd7ace086a35d848e8ad3a7df2d",
+      "occurrences": 0,
+      "severity": {},
+      "with_listed_fix": 0,
+      "detected_sbom_components": 71,
+      "report_created": "2026-10-06T05:09:37.660137712Z",
+      "report_sha256": "83dd2a22ba11e4e4b72b9932693681dc6f7f08ecc21f78853351c95c143581a0",
+      "evidence_directory": "/home/karphi/lms-security/evidence/frontend-candidates-20261006-03",
+      "advisory_database": {
+        "Version": 2,
+        "NextUpdate": "2026-10-07T01:08:27.805176349Z",
+        "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
+        "DownloadedAt": "2026-10-06T04:26:58.756905245Z"
+      },
+      "refreshed_frontend_review": {
+        "review_date": "2026-10-07",
+        "database": {
+          "Version": 2,
+          "NextUpdate": "2026-10-08T00:53:05.111120177Z",
+          "UpdatedAt": "2026-10-07T00:53:05.111120428Z",
+          "DownloadedAt": "2026-10-07T06:16:13.89609659Z"
+        },
+        "evidence_directory": "/home/karphi/lms-security/evidence/frontend-review-20261007",
+        "browser_results": [
+          {
+            "component": "trainer",
+            "accessible_text": "PC\nTrainer access\nOpen this application from the Hub dashboard.\nCheck again",
+            "external_requests": [],
+            "browser_errors": []
+          },
+          {
+            "component": "employee",
+            "accessible_text": "PC\nEmployee learning access\nOpen this application from the Hub dashboard.\nCheck again",
+            "external_requests": [],
+            "browser_errors": []
+          }
+        ],
+        "public_dart_versions_queried": 57,
+        "public_dart_advisories": 0,
+        "evidence_sha256": {
+          "1-lms-sbom-frontend_candidate-20261006-03-image.txt": "0d0deb7f52bb980935397cb472ffe32d98f609312435753d1e09c9dcafefbcdc",
+          "1-lms-sbom-frontend_candidate-20261006-03-scan.log": "84e8a930acc3c26be7dd2d049bd0ccacee121b426234423e1c1c54d47169a80c",
+          "1-lms-sbom-frontend_candidate-20261006-03.json": "fdfe9e2d0866c42530fce03ea77be95dc43831fb679db56b877f39b6c1bc960f",
+          "2-lms-sbom-employee_frontend_candidate-20261006-03-image.txt": "00143e5678c8f906af6fc9a3adf8dba2ffe29bd0341c020a23d4a896c32d646f",
+          "2-lms-sbom-employee_frontend_candidate-20261006-03-scan.log": "6034fb07f412175bc64a1533433d672684c4c2a6ef1a29688d776b016db8a395",
+          "2-lms-sbom-employee_frontend_candidate-20261006-03.json": "7e7d9426c33e03124b384063d4f2dd4428427f005f9d6aa2314dee620ac08d0e",
+          "db-download.log": "3daeb506319fd87b831c6a4b575b7058d6b5bcff84a134e154e74c3d3e19c0e9",
+          "employee.png": "c79e5cfa5da367c0ca393fdb7934295fee609ff4fed19b7692f36d761cb45421",
+          "frontend-probe.py": "eb3216b5b4ec9221672df3320049949f5757cf31ca8041638d8250eea4e4968e",
+          "frontend-results.json": "d3bd3f34af2adbf7cae989d25935dbc350c8aeb27f1792692c2f624c01c168d5",
+          "frontend-stub.py": "d08f286f275fe5a87a80c13f64e7170ba74b6413a8699f982c04347d984698eb",
+          "frontend-validation.sh": "6990423c39268c2249ef8ffd497aaf50604b2821ef2f7b5197de4906988ee848",
+          "lms-sbom-employee-test-20261007.log": "7b316f9bad27abb8d21c86a312374e8e0fbdd687a526f95e9cf840153c2ba788",
+          "lms-sbom-frontends-probe-20261007.log": "0a709881594b5ac69aacbefe63f488a10e800c30487f6def3df8e44b61d4a4ee",
+          "lms-sbom-frontends-stub-20261007.log": "b9231283d48c48f19e2f3e7ccb05113f1b0ac3afbe8f55661638325d165c6a30",
+          "lms-sbom-trainer-test-20261007.log": "f0e34bfde1cadf609ced3a4b0ce13c5b27aa8af6faa521a8f10611a3be4ce14c",
+          "scanner-image.txt": "1ff68cda222047063a21e3713275c0ad2e9ccc8c329ec5aa06dd9ca7e0d8484a",
+          "trainer.png": "8ddaae4c975ea2ea06f8be2c92c150dbc5d7039f4f7f68d307cf83c0178bd214",
+          "vulnerability-db-metadata.json": "0365168ec5bc04aa32dee5d970695adb8c15ea73130055dfb2ec1e2835a728bb"
+        },
+        "pub_audit_sha256": "74e51116428ffe026f2b735b44f127004677f9c70a5fbf279d72087fac8214aa",
+        "deployed": false
+      }
+    }
+  ],
+  "manual_binary_inventory": {
+    "backend_chromium": "153.0.8010.12",
+    "backend_system_ffmpeg": "9.0.2 (minimal source build)",
+    "frontend_sdk": "Flutter 3.44.0 / Dart 3.12.0",
+    "backend_libxml2": "2.15.4",
+    "backend_lxml": "6.1.3 (linked XML 2.15.4)",
+    "backend_pcre2": "10.49",
+    "backend_libpng": "1.6.59",
+    "backend_util_linux_security_components": "2.42.4; partial replacement, other Ubuntu utilities retained",
+    "backend_cpython_expat": "2.8.3; High review still open",
+    "backend_pillow_libtiff": "4.7.1; High review still open"
+  },
+  "coverage_limits": [
+    "Downloaded browsers and Flutter/CanvasKit/Dart engines require separate advisory assessment.",
+    "Raw matches do not establish exploitability.",
+    "Real Hub login/course workflow and UAT deployment are pending.",
+    "Operator-built XML/PCRE2/PNG and manual FFmpeg require separate upstream maintenance; Linux amd64 only tested.",
+    "One existing slide-layout regression fails both prior and final candidate. Full-stack validation and deployment remain blocked by open release gates.",
+    "Enriched CycloneDX was parsed and reference-checked, not fully schema-validated. Mutable APT/build tooling/browser downloads prevent bit-for-bit reproducibility.",
+    "Partial util-linux packages declare tested ABI compatibility with old exact-version dependencies; maintain and verify these providers when changing Ubuntu base. No full util-linux family upgrade claimed.",
+    "Inherited backend priority register retains 6 High and 59 Medium occurrences. Unknown native/private provenance and unfixed/unsupported advisories stay open."
+  ],
+  "historical_backend_round1": {
+    "component": "backend",
+    "candidate_tag": "lms-sbom-backend:candidate-20261006-05",
+    "image_id": "sha256:4662cac700d64379a481f34fc0783e70b52eaa25bdef4d93b22e49b406da67c1",
+    "occurrences": 829,
+    "severity": {
+      "LOW": 272,
+      "HIGH": 230,
+      "MEDIUM": 306,
+      "UNKNOWN": 20,
+      "CRITICAL": 1
+    },
+    "with_listed_fix": 0,
+    "detected_sbom_components": 500,
+    "report_created": "2026-10-06T05:23:28.843502389Z",
+    "report_sha256": "2f02e313fdd63eabd839992089f0c1c4f2081703a55fdf1d3b4ffa86546e5358",
+    "evidence_directory": "/home/karphi/lms-security/evidence/backend-candidate-20261006-05"
+  },
+  "live_application_verification": {
+    "backend": {
+      "image_id": "sha256:6093e61d548ac903f661add8a58897ca959438bd1a1cff1b15d02e4ea429fd64",
+      "state": "running healthy unchanged"
+    },
+    "frontend": {
+      "image_id": "sha256:a09ac1f56d61a0f3ff0fdc78bbac4960e6c8bfe98a794c5b391205119398589a",
+      "state": "running healthy unchanged"
+    },
+    "employee_frontend": {
+      "image_id": "sha256:83e4b8026f5944bc8993766018c6f77471a78aa6d6d134def1b66898b91fb3ec",
+      "state": "running healthy unchanged"
+    },
+    "database": "Running original PostgreSQL container unchanged; no database startup, queries or fixes in round5."
+  },
+  "assessment_evidence_sources": {
+    "native_tracker_feed": {
+      "url": "https://security-tracker.debian.org/tracker/data/json",
+      "sha256": "d059b671f7cbb86a0341f779543f41813d93412e26c745d2c2473c49f89a81ac",
+      "retrieved_at": "2026-10-06T06:08:37.066967+00:00"
+    },
+    "ubuntu_vex_inherited": {
+      "commit": "a3f40224dd201a816b4725891b70d22f7809225f",
+      "requested_CVEs": 330,
+      "downloaded": 320,
+      "missing": 10,
+      "unqueried_non_CVE_IDs": 5
+    },
+    "ubuntu_vex_earlier_fixes": {
+      "commit": "ba7357b25a342f8244cf8ef08023b5110b47a265",
+      "requested_CVEs": 15,
+      "downloaded": 15
+    },
+    "earlier_fix_provenance": "41 synthetic OS input rows derived from prior comparable removed occurrences; not a fresh baseline scan",
+    "native_source_archive_sha256": {
+      "FFmpeg9.0.2": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+      "libxml2-2.15.4": "98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821",
+      "PCRE2-10.49": "929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae",
+      "libpng1.6.59": "2540302a1844ad2b2b501977abecfa850f265f97b78f065a712ab4074a89f5b5",
+      "util-linux2.42.4": "fbd62a100ab7bb8746ba0661255c3c48185b1e9021507c624da01fbc696330ec"
+    },
+    "high_advisory_review": {
+      "sha256": "f66c1aedb3cefb4c4451c8f7edf005be448f530cb55bb05b13fcdf4f637a4675",
+      "primary_pages": 8
+    },
+    "round5_primary_reviews": {
+      "advisory_pages": 64,
+      "advisory_notes_sha256": "f13bffbe4e77f48fb6dcc4e67a3806899f7339038a44203b38385a18bb746235",
+      "zlib_review_sha256": "680191c418f5b4953cc3d07f93e4f380cacd05ecc923218f154102564328ebc2",
+      "cjson_architecture": "https://cert.pl/en/posts/2026/07/CVE-2026-16554/"
+    }
+  },
+  "historical_backend_round2": {
+    "component": "backend",
+    "candidate_tag": "lms-sbom-backend:candidate-20261006-15",
+    "image_id": "sha256:4d351be75ab579c0dd81041d0c3a452b32331516f4121cfffa5f1467441edab9",
+    "os": {
+      "Family": "ubuntu",
+      "Name": "26.04"
+    },
+    "occurrences": 38,
+    "severity": {
+      "MEDIUM": 24,
+      "LOW": 14
+    },
+    "distinct_advisories": 29,
+    "with_listed_fix": 0,
+    "detected_sbom_components": 399,
+    "enriched_sbom_components": 400,
+    "report_created": "2026-10-06T08:59:57.363094106Z",
+    "report_sha256": "1a11d78b53dca5470986cbb8c22cc9bb6895f8cbe1b05d06b81b25c1bd948129",
+    "evidence_directory": "/home/karphi/lms-security/evidence/backend-patched-candidate-20261006-15",
+    "evidence_sha256": {
+      "backend-candidate.json": "1a11d78b53dca5470986cbb8c22cc9bb6895f8cbe1b05d06b81b25c1bd948129",
+      "backend.raw.cdx.json": "5d1e2b73706f453bc9f1e5235fceb360c73fd44153f76d518823efbd66cb4393",
+      "backend.enriched.cdx.json": "319b95fcee95fb452a029baacb04eda01bc1fe59523ce9c6e900f4822b029955",
+      "native-inventory.json": "5bb22ec0ea406d71828bbe142e937ecdea2d10011d701e8952a535259d00881c",
+      "inherited-reconciled.json": "99778941ff3039464129c807b007e698952d82eb9e16b7f669f76661d2daed2c",
+      "inherited-reconciled.csv": "8b2255fa65db58d8b3a279404f9955807b8b18bfe8afa7da63e6a275a8b53990",
+      "context-inputs.json": "4983f5029d882f86b19c5396c4169ca0573af52be7906d893d987efe1e57a701",
+      "build-inputs-sha256.txt": "dcf6fb2c89ae126f580c2f01485694a8facbe6b3c09a4096157c03811a25974f",
+      "Dockerfile": "01b42775d55a82658bfb1406c6fee043bdef174deccad9a4fe8ab1e3f42a20df",
+      "smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+      "pytest.log": "5353910c0948bdb8d5a7200344e779a4cd42dc9ac81e9df420d45fd42821107b",
+      "earlier-fixes-reconciled.json": "4f8bde0033568e42af5479b700c5453a4764ac09a5b7ffc54ba3f09f31be16b5",
+      "earlier-fixes-reconciled.csv": "ad138ef3f56706fee2da0fd1d18a8ee696d4728ed7ec6a359784b247ee6d39e1"
+    },
+    "source_context_files_verified": 147,
+    "inherited_assessment": {
+      "candidate_image": "sha256:4d351be75ab579c0dd81041d0c3a452b32331516f4121cfffa5f1467441edab9",
+      "inherited_occurrences": 829,
+      "assessments": {
+        "OPEN_MISSING_VENDOR_EVIDENCE": 198,
+        "OPEN_UNDER_INVESTIGATION": 115,
+        "VENDOR_FIXED_VERSION_CONFIRMED": 126,
+        "VENDOR_NOT_AFFECTED_EXACT_VERSION": 39,
+        "UPSTREAM_FIXED_VERSION_VERIFIED": 282,
+        "VULNERABLE_CODE_EXCLUDED_VERIFIED": 9,
+        "OPEN_AFFECTED": 11,
+        "OPEN_SOURCE_ABSENT_BUNDLE_REVIEW": 48,
+        "OPEN_NOT_AFFECTED": 1
+      },
+      "open_original_severity": {
+        "LOW": 195,
+        "HIGH": 61,
+        "MEDIUM": 97,
+        "UNKNOWN": 20
+      },
+      "addressed_original_severity": {
+        "MEDIUM": 209,
+        "LOW": 77,
+        "HIGH": 169,
+        "CRITICAL": 1
+      },
+      "limitation": "Open inherited issues remain visible even when the new OS scanner does not report them. Native-code exclusions and vendor not-affected assessments are distinct from version fixes."
+    },
+    "earlier_fix_regression_check": "39 OpenSSL OS occurrences vendor-fixed; PCRE2 10.49 and PNG 1.6.59 upstream fixes verified; urllib3 2.8.0 and runtime pip removal retained",
+    "tests": {
+      "native_LMS_smoke": "PASS",
+      "selected_regression_passed": 44,
+      "selected_regression_failed": 1,
+      "known_failure": "test_splits_third_landscape_image_to_separate_slide; reproduced on prior candidate",
+      "real_Hub_UAT_workflow": "PENDING"
+    },
+    "advisory_database": {
+      "Version": 2,
+      "NextUpdate": "2026-10-07T01:08:27.805176349Z",
+      "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
+      "DownloadedAt": "2026-10-06T04:26:58.756905245Z"
+    }
+  },
+  "advisory_database_scope": "Selected backend uses the Oct7 snapshot; other component snapshots remain historical and were not rescanned in round5.",
+  "historical_backend_round3": {
+    "component": "backend",
+    "candidate_tag": "lms-sbom-backend:candidate-20261006-16",
+    "image_id": "sha256:745b3418f4009f8b832beb630b49718893eb4a7dc9310307d0bc5951f6dbb827",
+    "os": {
+      "Family": "ubuntu",
+      "Name": "26.04"
+    },
+    "occurrences": 37,
+    "severity": {
+      "MEDIUM": 25,
+      "LOW": 12
+    },
+    "distinct_advisories": 29,
+    "with_listed_fix": 0,
+    "detected_sbom_components": 398,
+    "enriched_sbom_components": 399,
+    "report_created": "2026-10-06T09:57:51.123806972Z",
+    "report_sha256": "a6e9790b8046fac6fd7be7d45d02a8b7af6324b1e5417d1be4006a6bb3337f0b",
+    "evidence_directory": "/home/karphi/lms-security/evidence/backend-high-candidate-20261006-16",
+    "evidence_sha256": {
+      "backend-candidate.json": "a6e9790b8046fac6fd7be7d45d02a8b7af6324b1e5417d1be4006a6bb3337f0b",
+      "previous-refreshed.json": "41c243a9885eb60d07fc4f1defdc0e2e3df56f8d301a2291140c7fceac043608",
+      "comparison.json": "6fb3b72ad919a26488cab79be549d10fbc3ff1693edfe52ab8aba21ff7d2696d",
+      "backend.raw.cdx.json": "97d99da3f6b45bd1ffe9b1273cb227729f946b74554365ed5d04f945b833e262",
+      "backend.enriched.cdx.json": "19fed8bccc2ed24699f6b1bdc799ddfe6c62dd8358a3f7a82a456b7ed81ab410",
+      "native-inventory.json": "7513f1da2bb308144882731a3d92b3635afaa53f471c17fcfd64f0d824fe9867",
+      "inherited-reconciled.json": "f695cde7878664a47e2294edf1e6694dc0ea7803742d62077406bd8fb3a6db2d",
+      "inherited-reconciled.csv": "f033f6502e3429922992d978d1d73c27cc7b9021d4128783f67e263ee463dd15",
+      "context-inputs.json": "4983f5029d882f86b19c5396c4169ca0573af52be7906d893d987efe1e57a701",
+      "build-inputs-sha256.txt": "e756f4d127f9a3bb67f9b23c5fa155f3d46f8a6de51e89c676356a4baa80be9e",
+      "Dockerfile": "c020f816e76707e91ba385ddb8af5d65aeff82634f7468edd1ad7a809ecb3c00",
+      "package_util_linux.py": "6995dc3ce881c3ab671e67aca4c98f5bc602985f61c4ed2b1ab875b156d088e6",
+      "smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+      "pytest.log": "017883ca52d056dfe346a0a251097459362eeaac0ce37595a0f05a095d10f139",
+      "import-health.log": "d9efe5e7f74257cc6a0a14a98d1aa36379bd09f143c3acc44ad744b1a4761adf",
+      "high-advisory-review.json": "f66c1aedb3cefb4c4451c8f7edf005be448f530cb55bb05b13fcdf4f637a4675",
+      "provenance-check.json": "924cf5108db761d8c0a721e5471e444195015c830f2433bca66f598bc8cb310b"
+    },
+    "source_context_files_verified": 147,
+    "inherited_assessment": {
+      "candidate_image": "sha256:745b3418f4009f8b832beb630b49718893eb4a7dc9310307d0bc5951f6dbb827",
+      "inherited_occurrences": 829,
+      "assessments": {
+        "OPEN_MISSING_VENDOR_EVIDENCE": 190,
+        "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED": 36,
+        "VENDOR_FIXED_VERSION_CONFIRMED": 126,
+        "VENDOR_NOT_AFFECTED_EXACT_VERSION": 39,
+        "OPEN_UNDER_INVESTIGATION": 76,
+        "AFFECTED_COMPONENT_ABSENT_VERIFIED": 9,
+        "UPSTREAM_FIXED_VERSION_VERIFIED": 282,
+        "VULNERABLE_CODE_EXCLUDED_VERIFIED": 9,
+        "OPEN_AFFECTED": 11,
+        "OPEN_SOURCE_ABSENT_BUNDLE_REVIEW": 48,
+        "OPEN_NOT_AFFECTED": 1,
+        "AFFECTED_COMPONENT_REMOVED_VERIFIED": 2
+      },
+      "open_original_severity": {
+        "LOW": 195,
+        "MEDIUM": 97,
+        "HIGH": 14,
+        "UNKNOWN": 20
+      },
+      "addressed_original_severity": {
+        "HIGH": 216,
+        "MEDIUM": 209,
+        "LOW": 77,
+        "CRITICAL": 1
+      },
+      "this_batch": {
+        "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED": 36,
+        "AFFECTED_COMPONENT_ABSENT_VERIFIED": 9,
+        "AFFECTED_COMPONENT_REMOVED_VERIFIED": 2
+      },
+      "changes": [
+        {
+          "source": "util-linux",
+          "package": "bsdutils",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "bsdutils",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "bsdutils",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "bsdutils",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "gnupg2",
+          "package": "dirmngr",
+          "advisory": "CVE-2026-24882",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "gnupg2",
+          "package": "gnupg",
+          "advisory": "CVE-2026-24882",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "gnupg2",
+          "package": "gnupg-l10n",
+          "advisory": "CVE-2026-24882",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "gnupg2",
+          "package": "gpg",
+          "advisory": "CVE-2026-24882",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "gnupg2",
+          "package": "gpg-agent",
+          "advisory": "CVE-2026-24882",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "gnupg2",
+          "package": "gpgconf",
+          "advisory": "CVE-2026-24882",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "gnupg2",
+          "package": "gpgsm",
+          "advisory": "CVE-2026-24882",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libblkid1",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libblkid1",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libblkid1",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libblkid1",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "liblastlog2-2",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "liblastlog2-2",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "liblastlog2-2",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "liblastlog2-2",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libmount1",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libmount1",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libmount1",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libmount1",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libsmartcols1",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libsmartcols1",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libsmartcols1",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libsmartcols1",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "tiff",
+          "package": "libtiff6",
+          "advisory": "CVE-2026-52490",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libuuid1",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libuuid1",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libuuid1",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "libuuid1",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "login",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "login",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "login",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "login",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "mount",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "mount",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "mount",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "mount",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "perl",
+          "package": "perl-base",
+          "advisory": "CVE-2026-9538",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "util-linux",
+          "advisory": "CVE-2026-76642",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "util-linux",
+          "advisory": "CVE-2026-78408",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "util-linux",
+          "advisory": "CVE-2026-78409",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "util-linux",
+          "package": "util-linux",
+          "advisory": "CVE-2026-78410",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "xorg-server",
+          "package": "xserver-common",
+          "advisory": "CVE-2023-5574",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_REMOVED_VERIFIED"
+        },
+        {
+          "source": "xorg-server",
+          "package": "xvfb",
+          "advisory": "CVE-2023-5574",
+          "severity": "HIGH",
+          "assessment": "AFFECTED_COMPONENT_REMOVED_VERIFIED"
+        }
+      ],
+      "previous_register_sha256": "8b2255fa65db58d8b3a279404f9955807b8b18bfe8afa7da63e6a275a8b53990",
+      "native_inventory_sha256": "7513f1da2bb308144882731a3d92b3635afaa53f471c17fcfd64f0d824fe9867",
+      "advisory_review_sha256": "f66c1aedb3cefb4c4451c8f7edf005be448f530cb55bb05b13fcdf4f637a4675",
+      "limitations": "Package-advisory occurrences, not unique CVEs. Distinguish upgrades, removal and applicability assessments. No scanner suppression. Bundled-code review and remaining inherited risks are still open. No deployment."
+    },
+    "earlier_fix_regression_check": "39 OpenSSL OS occurrences vendor-fixed; PCRE2 10.49 and PNG 1.6.59 upstream fixes verified; urllib3 2.8.0 and runtime pip removal retained",
+    "tests": {
+      "native_LMS_smoke": "PASS",
+      "upstream_libmount_subtests_passed": 85,
+      "upstream_libmount_groups_passed": 7,
+      "upstream_libmount_groups_skipped": 11,
+      "ABI_symbol_compatibility": "PASS",
+      "apt_dependency_check": "PASS",
+      "selected_regression_passed": 44,
+      "selected_regression_failed": 1,
+      "known_failure": "test_splits_third_landscape_image_to_separate_slide; reproduced on prior candidate",
+      "app_import_health_route": "PASS; lifespan not run",
+      "full_PostgreSQL_startup": "PENDING",
+      "real_Hub_UAT_workflow": "PENDING"
+    },
+    "advisory_database": {
+      "Version": 2,
+      "NextUpdate": "2026-10-07T07:04:23.108323332Z",
+      "UpdatedAt": "2026-10-06T07:04:23.108323632Z",
+      "DownloadedAt": "2026-10-06T09:27:53.355334234Z"
+    },
+    "current_ubuntu_assessment": {
+      "OPEN_REVIEW_REQUIRED": 34,
+      "UPSTREAM_FIXED_VERSION_VERIFIED": 3
+    }
+  },
+  "active_round": "Backend consolidated Medium maintenance and High architecture review, round5",
+  "historical_manifest": "sbom-lms-candidate-manifest-2026-10-06.json",
+  "historical_backend_round4": {
+    "component": "backend",
+    "candidate_tag": "lms-sbom-backend:candidate-20261007-17",
+    "image_id": "sha256:0f8a5e8b83e00ce07f1976ab0ea9dba2e1dde6bf85fb4bca8e8659ff6cc0cf0e",
+    "os": {
+      "Family": "ubuntu",
+      "Name": "26.04"
+    },
+    "occurrences": 40,
+    "severity": {
+      "MEDIUM": 28,
+      "LOW": 12
+    },
+    "distinct_advisories": 32,
+    "with_listed_fix": 1,
+    "detected_sbom_components": 406,
+    "enriched_sbom_components": 407,
+    "report_created": "2026-10-07T03:53:03.764817656Z",
+    "report_sha256": "6c1f1239496a07ca2156cacc6d181e8f6336a910f5a25ee37281b9a88ad772a8",
+    "evidence_directory": "/home/karphi/lms-security/evidence/backend-parsers-candidate-20261007-17",
+    "evidence_sha256": {
+      "backend-candidate.json": "6c1f1239496a07ca2156cacc6d181e8f6336a910f5a25ee37281b9a88ad772a8",
+      "previous-refreshed.json": "c77c7591e6f1f95faccb575150e67b7e3592b9ed5060357f3109e69b7af63774",
+      "comparison.json": "44e166c3743514375f3b5d10771d2723e380194efae4a59f4e3cfec5a2d64182",
+      "backend.raw.cdx.json": "a2675c9b72b189c0dc0ee683c69c0a7d980c62004ad695dc7cad94c02a56f41a",
+      "backend.enriched.cdx.json": "0619e149c9b66657ee7435b53e15afdb9b54d1cb4f876ed1f87125694cca9048",
+      "parser-smoke.json": "67ae63674d647737da6f505931d11b80895b585e483330ef89515e294c0f0c7b",
+      "native-inventory.json": "2f60f3e2165dcdc0687d27f8409d0bea7717ecee3fddfb77cf4bb63b2f3369c1",
+      "inherited-reconciled.csv": "17f1eca26a5b6062f442c7dca21699c60b9362d8474156f2a982f9b66d149221",
+      "inherited-reconciled.json": "607318aea6a513d17c834c44094a4c18d6fbd2a271b3a9047939383bddcd285f",
+      "current-register.csv": "48d78fb67862ca951d8843da4963ddbc933be21639794200d39cc2ed3cbc330a",
+      "parser-advisory-review.json": "8182c828b3ac5e2de811f24dba88ba1ed242d2e7733fdd838801a1b995065991",
+      "application-provenance.json": "41546778c6bd9461b2800d7b9041337592b88ab0b7de21dea2a632568f575215",
+      "Dockerfile.candidate": "5bdf887f7afcecacf0b52f188c1c494a749a7bae77bc5c95882eb8e763c25f8b",
+      "Dockerfile.repository": "e931b23d7e68c3efb3d3dd34f7fe3bc4d696342a91cd69263e5a65fa188493fc",
+      "package_native_parsers.py": "138558e2c94f321c5cb4e0d9044cf62895812b27df0026b6540e3beb822cb0f2",
+      "requirements-pillow-source.lock": "9d2005ec9254f9d4b49691c47492531edc99e3bb8f0c1ab946085ce690f2de83",
+      "libx11-CVE-2026-88806.patch": "e3803e8f544f767819cad13eb313129a0db4b47feeced0e17428244359b5eddd",
+      "libxrender-CVE-2026-88807.patch": "5ec7674c395a731dbeb7160bb65cb44f961d75e3eabcfff7b9568feb1d05e978",
+      "pytest.log": "fe9700c704947081fbce9d55916e2993b8cf20e47c20e00ade1960d7c9a2675a",
+      "smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+      "import-health.log": "14817c85298966bed0b714a205d15e481879cbb9ac8312b9b993fcada10a1291",
+      "build.log": "acd5def43694ac1e26cd7d09e475f8fa57b8ac1ffc40577a6945cc291b954eda",
+      "build-attempt1.log": "e32625d4cdb710be621ba2a8ae334ca0a750fe59e366af90995332ec16c5d7f2",
+      "build-attempt2.log": "c9dafee0ccaabf32c7f5c349968dbb4a634addd9599c192a5865dfe1fc4db758",
+      "build-attempt3.log": "1fa7c76ebd1730ef75b11e1f4d841ed4577277492089baa09ffe931bce224d75",
+      "bundle-screening.json": "d4329e9473b46853994ba0694afba6067473bb38e42f81af0454fcea805195c2"
+    },
+    "source_context_files_verified": 147,
+    "inherited_assessment": {
+      "candidate_image": "sha256:0f8a5e8b83e00ce07f1976ab0ea9dba2e1dde6bf85fb4bca8e8659ff6cc0cf0e",
+      "inherited_occurrences": 829,
+      "changes": [
+        {
+          "source": "acl",
+          "package": "libacl1",
+          "advisory": "CVE-2026-54369"
+        },
+        {
+          "source": "expat",
+          "package": "libexpat1",
+          "advisory": "CVE-2026-93990"
+        },
+        {
+          "source": "tiff",
+          "package": "libtiff6",
+          "advisory": "CVE-2026-36849"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-6",
+          "advisory": "CVE-2026-88806"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-data",
+          "advisory": "CVE-2026-88806"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-xcb1",
+          "advisory": "CVE-2026-88806"
+        },
+        {
+          "source": "libxrender",
+          "package": "libxrender1",
+          "advisory": "CVE-2026-88807"
+        }
+      ],
+      "open_original_severity": {
+        "LOW": 195,
+        "MEDIUM": 97,
+        "HIGH": 7,
+        "UNKNOWN": 20
+      },
+      "assessments": {
+        "OPEN_MISSING_VENDOR_EVIDENCE": 190,
+        "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED": 39,
+        "VENDOR_FIXED_VERSION_CONFIRMED": 126,
+        "VENDOR_NOT_AFFECTED_EXACT_VERSION": 39,
+        "OPEN_UNDER_INVESTIGATION": 70,
+        "AFFECTED_COMPONENT_ABSENT_VERIFIED": 9,
+        "UPSTREAM_FIXED_VERSION_VERIFIED": 282,
+        "VULNERABLE_CODE_EXCLUDED_VERIFIED": 9,
+        "OPEN_AFFECTED": 10,
+        "OPEN_SOURCE_ABSENT_BUNDLE_REVIEW": 48,
+        "OPEN_NOT_AFFECTED": 1,
+        "UPSTREAM_SECURITY_PATCH_FIXED_VERIFIED": 4,
+        "AFFECTED_COMPONENT_REMOVED_VERIFIED": 2
+      },
+      "previous_register_sha256": "f033f6502e3429922992d978d1d73c27cc7b9021d4128783f67e263ee463dd15",
+      "limitations": "Inherited package-advisory occurrences, not unique CVEs; source builds and patches require maintenance. Seven bundled-code High reviews remain open. No deployment."
+    },
+    "earlier_fix_regression_check": "39 OpenSSL OS occurrences vendor-fixed; PCRE2 10.49 and PNG 1.6.59 upstream fixes verified; urllib3 2.8.0 and runtime pip removal retained",
+    "advisory_database": {
+      "Version": 2,
+      "NextUpdate": "2026-10-08T00:53:05.111120177Z",
+      "UpdatedAt": "2026-10-07T00:53:05.111120428Z",
+      "DownloadedAt": "2026-10-07T03:48:42.221382178Z"
+    },
+    "current_ubuntu_assessment": {
+      "OPEN_REVIEW_REQUIRED": 36,
+      "UPSTREAM_FIXED_VERSION_VERIFIED": 3,
+      "UPSTREAM_SECURITY_PATCH_FIXED_VERIFIED": 1
+    },
+    "inherited_open_severity": {
+      "LOW": 195,
+      "MEDIUM": 97,
+      "HIGH": 7,
+      "UNKNOWN": 20
+    },
+    "round4_changes": [
+      {
+        "source": "acl",
+        "package": "libacl1",
+        "advisory": "CVE-2026-54369"
+      },
+      {
+        "source": "expat",
+        "package": "libexpat1",
+        "advisory": "CVE-2026-93990"
+      },
+      {
+        "source": "tiff",
+        "package": "libtiff6",
+        "advisory": "CVE-2026-36849"
+      },
+      {
+        "source": "libx11",
+        "package": "libx11-6",
+        "advisory": "CVE-2026-88806"
+      },
+      {
+        "source": "libx11",
+        "package": "libx11-data",
+        "advisory": "CVE-2026-88806"
+      },
+      {
+        "source": "libx11",
+        "package": "libx11-xcb1",
+        "advisory": "CVE-2026-88806"
+      },
+      {
+        "source": "libxrender",
+        "package": "libxrender1",
+        "advisory": "CVE-2026-88807"
+      }
+    ],
+    "validation": {
+      "parser_codec_acl": "PASS",
+      "native_document_browser_video": "PASS",
+      "application_files_identical_to_parent": 147,
+      "selected_application_tests": {
+        "passed": 27,
+        "failed": 1,
+        "failure": "Existing slide layout expects 3 slides, gets 4"
+      },
+      "full_database_startup": "NOT TESTED",
+      "full_repository_build": "NOT TESTED; incremental recipe uses exact prior candidate as parent",
+      "deployed": false
+    },
+    "coverage_limit": "Seven inherited High bundle reviews remain open; vendor codecs now use distribution libraries. Native source provenance supplements scanner coverage; zero raw High is not zero inherited risk.",
+    "parent_tests_preserved": {
+      "native_LMS_smoke": "PASS",
+      "upstream_libmount_subtests_passed": 85,
+      "upstream_libmount_groups_passed": 7,
+      "upstream_libmount_groups_skipped": 11,
+      "ABI_symbol_compatibility": "PASS",
+      "apt_dependency_check": "PASS",
+      "selected_regression_passed": 44,
+      "selected_regression_failed": 1,
+      "known_failure": "test_splits_third_landscape_image_to_separate_slide; reproduced on prior candidate",
+      "app_import_health_route": "PASS; lifespan not run",
+      "full_PostgreSQL_startup": "PENDING",
+      "real_Hub_UAT_workflow": "PENDING"
+    },
+    "tests": {
+      "native_LMS_smoke": "PASS",
+      "parser_codec_acl": "PASS",
+      "upstream_expat_test_programs_passed": 1,
+      "upstream_tiff_tests_passed": 17,
+      "upstream_acl_ordinary_groups_passed": 10,
+      "upstream_acl_privileged_NFS_groups_excluded": 6,
+      "upstream_X11_tests_passed": 1,
+      "Xrender_make_check": "PASS; no separate test suite",
+      "ABI_symbol_compatibility": "PASS; six replaced libraries",
+      "apt_dependency_check": "PASS",
+      "selected_regression_passed": 27,
+      "selected_regression_failed": 1,
+      "known_failure": "Existing test_splits_third_landscape_image_to_separate_slide",
+      "app_import_health_route": "PASS; lifespan not run",
+      "full_PostgreSQL_startup": "PENDING",
+      "real_Hub_UAT_workflow": "PENDING"
+    },
+    "bundle_screening": {
+      "elf_files_screened": 980,
+      "fingerprint_matches": [],
+      "embedded_sboms": [
+        {
+          "path": "/usr/local/lib/python3.12/site-packages/psycopg_binary-3.3.4.dist-info/sboms/auditwheel.cdx.json",
+          "component_count": 10,
+          "selected_components": [],
+          "sha256": "249e8829abf963222b5cf73d4748b0d626c28e1f085d4f5383189eedf22baabf"
+        }
+      ],
+      "limitations": "Screening only. Zero fingerprints or missing embedded SBOM entries cannot prove absence of stripped or statically bundled code. No finding closed."
+    }
+  },
+  "superseded_backend_selections": [
+    {
+      "component": "backend",
+      "candidate_tag": "lms-sbom-backend:candidate-20261007-21",
+      "image_id": "sha256:602027e10b4d031e80d63c22ef1445ce706c0bcea57a281af981619da8f8aa21",
+      "os": {
+        "Family": "ubuntu",
+        "Name": "26.04"
+      },
+      "occurrences": 39,
+      "severity": {
+        "MEDIUM": 27,
+        "LOW": 12
+      },
+      "distinct_advisories": 31,
+      "with_listed_fix": 0,
+      "detected_sbom_components": 406,
+      "enriched_sbom_components": 407,
+      "report_created": "2026-10-07T04:49:41.426772969Z",
+      "report_sha256": "1d21198003b526dd83bdde4661d16f46435bd392ccc0ddb49b6ad010467b20f9",
+      "evidence_directory": "/home/karphi/lms-security/evidence/backend-medium-candidate-20261007-21",
+      "evidence_sha256": {
+        "advisory-notes.json": "f13bffbe4e77f48fb6dcc4e67a3806899f7339038a44203b38385a18bb746235",
+        "alsa-topology-Makefile.am": "cd5385cea15e14cefa14038a63d2c0a6693865e4a3a00307262bd063b5b78331",
+        "app-hashes-17.json": "6b4c316c26a75e3892d7ecb1d5ac077f16093e7522e3173fbdd8644f55f1bd05",
+        "app-hashes-21.json": "6b4c316c26a75e3892d7ecb1d5ac077f16093e7522e3173fbdd8644f55f1bd05",
+        "application-provenance.json": "ea1555b742fce78be48115acc176ac22ef4b4f903957250a0a2c3f875234707c",
+        "audit_backend_native_bundles.py": "7cdfd53bb8dca8d47e84591ec1f29037e25775bb765f1f52e4a914bed1e91cfc",
+        "augment_backend_sbom.py": "d8dd32a773f8e552852d995f25ba2e980e041247f690fd1e36e31b0bcb5e6b82",
+        "backend-candidate.json": "1d21198003b526dd83bdde4661d16f46435bd392ccc0ddb49b6ad010467b20f9",
+        "backend-candidate.json-scan.log": "474fd27a87b87bacfe9530332a840292019884c63ccab089236fde400927b94c",
+        "backend-native-media-smoke.py": "2c14d77df89b80b3f8f3add53ff2e3176c1b738902c0f60025ac02e63329414d",
+        "backend.enriched.cdx.json": "590e029dc37646f489abf3a16eaf1a3a863e914055ba473ac59afe2e801daa9b",
+        "backend.raw.cdx.json": "91bc4623307b14df9623a6f1174e625efaf6fcc1756c68c2ea459a2cd58f6aa6",
+        "backend_high_inventory.py": "062caacebc6dc9511a2a7831c74e2d269942574d0632ccdd8170a1f3d9e11784",
+        "backend_medium_smoke.py": "cf62555d9e78f8e367a800bf220d44d6f00ac97f4d9021ff65b8f3d9036c836e",
+        "backend_parser_smoke.py": "8c5a2b2e0fd44e6c55f5cfe6316e987c3f4de048d37445766591ff6156975e73",
+        "base-native.py": "3c1998b038ddf4f23e640f634e12553d8acd7ef3c1335894deec253162f2f0d1",
+        "build-20.log": "99414b2d9ab9e2b44579b8367621d22130cfec5f386f46368d15a4afbcdf5dbb",
+        "build-21.log": "3b46d9547a4290ae3c5f4a52cd5177064966958c2f2ab9bacbd5746714b6edb4",
+        "build-attempt1.log": "e32625d4cdb710be621ba2a8ae334ca0a750fe59e366af90995332ec16c5d7f2",
+        "build-attempt2.log": "c9dafee0ccaabf32c7f5c349968dbb4a634addd9599c192a5865dfe1fc4db758",
+        "build-attempt3.log": "1fa7c76ebd1730ef75b11e1f4d841ed4577277492089baa09ffe931bce224d75",
+        "build.log": "acd5def43694ac1e26cd7d09e475f8fa57b8ac1ffc40577a6945cc291b954eda",
+        "check_removed_components.py": "8b55d2a79e8d45b0f147b3725406c6650bd29195eff258c212386f7f110026fd",
+        "comparison.json": "4f31c3304b1c9181e8d2c4503ffd8a45239c462a4cfb034224b93dd7cef0dc85",
+        "current-register.csv": "44f98102c9abb7300c109ba6a6fae50cca9ec0526300f9b83f709c6a1bbcb8a3",
+        "CVE-2025-68276-avahi.patch": "4f6bf8ce58a35098fe61d0891c009c33e5b3c9dbfba86301473ee82ed1a9d148",
+        "CVE-2025-68468-avahi.patch": "9e4eabf09c86cd1f5792a8f2f4fc886dbde570b52875cfd23fa79ff62fef69c1",
+        "CVE-2025-68471-avahi.patch": "aaeff91bd65047c52b07427c4e99ad540908855a73041b1c905fc5f2b90455ce",
+        "Dockerfile": "44f61cd19d13b54e9a23fffb2e526f5309894613c237595c87db2d8946c660c7",
+        "Dockerfile.candidate": "5bdf887f7afcecacf0b52f188c1c494a749a7bae77bc5c95882eb8e763c25f8b",
+        "Dockerfile.medium": "ebb7e06289c40213c57544be535075c563c4f6dfc6209e574dea3c70c5fbc6c3",
+        "Dockerfile.medium19": "641de70189df924e41211903d4c4a0681d9d0b3f98d2a76a2d6c99454ba76725",
+        "Dockerfile.medium20": "42b0588b6ffb5f368aac6c2c9e01d8ebc50da76fc1b9fd6257ef6619c008c400",
+        "Dockerfile.medium21": "68e6c87af0ccc4f2d61e47bbaabda87bda28165079ee2a62b550fc21576d5232",
+        "Dockerfile.repository": "4c5c657ee311fa858957fe5e10997a68ab4ab0106eed15e46253761730fa0bd5",
+        "Dockerfile.tested": "68e6c87af0ccc4f2d61e47bbaabda87bda28165079ee2a62b550fc21576d5232",
+        "expat-medium.patch": "b6684c44b8222c43166b58c14b6a439be87ab77c05cfc6eb35330ad03a697f30",
+        "image-id.txt": "abeeb43721172bf74d365a3a020536188dfe5709c9b1b5b6a8773879f70df7bf",
+        "image-inspect.json": "9ae34330aedab7a615596112925b2d9bd3b7ad6f20a73fe928e1031b6a3bdfda",
+        "import-health.log": "14817c85298966bed0b714a205d15e481879cbb9ac8312b9b993fcada10a1291",
+        "inherited-reconciled.csv": "1d7d807b413652a466e09162fd4ec04e6a69d980e0d24381afe1db8b63c2a888",
+        "inherited-reconciled.json": "687be50b0bebd5ff0a999fb225d3c3a4e59e0d8bda31bb44fda53327ebfb5cd3",
+        "libx11-CVE-2026-88806.patch": "e3803e8f544f767819cad13eb313129a0db4b47feeced0e17428244359b5eddd",
+        "libx11-medium.patch": "ef883cca3954c6f9e9ed5d8b5c4d9526c9b7e808037445f2b68b0df1bcbcf0b9",
+        "libxi-medium.patch": "19730c2e78fe5edf782d2b01b08bfe54b5e70f2cfa7f0472c8f0e4ecc368e610",
+        "libxrender-CVE-2026-88807.patch": "5ec7674c395a731dbeb7160bb65cb44f961d75e3eabcfff7b9568feb1d05e978",
+        "live-runtime-unchanged.txt": "9f7ecb1fadafec8b9457354c2786983e819aadf44386e960a28452175491d6f3",
+        "medium-smoke.json": "dd37d7142e80ab5e7a68162e66974d149b8c9e624c4d6bf65d984a5dc1615658",
+        "medium-smoke.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "native-inventory.json": "635f15dec821a10e378425936b95e5d8dc77483a19f8b35ea22e6bbac8ec9440",
+        "p11-kit.dsc": "042a8c16de5351864938d98f73e0b7f179ec5f23d33800b312dd3117c015bd28",
+        "package_native_parsers.py": "138558e2c94f321c5cb4e0d9044cf62895812b27df0026b6540e3beb822cb0f2",
+        "package_xclients.py": "eb17e72981b85c76f2028a9e788872b0bf9a49f7bfe45a59c47bd6db487fb33e",
+        "parser-smoke.json": "d46d383ef8e7b683626114b6f34c1f883fc29294724b788da680a04379d720e9",
+        "parser-smoke.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "previous-refreshed.json": "2e171edf4eecda66bbf8e310b34fb67041dfb7a9a454cd189b12f7f1c5a75862",
+        "pytest-exit-code.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+        "pytest.log": "aa3187a55be73ba19da3a280da7a9222ce5e7fef2fe20ef2a9fb16fee58e8150",
+        "reconcile_backend_medium.py": "7109617c582f87948452d3bc1cd779277b21918f083c01765e2b6f1d12873e76",
+        "remaining-priority-families.csv": "051c51607a025acf88391ed515379b63f69b27e3363f3f93e4f5cb73f349a3bb",
+        "removed-components.json": "769aaae836b7ebcb63ddcbafc15393a776ad4bc6fb92dd8de2060991f7f6fa34",
+        "requirements-pillow-source.lock": "9d2005ec9254f9d4b49691c47492531edc99e3bb8f0c1ab946085ce690f2de83",
+        "sbom-convert.log": "53833a9ec2ffcdc975802bb2e33a5927411fecc9c12ce1ad14d33d0f32d0a4e9",
+        "smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+        "validate21.sh": "99f3aa627df87efc37e011b9f8e63299357023763b99772ff8862ced79aad803",
+        "validation21.log": "66e68c535d658755820e04a0982ed6fbae7bd737460e960dd58e0f9c485e4962",
+        "vulnerability-db-metadata.json": "0dd0dd36160ff2e4bc5bd9160b4c41028df7a6c4e69d9ace9b6db446d7eb8722",
+        "zlib-review.json": "680191c418f5b4953cc3d07f93e4f380cacd05ecc923218f154102564328ebc2"
+      },
+      "source_context_files_verified": 102,
+      "source_context_scope": "Application Python/shell hashes compared with parent17; incremental maintenance build tested; full repository rebuild pending.",
+      "inherited_assessment": {
+        "candidate_image": "sha256:602027e10b4d031e80d63c22ef1445ce706c0bcea57a281af981619da8f8aa21",
+        "inherited_occurrences": 829,
+        "changes": [
+          {
+            "source": "acl",
+            "package": "libacl1",
+            "advisory": "CVE-2026-54370",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "alsa-lib",
+            "package": "libasound2-data",
+            "advisory": "CVE-2026-96674",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "alsa-lib",
+            "package": "libasound2t64",
+            "advisory": "CVE-2026-96674",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-client3",
+            "advisory": "CVE-2025-59529",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-client3",
+            "advisory": "CVE-2025-68276",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-client3",
+            "advisory": "CVE-2025-68468",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-client3",
+            "advisory": "CVE-2025-68471",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common-data",
+            "advisory": "CVE-2025-59529",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common-data",
+            "advisory": "CVE-2025-68276",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common-data",
+            "advisory": "CVE-2025-68468",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common-data",
+            "advisory": "CVE-2025-68471",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common3",
+            "advisory": "CVE-2025-59529",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common3",
+            "advisory": "CVE-2025-68276",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common3",
+            "advisory": "CVE-2025-68468",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "avahi",
+            "package": "libavahi-common3",
+            "advisory": "CVE-2025-68471",
+            "severity": "MEDIUM",
+            "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+          },
+          {
+            "source": "cjson",
+            "package": "libcjson1",
+            "advisory": "CVE-2026-16554",
+            "severity": "HIGH",
+            "assessment": "UPSTREAM_NOT_AFFECTED_ARCHITECTURE_VERIFIED"
+          },
+          {
+            "source": "cups",
+            "package": "libcups2t64",
+            "advisory": "CVE-2025-58436",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "cups",
+            "package": "libcups2t64",
+            "advisory": "CVE-2025-61915",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "expat",
+            "package": "libexpat1",
+            "advisory": "CVE-2026-102633",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "freetype",
+            "package": "libfreetype6",
+            "advisory": "CVE-2026-95512",
+            "severity": "MEDIUM",
+            "assessment": "VENDOR_FIXED_VERSION_CONFIRMED"
+          },
+          {
+            "source": "p11-kit",
+            "package": "libp11-kit0",
+            "advisory": "CVE-2026-13757",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "p11-kit",
+            "package": "libp11-kit0",
+            "advisory": "CVE-2026-18938",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "tiff",
+            "package": "libtiff6",
+            "advisory": "CVE-2026-18495",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-6",
+            "advisory": "CVE-2026-94283",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-6",
+            "advisory": "CVE-2026-94284",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-6",
+            "advisory": "CVE-2026-94285",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-data",
+            "advisory": "CVE-2026-94283",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-data",
+            "advisory": "CVE-2026-94284",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-data",
+            "advisory": "CVE-2026-94285",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-xcb1",
+            "advisory": "CVE-2026-94283",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-xcb1",
+            "advisory": "CVE-2026-94284",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libx11",
+            "package": "libx11-xcb1",
+            "advisory": "CVE-2026-94285",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libxi",
+            "package": "libxi6",
+            "advisory": "CVE-2026-93541",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libxi",
+            "package": "libxi6",
+            "advisory": "CVE-2026-93542",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libxi",
+            "package": "libxi6",
+            "advisory": "CVE-2026-93543",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libxi",
+            "package": "libxi6",
+            "advisory": "CVE-2026-93544",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libxi",
+            "package": "libxi6",
+            "advisory": "CVE-2026-93545",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libxi",
+            "package": "libxi6",
+            "advisory": "CVE-2026-94281",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          },
+          {
+            "source": "libxi",
+            "package": "libxi6",
+            "advisory": "CVE-2026-94282",
+            "severity": "MEDIUM",
+            "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+          }
+        ],
+        "open_original_severity": {
+          "LOW": 195,
+          "MEDIUM": 59,
+          "HIGH": 6,
+          "UNKNOWN": 20
+        },
+        "assessments": {
+          "OPEN_MISSING_VENDOR_EVIDENCE": 179,
+          "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED": 42,
+          "VENDOR_FIXED_VERSION_CONFIRMED": 127,
+          "VENDOR_NOT_AFFECTED_EXACT_VERSION": 39,
+          "OPEN_UNDER_INVESTIGATION": 45,
+          "AFFECTED_COMPONENT_ABSENT_VERIFIED": 24,
+          "UPSTREAM_FIXED_VERSION_VERIFIED": 282,
+          "VULNERABLE_CODE_EXCLUDED_VERIFIED": 9,
+          "OPEN_AFFECTED": 8,
+          "UPSTREAM_NOT_AFFECTED_ARCHITECTURE_VERIFIED": 1,
+          "OPEN_SOURCE_ABSENT_BUNDLE_REVIEW": 47,
+          "UPSTREAM_SECURITY_FIX_VERIFIED": 19,
+          "OPEN_NOT_AFFECTED": 1,
+          "UPSTREAM_SECURITY_PATCH_FIXED_VERIFIED": 4,
+          "AFFECTED_COMPONENT_REMOVED_VERIFIED": 2
+        },
+        "previous_register_sha256": "17f1eca26a5b6062f442c7dca21699c60b9362d8474156f2a982f9b66d149221",
+        "limitations": "Six High bundle/source reviews remain open despite OS library removal and zero detected High matches. Counts are inherited package-advisory occurrences, not unique CVEs. No suppression or deployment."
+      },
+      "inherited_open_severity": {
+        "LOW": 195,
+        "MEDIUM": 59,
+        "HIGH": 6,
+        "UNKNOWN": 20
+      },
+      "advisory_database": {
+        "Version": 2,
+        "NextUpdate": "2026-10-08T00:53:05.111120177Z",
+        "UpdatedAt": "2026-10-07T00:53:05.111120428Z",
+        "DownloadedAt": "2026-10-07T03:48:42.221382178Z"
+      },
+      "current_ubuntu_assessment": {
+        "AFFECTED_COMPONENT_ABSENT_VERIFIED": 3,
+        "OPEN_REVIEW_REQUIRED": 31,
+        "UPSTREAM_SECURITY_FIX_VERIFIED": 1,
+        "UPSTREAM_FIXED_VERSION_VERIFIED": 3,
+        "UPSTREAM_SECURITY_PATCH_FIXED_VERIFIED": 1
+      },
+      "current_open_severity": {
+        "MEDIUM": 19,
+        "LOW": 12
+      },
+      "round5_changes": [
+        {
+          "source": "acl",
+          "package": "libacl1",
+          "advisory": "CVE-2026-54370",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "alsa-lib",
+          "package": "libasound2-data",
+          "advisory": "CVE-2026-96674",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "alsa-lib",
+          "package": "libasound2t64",
+          "advisory": "CVE-2026-96674",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-client3",
+          "advisory": "CVE-2025-59529",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-client3",
+          "advisory": "CVE-2025-68276",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-client3",
+          "advisory": "CVE-2025-68468",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-client3",
+          "advisory": "CVE-2025-68471",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common-data",
+          "advisory": "CVE-2025-59529",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common-data",
+          "advisory": "CVE-2025-68276",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common-data",
+          "advisory": "CVE-2025-68468",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common-data",
+          "advisory": "CVE-2025-68471",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common3",
+          "advisory": "CVE-2025-59529",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common3",
+          "advisory": "CVE-2025-68276",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common3",
+          "advisory": "CVE-2025-68468",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "avahi",
+          "package": "libavahi-common3",
+          "advisory": "CVE-2025-68471",
+          "severity": "MEDIUM",
+          "assessment": "AFFECTED_COMPONENT_ABSENT_VERIFIED"
+        },
+        {
+          "source": "cjson",
+          "package": "libcjson1",
+          "advisory": "CVE-2026-16554",
+          "severity": "HIGH",
+          "assessment": "UPSTREAM_NOT_AFFECTED_ARCHITECTURE_VERIFIED"
+        },
+        {
+          "source": "cups",
+          "package": "libcups2t64",
+          "advisory": "CVE-2025-58436",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "cups",
+          "package": "libcups2t64",
+          "advisory": "CVE-2025-61915",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "expat",
+          "package": "libexpat1",
+          "advisory": "CVE-2026-102633",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "freetype",
+          "package": "libfreetype6",
+          "advisory": "CVE-2026-95512",
+          "severity": "MEDIUM",
+          "assessment": "VENDOR_FIXED_VERSION_CONFIRMED"
+        },
+        {
+          "source": "p11-kit",
+          "package": "libp11-kit0",
+          "advisory": "CVE-2026-13757",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "p11-kit",
+          "package": "libp11-kit0",
+          "advisory": "CVE-2026-18938",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "tiff",
+          "package": "libtiff6",
+          "advisory": "CVE-2026-18495",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_AFFECTED_COMPONENTS_FIXED_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-6",
+          "advisory": "CVE-2026-94283",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-6",
+          "advisory": "CVE-2026-94284",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-6",
+          "advisory": "CVE-2026-94285",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-data",
+          "advisory": "CVE-2026-94283",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-data",
+          "advisory": "CVE-2026-94284",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-data",
+          "advisory": "CVE-2026-94285",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-xcb1",
+          "advisory": "CVE-2026-94283",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-xcb1",
+          "advisory": "CVE-2026-94284",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libx11",
+          "package": "libx11-xcb1",
+          "advisory": "CVE-2026-94285",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libxi",
+          "package": "libxi6",
+          "advisory": "CVE-2026-93541",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libxi",
+          "package": "libxi6",
+          "advisory": "CVE-2026-93542",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libxi",
+          "package": "libxi6",
+          "advisory": "CVE-2026-93543",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libxi",
+          "package": "libxi6",
+          "advisory": "CVE-2026-93544",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libxi",
+          "package": "libxi6",
+          "advisory": "CVE-2026-93545",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libxi",
+          "package": "libxi6",
+          "advisory": "CVE-2026-94281",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        },
+        {
+          "source": "libxi",
+          "package": "libxi6",
+          "advisory": "CVE-2026-94282",
+          "severity": "MEDIUM",
+          "assessment": "UPSTREAM_SECURITY_FIX_VERIFIED"
+        }
+      ],
+      "validation": {
+        "upstream_p11_tests_passed": 1078,
+        "upstream_p11_tests_skipped": 3,
+        "upstream_p11_tests_failed": 0,
+        "X11_XInput_Expat_upstream_tests": "PASS, including Expat SIZE_MAX regression",
+        "ABI_exports_and_SONAME": "PASS",
+        "parser_font_codec_ACL_document_browser_media": "PASS",
+        "GnuTLS_and_certificate_store": "PASS",
+        "PKCS11_paths": "Ubuntu paths preserved; no token/hardware validation",
+        "application_tests_passed": 27,
+        "application_tests_failed": 1,
+        "known_failure": "test_splits_third_landscape_image_to_separate_slide, unchanged parent failure",
+        "application_import_health": "PASS without lifespan/database startup",
+        "live_runtime": "Unchanged; no deployment or PostgreSQL operation"
+      },
+      "coverage_limit": "Six inherited High entries are unresolved native/private provenance reviews, not detected High matches in this scan. Original OS libraries are absent with a build guard. No scanner suppression.",
+      "earlier_fix_regression_check": "39 OpenSSL OS occurrences vendor-fixed; PCRE2 10.49 and PNG 1.6.59 upstream fixes verified; urllib3 2.8.0 and runtime pip removal retained"
+    },
+    {
+      "component": "backend",
+      "candidate_tag": "lms-sbom-backend:candidate-20261007-24",
+      "image_id": "sha256:8a7cf064b26ead5b381d7a1ebf478a010780e1d42739df4c3c476e8d6659ed04",
+      "report_created": "2026-10-07T08:38:59.824393127Z",
+      "severity": {
+        "MEDIUM": 27,
+        "LOW": 12
+      },
+      "occurrences": 39,
+      "inherited_open_severity": {
+        "LOW": 195,
+        "MEDIUM": 40,
+        "HIGH": 6,
+        "UNKNOWN": 20
+      },
+      "current_open_severity": {
+        "MEDIUM": 15,
+        "LOW": 12
+      },
+      "evidence_directory": "/home/karphi/lms-security/evidence/backend-medium-candidate-20261007-24",
+      "detected_sbom_components": 406,
+      "enriched_sbom_components": 407,
+      "validation": {
+        "application_passed": 27,
+        "application_known_failure": 1,
+        "native_document_media": "PASS",
+        "gpg_and_gpgv_regression": "PASS",
+        "rtsp_regression": "PASS",
+        "ABI_and_dependencies": "PASS",
+        "application_files_matched": 102,
+        "deployed": false,
+        "live_image_identities_changed_since_round5": true
+      },
+      "evidence_sha256": {
+        "alsa-ctlparse.patch": "fc88545f165594e9e7119b3c934562fcc71a7c8b2f4c78999e85662e669d02af",
+        "alsa-sparse-bindings.patch": "6f86774595e6ebf2594cab1949bbb9ae66dd90383fb6dffa9f757bd884b6ad7e",
+        "app-hashes-parent.json": "6b4c316c26a75e3892d7ecb1d5ac077f16093e7522e3173fbdd8644f55f1bd05",
+        "application-provenance.json": "b731495a7169f26bec955e155771041fa2b8b59cd1a90b34afc9d95ac6b81a1c",
+        "augment_backend_sbom.py": "1863c16b924df85d973a1fff1f69af590b295ecc65337324aaba4338622d7a22",
+        "backend-candidate.json": "828e150be846496ddd8cb6c364cde654448a9ff11e345c751241fdefa2e0b38f",
+        "backend.enriched.cdx.json": "4b20b4b21bcb08c7490c965cf546192054fca3bba4abf8d78cd310d003d9e2a5",
+        "backend.raw.cdx.json": "089781c9a45b75a49a9845f17fdaa567f236450b88e7389ee58d48f3b2691ab5",
+        "backend_backlog_smoke.py": "f6d350daea44bdf45e9c3f8e3b224d8360d82589a471618db32e36434a680475",
+        "backend_gpg_regression.py": "5ea5c375f680a262aa5cb6799932138434685f33db6b18a2cddc9ccbc9b66b03",
+        "backlog-smoke.json": "414e8313d41540f1047f3a652ef5375083f99d8d7701ec75387a5ebf642c32e9",
+        "backlog-smoke.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "build-24-attempt2.log": "8f95f5509bff53d8a23d0a20e7da2bc005e6524c995c4f33b7ac777c34eb3ac0",
+        "build-24-attempt3.log": "643458aa8e90f2dbd483b6014e987ca33fb946bd2eecc0241ea174c58708b614",
+        "build-24-attempt4.log": "2ef455c474e458fc3a0f6b9643b9e2ef58361570ec5806ac8c858c7f24814bc1",
+        "build-24-attempt5.log": "fc05726c1a3abfe0e57f243d7e27e0b508bcdaccbbc0e033921cd435a8606efc",
+        "build-24.log": "344293308c499188d4500fddb0b2b9c1014e51b1f6a7e2640ade5f3cd7e8b59f",
+        "check_removed_components.py": "8b55d2a79e8d45b0f147b3725406c6650bd29195eff258c212386f7f110026fd",
+        "comparison.json": "77e83fc77301883ba1b0aa45bf60ebe1fbad1f0ac2aebf3927cae74725356135",
+        "cups-utf32.patch": "47eb967434d2dadd11c149245109f267a0016381b6edca4829355b8002f30688",
+        "current-register.csv": "361ec82fbddc2a1de5184d6122e7c05eb68a7c4e11bc918c1ee7e97d8a44d8df",
+        "Dockerfile.backlog22": "c41869fa64fb71f4aaf12cb0cb591296bd249640ed991bf810d4465fd1207790",
+        "expat-medium.patch": "b6684c44b8222c43166b58c14b6a439be87ab77c05cfc6eb35330ad03a697f30",
+        "gnupg-cleartext.patch": "88af0682a98daa78f0407710af149e0283c1b54f98c71b7dbd6329be3f31d64a",
+        "gpg-parent.json": "4c8a42991ff8727291e5073cb2ea555cfd85840ef23c3db26640bbb4607b2e0b",
+        "gpg-regression.json": "e01843ac78eed22ba91c49b2c0f5893bda956e178f24ef1acbbfea0228812463",
+        "gpg-regression.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "gst-check.log": "15c27f70fbeff94ef6db7f645167cc6007e2dba21d1e50aea81d03e8cb0c897d",
+        "gstreamer-rtsp.patch": "f9e46d40ac3aef03d553c57147f3963c902d6d4e968d313d061ecef4dad26d8f",
+        "image-id.txt": "1449a3fcb3248d6afc73fa5bcec334b3a85278523e1656f43efe423f3fe71bdb",
+        "image-inspect.json": "ca8f2e3394db48405ed799659fcec43d7e711dce827ddab9fe1671625b36cb9f",
+        "import-health.log": "b3f43957b28401c29e1a6b1fabe52d485832d0e7747b04ddc7042e089f3af40e",
+        "inherited-reconciled.csv": "d1ad1971932275e5a9588f7bb39726763535446012c1fd01fa57a9e500dd32b4",
+        "inherited-reconciled.json": "4863b9f8cf1fc8533f9f57951fd1d8bfbdbdec0dff43f057d1e94725c0c11149",
+        "libc-supported-update-check.txt": "e8074460296fe0ff51953c472f52b874af17b014cdbdcb7a15f0c3528d9a0167",
+        "libx11-CVE-2026-88806.patch": "e3803e8f544f767819cad13eb313129a0db4b47feeced0e17428244359b5eddd",
+        "libx11-medium.patch": "ef883cca3954c6f9e9ed5d8b5c4d9526c9b7e808037445f2b68b0df1bcbcf0b9",
+        "libxi-medium.patch": "19730c2e78fe5edf782d2b01b08bfe54b5e70f2cfa7f0472c8f0e4ecc368e610",
+        "libxrender-CVE-2026-88807.patch": "5ec7674c395a731dbeb7160bb65cb44f961d75e3eabcfff7b9568feb1d05e978",
+        "live-runtime.txt": "9fb9297b6d1fdebc457ff3e00de887aac9a6c9ba9b5db958ab354c9d3424600f",
+        "medium-smoke.json": "dd37d7142e80ab5e7a68162e66974d149b8c9e624c4d6bf65d984a5dc1615658",
+        "native-inventory.json": "047ae93791bb870815c44d65a61ea61697264338f3c5b20aed708ac0c0ee9846",
+        "package_backlog.py": "a1dcd83284866aa255d4a78f95c6077e08f2aedfb4a31433c78a587042cb9745",
+        "package_backlog_extra.py": "6f37d9161d22cc378bc02ebc24ac7382f2df2fa37c02890a83c340003f5ba08f",
+        "package_native_parsers.py": "138558e2c94f321c5cb4e0d9044cf62895812b27df0026b6540e3beb822cb0f2",
+        "package_util_linux.py": "6995dc3ce881c3ab671e67aca4c98f5bc602985f61c4ed2b1ab875b156d088e6",
+        "package_xclients.py": "eb17e72981b85c76f2028a9e788872b0bf9a49f7bfe45a59c47bd6db487fb33e",
+        "parser-smoke.json": "47ae1431657c19e848b76801e37a605e33f7dcc2d2d4d0ee0cdf7be86b61b51d",
+        "poppler-bounds.patch": "2a9396c466741958b159bb608b53f1d7983397f522b3b2abfcfe94b10ae5fb43",
+        "poppler_abi_anchors.cc": "8c10b90468f35a4ff73728b692841d6e9cfdb65692b40fc1514d424eafeda0ab",
+        "previous-refreshed.json": "1d21198003b526dd83bdde4661d16f46435bd392ccc0ddb49b6ad010467b20f9",
+        "pytest-exit-code.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+        "pytest.log": "fec84b3384ef31201503fbcfbd26d86a5019bf926691011c2205f1aac459b31d",
+        "reconcile_backend_backlog.py": "8540a3bff4fa1ffb828becfc49e5280df6b1d102e1698873bc00a461feaa1c9a",
+        "rtsp-parent-exit-code.txt": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "rtsp-parent.log": "67c357c39a31e36076fe79e471500c11e8f58ceda346aefc961cbe500ff486d4",
+        "rtsp-regression": "43abb4ad63ce68228ab69732945dec4bb7ad6dff48f6c6ff69f04ffaa9950610",
+        "rtsp-regression.json": "15f87ca48e6de4068c41c73901ded58794fbdd8e9b40fe065781d4d9a65a6606",
+        "rtsp_regression.c": "f999c412d195e297884f11959874fdba02edc825de833460695c29cf304b0afe",
+        "sbom-check.json": "39cba200f99d5dddee41cc7ac0cbdaaedf7f740552d0e4b36a40810033762f7d",
+        "sbom-convert.log": "168edbac27a55c3898578b246ea14397f23431a68bf6f3b90b0420bc079b2748",
+        "scan.log": "0b1f142c7f7f892dacc96efa7205e4ec7d5f52ba4771a26acc544ea197dedd2a",
+        "scanner-image.txt": "1ff68cda222047063a21e3713275c0ad2e9ccc8c329ec5aa06dd9ca7e0d8484a",
+        "smoke.log": "6f0671fca506a2f87be453005e44f150161ffaa30799c34b7e17c1b7dc5052cf",
+        "validate24.sh": "4cd1cd7d1575a8d4dd833f133e245b5e2436030c9f7261e3d8888104651a397f",
+        "validation24.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "vendor-advisory-index.json": "66398edc6db77197fd3a47d0614dc3e4dcf7d5d2b797b786d1fc740b8fee33e5",
+        "vulnerability-db-metadata.json": "0dd0dd36160ff2e4bc5bd9160b4c41028df7a6c4e69d9ace9b6db446d7eb8722"
+      }
+    }
+  ],
+  "closeout_review_2026_10_08": {
+    "report": "sbom-lms-closeout-plan-2026-10-08.md",
+    "active_tracked_addressed": 612,
+    "active_tracked_open": 261,
+    "pdf_source_build": "FAILED; NOT_ACCEPTED; zero new verified closures",
+    "previous_candidate_availability": "Earlier isolated backend, trainer and employee candidate images removed during VM cleanup; evidence retained. All three require rebuild/restore and fresh validation.",
+    "release_decision": "Preparation and controlled validation recommended; UAT release not approved",
+    "risk_acceptance": "All draft decisions pending",
+    "pdf_source_build_evidence_archive_sha256": "ae639a95dcc0e0f84d38e7707bc163bb9789e660c4b4529dd4654158bb68da6e"
+  },
+  "pdf_source_experiment_2026_10_08": {
+    "state": "FAILED; NOT_ACCEPTED; NOT_DEPLOYED",
+    "new_verified_closures": 0,
+    "evidence_directory": "/home/karphi/lms-security/evidence/pymupdf-source-build-20261007",
+    "local_vm_evidence_sha256": {
+      "applied-security-patches.json": "b674eabbcd7883708cc6ae9121b301425e62ced54a4cd4440e1e068f035d1c54",
+      "build-attempt1-exit-code.txt": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      "build-attempt1.log": "a100bb8d2ff362aa0c881e397a68a7948a5fe53be7c0075d2aed7c4b30664df4",
+      "build-attempt2-exit-code.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "build-attempt2.log": "6fa9e4595eb81455829947e747ce549620969c91cabcc8006f5d806159a4b827",
+      "build-exit-code.txt": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "build-resource-limit.patch": "b56fc87f6d81b840ffd74cbb7917e76a17afb68bd73aeaced2148b4095fe65ed",
+      "build-status.txt": "22901253aed6a9d7587198bcf93083ca51020fffe83ef4e2b5fab75c9638d969",
+      "build-tools.lock": "ddd8ac615fd011be1ed5fc67a5ebe37fc8fb9510b1636882cad9b0acf6ce03d9",
+      "build-wheel.sh": "1ad07695a34a8d8027026aff02b1c4162cb726a18871a9a7243c7546029599a6",
+      "build.log": "1ce3172420a3355f995cff7ef9bad02df9fc136d7bc9e690cda6953d9d61ba98",
+      "builder-image-inspect.json": "164ab6b54eb0a3a14ca8b0fdaffb13b807ed455b91d2da4c8ccc75cbe0a52b86",
+      "builder-packages.tsv": "a51131656d5acc70b67d80c842885cee145ae80e1de3558d9dd45fdfe3f766b9",
+      "builder-python-packages.txt": "94be8b94d3ebb88b024eeb6d8d130ecb69cc91f5721b3f76dfc0d19f6f47ed21",
+      "compiler-version.txt": "4dc9a4e32fd9e06d42fb307688c59d6d889f0ff90ce034cbefed21b0d451fd81",
+      "Dockerfile": "ea4ea522785b8cee335da8729508245fc92e73fbcc826b2393ef2c8255e26df9",
+      "mupdf-source-before-build.sha256": "884f25873f8ad0001fcc4786448923127b5217a73a69aa57c7bc5d1b5ff59507",
+      "source-archives.sha256": "8dae279a33d8e50cf600f39ad15c82d7c1ce8a72873f501ab3bc5f4c9d78e52e",
+      "swig-version.txt": "84a36c59f8989363d8d744cf00b4b7e3daf0a662587d052da17c9a3783f7af45",
+      "patches/CVE-2026-50811.patch": "fae1c96cd94b9ed5aafc7424f4b8894f2e235b4869a72b3cdbb684dedcea9d1a",
+      "patches/CVE-2026-76844.patch": "110ff14375733173d8aa54574473424fbd7dfe4b81f1ca34a759c6fe14b15b14",
+      "patches/CVE-2026-95512.patch": "ae619a0bec3e80bc279b50e8b56d580942d9446b8636a6b01342c3b108aee134",
+      "patches/patches.json": "e4375757556832fdf14deca77fd159f2dad23cfdf9fd27b629fbe5b01075d87f"
+    },
+    "report": "sbom-lms-closeout-plan-2026-10-08.md"
+  }
+}

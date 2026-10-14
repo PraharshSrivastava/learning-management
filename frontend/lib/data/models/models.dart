@@ -202,6 +202,8 @@ class AssignmentRule {
   final List<AssignmentGroup> includeGroups;
   final List<AssignmentGroup> excludeGroups;
   final int deadlineDays;
+  final String deadlineMode;
+  final String? deadlineDate;
   final bool isActive;
 
   const AssignmentRule({
@@ -209,6 +211,8 @@ class AssignmentRule {
     this.includeGroups = const [],
     this.excludeGroups = const [],
     this.deadlineDays = 7,
+    this.deadlineMode = 'fixed',
+    this.deadlineDate,
     this.isActive = true,
   });
 
@@ -245,6 +249,8 @@ class AssignmentRule {
               )
             ].where((group) => !group.isEmpty).toList(),
       deadlineDays: (json['deadline_days'] as num?)?.toInt() ?? 7,
+      deadlineMode: json['deadline_mode']?.toString() ?? 'relative',
+      deadlineDate: json['deadline_date']?.toString(),
       isActive: json['is_active'] != false,
     );
   }
@@ -254,6 +260,8 @@ class AssignmentRule {
     List<AssignmentGroup>? includeGroups,
     List<AssignmentGroup>? excludeGroups,
     int? deadlineDays,
+    String? deadlineMode,
+    String? deadlineDate,
     bool? isActive,
   }) {
     return AssignmentRule(
@@ -261,6 +269,8 @@ class AssignmentRule {
       includeGroups: includeGroups ?? this.includeGroups,
       excludeGroups: excludeGroups ?? this.excludeGroups,
       deadlineDays: deadlineDays ?? this.deadlineDays,
+      deadlineMode: deadlineMode ?? this.deadlineMode,
+      deadlineDate: deadlineDate ?? this.deadlineDate,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -270,6 +280,8 @@ class AssignmentRule {
         'include_groups': includeGroups.map((group) => group.toJson()).toList(),
         'exclude_groups': excludeGroups.map((group) => group.toJson()).toList(),
         'deadline_days': deadlineDays,
+        'deadline_mode': deadlineMode,
+        'deadline_date': deadlineMode == 'fixed' ? deadlineDate : null,
       };
 }
 
@@ -700,7 +712,13 @@ class PerformanceDashboard {
 
 // Model for Generated Course Outline
 class Course {
+  final String lifecycleState;
+  final int lifecycleRevision;
+  final bool canDelete;
   final String courseId;
+  final String trainerId;
+  final bool canManage;
+  final String? creatorName;
   final String courseName;
   final String courseDescription;
   final String courseObjective;
@@ -720,7 +738,13 @@ class Course {
   final bool isAssignable;
 
   Course({
+    this.lifecycleState = '',
+    this.lifecycleRevision = 0,
+    this.canDelete = false,
     required this.courseId,
+    this.trainerId = '',
+    this.canManage = false,
+    this.creatorName,
     required this.courseName,
     required this.courseDescription,
     required this.courseObjective,
@@ -767,7 +791,13 @@ class Course {
           return questions != null && questions.isNotEmpty;
         });
     return Course(
+      lifecycleState: json['lifecycle_state']?.toString() ?? '',
+      lifecycleRevision: (json['lifecycle_revision'] as num?)?.toInt() ?? 0,
+      canDelete: json['can_delete'] == true,
       courseId: json['course_id']?.toString() ?? '',
+      trainerId: json['trainer_id']?.toString() ?? '',
+      canManage: json['can_manage'] == true,
+      creatorName: json['creator_name']?.toString(),
       courseName: json['course_name']?.toString() ?? '',
       courseDescription: json['course_description']?.toString() ?? '',
       courseObjective: json['course_objective']?.toString() ?? '',
@@ -788,14 +818,19 @@ class Course {
       currentCheckpoint:
           (json['generation'] as Map?)?['current_checkpoint']?.toString() ?? '',
       generationError: (json['generation'] as Map?)?['error']?.toString() ?? '',
-      moduleCount:
-          (json['module_count'] as num?)?.toInt() ?? modules.length,
+      moduleCount: (json['module_count'] as num?)?.toInt() ?? modules.length,
       isAssignable: json['is_assignable'] == true || inferredAssignable,
     );
   }
 
   Course copyWith({
+    String? lifecycleState,
+    int? lifecycleRevision,
+    bool? canDelete,
     String? courseId,
+    String? trainerId,
+    bool? canManage,
+    String? creatorName,
     String? courseName,
     String? courseDescription,
     String? courseObjective,
@@ -816,7 +851,13 @@ class Course {
   }) {
     final nextModules = modules ?? this.modules;
     return Course(
+      lifecycleState: lifecycleState ?? this.lifecycleState,
+      lifecycleRevision: lifecycleRevision ?? this.lifecycleRevision,
+      canDelete: canDelete ?? this.canDelete,
       courseId: courseId ?? this.courseId,
+      trainerId: trainerId ?? this.trainerId,
+      canManage: canManage ?? this.canManage,
+      creatorName: creatorName ?? this.creatorName,
       courseName: courseName ?? this.courseName,
       courseDescription: courseDescription ?? this.courseDescription,
       courseObjective: courseObjective ?? this.courseObjective,

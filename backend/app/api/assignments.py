@@ -2,10 +2,11 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Header, Query, Request
+from fastapi import APIRouter, Header, Query, Request, Response
 
 from app.schemas.assignment import (
     AssignmentOptionsResponse,
+    AssignmentPreviewRequest,
     AssignmentRuleRequest,
     CourseAssignmentResponse,
     SavedAssignmentGroupRequest,
@@ -24,17 +25,20 @@ from app.services.assignments import (
     api_save_course_assignment,
     api_saved_assignment_groups,
     api_update_saved_assignment_group,
+    assignment_employee_page,
 )
 from app.services.auth import current_trainer_from_request
+from app.services.course_authorization import course_owner_for_read, require_course_creator
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 
 
 @router.get("/assignment/options", response_model=AssignmentOptionsResponse)
 def assignment_options(
-    request: Request, authorization: str | None = Header(default=None)
+    request: Request, response: Response, authorization: str | None = Header(default=None)
 ):
     current_trainer_from_request(request, authorization)
+    response.headers["Cache-Control"] = "no-store"
     return api_assignment_options()
 
 
@@ -102,10 +106,13 @@ def assignable_courses(
 def get_course_assignment(
     course_id: str,
     request: Request,
+    response: Response,
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
-    return api_get_course_assignment(course_id, trainer["trainer_id"])
+    response.headers["Cache-Control"] = "no-store"
+    owner_id = course_owner_for_read(course_id, trainer)
+    return api_get_course_assignment(course_id, owner_id)
 
 
 @router.put("/courses/{course_id}/assignment", response_model=CourseAssignmentResponse)
@@ -116,6 +123,7 @@ def save_course_assignment(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return api_save_course_assignment(course_id, payload, trainer["trainer_id"])
 
 
@@ -127,6 +135,7 @@ def publish_course_assignment(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return api_publish_course_assignment(course_id, payload, trainer["trainer_id"])
 
 
@@ -137,4 +146,15 @@ def disable_course_assignment(
     authorization: str | None = Header(default=None),
 ):
     trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
     return api_disable_course_assignment(course_id, trainer["trainer_id"])
+
+
+@router.post("/courses/{course_id}/assignment/employee-preview")
+def employee_assignment_preview(course_id: str, payload: AssignmentPreviewRequest, request: Request, response: Response,
+    authorization: str | None = Header(default=None), view: Literal["matching", "assigned"] = Query("matching"),
+    search: str = Query("", max_length=200), page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100)):
+    trainer = current_trainer_from_request(request, authorization)
+    require_course_creator(course_id, trainer)
+    response.headers["Cache-Control"] = "no-store"
+    return assignment_employee_page(course_id, payload, view, search, page, page_size)

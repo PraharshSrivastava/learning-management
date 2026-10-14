@@ -45,7 +45,7 @@ class GenerationService:
         ):
             yield
 
-    def draft(self, course_id: str, trainer_id: str | None = None) -> dict:
+    def draft(self, course_id: str, trainer_id: str | None = None, *, allow_archived: bool = False) -> dict:
         course = (
             self.courses.get_draft_for_trainer(course_id, trainer_id)
             if trainer_id
@@ -53,6 +53,8 @@ class GenerationService:
         )
         if course is None:
             raise FileNotFoundError("Course not found")
+        if not allow_archived and course.get("status") == "archived":
+            raise ConflictError("Restore the archived course before generating content.")
         return course
 
     def generate_quiz(self, course_id: str, trainer_id: str | None = None) -> dict:
@@ -118,7 +120,7 @@ class GenerationService:
         if job is None:
             raise FileNotFoundError("Generation job not found")
         if trainer_id:
-            self.draft(job.course_id, trainer_id)
+            self.draft(job.course_id, trainer_id, allow_archived=True)
         return job
 
     def continue_generation(self, course_id: str, trainer_id: str | None = None) -> dict:

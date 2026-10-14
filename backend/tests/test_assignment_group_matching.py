@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import datetime
 
 from app.repositories.assignments import employee_matches_assignment_rule
@@ -112,6 +113,9 @@ class _FakeCourses:
     def __init__(self, courses):
         self.courses = courses
 
+    def is_published(self, course_id):
+        return any(c["course_id"] == course_id for c in self.list("published"))
+
     def list(self, status=None):
         return [
             course
@@ -126,6 +130,9 @@ class _FakeAssignments:
 
     def get(self, course_id):
         return self.rules[course_id]
+
+    def get_applied(self, course_id):
+        return self.get(course_id)
 
     def matches_employee(self, employee, rule, as_of=None):
         return employee_matches_assignment_rule(employee, rule, as_of)
@@ -172,6 +179,8 @@ def test_reconcile_revokes_started_assignment_when_mailing_list_is_removed(monke
             }
         }
     }
+    monkeypatch.setattr(assignment_service, "course_transaction", lambda _: nullcontext())
+    monkeypatch.setattr(assignment_service, "observer_ids", lambda _: set())
     monkeypatch.setattr(assignment_service, "datetime", _FixedDatetime)
     monkeypatch.setattr(
         assignment_service,
@@ -190,7 +199,8 @@ def test_reconcile_revokes_started_assignment_when_mailing_list_is_removed(monke
 
     saved = progress[employee_id]["course_1"]
     assert changes == {"assigned": 0, "removed": 1, "reactivated": 0}
-    assert saved["status"] == "revoked"
+    assert saved["status"] == "started"
+    assert saved["revoked_at"] is not None
     assert saved["revoked_reason"] == "assignment_rule_no_longer_matches"
     assert saved["modules"] == {"1": {"video_watched": True}}
     assert saved["attempts"] == {"1": {"count": 1}}
@@ -215,6 +225,8 @@ def test_reconcile_reactivates_revoked_assignment_with_remaining_deadline(monkey
             }
         }
     }
+    monkeypatch.setattr(assignment_service, "course_transaction", lambda _: nullcontext())
+    monkeypatch.setattr(assignment_service, "observer_ids", lambda _: set())
     monkeypatch.setattr(assignment_service, "datetime", _FixedDatetime)
     monkeypatch.setattr(assignment_service, "_employees", _FakeEmployees({employee_id: _employee()}))
     monkeypatch.setattr(

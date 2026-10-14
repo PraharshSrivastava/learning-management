@@ -36,20 +36,10 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        var appScope = new URL('.', document.baseURI).href;
         registrations.forEach(function(registration) {
-          registration.unregister();
+          if (registration.scope === appScope) registration.unregister();
         });
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(keys) {
-        keys
-          .filter(function(key) {
-            return key.indexOf('flutter') !== -1 || key.indexOf('PhillipCapital') !== -1;
-          })
-          .forEach(function(key) {
-            caches.delete(key);
-          });
       });
     }
   </script>

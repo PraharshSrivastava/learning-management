@@ -57,6 +57,10 @@ def default_assignment_rule(course_id: str) -> dict:
         "exclude_mailing_lists": [],
         "exclude_job_titles": [],
         "deadline_days": 7,
+        "deadline_mode": "relative",
+        "deadline_date": None,
+        "applied_deadline_mode": "relative",
+        "applied_deadline_date": None,
         "applied_deadline_days": None,
         "published_at": None,
         "is_active": True,
@@ -98,6 +102,10 @@ def _row_to_assignment_rule(row) -> dict:
         "exclude_mailing_lists": exclude.get("mailing_lists") or [],
         "exclude_job_titles": exclude.get("job_titles") or [],
         "deadline_days": row["deadline_days"],
+        "deadline_mode": include.get("deadline_mode", "relative"),
+        "deadline_date": include.get("deadline_date"),
+        "applied_deadline_mode": include.get("applied_deadline_mode", "relative"),
+        "applied_deadline_date": include.get("applied_deadline_date"),
         "applied_deadline_days": row["applied_deadline_days"],
         "published_at": row["published_at"],
         "is_active": bool(row["is_active"]),
@@ -114,6 +122,22 @@ def get_assignment_rule(course_id: str) -> dict:
             "SELECT * FROM assignment_rules WHERE course_id = ?", (course_id,)
         ).fetchone()
     return _row_to_assignment_rule(row) if row else default_assignment_rule(course_id)
+
+
+def get_applied_assignment_rule(course_id: str) -> dict:
+    with get_connection() as connection:
+        row = connection.execute("SELECT * FROM assignment_rules WHERE course_id = ?", (course_id,)).fetchone()
+    if not row:
+        return default_assignment_rule(course_id)
+    applied = dict(row)
+    applied["include_filters_json"] = row["include_filters_json"] if row.get("applied_include_filters_json") is None else row["applied_include_filters_json"]
+    applied["exclude_filters_json"] = row["exclude_filters_json"] if row.get("applied_exclude_filters_json") is None else row["applied_exclude_filters_json"]
+    rule = _row_to_assignment_rule(applied)
+    rule["include_inactive"] = applied["include_filters_json"].get("include_inactive", row["include_inactive"])
+    rule.update(deadline_days=rule.get("applied_deadline_days") or rule["deadline_days"],
+                deadline_mode=rule.get("applied_deadline_mode", "relative"),
+                deadline_date=rule.get("applied_deadline_date"))
+    return rule
 
 
 def save_assignment_rule(
@@ -154,9 +178,17 @@ def save_assignment_rule(
             "updated_at": now,
         }
     )
+    for key in ("deadline_mode", "deadline_date"):
+        if key in rule:
+            value = rule[key]
+            normalized[key] = value.isoformat() if hasattr(value, "isoformat") else value
+    if normalized["deadline_mode"] == "relative":
+        normalized["deadline_date"] = None
     if normalized["include_match_mode"] not in {"all", "any"}:
         normalized["include_match_mode"] = "all"
     if publish:
+        normalized["applied_deadline_mode"] = normalized["deadline_mode"]
+        normalized["applied_deadline_date"] = normalized["deadline_date"]
         normalized["published_at"] = now
         normalized["applied_deadline_days"] = normalized["deadline_days"]
         normalized["is_active"] = True
@@ -177,6 +209,8 @@ def save_assignment_rule(
         match_mode=normalized["include_match_mode"],
         groups=normalized["include_groups"],
     )
+    include_filters["include_inactive"] = normalized["include_inactive"]
+    include_filters.update({key: normalized[key] for key in ("deadline_mode", "deadline_date", "applied_deadline_mode", "applied_deadline_date")})
     exclude_filters = _filters(
         employee_ids=normalized["exclude_employee_ids"],
         departments=normalized["exclude_departments"],
@@ -219,6 +253,9 @@ def save_assignment_rule(
                 normalized["updated_at"],
             ),
         )
+        if publish:
+            connection.execute("""UPDATE assignment_rules SET applied_include_filters_json = include_filters_json,
+                applied_exclude_filters_json = exclude_filters_json WHERE course_id = ?""", (course_id,))
         connection.commit()
     return normalized
 
@@ -301,6 +338,9 @@ def matching_employees_for_assignment_rule(rule: dict, limit: int | None = None)
 
 
 class AssignmentRepository:
+    def get_applied(self, course_id: str) -> dict:
+        return get_applied_assignment_rule(course_id)
+
     @staticmethod
     def _validated(rule: dict) -> dict:
         AssignmentRuleRecord.model_validate(rule)

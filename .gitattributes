@@ -1,0 +1,4 @@
+
+# Preserve Linux execution and pinned security patch bytes on Windows.
+*.sh text eol=lf
+backend/security/** text eol=lf

@@ -1,0 +1,19 @@
+source,high,medium,advisories,next_action
+cjson,4,1,CVE-2026-29036;CVE-2026-67215;CVE-2026-67216;CVE-2026-67217;CVE-2026-87933,Original OS package and dynamic dependencies absent; four High and one Medium static/private provenance reviews remain open.
+libsndfile,1,3,CVE-2024-50613;CVE-2026-37555;CVE-2026-88372;CVE-2026-88386,Original OS package and dynamic dependencies absent; unidentified static/private copy provenance remains open.
+librsvg,1,0,CVE-2026-96889,"Original OS package absent, FFmpeg librsvg decoder disabled, no dynamic dependency. Static/private provenance remains open."
+gcc-14,0,12,CVE-2026-102010;CVE-2026-95619,Map original GCC 14 binary/header usage to current GCC 16 and native callers; renamed source alone is not a fix.
+glibc,0,10,CVE-2026-18374;CVE-2026-8674;CVE-2026-86805;CVE-2026-89092;CVE-2026-95818,Review supported Ubuntu backports for the exact version; preserve libc ABI and loader. No supported newer package in this probe.
+gnupg2,0,7,CVE-2025-68972,Upgrade the matched GnuPG utility family together after verifying required document/encryption behavior.
+poppler,0,6,CVE-2026-102620;CVE-2026-93311;CVE-2026-93312;CVE-2026-93313;CVE-2026-93314;CVE-2026-93653,Review backports for libpoppler.so.156. Newer releases change SONAME; two current advisories still lack accepted fixes.
+alsa-lib,0,4,CVE-2026-90781;CVE-2026-96675,Topology component absence verified; review the remaining ctlparse and sparse-binding fixes. PR527 includes unrelated path-policy changes; do not apply it wholesale.
+gdk-pixbuf,0,4,CVE-2026-16768;CVE-2026-81893,Original OS packages absent; resolve source/private native coverage before closure.
+libusb-1.0,0,2,CVE-2026-23679;CVE-2026-47104,Original OS package absent; verify native bundles before treating the removal as full advisory closure.
+openjpeg2,0,2,CVE-2023-39328;CVE-2023-39329,Upstream issues1471/1474 still lack a verified fix; review both shared system codec and MuPDF private copy.
+tar,0,2,CVE-2026-18477;CVE-2026-18508,Confirm accepted fixes for the two advisories and preserve extraction/ACL behavior; no blind removal of required base utilities.
+cups,0,1,CVE-2026-87875,Review 2.4.20 fix or same-ABI backport; supported Ubuntu candidate remains 2.4.16.
+expat,0,1,CVE-2025-66382,CVE-2025-66382 remains unfixed even in newer upstream releases; this allocation patch does not fix it. Assess application parser limits separately.
+glib2.0,0,1,CVE-2026-86469,Pending upstream directory-handling fix; evaluate supported vendor backport and application reachability.
+gst-plugins-base1.0,0,1,CVE-2026-85150,"Fresh primary advisory identifies RTSP Digest parsing, not volume plugin. Review 1.28.7 backport to shipped RTSP library; do not close by missing volume plugin."
+jpeg-xl,0,1,CVE-2026-52584,Original OS package absent; verify Chromium/private codec provenance.
+zlib,0,1,CVE-2026-85091,Canonical and upstream affected-range/reproducer evidence conflict; retain under-investigation status until a validated fix or mitigation exists.
