@@ -104,3 +104,36 @@ access; active generation must finish or be cancelled before removal. An additiv
 removed-drafts table is initialized on backend startup; no destructive migration.
 
 Validation: 85 backend regression checks, 52 Trainer tests, clean changed-file analysis, successful JavaScript release build, and compiled browser checks for search, removal cancellation, Remove/Undo, direct Blueprint upload/library routing, optional editing, AI, blank documents, responsive widths and feature-off fallback. The committed Option A screenshot is from the compiled app with synthetic fixtures. VM PostgreSQL acceptance and deployment follow these local checks.
+
+
+## 14 October 2026 — Approved AI assistant review interface
+
+Implemented explicit Selected text / Current module / Whole document scope controls,
+a visible target preview, a labelled instruction field and prompt shortcuts that
+fill the instruction without automatically requesting edits. Scenario insertion is
+explicitly labelled as applying to the current module. Source questions stay separate.
+
+Suggestions open a dedicated responsive review dialog. Original and Suggested are
+separate cards; fixed application guidance appears in a blue Before you apply panel;
+genuine model summaries have an optional AI explanation section. Module-wide fixed
+review summaries are not represented as model explanations. The footer keeps Apply,
+Discard and Back actions accessible while the comparison body scrolls. Pending
+suggestions cannot be overwritten by another generation request. Back/Close preserves
+the proposal; Discard rejects it; Apply uses existing revision and selection guards.
+Generation is no longer shown as Working while a ready proposal is being reviewed.
+
+Whole-document revision now targets included modules only. Previously saved proposals
+that attempt to modify excluded modules are rejected at acceptance. Selected proposals
+store their original selection server-side; older proposals use a code-point-aware
+fallback. Moving focus into the prompt retains the editor selection. Images, tables
+and lists are preserved during text revision. Model configuration and output schemas
+remain unchanged.
+
+Validation: backend scope/model/draft/course regression checks, 52 Trainer tests,
+clean changed-file analysis, release web build and compiled browser acceptance for
+all three scopes, Apply/Discard, whole-document confirmation cancellation, mobile
+review layout, direct Blueprint upload/library flow, optional editing, AI/blank
+document creation and draft Remove/Undo. Screenshots prefixed implemented-ai-assistant
+are from the compiled application with synthetic fixtures. VM deployment uses the
+existing maintained backend image plus application code, isolated PostgreSQL scope
+acceptance, database/config backups, active-job checks and health verification.

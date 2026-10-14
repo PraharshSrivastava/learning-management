@@ -260,9 +260,12 @@ class WorkflowJobs:
                         ),
                     },
                 )
+                result["originalText"] = selected
             elif request.task == "revise":
                 changes = []
                 for module in current.content.modules:
+                    if request.scope == "document" and not module.included:
+                        continue
                     if request.scope != "document" and module.id != request.moduleId:
                         continue
                     texts = [
@@ -406,6 +409,10 @@ class WorkflowJobs:
         elif request.task == "revise":
             for change in operation["result"]["changes"]:
                 module = next(m for m in content.modules if m.id == change["moduleId"])
+                if request.scope == "document" and not module.included:
+                    raise ConflictError(
+                        "This suggestion includes an excluded module. Discard it and generate new suggestions."
+                    )
                 block = next(b for b in module.blocks if b.id == change["blockId"])
                 if block.text != change["originalText"]:
                     raise ConflictError("Text changed; regenerate the suggestion")

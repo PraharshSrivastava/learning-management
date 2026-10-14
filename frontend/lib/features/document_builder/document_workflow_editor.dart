@@ -9,6 +9,7 @@ class WorkflowEditorAdapter {
   List<WorkflowBlock> _blocks = [];
   html.Range? _savedRange;
   void Function()? onChanged;
+  void Function()? onSelectionChanged;
   void Function(String id)? onProperties;
   bool _composing = false;
   bool get isComposing => _composing;
@@ -41,6 +42,7 @@ class WorkflowEditorAdapter {
         final range = selection.getRangeAt(0);
         if (root.contains(range.commonAncestorContainer)) {
           _savedRange = range.cloneRange();
+          onSelectionChanged?.call();
         }
       }
     }

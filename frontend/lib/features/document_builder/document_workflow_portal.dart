@@ -97,6 +97,9 @@ class _DocumentWorkflowPortalState
     editor =
         WorkflowEditorAdapter(resolveOwnedAsset: (id) => assetUrls[id] ?? '')
           ..onChanged = syncEditor
+          ..onSelectionChanged = () {
+            if (mounted && assistantVisible) setState(() {});
+          }
           ..onProperties = editProperties;
     viewId = 'workflow-editor-${identityHashCode(this)}';
     ui_web.platformViewRegistry.registerViewFactory(viewId, (_) => editor.root);
@@ -228,47 +231,50 @@ class _DocumentWorkflowPortalState
         }
         if (task == 'draft') await showEditor(sync: false);
       });
-  Future<void> suggest() => guarded(() async {
-        if (assistantScope != 'selected') {
-          if (assistantScope == 'document') {
-            final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                        title:
-                            const Text('Suggest changes across the document?'),
-                        content: const Text(
-                            'AI will prepare replacements for all text modules. You will review them before anything is applied.'),
-                        actions: [
-                          TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancel')),
-                          FilledButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Prepare suggestions'))
-                        ]));
-            if (confirmed != true) return;
-          }
-          syncEditor();
-          await controller.start('revise',
-              instruction: instruction.text,
-              scope: assistantScope,
-              moduleId: controller.modules[active]['id']);
-          return;
-        }
-        final selected = editor.selection();
-        if (selected == null) {
-          throw StateError('Select text in one paragraph first');
+  Future<void> suggest() async {
+    await guarded(() async {
+      if (assistantScope != 'selected') {
+        if (assistantScope == 'document') {
+          final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                      title: const Text('Suggest changes across the document?'),
+                      content: Text(
+                          'AI will prepare suggestions for ${controller.modules.where((m) => m['included'] != false).length} included modules. Excluded modules, images, tables and lists stay unchanged. Review every suggestion before applying.'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel')),
+                        FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Prepare suggestions'))
+                      ]));
+          if (confirmed != true) return;
         }
         syncEditor();
-        await controller.flush();
-        await controller.start('edit', instruction: instruction.text, target: {
-          'moduleId': controller.modules[active]['id'],
-          'blockId': selected.blockId,
-          'start': selected.start,
-          'end': selected.end,
-          'textHash': await DocumentWorkflowController.textHash(selected.text),
-        });
+        await controller.start('revise',
+            instruction: instruction.text,
+            scope: assistantScope,
+            moduleId: controller.modules[active]['id']);
+        return;
+      }
+      final selected = editor.selection();
+      if (selected == null) {
+        throw StateError('Select text in one paragraph first');
+      }
+      syncEditor();
+      await controller.flush();
+      await controller.start('edit', instruction: instruction.text, target: {
+        'moduleId': controller.modules[active]['id'],
+        'blockId': selected.blockId,
+        'start': selected.start,
+        'end': selected.end,
+        'textHash': await DocumentWorkflowController.textHash(selected.text),
       });
+    });
+    if (hasEditSuggestion) await reviewSuggestion();
+  }
+
   @override
   void dispose() {
     disposed = true;
@@ -1634,11 +1640,407 @@ class _DocumentWorkflowPortalState
                 })),
       ]);
 
+  Future<void> prepareModuleSuggestion(String task) async {
+    await guarded(() async {
+      syncEditor();
+      await controller.start(task,
+          scope: 'module',
+          moduleId: controller.modules[active]['id'],
+          instruction: task == 'insert'
+              ? 'Add one clearly labeled illustrative workplace scenario'
+              : '');
+    });
+    if (hasEditSuggestion) await reviewSuggestion();
+  }
+
+  bool get hasEditSuggestion =>
+      controller.operation?['status'] == 'proposed' &&
+      ['edit', 'revise', 'insert', 'draft_module']
+          .contains(controller.operation?['request']['task']);
+
+  String scopeLabel(String scope) => scope == 'selected'
+      ? 'Selected text'
+      : scope == 'document'
+          ? 'Whole document'
+          : 'Current module';
+
+  Widget assistantNotice(String title, String text) => Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+          color: const Color(0xFFF0F6FF),
+          border: Border.all(color: const Color(0xFFD6E4FA)),
+          borderRadius: BorderRadius.circular(10)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.info_outline, size: 20, color: AppTheme.primaryBlue),
+        const SizedBox(width: 10),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 5),
+          Text(text,
+              style:
+                  const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        ])),
+      ]));
+
+  List<Map<String, dynamic>> suggestionChanges(Map<String, dynamic> op) {
+    final result = op['result'] as Map;
+    if (result['changes'] is List) {
+      return (result['changes'] as List)
+          .map((c) => Map<String, dynamic>.from(c))
+          .toList();
+    }
+    final task = op['request']['task'];
+    if (task == 'edit') {
+      final target = op['request']['target'];
+      final module = controller.modules
+          .where((m) => m['id'] == target['moduleId'])
+          .firstOrNull;
+      final block = (module?['blocks'] as List? ?? [])
+          .where((b) => b['id'] == target['blockId'])
+          .firstOrNull;
+      final text = (block?['text'] as String? ?? '').runes.toList();
+      final original = result['originalText'] ??
+          String.fromCharCodes(text
+              .skip(target['start'] as int)
+              .take((target['end'] as int) - (target['start'] as int)));
+      return [
+        {
+          'moduleId': target['moduleId'],
+          'originalText': original,
+          'replacementText': result['replacementText']
+        }
+      ];
+    }
+    return [
+      {
+        'moduleId': op['request']['moduleId'],
+        'originalText': task == 'insert'
+            ? 'New content will be added. Existing content stays unchanged.'
+            : 'This module is empty.',
+        'replacementText': result['blocks'] is List
+            ? (result['blocks'] as List)
+                .map((b) => b['text'] ?? '')
+                .join('\n\n')
+            : result['replacementText'] ?? ''
+      }
+    ];
+  }
+
+  Future<void> reviewSuggestion() async {
+    if (!mounted || !hasEditSuggestion) return;
+    final op = Map<String, dynamic>.from(controller.operation!);
+    final changes = suggestionChanges(op);
+    final request = op['request'] as Map;
+    final scope = request['task'] == 'edit'
+        ? 'selected'
+        : request['scope'] as String? ?? 'module';
+    final count = changes.length;
+    bool applying = false;
+    String? reviewError;
+    await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => StatefulBuilder(
+              builder: (context, update) => Dialog(
+                  backgroundColor: Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                  insetPadding: const EdgeInsets.all(16),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                        maxWidth: 1000,
+                        maxHeight: MediaQuery.sizeOf(context).height - 32),
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(24, 18, 16, 16),
+                              child: Row(children: [
+                                const Icon(Icons.auto_awesome_outlined,
+                                    color: AppTheme.primaryBlue),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                      Semantics(
+                                          container: true,
+                                          header: true,
+                                          namesRoute: true,
+                                          label: 'Review AI suggestions',
+                                          child: const ExcludeSemantics(
+                                              child: Text(
+                                                  'Review AI suggestions',
+                                                  style: TextStyle(
+                                                      fontSize: 22,
+                                                      fontWeight:
+                                                          FontWeight.w600)))),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                          '${scopeLabel(scope)} · $count proposed ${count == 1 ? 'change' : 'changes'}',
+                                          style: const TextStyle(
+                                              color: AppTheme.textSecondary)),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                          'Your document is unchanged until you apply.',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.textSecondary)),
+                                    ])),
+                                IconButton(
+                                    tooltip: 'Close review',
+                                    onPressed: applying
+                                        ? null
+                                        : () => Navigator.pop(dialogContext),
+                                    icon: const Icon(Icons.close)),
+                              ])),
+                          const Divider(height: 1),
+                          Flexible(
+                              child: SingleChildScrollView(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        ...changes.asMap().entries.map((entry) {
+                                          final change = entry.value;
+                                          final module = controller.modules
+                                              .where((m) =>
+                                                  m['id'] == change['moduleId'])
+                                              .firstOrNull;
+                                          Widget card(
+                                                  String label,
+                                                  dynamic text,
+                                                  bool suggested) =>
+                                              Container(
+                                                  width: double.infinity,
+                                                  padding:
+                                                      const EdgeInsets.all(16),
+                                                  decoration: BoxDecoration(
+                                                      color: suggested
+                                                          ? const Color(
+                                                              0xFFF0FAF4)
+                                                          : const Color(
+                                                              0xFFF3F5F8),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
+                                                      border: Border.all(
+                                                          color: suggested
+                                                              ? const Color(
+                                                                  0xFFCDEAD8)
+                                                              : const Color(
+                                                                  0xFFE2E6ED))),
+                                                  child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(label,
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: suggested
+                                                                    ? const Color(
+                                                                        0xFF14633A)
+                                                                    : AppTheme
+                                                                        .textSecondary)),
+                                                        const SizedBox(
+                                                            height: 12),
+                                                        SelectableText(
+                                                            text?.toString() ??
+                                                                '',
+                                                            style:
+                                                                const TextStyle(
+                                                                    height:
+                                                                        1.6)),
+                                                      ]));
+                                          return Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 22),
+                                              child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment
+                                                          .stretch,
+                                                  children: [
+                                                    Text(
+                                                        'Change ${entry.key + 1} of $count · ${module?['title'] ?? 'Training content'}',
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w600)),
+                                                    const SizedBox(height: 12),
+                                                    LayoutBuilder(builder:
+                                                        (context, box) {
+                                                      final original = card(
+                                                          'ORIGINAL',
+                                                          change[
+                                                              'originalText'],
+                                                          false);
+                                                      final suggested = card(
+                                                          'SUGGESTED',
+                                                          change[
+                                                              'replacementText'],
+                                                          true);
+                                                      return box.maxWidth < 620
+                                                          ? Column(children: [
+                                                              original,
+                                                              const SizedBox(
+                                                                  height: 12),
+                                                              suggested
+                                                            ])
+                                                          : Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment.start,
+                                                              children: [
+                                                                  Expanded(
+                                                                      child:
+                                                                          original),
+                                                                  const SizedBox(
+                                                                      width:
+                                                                          16),
+                                                                  Expanded(
+                                                                      child:
+                                                                          suggested)
+                                                                ]);
+                                                    }),
+                                                  ]));
+                                        }),
+                                        assistantNotice('Before you apply',
+                                            'Check that the suggestions are accurate and follow your company policy. Only the reviewed text will be changed.'),
+                                        if (op['request']['task'] != 'revise' &&
+                                            (op['result']['summary']
+                                                        as String? ??
+                                                    '')
+                                                .trim()
+                                                .isNotEmpty) ...[
+                                          const SizedBox(height: 12),
+                                          ExpansionTile(
+                                              title:
+                                                  const Text('AI explanation'),
+                                              children: [
+                                                Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            16),
+                                                    child: Text(op['result']
+                                                        ['summary'])),
+                                              ]),
+                                        ],
+                                        if (reviewError != null)
+                                          Padding(
+                                              padding: const EdgeInsets.only(
+                                                  top: 12),
+                                              child: Text(reviewError!,
+                                                  style: const TextStyle(
+                                                      color: Colors.red))),
+                                      ]))),
+                          const Divider(height: 1),
+                          Padding(
+                              padding: const EdgeInsets.all(18),
+                              child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Wrap(
+                                        alignment: WrapAlignment.spaceBetween,
+                                        spacing: 12,
+                                        runSpacing: 10,
+                                        children: [
+                                          TextButton(
+                                              onPressed: applying
+                                                  ? null
+                                                  : () async {
+                                                      update(() =>
+                                                          applying = true);
+                                                      try {
+                                                        await controller
+                                                            .reject();
+                                                        if (dialogContext
+                                                            .mounted) {
+                                                          Navigator.pop(
+                                                              dialogContext);
+                                                        }
+                                                      } catch (e) {
+                                                        update(() {
+                                                          applying = false;
+                                                          reviewError = '$e';
+                                                        });
+                                                      }
+                                                    },
+                                              child: const Text(
+                                                  'Discard suggestions')),
+                                          Wrap(
+                                              spacing: 12,
+                                              runSpacing: 10,
+                                              children: [
+                                                OutlinedButton(
+                                                    onPressed: applying
+                                                        ? null
+                                                        : () => Navigator.pop(
+                                                            dialogContext),
+                                                    child: const Text(
+                                                        'Back to instructions')),
+                                                FilledButton(
+                                                    onPressed: applying
+                                                        ? null
+                                                        : () async {
+                                                            update(() {
+                                                              applying = true;
+                                                              reviewError =
+                                                                  null;
+                                                            });
+                                                            try {
+                                                              syncEditor();
+                                                              await controller
+                                                                  .flush();
+                                                              await controller
+                                                                  .accept();
+                                                              await showEditor(
+                                                                  sync: false);
+                                                              if (dialogContext
+                                                                  .mounted) {
+                                                                Navigator.pop(
+                                                                    dialogContext);
+                                                              }
+                                                            } catch (e) {
+                                                              update(() {
+                                                                applying =
+                                                                    false;
+                                                                reviewError =
+                                                                    '$e';
+                                                              });
+                                                            }
+                                                          },
+                                                    child: Text(applying
+                                                        ? 'Applying…'
+                                                        : 'Apply $count ${count == 1 ? 'change' : 'changes'}')),
+                                              ]),
+                                        ]),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                        scope == 'document'
+                                            ? 'Images, tables, lists and excluded modules stay unchanged.'
+                                            : 'Images, tables, lists and other modules stay unchanged.',
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondary)),
+                                  ])),
+                        ]),
+                  )),
+            ));
+  }
+
   Widget assistant() =>
       panel(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           const Expanded(
-              child: Text('AI assistant',
+              child: Text('AI writing assistant',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600))),
           IconButton(
               tooltip: 'Close assistant',
@@ -1649,12 +2051,16 @@ class _DocumentWorkflowPortalState
           ChoiceChip(
               label: const Text('Improve content'),
               selected: !sourceQuestion,
-              onSelected: (_) => setState(() => sourceQuestion = false)),
+              onSelected: hasEditSuggestion
+                  ? null
+                  : (_) => setState(() => sourceQuestion = false)),
           if (controller.sources.isNotEmpty)
             ChoiceChip(
                 label: const Text('Ask about source'),
                 selected: sourceQuestion,
-                onSelected: (_) => setState(() => sourceQuestion = true)),
+                onSelected: hasEditSuggestion
+                    ? null
+                    : (_) => setState(() => sourceQuestion = true)),
         ]),
         const SizedBox(height: 14),
         if (sourceQuestion) ...[
@@ -1668,107 +2074,97 @@ class _DocumentWorkflowPortalState
           const SizedBox(height: 12),
           button('Ask question', () => generate('answer'), primary: true),
         ] else ...[
-          Text(
-              'Editing: ${assistantScope == 'selected' ? 'Selected text' : assistantScope == 'document' ? 'Whole document' : 'This module'}',
-              style:
-                  const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          ExpansionTile(title: const Text('Change scope'), children: [
-            DropdownButtonFormField<String>(
-                initialValue: assistantScope,
-                items: const [
-                  DropdownMenuItem(value: 'module', child: Text('This module')),
-                  DropdownMenuItem(
-                      value: 'selected', child: Text('Selected text')),
-                  DropdownMenuItem(
-                      value: 'document', child: Text('Whole document')),
-                ],
-                onChanged: controller.busy
-                    ? null
-                    : (v) => setState(() => assistantScope = v!))
-          ]),
+          DropdownButtonFormField<String>(
+              key: ValueKey('assistant-scope-$assistantScope'),
+              initialValue: assistantScope,
+              decoration: const InputDecoration(
+                  labelText: 'Apply suggestions to',
+                  border: OutlineInputBorder(),
+                  isDense: true),
+              items: const [
+                DropdownMenuItem(
+                    value: 'selected', child: Text('Selected text')),
+                DropdownMenuItem(
+                    value: 'module', child: Text('Current module')),
+                DropdownMenuItem(
+                    value: 'document', child: Text('Whole document'))
+              ],
+              onChanged: controller.busy || hasEditSuggestion
+                  ? null
+                  : (v) => setState(() => assistantScope = v!)),
+          const SizedBox(height: 12),
+          assistantNotice(
+              assistantScope == 'selected'
+                  ? 'Your selection'
+                  : scopeLabel(assistantScope),
+              assistantScope == 'selected'
+                  ? (editor.selection()?.text ??
+                      'Highlight text within one paragraph in the editor first.')
+                  : assistantScope == 'document'
+                      ? 'Text across ${controller.modules.where((m) => m['included'] != false).length} included modules.'
+                      : controller.modules[active]['title'] ??
+                          'The module you are editing'),
+          const SizedBox(height: 16),
           TextField(
               controller: instruction,
+              onChanged: (_) => setState(() {}),
               minLines: 3,
               maxLines: 6,
               decoration: const InputDecoration(
-                  hintText: 'Describe what you want to improve…',
+                  labelText: 'What would you like to improve?',
+                  hintText:
+                      'For example, make this clearer for a new employee.',
                   border: OutlineInputBorder())),
           const SizedBox(height: 12),
-          button('Suggest changes', suggest, primary: true),
+          button('Generate suggestion', suggest,
+              primary: true,
+              enabled: !hasEditSuggestion &&
+                  instruction.text.trim().isNotEmpty &&
+                  (assistantScope != 'selected' || editor.selection() != null)),
+          const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
             button('Simplify', () {
               instruction.text =
                   'Simplify the wording while preserving factual meaning.';
-              suggest();
-            }),
-            button(
-                'Add scenario',
-                () => guarded(() async {
-                      syncEditor();
-                      await controller.start('insert',
-                          instruction:
-                              'Add one clearly labeled illustrative workplace scenario',
-                          scope: 'module',
-                          moduleId: controller.modules[active]['id']);
-                    })),
+              setState(() {});
+            }, enabled: !hasEditSuggestion),
+            button('Make practical', () {
+              instruction.text =
+                  'Make the explanation more practical for new employees without inventing policies or facts.';
+              setState(() {});
+            }, enabled: !hasEditSuggestion),
+            button('Improve tone', () {
+              instruction.text =
+                  'Use a clear, respectful professional tone while preserving the meaning.';
+              setState(() {});
+            }, enabled: !hasEditSuggestion),
+            button('Add scenario to module',
+                () => prepareModuleSuggestion('insert'),
+                enabled: !hasEditSuggestion),
             if ((controller.modules[active]['blocks'] as List? ?? []).every(
                 (b) =>
                     (b['text'] as String? ?? '').trim().isEmpty &&
                     ['paragraph', 'heading', 'scenario', 'takeaway']
                         .contains(b['type'])))
-              button(
-                  'Draft this module',
-                  () => guarded(() async {
-                        syncEditor();
-                        await controller.start('draft_module',
-                            scope: 'module',
-                            moduleId: controller.modules[active]['id']);
-                      })),
+              button('Draft this module',
+                  () => prepareModuleSuggestion('draft_module'),
+                  enabled: !hasEditSuggestion),
           ]),
           const SizedBox(height: 14),
-          const Text(
-              'Review suggestions before accepting. Your content stays unchanged until then.',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          assistantNotice('You stay in control',
+              'Your document changes only after you apply a suggestion.'),
         ],
-        if (controller.operation?['status'] == 'proposed' &&
-            ['edit', 'revise', 'insert', 'draft_module']
-                .contains(controller.operation?['request']['task'])) ...[
-          const Divider(height: 32),
-          const Text('Review suggested change',
-              style: TextStyle(fontWeight: FontWeight.w600)),
-          if (controller.operation!['result']['changes'] != null)
-            ...((controller.operation!['result']['changes'] as List).map((c) =>
-                Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Original: ${c['originalText']}',
-                              style: const TextStyle(
-                                  color: AppTheme.textSecondary)),
-                          const SizedBox(height: 8),
-                          Text('Suggested: ${c['replacementText']}'),
-                        ]))))
-          else if (controller.operation!['result']['blocks'] != null)
-            ...((controller.operation!['result']['blocks'] as List).map((b) =>
-                Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(b['text']))))
-          else
-            Text(controller.operation!['result']['replacementText']),
-          if (controller.operation!['result']['summary'] != null)
-            Text(controller.operation!['result']['summary']),
-          const SizedBox(height: 16),
-          Wrap(spacing: 8, children: [
-            button(
-                'Accept changes',
-                () => guarded(() async {
-                      await controller.accept();
-                      await showEditor(sync: false);
-                    }),
-                primary: true),
-            button('Dismiss', () => guarded(controller.reject)),
-          ]),
+        if (hasEditSuggestion) ...[
+          const Divider(height: 28),
+          Text(
+              '${suggestionChanges(controller.operation!).length} proposed changes ready to review',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          button('Review suggestions', reviewSuggestion, primary: true),
+          TextButton(
+              onPressed:
+                  controller.busy ? null : () => guarded(controller.reject),
+              child: const Text('Discard suggestions')),
         ],
         if (controller.operation?['status'] == 'completed' &&
             controller.operation?['request']['task'] == 'answer') ...[

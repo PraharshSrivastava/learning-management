@@ -58,11 +58,27 @@ const server = http.createServer((request,response) => {
       if(request.method()==='POST'){
        const opId=`op_${operations.size+1}`;
        result={id:opId,draftId:id,request:body,status:body.task==='outline'?'proposed':'completed',result:body.task==='outline'?{modules:[{title:'Customer needs',objective:'Listen first',sections:['Explanation']},{title:'Follow-up',objective:'Confirm next step',sections:['Practice']}]}:{}};
+       if(body.task==='edit') {
+        const target=body.target, block=draft.content.modules.find(m=>m.id===target.moduleId).blocks.find(b=>b.id===target.blockId);
+        result.status='proposed'; result.result={originalText:Array.from(block.text).slice(target.start,target.end).join(''),replacementText:'Hear',summary:'Simplified the selected words.'};
+       }
+       if(body.task==='revise') {
+        result.status='proposed';result.result={changes:draft.content.modules.filter(m=>body.scope==='document'?m.included!==false:m.id===body.moduleId).flatMap(m=>m.blocks.filter(b=>b.text).map(b=>({moduleId:m.id,blockId:b.id,originalText:b.text,replacementText:b.text+' Revised.'}))),summary:'Review all proposed text replacements before accepting.'};
+       }
        if(body.task==='draft'){draft.content.modules=draft.content.modules.map((m,i)=>({...m,blocks:modules()[i%2].blocks.map(b=>({...b,id:'text_'+i}))}));draft.revision++;}
        if(body.task==='import'){draft.content.modules=modules();draft.content.metadata.courseName='Customer Service Essentials';draft.revision++;}
        operations.set(opId,result);
       }else result=parts[5]?operations.get(parts[5]):[...operations.values()].filter(o=>o.draftId===id);
-     }else if(suffix==='proposals'){draft.content.modules=(body.outline?.modules||modules()).map((m,i)=>({...m,id:'module_'+i,included:true,blocks:[],sourceReferences:[],status:'empty'}));draft.revision++;operations.get(parts[5]).status='accepted';result=draft;}
+     }else if(suffix==='proposals'){
+      const op=operations.get(parts[5]);
+      if(parts[6]==='reject'){op.status='rejected';result={};}
+      else {
+       if(op.request.task==='outline')draft.content.modules=(body.outline?.modules||modules()).map((m,i)=>({...m,id:'module_'+i,included:true,blocks:[],sourceReferences:[],status:'empty'}));
+       if(op.request.task==='revise')for(const c of op.result.changes)draft.content.modules.find(m=>m.id===c.moduleId).blocks.find(b=>b.id===c.blockId).text=c.replacementText;
+       if(op.request.task==='edit'){const t=op.request.target,b=draft.content.modules.find(m=>m.id===t.moduleId).blocks.find(b=>b.id===t.blockId),chars=Array.from(b.text);b.text=chars.slice(0,t.start).join('')+op.result.replacementText+chars.slice(t.end).join('');}
+       draft.revision++;op.status='accepted';result=draft;
+      }
+     }
      else if(suffix==='create-course'){handoffs++;result={course_id:`course_${id}`,trainer_id:'fixture_owner',status:'draft',course_name:draft.content.metadata.courseName,course_description:draft.content.metadata.courseDescription,course_objective:draft.content.metadata.courseObjective,course_difficulty:'Beginner',language:'English',target_audience:'New staff',created_at:'2026-10-13',modules:draft.content.modules.map((m,i)=>({module_number:i+1,title:m.title,source_text:(m.blocks||[]).map(b=>b.text||'').join('\n'),num_questions:3}))};}
      else result=draft;
     }
@@ -114,6 +130,50 @@ const server = http.createServer((request,response) => {
   assert.match(await page.locator('[aria-label="Training document editor"]').textContent(),/Listen before/);
   assert.equal(await page.getByRole('button',{name:'Suggest changes'}).count(),0);
   await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-simplified-editor.png')});
+  // Real DOM selection remains scoped after focus moves into the assistant.
+  const editedDraft=[...drafts.values()].at(-1);
+  const firstText=()=>editedDraft.content.modules[0].blocks[0].text;
+  await page.locator('[aria-label="Training document editor"] [data-block-id]').first().evaluate(e=>{
+   const text=e.firstChild;const range=document.createRange();range.setStart(text,0);range.setEnd(text,6);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);e.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
+  });
+  await page.getByRole('button',{name:'AI assistant',exact:true}).click();
+  await enter('What would you like to improve?','Simplify these selected words.');
+  await page.getByRole('button',{name:'Generate suggestion',exact:true}).click();
+  await page.getByRole('dialog').waitFor();
+  assert.equal([...operations.values()].at(-1).request.task,'edit');
+  assert.equal([...operations.values()].at(-1).request.target.end,6);
+  assert.equal(firstText(),'Listen before proposing a solution.');
+  await page.waitForTimeout(400);await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-ai-assistant-review.png')});
+  await page.setViewportSize({width:390,height:850});await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+  assert.equal(await page.getByRole('button',{name:'Apply 1 change',exact:true}).isVisible(),true);
+  await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-ai-assistant-review-mobile.png')});
+  await page.setViewportSize({width:1440,height:1000});await page.waitForTimeout(400);
+  await page.getByRole('button',{name:'Apply 1 change',exact:true}).click();
+  await page.waitForTimeout(300);
+  assert.equal(firstText(),'Hear before proposing a solution.');
+  assert.equal(editedDraft.content.modules[1].blocks[0].text,'Confirm the next step.');
+  await page.getByRole('button',{name:'Apply suggestions to'}).evaluate(e=>e.click());await page.waitForTimeout(400);
+  await page.getByRole('menuitem',{name:'Current module',exact:true}).click();
+  await page.getByRole('button',{name:'Generate suggestion',exact:true}).click();
+  await page.getByRole('dialog').waitFor();
+  assert.equal([...operations.values()].at(-1).request.scope,'module');
+  await page.getByRole('button',{name:'Discard suggestions',exact:true}).click();
+  assert.equal(firstText(),'Hear before proposing a solution.');
+  await page.getByRole('button',{name:'Apply suggestions to'}).evaluate(e=>e.click());await page.waitForTimeout(400);
+  await page.getByRole('menuitem',{name:'Whole document',exact:true}).click();
+  await page.getByRole('button',{name:'Generate suggestion',exact:true}).click();
+  await page.getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.notEqual([...operations.values()].at(-1).request.scope,'document');
+  await page.getByRole('button',{name:'Generate suggestion',exact:true}).click();
+  await page.getByRole('button',{name:'Prepare suggestions',exact:true}).click();
+  await page.getByRole('dialog').waitFor();
+  assert.equal([...operations.values()].at(-1).request.scope,'document');
+  await page.getByRole('button',{name:'Apply 2 changes',exact:true}).click();
+  await page.waitForTimeout(300);
+  assert.equal(firstText(),'Hear before proposing a solution. Revised.');
+  assert.equal(editedDraft.content.modules[1].blocks[0].text,'Confirm the next step. Revised.');
+  await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-ai-assistant-controls.png')});
   await page.getByText('← Documents',{exact:true}).click();await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
   await page.getByRole('button',{name:/Generate with AI/}).click();
   await enter('Topic or title','Customer Service Essentials');
@@ -146,7 +206,7 @@ const server = http.createServer((request,response) => {
   assert.equal([...drafts.values()].filter(d=>!d.removed).length,beforeRemove);
   await page.getByRole('button',{name:'Remove',exact:true}).first().click();
   await page.getByRole('button',{name:'Remove draft',exact:true}).click();
-  await page.getByText('Draft removed',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Undo',exact:true}).waitFor();
   assert.equal([...drafts.values()].filter(d=>!d.removed).length,beforeRemove-1);
   await page.getByRole('button',{name:'Undo',exact:true}).click();
   await page.waitForTimeout(400);
