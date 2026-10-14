@@ -10,6 +10,7 @@ const operations = new Map();
 let nextId = 0;
 let workflowEnabled=true;
 let handoffs=0;
+let readyBlueprints=[];
 const metadata = {courseName:'',courseDescription:'',courseObjective:'',courseDifficulty:'Beginner',language:'English',targetAudience:'',courseType:'Training guide'};
 const settings = {moduleCount:4,detailLevel:'standard',tone:'Clear and professional',writingFocus:'balanced',includeScenarios:true,includeBadGood:true,includeTakeaways:true,includeMistakes:true};
 const modules = () => [{id:'module_a',title:'Customer needs',objective:'Listen first',included:true,sections:['Explanation'],blocks:[{id:'text_a',type:'paragraph',text:'Listen before proposing a solution.',marks:[]}],sourceReferences:[],status:'ready'}, {id:'module_b',title:'Follow-up',objective:'Confirm the next step',included:true,sections:['Practice'],blocks:[{id:'text_b',type:'paragraph',text:'Confirm the next step.',marks:[]}],sourceReferences:[],status:'ready'}];
@@ -33,6 +34,11 @@ const server = http.createServer((request,response) => {
    let result=[]; let body={};try{body=request.postDataJSON()||{};}catch(_){}
    if(url.pathname.endsWith('/session/trainer'))result={authenticated:true,local_dev_mode:false,trainer:{trainer_id:'fixture_owner',name:'Synthetic Trainer',status:'active'}};
    else if(url.pathname.endsWith('/capabilities'))result={workflowEnabled,languages:['English']};
+   else if(url.pathname==='/api/upload')result={document_id:'new_owned_upload',file_name:'stored-ready.pdf',message:'Uploaded'};
+   else if(url.pathname==='/api/courses/generate') {
+    readyBlueprints.push(body.file_name);
+    result={course_id:'ready_course',trainer_id:'fixture_owner',status:'draft',course_name:'Ready customer service course',course_description:'Training',course_objective:'Listen and respond',course_difficulty:'Beginner',language:'English',target_audience:'New staff',created_at:'2026-10-14',modules:modules().map((m,i)=>({module_number:i+1,title:m.title,source_text:m.blocks[0].text,num_questions:3}))};
+   }
    else if(url.pathname==='/api/files')result=[{document_id:'owned_upload',file_name:'customer-service.pdf',display_name:'Customer service training brief',file_type:'pdf',size:1200,created_at:'2026-10-14'}];
    else if(url.pathname.includes('/assignment/options'))result={departments:[],designations:[],groups:[],employees:[]};
    else if(parts[1]==='document-builder' && parts[2]==='drafts') {
@@ -67,9 +73,26 @@ const server = http.createServer((request,response) => {
   assert.equal(await page.getByRole('button',{name:'Open Document Builder'}).count(),0);
   await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-simplified-documents.png')});
   await page.getByRole('button',{name:'Create course from document',exact:true}).click();
+  await page.waitForTimeout(1500);await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-ready-document-blueprint.png')});
+  assert.deepEqual(readyBlueprints,['customer-service.pdf']);
+  assert.equal(drafts.size,0);
+  assert.equal(operations.size,0);
+  await page.reload();await page.locator('flt-semantics-placeholder').waitFor();await page.locator('flt-semantics-placeholder').evaluate(e=>e.click());await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
+  await page.getByRole('button',{name:/Use existing content/}).click();
+  assert.equal(drafts.size,0);
+
+  const chooserPromise=page.waitForEvent('filechooser',{timeout:15000});
+  await page.getByRole('button',{name:'Upload & open Blueprint',exact:true}).click();
+  await (await chooserPromise).setFiles({name:'ready.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 synthetic upload fixture')});
+  await page.waitForTimeout(1500);await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-ready-document-blueprint.png')});
+  assert.deepEqual(readyBlueprints,['customer-service.pdf','stored-ready.pdf']);
+  assert.equal(drafts.size,0);
+  assert.equal(operations.size,0);
+  await page.reload();await page.locator('flt-semantics-placeholder').waitFor();await page.locator('flt-semantics-placeholder').evaluate(e=>e.click());await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
+  await page.getByRole('button',{name:'Edit first',exact:true}).click();
   await page.getByRole('button',{name:'Approve outline',exact:true}).waitFor();
   assert.equal([...operations.values()].at(-1).request.sourceImport.documentId,'owned_upload');
-  assert.equal(handoffs,0);
+  assert.equal(readyBlueprints.length,2);
   await page.getByText('← Documents',{exact:true}).click();await page.getByText('Create a training document',{exact:true}).waitFor();await page.waitForTimeout(300);
   await page.getByRole('button',{name:/Use existing content/}).click();
   await page.getByText('Paste content instead',{exact:true}).click();
@@ -122,6 +145,6 @@ const server = http.createServer((request,response) => {
   await page.locator('flt-semantics-placeholder').evaluate(e=>e.click()).catch(()=>{});
   await page.getByRole('button',{name:'Open Document Builder',exact:true}).waitFor();
   assert.deepEqual(errors,[]);
-  console.log('Compiled Trainer UI passed: all three entry paths, source review, optional editor, approved AI outline/module generation, blank draft autosave.');
+  console.log('Compiled Trainer UI passed: ready document goes directly to legacy Blueprint without builder draft/import; optional editing, AI and blank flows preserved.');
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error.stack);server.close();process.exitCode=1;});

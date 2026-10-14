@@ -85,3 +85,5 @@ No production migration, deployment, publication or assignment was performed. Da
 ## Simplified workspace implementation — 14 October 2026
 
 The approved direct Documents landing, three-field AI setup, title-only blank flow, single editable outline review, explicit approval/preflight, focused editor and optional contextual assistant are implemented. Details and actual browser screenshots are recorded in document-builder-simplified-implementation-plan.md. Verification: 111 backend checks, 17 Trainer tests, 9 Employee/Observer tests, changed-file analysis/Ruff, both release web builds and compiled browser acceptance passed. Live VM model/video/quiz acceptance is still outstanding; the original localhost demo is no longer the only simplified UI implementation.
+
+Ready-made file follow-up: default upload/library actions now go directly through the original course-generation service to Blueprint. Builder approval/details remain only on optional edited copies and authored documents. No empty draft is created by merely choosing Use existing content.

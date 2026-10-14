@@ -166,7 +166,8 @@ class _DocumentWorkflowPortalState
   Future<void> guarded(Future<void> Function() work) => controller.action(work);
   Future<void> start(String mode) => guarded(() async {
         if (controller.draft != null) await controller.flush();
-        await controller.create(mode);
+        if (mode != 'existing') await controller.create(mode);
+        if (mode == 'existing') controller.operation = null;
         retryTask = null;
         assistantVisible = false;
         assistantScope = 'module';
@@ -545,6 +546,25 @@ class _DocumentWorkflowPortalState
         ],
       ]);
 
+  Future<void> openReadyDocument(String fileName) async {
+    await controller.flush();
+    await ref
+        .read(courseGenerationProvider.notifier)
+        .generateCourse(fileName, ref);
+    final result = ref.read(courseGenerationProvider);
+    if (result.status == GenerationStatus.error) {
+      ref.read(currentTabProvider.notifier).state = 0;
+      throw StateError(
+          result.error ?? 'Could not prepare the course blueprint. Try again.');
+    }
+    if (mounted) setState(() => step = 'home');
+  }
+
+  Future<void> useReadyDocument(PDFFile file) => guarded(() async {
+        syncEditor();
+        await openReadyDocument(file.fileName);
+      });
+
   Future<void> importDocument(String id) => guarded(() async {
         if (step == 'editor') syncEditor();
         await controller.flush();
@@ -698,8 +718,13 @@ class _DocumentWorkflowPortalState
                       child: Text(f.displayName,
                           maxLines: 2, overflow: TextOverflow.ellipsis)),
                   button('Preview', () => previewFile(f)),
-                  button('Create course from document',
-                      () => importDocument(f.documentId)),
+                  button(
+                      'Create course from document', () => useReadyDocument(f)),
+                  TextButton(
+                      onPressed: controller.busy
+                          ? null
+                          : () => importDocument(f.documentId),
+                      child: const Text('Edit first')),
                 ]))),
       ])),
     ]);
@@ -713,7 +738,7 @@ class _DocumentWorkflowPortalState
                 child: panel(child))),
       ]);
 
-  Future<void> uploadSource() => guarded(() async {
+  Future<void> uploadSource({bool editFirst = false}) => guarded(() async {
         final selected = await FilePicker.platform.pickFiles(
             type: FileType.custom,
             allowedExtensions: ['pdf', 'docx', 'pptx'],
@@ -734,9 +759,14 @@ class _DocumentWorkflowPortalState
         }
         final uploaded = jsonDecode(response.body);
         await ref.read(fileListProvider.notifier).fetchFiles();
-        await controller.importSource(documentId: uploaded['document_id']);
-        active = 0;
-        setState(() => step = 'outline');
+        if (editFirst) {
+          await controller.create('existing');
+          await controller.importSource(documentId: uploaded['document_id']);
+          active = 0;
+          setState(() => step = 'outline');
+        } else {
+          await openReadyDocument(uploaded['file_name']);
+        }
       });
 
   Widget source() => formPage(
@@ -745,9 +775,9 @@ class _DocumentWorkflowPortalState
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         const Text(
-            'Keep your original content. Review the structure before creating a course.'),
+            'Ready-made documents go straight to Blueprint. Review the extracted course, then generate videos and quizzes.'),
         const SizedBox(height: 24),
-        button('Upload a document', uploadSource, primary: true),
+        button('Upload & open Blueprint', () => uploadSource(), primary: true),
         const SizedBox(height: 8),
         const Text('PDF, DOCX or PPTX · Up to 20 MB',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
@@ -758,10 +788,26 @@ class _DocumentWorkflowPortalState
                 .files
                 .map((f) => ListTile(
                     title: Text(f.displayName),
-                    onTap: controller.busy
-                        ? null
-                        : () => importDocument(f.documentId)))
+                    trailing: TextButton(
+                        onPressed:
+                            controller.busy ? null : () => useReadyDocument(f),
+                        child: const Text('Open Blueprint')),
+                    onTap: controller.busy ? null : () => useReadyDocument(f)))
                 .toList()),
+        ExpansionTile(
+            title: const Text('Review or edit a document first · optional'),
+            children: [
+              const Text(
+                  'Create an editable copy only when you need to change the document.'),
+              button(
+                  'Upload to edit first', () => uploadSource(editFirst: true)),
+              ...ref.watch(fileListProvider).files.map((f) => ListTile(
+                  title: Text(f.displayName),
+                  trailing: const Icon(Icons.edit_outlined),
+                  onTap: controller.busy
+                      ? null
+                      : () => importDocument(f.documentId))),
+            ]),
         ExpansionTile(title: const Text('Paste content instead'), children: [
           TextField(
               controller: pasted,
@@ -773,6 +819,7 @@ class _DocumentWorkflowPortalState
           button(
               'Review outline',
               () => guarded(() async {
+                    await controller.create('existing');
                     await controller.importSource(text: pasted.text);
                     active = 0;
                     setState(() => step = 'outline');

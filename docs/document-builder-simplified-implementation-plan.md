@@ -37,10 +37,10 @@ Do not replace the durable draft model with the demo's browser state. Localhost 
 
 ### Existing content
 
-Use existing content → choose upload, previously uploaded file, or pasted notes → extraction/outline review → Approve outline → Create course directly OR Review in editor.
+Default ready-document flow: Use existing content → upload/select an owned document → existing course outline extraction → Blueprint → Generate Course for videos/quizzes. No builder draft, metadata form or builder approval is required. Optional Edit first and pasted notes use the reviewed builder flow below.
 
 - Support the actual accepted upload formats: PDF, DOCX and PPTX, up to the current 20 MB limit. TXT support in a prototype does not authorize claiming TXT upload support in production; paste is the existing text path.
-- A library document shortcut starts an owned empty draft and imports that exact owned document ID once. Do not reuse a filename or require a second upload.
+- The default library Create course from document action submits the stored filename to the existing ownership-checked course-generation endpoint. A separate Edit first action creates an owned editable draft and imports the document ID. Neither route requires a second upload.
 - Preserve original source and imported wording. No writing settings or automatic rewriting in this flow.
 - Show conversion warnings when present. Missing readable content blocks approval; actionable completeness warnings require acknowledgement against the original.
 - Source review offers original preview/download and locations. Imported images/tables retain supported blocks and report unsupported conversion.
@@ -192,3 +192,8 @@ Edited AI titles, goals, inclusion and ordering are validated and accepted throu
 Verification: 111 focused backend/repository/model/reporting tests; 17 Trainer controller/editor/Performance tests; 9 Employee/Observer tests passed. Changed builder Dart analysis and backend Ruff checks passed. Both JavaScript release web builds passed. The compiled Trainer browser check covers the direct landing, existing-library shortcut, pasted import, explicit preflight approval, optional editor, three-field AI setup, edited outline acceptance, title-only blank draft and autosave. Responsive landing checks at 1024/736/390 pixels and feature-disabled legacy fallback passed. Screenshots under docs/design/document-builder/implemented-simplified-*.png show the actual compiled application. Browser AI/course responses use synthetic fixtures; real deployed-model and video/quiz checks remain VM acceptance, not claimed completed by these UI checks.
 
 Performance and Observer ancestry includes 7402617 and 5b9e67e. No new Performance/Observer application files or model/provider/deployment secrets are changed by this UI implementation. Original shared-checkout uncommitted work was preserved.
+## Ready-made document route correction — 14 October 2026
+
+Ready-made documents now use the existing CourseGenerationNotifier and /api/courses/generate endpoint directly. Library Create course from document and Upload & open Blueprint route to the normal Blueprint tab and its extraction progress. Merely choosing Use existing content does not create an empty builder draft. No builder metadata/approval is requested in this path. The existing ownership check and later Generate Course video/quiz controls are unchanged; opening Blueprint does not automatically render videos. Edit first, Upload to edit first, and pasted notes retain the optional editable-copy/review workflow. AI and blank creation remain unchanged.
+
+The compiled browser suite tests both ready library selection and a real file-picker upload with synthetic API responses; it asserts the stored filename is sent to the original endpoint and that no builder draft/import operation is created. Optional editor, pasted-source, AI outline, blank autosave, responsive and feature-disabled fallback checks remain included. This updates the previously approved mandatory import/review default in response to the trainer's ready-made-course requirement.
