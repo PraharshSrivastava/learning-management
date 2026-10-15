@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+frontend/
+employee_frontend/
+backend/
+dist/
+coverage/
+packages/shared/src/ui/icons/iconData.ts

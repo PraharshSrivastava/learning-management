@@ -93,3 +93,9 @@ migrate_working_dir/
 slide_experiment/
 scratch/
 /tmp/
+
+# React web apps (pnpm workspace)
+node_modules/
+apps/*/dist/
+coverage/
+*.tsbuildinfo
