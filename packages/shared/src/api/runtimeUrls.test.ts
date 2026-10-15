@@ -9,9 +9,11 @@ describe.each(['/lms', '/lms/trainer'])('mount %s', (mount) => {
       )
       const expected = path.startsWith(`${mount}/`) ? mount : ''
       expect(urls.apiBaseUrl).toBe(expected)
-      expect(urls.websocketEndpoint('api/me/courses/ws', { token: 'a&b' })).toBe(
-        `wss://example.test:9443${expected}/api/me/courses/ws?token=a%26b`,
-      )
+      for (const wsPath of ['api/me/courses/ws', '/api/me/courses/ws']) {
+        expect(urls.websocketEndpoint(wsPath, { token: 'a&b' })).toBe(
+          `wss://example.test:9443${expected}/api/me/courses/ws?token=a%26b`,
+        )
+      }
     }
   })
 

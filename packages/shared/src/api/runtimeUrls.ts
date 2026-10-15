@@ -23,10 +23,13 @@ export class LmsRuntimeUrls {
     return new URL(configured, mountUrl).href.replace(/\/+$/, '')
   }
 
-  /** WebSocket URLs always include the entry origin and retain the API mount. */
+  /**
+   * WebSocket URLs always include the entry origin and retain the API mount.
+   * The path is relative to the API base, so a leading slash does not drop the mount.
+   */
   websocketEndpoint(path: string, query: Record<string, string>): string {
     const base = new URL(`${this.apiBaseUrl}/`, this.entrypoint)
-    const url = new URL(path, base)
+    const url = new URL(path.replace(/^\/+/, ''), base)
     url.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:'
     url.search = new URLSearchParams(query).toString()
     return url.href
