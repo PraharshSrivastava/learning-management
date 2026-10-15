@@ -62,7 +62,7 @@ export function TrainerShell() {
 
   return (
     <div className="page-gradient flex h-full min-w-0 flex-col">
-      <header className="flex h-[72px] shrink-0 items-center border-b border-light-gray bg-white/94 pr-4 pl-4">
+      <header className="box-content flex h-[72px] shrink-0 items-center border-b border-light-gray bg-white/94 pr-4 pl-4">
         <span className="font-inter text-xl font-bold tracking-[-0.5px] text-primary-blue">
           PhillipCapital
         </span>
