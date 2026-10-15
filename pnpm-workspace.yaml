@@ -5,3 +5,8 @@ packages:
 # Supply-chain hardening: refuse package versions published less than 14 days ago (minutes).
 # pnpm 11 reads this here; .npmrc keeps the same value for older pnpm versions.
 minimumReleaseAge: 20160
+
+# react-charts 3 beta pins React 17 type packages as dependencies. Use the app versions.
+overrides:
+  '@types/react': ^19.3.0
+  '@types/react-dom': ^19.3.0
