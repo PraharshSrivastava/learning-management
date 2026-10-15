@@ -2,7 +2,8 @@ import clsx from 'clsx'
 import { createContext, use, useCallback, useRef, useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './icons/Icon'
 
-export type ToastTone = 'neutral' | 'success' | 'error'
+// 'learning' is the white employee success snack bar (_showLearningSuccessSnackBar).
+export type ToastTone = 'neutral' | 'success' | 'error' | 'learning'
 
 export interface ToastOptions {
   tone?: ToastTone
@@ -26,6 +27,7 @@ const tones: Record<ToastTone, string> = {
   neutral: 'bg-[#2e3036] text-[#f0f0f7]',
   success: 'bg-accent-green text-white',
   error: 'bg-accent-red text-white',
+  learning: 'border border-[#d6e8e2] bg-white font-semibold text-[#101828]',
 }
 
 /**
@@ -63,20 +65,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             className={clsx(
-              'pointer-events-auto flex min-h-12 w-full max-w-[640px] items-center gap-3 rounded px-4 py-3.5 text-sm shadow-[0_4px_12px_rgb(0_0_0/0.25)]',
+              'pointer-events-auto flex min-h-12 w-full items-center gap-3 px-4 py-3.5 text-sm',
+              toast.tone === 'learning'
+                ? 'rounded-lg shadow-[0_5px_10px_rgb(0_0_0/0.2)]'
+                : 'max-w-[640px] rounded shadow-[0_4px_12px_rgb(0_0_0/0.25)]',
               tones[toast.tone],
             )}
           >
-            {toast.icon && <Icon name={toast.icon} size={20} />}
+            {toast.icon &&
+              (toast.tone === 'learning' ? (
+                <span className="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-[#e7f7f0] text-[#087e5b]">
+                  <Icon name={toast.icon} size={20} />
+                </span>
+              ) : (
+                <Icon name={toast.icon} size={20} />
+              ))}
             <span className="flex-1 whitespace-pre-line">{toast.message}</span>
-            <button
-              type="button"
-              aria-label="Dismiss"
-              className="-my-2 -mr-2 rounded-full p-2 opacity-80 hover:opacity-100"
-              onClick={() => setToast(null)}
-            >
-              <Icon name="close" size={18} />
-            </button>
+            {toast.tone !== 'learning' && (
+              <button
+                type="button"
+                aria-label="Dismiss"
+                className="-my-2 -mr-2 rounded-full p-2 opacity-80 hover:opacity-100"
+                onClick={() => setToast(null)}
+              >
+                <Icon name="close" size={18} />
+              </button>
+            )}
           </div>
         )}
       </div>
