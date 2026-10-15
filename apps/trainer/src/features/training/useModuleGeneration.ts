@@ -1,9 +1,9 @@
 import { apiRequest } from '@lms/shared/api/client'
-import { parseCourse } from '@lms/shared/models'
+import { parseCourse, type Course } from '@lms/shared/models'
 import { useToast } from '@lms/shared/ui/Toast'
-import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation } from '@tanstack/react-query'
 import { useBlockingOverlay } from '../../shell/overlay'
-import { trainerKeys } from '../../shell/queryKeys'
+import { useRefreshCourses, useStoreCourse } from '../courses/courseQueries'
 import { generationErrorMessage } from './trainingData'
 
 const VIDEO_KEY = ['module-generation', 'video'] as const
@@ -11,17 +11,17 @@ const QUIZ_KEY = ['module-generation', 'quiz'] as const
 
 /**
  * Compile a module video and generate the course quiz. Both endpoints run synchronously on the
- * backend, so there is no job to poll. The overlay stays up until the course data is reloaded.
+ * backend, so there is no job to poll. The returned course is stored at once, as Flutter did, so a
+ * failed reload does not show old content. The overlay stays up until the course data is reloaded.
  */
 export function useModuleGeneration(courseId: string) {
-  const queryClient = useQueryClient()
   const toast = useToast()
 
-  const refreshCourses = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: trainerKeys.courses }),
-      queryClient.invalidateQueries({ queryKey: trainerKeys.assignableCourses }),
-    ])
+  const storeCourse = useStoreCourse()
+  const refreshCourses = useRefreshCourses()
+  const onSuccess = async (course: Course) => {
+    storeCourse(course)
+    await refreshCourses()
   }
 
   const video = useMutation({
@@ -35,7 +35,7 @@ export function useModuleGeneration(courseId: string) {
           },
         ),
       ),
-    onSuccess: refreshCourses,
+    onSuccess,
     onError: (error) =>
       toast(generationErrorMessage(error, 'Video generation failed.'), { tone: 'error' }),
   })
@@ -48,7 +48,7 @@ export function useModuleGeneration(courseId: string) {
           method: 'POST',
         }),
       ),
-    onSuccess: refreshCourses,
+    onSuccess,
     onError: (error) =>
       toast(generationErrorMessage(error, 'Quiz generation failed.'), { tone: 'error' }),
   })

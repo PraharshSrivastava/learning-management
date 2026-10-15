@@ -6,7 +6,7 @@ import { CompactButton } from './controls'
 import { DocumentList } from './DocumentList'
 import { PdfViewerCard } from './PdfViewerCard'
 import { UploadCard } from './UploadCard'
-import { useFiles } from './useFiles'
+import { useFiles, useUpload } from './useFiles'
 import { useIsMobile } from './useIsMobile'
 
 /** Documents tab (`_buildDocumentsPortal`): upload, create, list, and viewer, or the builder. */
@@ -15,6 +15,8 @@ export function DocumentsTab() {
   const updateSearch = useUpdateTrainerSearch()
   const mobile = useIsMobile()
   const files = useFiles()
+  // Kept here, so opening the builder or crossing the breakpoint does not cancel an upload.
+  const upload = useUpload()
 
   if (search.builder) {
     return (
@@ -32,7 +34,7 @@ export function DocumentsTab() {
     return (
       <div className="flex flex-col">
         <div className="p-4">
-          <UploadCard />
+          <UploadCard upload={upload} />
         </div>
         <div className="px-4 pb-4">
           <CreateDocumentCard />
@@ -53,7 +55,7 @@ export function DocumentsTab() {
     <div className="flex h-full min-h-[600px]">
       <div className="flex w-[380px] shrink-0 flex-col">
         <div className="p-5">
-          <UploadCard />
+          <UploadCard upload={upload} />
         </div>
         <div className="px-5 pb-5">
           <CreateDocumentCard />

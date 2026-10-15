@@ -3,11 +3,13 @@ import { ProgressBar } from '@lms/shared/ui/ProgressBar'
 import { useRef } from 'react'
 import { ring } from '../training/flutterStyle'
 import { CardTitle } from './CardTitle'
-import { ACCEPTED_TYPES, useUpload } from './useFiles'
+import { ACCEPTED_TYPES, type Upload } from './useFiles'
 
-/** Upload Document card: file picker, progress with cancel, and the result banner. */
-export function UploadCard() {
-  const { state, upload, cancel } = useUpload()
+/**
+ * Upload Document card: file picker, progress with cancel, and the result banner. The tab owns
+ * the upload, so it continues when the card unmounts.
+ */
+export function UploadCard({ upload: { state, upload, cancel } }: { upload: Upload }) {
   const input = useRef<HTMLInputElement>(null)
   const uploading = state.status === 'uploading'
 

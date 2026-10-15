@@ -13,7 +13,11 @@ import { builderText } from './models'
 
 const BUILDER = '/?tab=documents&builder=true'
 
-beforeEach(() => stubBrowser())
+let browser: ReturnType<typeof stubBrowser>
+
+beforeEach(() => {
+  browser = stubBrowser()
+})
 
 afterEach(() => {
   cleanup()
@@ -36,7 +40,8 @@ async function fillMetadata() {
   await user.type(screen.getByLabelText('Course name'), 'Fire Safety: Level 2')
   await user.type(screen.getByLabelText('Course description'), 'Basics')
   await user.type(screen.getByLabelText('Course objective'), 'Leave safely')
-  await user.selectOptions(screen.getByLabelText('Course difficulty'), 'Easy')
+  await user.click(screen.getByRole('combobox', { name: 'Course difficulty' }))
+  await user.click(await screen.findByRole('option', { name: 'Easy' }))
   await user.type(screen.getByLabelText('Target audience'), 'Staff')
   await user.type(screen.getByLabelText('Course type'), 'Functional Training')
 }
@@ -111,6 +116,10 @@ describe('DocumentBuilder', () => {
     // Applied settings go to the AI. Settings that are not applied stay local.
     await user.clear(screen.getByLabelText('Module count'))
     await user.type(screen.getByLabelText('Module count'), '99')
+    const tone = screen.getByRole('combobox', { name: 'Tone' })
+    await user.click(tone)
+    await user.click(await screen.findByRole('option', { name: 'Warm and conversational' }))
+    expect(tone).toHaveTextContent('Warm and conversational')
     await user.click(button('Apply builder settings'))
     await user.click(screen.getByRole('checkbox', { name: 'Include common mistakes' }))
     typeDraft('Old text')
@@ -128,7 +137,11 @@ describe('DocumentBuilder', () => {
       message: 'Write 3 modules',
       instructions: ['Write 3 modules'],
       currentDraft: 'Old text',
-      builderSettings: expect.objectContaining({ moduleCount: 8, includeMistakes: true }),
+      builderSettings: expect.objectContaining({
+        moduleCount: 8,
+        tone: 'Warm and conversational',
+        includeMistakes: true,
+      }),
     })
     await act(async () =>
       resolve({
@@ -317,5 +330,40 @@ describe('DocumentBuilder', () => {
     expect(await within(chat()).findByText(builderText.copied)).toBeInTheDocument()
     await userEvent.click(button('Copy'))
     expect(await within(chat()).findByText(/Could not copy/)).toHaveTextContent('Error: Denied')
+  })
+
+  it('keeps the draft when the layout crosses the breakpoint', async () => {
+    await openBuilder()
+    typeDraft('Module 1: Exits')
+    const root = editorRoot()
+    act(() => browser.setMobile(true))
+    expect(editorRoot()).toBe(root)
+    expect(root.isConnected).toBe(true)
+    expect(root).toHaveTextContent('Module 1: Exits')
+    act(() => browser.setMobile(false))
+    expect(editorRoot()).toBe(root)
+    expect(root.isConnected).toBe(true)
+  })
+
+  it('drops a PDF render that finishes after an edit', async () => {
+    let finish!: (response: Response) => void
+    const { fetchMock } = await openBuilder((url) =>
+      url.pathname.endsWith('/render-pdf') ? new Promise<Response>((done) => (finish = done)) : [],
+    )
+    await fillMetadata()
+    typeDraft('Module 1: Exits')
+    await userEvent.click(button('Preview Doc'))
+    await userEvent.click(button('Draft'))
+    typeDraft('Module 1: Exits and stairs')
+    await act(async () => finish(new Response(new Blob(['%PDF old']))))
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    const renders = () =>
+      fetchMock.mock.calls.filter(([input]) => String(input).includes('/render-pdf'))
+    expect(renders()).toHaveLength(1)
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    await userEvent.click(button('Download PDF'))
+    // The download renders the edited draft again instead of the stale PDF.
+    await waitFor(() => expect(renders()).toHaveLength(2))
+    click.mockRestore()
   })
 })

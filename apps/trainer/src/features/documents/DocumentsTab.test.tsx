@@ -1,8 +1,18 @@
 import { setMediaTicket } from '@lms/shared/api/client'
-import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import { QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { trainerKeys } from '../../shell/queryKeys'
+import { useCourseList } from '../courses/courseQueries'
 import { FakeXhr, fileJson, renderDocuments, stubBrowser, stubFetch } from './test/renderDocuments'
 
 beforeEach(() => stubBrowser())
@@ -144,6 +154,24 @@ describe('Upload Document', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('File is too large')
   })
 
+  it('keeps the upload across the breakpoint and while the builder is open', async () => {
+    const browser = stubBrowser()
+    stubFetch(() => [])
+    const { invalidate } = renderDocuments()
+    await screen.findByText('No documents uploaded yet')
+    pick()
+    const xhr = FakeXhr.last!
+    const abort = vi.spyOn(xhr, 'abort')
+    act(() => xhr.progress(30, 100))
+    act(() => browser.setMobile(true))
+    expect(await screen.findByText('Uploading document... 30%')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Open Document Builder' }))
+    expect(await screen.findByRole('heading', { name: 'Document Builder' })).toBeInTheDocument()
+    expect(abort).not.toHaveBeenCalled()
+    act(() => xhr.respond(200, { file_name: 'guide.pdf' }))
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: trainerKeys.files }))
+  })
+
   it('shows "Upload error" when the server cannot be reached', async () => {
     stubFetch(() => [])
     renderDocuments()
@@ -164,7 +192,7 @@ describe('Create Course', () => {
         ? new Promise((done) => (resolve = done))
         : [fileJson('alpha.pdf')],
     )
-    const { search, invalidate } = renderDocuments(
+    const { search, invalidate, client } = renderDocuments(
       '/?tab=documents&file=trainer_0001__alpha.pdf&course=old',
     )
     await userEvent.click(await screen.findByRole('button', { name: 'Create Course' }))
@@ -175,8 +203,42 @@ describe('Create Course', () => {
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ file_name: 'trainer_0001__alpha.pdf' })
     resolve({ course_id: 'c42', course_name: 'Alpha', modules: [] })
     await waitFor(() => expect(search().course).toBe('c42'))
+    expect(client.getQueryData(trainerKeys.course('c42'))).toMatchObject({ courseName: 'Alpha' })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: trainerKeys.courses })
     expect(screen.queryByText('Creating your course outline')).not.toBeInTheDocument()
+  })
+
+  it('drops a list request that started before the course existed', async () => {
+    let resolveGenerate: (value: unknown) => void = () => {}
+    const noop = () => {}
+    let resolveList: (value: unknown) => void = noop
+    stubFetch((url) => {
+      if (url.pathname.endsWith('/api/courses/generate')) {
+        return new Promise((done) => (resolveGenerate = done))
+      }
+      if (url.pathname.endsWith('/api/courses')) return new Promise((done) => (resolveList = done))
+      return [fileJson('alpha.pdf')]
+    })
+    const { client, search } = renderDocuments('/?tab=documents&file=trainer_0001__alpha.pdf')
+    await userEvent.click(await screen.findByRole('button', { name: 'Create Course' }))
+    // Blueprint observes the list and starts its first request before the course exists.
+    renderHook(useCourseList, {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    })
+    await waitFor(() => expect(resolveList).not.toBe(noop))
+    const resolveOldList = resolveList
+    resolveGenerate({ course_id: 'c42', course_name: 'Alpha', modules: [] })
+    // The reload starts after the course exists, so it includes it.
+    await waitFor(() => expect(resolveList).not.toBe(resolveOldList))
+    resolveOldList([])
+    resolveList([{ course_id: 'c42', course_name: 'Alpha' }])
+    await waitFor(() => expect(search().course).toBe('c42'))
+    expect(client.getQueryData(trainerKeys.courses)).toEqual([
+      expect.objectContaining({ courseId: 'c42', moduleCount: 0 }),
+    ])
+    expect(client.getQueryData(trainerKeys.course('c42'))).toMatchObject({ courseName: 'Alpha' })
   })
 
   it('shows the fallback error with the status code', async () => {

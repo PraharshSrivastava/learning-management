@@ -82,3 +82,5 @@ export function useUpload() {
 
   return { state, upload, cancel }
 }
+
+export type Upload = ReturnType<typeof useUpload>

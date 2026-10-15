@@ -79,16 +79,23 @@ export class FakeXhr {
   }
 }
 
-/** jsdom has no matchMedia, ResizeObserver, or object URLs. */
+/**
+ * jsdom has no matchMedia, ResizeObserver, pointer capture, or object URLs. Returns `setMobile`, which crosses the
+ * 900 px breakpoint and notifies the listeners.
+ */
 export function stubBrowser({ mobile = false } = {}) {
+  let isMobile = mobile
+  const listeners = new Set<() => void>()
   vi.stubGlobal(
     'matchMedia',
     (query: string) =>
       ({
-        matches: mobile && query.includes('max-width'),
+        get matches() {
+          return isMobile && query.includes('max-width')
+        },
         media: query,
-        addEventListener: () => {},
-        removeEventListener: () => {},
+        addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+        removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
       }) as unknown as MediaQueryList,
   )
   vi.stubGlobal(
@@ -98,11 +105,21 @@ export function stubBrowser({ mobile = false } = {}) {
       disconnect() {}
     },
   )
+  // Radix Select uses pointer capture and scrolls the chosen row into view.
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.scrollIntoView = () => {}
   FakeXhr.last = null
   vi.stubGlobal('XMLHttpRequest', FakeXhr)
   let next = 0
   URL.createObjectURL = vi.fn(() => `blob:pdf-${++next}`)
   URL.revokeObjectURL = vi.fn()
+  return {
+    setMobile: (next: boolean) => {
+      isMobile = next
+      for (const listener of listeners) listener()
+    },
+  }
 }
 
 /** Renders the Documents tab under a memory router at `url`. */

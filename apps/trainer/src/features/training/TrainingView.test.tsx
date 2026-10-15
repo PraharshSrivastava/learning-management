@@ -61,7 +61,7 @@ function renderView(ui: ReactNode) {
       </TooltipProvider>
     </QueryClientProvider>,
   )
-  return { ...view, invalidate }
+  return { ...view, client, invalidate }
 }
 
 function mockViewport(mobile: boolean) {
@@ -263,6 +263,23 @@ describe('TrainingView generation', () => {
     await act(async () => finish(json(courseJson())))
     await waitFor(() => expect(screen.queryByText('Generating video')).not.toBeInTheDocument())
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['courses'] })
+  })
+
+  it('stores the generated course even when the reload fails', async () => {
+    const user = userEvent.setup()
+    const generated = courseJson({ course_name: 'Compliance v2' })
+    stubFetch(async (url) =>
+      url.includes('/generate-quiz') ? json(generated) : json({ detail: 'down' }, 500),
+    )
+    const { client } = renderView(<TrainingView course={course()} />)
+    client.setQueryData(['courses'], [course()])
+    await user.click(screen.getByRole('button', { name: /Reporting/ }))
+    await user.click(screen.getByRole('button', { name: 'Generate Quiz Now' }))
+    await waitFor(() => expect(screen.queryByText('Generating quizzes')).not.toBeInTheDocument())
+    expect(client.getQueryData<Course>(['courses', 'detail', 'c1'])?.courseName).toBe(
+      'Compliance v2',
+    )
+    expect(client.getQueryData<Course[]>(['courses'])?.[0]?.courseName).toBe('Compliance v2')
   })
 
   it('sends one request only when the quiz button is clicked twice', async () => {

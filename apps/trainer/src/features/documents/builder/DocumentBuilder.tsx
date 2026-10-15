@@ -76,7 +76,13 @@ export function DocumentBuilder({ mobile }: { mobile: boolean }) {
     pdfUrlRef.current = next
     setPdfUrlState(next)
   }, [])
-  const clearPdf = useCallback(() => setPdfUrl(null), [setPdfUrl])
+  // Each edit and each render takes a new number. A render that finishes after a newer one
+  // started, or after an edit, is dropped, so the cached PDF always matches the content.
+  const pdfVersion = useRef(0)
+  const clearPdf = useCallback(() => {
+    pdfVersion.current += 1
+    setPdfUrl(null)
+  }, [setPdfUrl])
 
   const { editor, host, empty } = useDocumentEditor(clearPdf)
 
@@ -143,9 +149,10 @@ export function DocumentBuilder({ mobile }: { mobile: boolean }) {
 
   const render = async (): Promise<string | null> => {
     if (!validate()) return null
+    const version = (pdfVersion.current += 1)
     try {
       const blob = await renderPdf(metadata, editor.text, editor.blocks)
-      if (!alive.current) return null
+      if (!alive.current || version !== pdfVersion.current) return null
       const url = URL.createObjectURL(blob)
       setPdfUrl(url)
       return url
@@ -481,7 +488,9 @@ export function DocumentBuilder({ mobile }: { mobile: boolean }) {
       </div>
       <div className="mt-3 min-h-0 flex-1">
         {mobile ? (
-          <div className="flex h-full flex-col gap-3 overflow-y-auto">{withKeys(panels)}</div>
+          <div className="flex h-full flex-col gap-3 overflow-y-auto *:shrink-0">
+            {withKeys(panels)}
+          </div>
         ) : (
           <HorizontalScroller>
             <div className="flex h-full w-full min-w-[1520px] gap-3">{withKeys(panels)}</div>

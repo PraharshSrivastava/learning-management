@@ -1,11 +1,13 @@
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
+import * as RadixSelect from '@radix-ui/react-select'
 import clsx from 'clsx'
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import {
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
 } from 'react'
 
 interface CompactButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -86,60 +88,114 @@ export function BuilderInput({ className, ...rest }: InputHTMLAttributes<HTMLInp
   return <input className={clsx(inputBase, 'h-[34px]', className)} {...rest} />
 }
 
+/**
+ * Flutter scrolls the text inside the content padding, so the border and the padding stay clear
+ * when the text scrolls. The border and the padding are on a wrapper for the same result. The
+ * 8 px scrollbar gutter takes 8 px of the 13 px right padding and is always kept, so the text is as
+ * wide as in Flutter, with or without a scrollbar.
+ */
 export function BuilderTextArea({
   className,
   rows = 3,
   ...rest
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea rows={rows} className={clsx(inputBase, 'resize-none', className)} {...rest} />
-}
-
-interface BuilderSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange'> {
-  value: string
-  options: readonly { value: string; label: string }[]
-  onChange: (value: string) => void
-}
-
-/**
- * DropdownButtonFormField look (titleMedium text, ellipsis, grey arrow) over a native select.
- * The native select is transparent and covers the field, so keyboard and screen readers work.
- */
-export function BuilderSelect({
-  value,
-  options,
-  onChange,
-  className,
-  ...rest
-}: BuilderSelectProps) {
-  const label = options.find((option) => option.value === value)?.label ?? ''
   return (
     <div
       className={clsx(
-        'relative flex h-9 items-center rounded-lg border border-input-border bg-white pr-[11px] pl-[14px]',
+        'rounded-lg border border-input-border bg-white py-[5px] pr-[5px] pl-[13px]',
         'focus-within:border-brand-blue-light focus-within:shadow-[0_0_0_0.4px_var(--color-brand-blue-light)]',
         className,
       )}
     >
-      <span
-        aria-hidden
-        className="min-w-0 flex-1 truncate font-manrope text-lg leading-[24.3px] font-bold tracking-[0.15px] text-primary-blue"
-      >
-        {label}
-      </span>
-      <Icon name="arrow_drop_down" size={24} color="#616161" />
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="absolute inset-0 size-full cursor-pointer appearance-none opacity-0"
+      <textarea
+        rows={rows}
+        className={clsx(
+          'block w-full resize-none bg-transparent font-dm text-[15px] leading-[22px] tracking-[0.5px] text-text-black placeholder:text-gray focus:outline-none',
+          // Flutter desktop Scrollbar: an 8 px light thumb with round ends and no track or arrows.
+          '[scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-button]:hidden',
+          '[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#e4e4e5]',
+        )}
         {...rest}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      />
     </div>
+  )
+}
+
+interface BuilderSelectProps {
+  id?: string
+  value: string
+  options: readonly { value: string; label: string }[]
+  onChange: (value: string) => void
+  className?: string
+}
+
+// Radix Select has no item for an empty value, so the empty choice gets a stand-in value.
+const EMPTY = '__empty__'
+
+const selectText =
+  'min-w-0 flex-1 truncate text-left font-manrope text-lg leading-[24.3px] font-bold tracking-[0.15px] text-primary-blue'
+
+/**
+ * DropdownButtonFormField: titleMedium text, ellipsis, and a gray arrow. The menu opens with the
+ * chosen row over the field, as the Material menu does. It starts 16 px left of the field and is
+ * 40 px wider than the field.
+ */
+export function BuilderSelect({ id, value, options, onChange, className }: BuilderSelectProps) {
+  const trigger = useRef<HTMLButtonElement>(null)
+  const [menuWidth, setMenuWidth] = useState<number>()
+  return (
+    <RadixSelect.Root
+      value={value === '' ? EMPTY : value}
+      onValueChange={(next) => onChange(next === EMPTY ? '' : next)}
+      onOpenChange={(open) => {
+        if (open) setMenuWidth(trigger.current?.offsetWidth)
+      }}
+    >
+      <RadixSelect.Trigger
+        ref={trigger}
+        id={id}
+        className={clsx(
+          'flex h-9 w-full cursor-pointer items-center rounded-lg bg-white pr-3 inset-ring inset-ring-input-border',
+          'focus-visible:shadow-[0_0_0_0.4px_var(--color-brand-blue-light)] focus-visible:outline-none focus-visible:inset-ring-brand-blue-light',
+          className,
+        )}
+      >
+        {/* Value takes no class, so a span styles it. */}
+        <span className={clsx(selectText, 'pl-[15px]')}>
+          <RadixSelect.Value>
+            {options.find((option) => option.value === value)?.label}
+          </RadixSelect.Value>
+        </span>
+        <Icon name="arrow_drop_down" size={24} color="#616161" />
+      </RadixSelect.Trigger>
+      <RadixSelect.Portal>
+        <RadixSelect.Content
+          position="item-aligned"
+          style={{ width: menuWidth === undefined ? undefined : menuWidth + 40 }}
+          className="z-50 overflow-hidden rounded bg-white shadow-[0_5px_5px_-3px_rgb(0_0_0/0.2),0_8px_10px_1px_rgb(0_0_0/0.14),0_3px_14px_2px_rgb(0_0_0/0.12)]"
+        >
+          <RadixSelect.Viewport className="py-2">
+            {options.map((option) => (
+              <RadixSelect.Item
+                key={option.value}
+                value={option.value === '' ? EMPTY : option.value}
+                className={clsx(
+                  selectText,
+                  'flex h-12 cursor-pointer items-center pr-4 pl-[31px] outline-none select-none data-[highlighted]:bg-[#d7d7d7]',
+                )}
+              >
+                {/* Radix puts the row text box over the value text. The box starts 15 px to the
+                    right of the row text, so the menu starts 16 px left of the field and the row
+                    text lines up with the field edge, as in Flutter. */}
+                <RadixSelect.ItemText>
+                  <span className="relative -left-[15px]">{option.label}</span>
+                </RadixSelect.ItemText>
+              </RadixSelect.Item>
+            ))}
+          </RadixSelect.Viewport>
+        </RadixSelect.Content>
+      </RadixSelect.Portal>
+    </RadixSelect.Root>
   )
 }
 

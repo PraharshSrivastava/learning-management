@@ -3,7 +3,12 @@
 import { imageBlock, moduleOnly, textBlock, type BuilderBlock } from './models'
 
 const STYLE_ID = 'document-builder-editor-styles'
+// Flutter showed the editor as a plain DOM element with the browser defaults. Tailwind preflight
+// removes the paragraph margins, so they come back here.
 const STYLE_TEXT = `
+.document-editor p {
+  margin: 1em 0;
+}
 figure.editor-image.selected img {
   outline: 2px solid #0b2f86;
   outline-offset: 2px;
@@ -79,14 +84,18 @@ export class DocumentEditor {
     root.contentEditable = 'true'
     root.tabIndex = 0
     root.setAttribute('aria-label', 'Rich document editor')
+    root.classList.add('document-editor')
     Object.assign(root.style, {
       height: '100%',
       overflowY: 'auto',
       padding: '18px',
       outline: 'none',
-      fontFamily: 'Inter, Arial, sans-serif',
+      // Flutter asked for Inter, but its page had no Inter font, so the browser showed Arial.
+      fontFamily: 'Arial, sans-serif',
       fontSize: '14px',
       lineHeight: '1.5',
+      letterSpacing: 'normal',
+      color: 'black',
       backgroundColor: 'white',
     })
     root.addEventListener('input', () => this.changed())

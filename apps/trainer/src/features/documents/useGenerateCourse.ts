@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react'
 import { useBlockingOverlay } from '../../shell/overlay'
 import { trainerKeys } from '../../shell/queryKeys'
 import { useUpdateTrainerSearch } from '../../shell/search'
+import { useRefreshCourses, useStoreCourse } from '../courses/courseQueries'
 
 /** Flutter `_responseErrorDetail`: server detail, else the fallback with the status code. */
 export function generationError(error: unknown): string {
@@ -20,10 +21,13 @@ export function generationError(error: unknown): string {
 
 /**
  * Create Course (CourseGenerationNotifier.generateCourse): opens the Blueprint tab with no course,
- * blocks the app while the outline is made, then selects the new course.
+ * blocks the app while the outline is made, then stores and selects the new course. The course
+ * is stored at once, so an old or failed list reload cannot hide it.
  */
 export function useGenerateCourse() {
   const queryClient = useQueryClient()
+  const storeCourse = useStoreCourse()
+  const refreshCourses = useRefreshCourses()
   const updateSearch = useUpdateTrainerSearch()
   const toast = useToast()
   const [running, setRunning] = useState(false)
@@ -37,7 +41,11 @@ export function useGenerateCourse() {
       try {
         const data = await apiRequest('/api/courses/generate', { json: { file_name: fileName } })
         const course = parseCourse(data)
-        await queryClient.invalidateQueries({ queryKey: trainerKeys.courses })
+        // A list request that started before the course existed would return the list without
+        // it. Drop that request and reload, then store the response, as Flutter did.
+        await queryClient.cancelQueries({ queryKey: trainerKeys.courses })
+        await refreshCourses()
+        storeCourse(course)
         updateSearch({ course: course.courseId }, { replace: true })
       } catch (error) {
         // Flutter stored the error but never showed it. A toast tells the user why nothing opened.
@@ -46,6 +54,6 @@ export function useGenerateCourse() {
         setRunning(false)
       }
     },
-    [queryClient, running, toast, updateSearch],
+    [queryClient, refreshCourses, running, storeCourse, toast, updateSearch],
   )
 }
