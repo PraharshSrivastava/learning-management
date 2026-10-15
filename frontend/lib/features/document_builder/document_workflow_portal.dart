@@ -88,6 +88,12 @@ class _DocumentWorkflowPortalState
   String documentQuery = '';
   String documentType = 'all';
   bool disposed = false;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _draftNotice;
+
+  void _closeDraftNotice() {
+    _draftNotice?.close();
+    _draftNotice = null;
+  }
   @override
   void initState() {
     super.initState();
@@ -104,6 +110,9 @@ class _DocumentWorkflowPortalState
     viewId = 'workflow-editor-${identityHashCode(this)}';
     ui_web.platformViewRegistry.registerViewFactory(viewId, (_) => editor.root);
     refreshDrafts();
+    ref.listenManual<int>(currentTabProvider, (previous, next) {
+      if (next != 0) _closeDraftNotice();
+    });
   }
 
   void changed() {
@@ -278,6 +287,7 @@ class _DocumentWorkflowPortalState
   @override
   void dispose() {
     disposed = true;
+    _closeDraftNotice();
     controller.removeListener(changed);
     controller.dispose();
     editor.dispose();
@@ -683,9 +693,12 @@ class _DocumentWorkflowPortalState
           method: 'POST', body: {'expectedRevision': d['revision']});
       await refreshDrafts();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      _closeDraftNotice();
+      _draftNotice = ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Text('Draft removed'),
         duration: const Duration(seconds: 10),
+        persist: false,
+        showCloseIcon: true,
         action: SnackBarAction(
             label: 'Undo',
             onPressed: () => guarded(() async {
@@ -696,6 +709,10 @@ class _DocumentWorkflowPortalState
                   await refreshDrafts();
                 })),
       ));
+      final notice = _draftNotice;
+      notice?.closed.then((_) {
+        if (identical(_draftNotice, notice)) _draftNotice = null;
+      });
     });
   }
 

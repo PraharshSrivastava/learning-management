@@ -3,6 +3,19 @@ import 'package:employee_frontend/state/employee_providers.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('a full score is independent from the pass threshold', () {
+    final result = QuizSubmissionResult.fromJson({
+      'quiz_passed': true,
+      'quiz_score': 1.0,
+      'correct_count': 3,
+      'total_questions': 3,
+      'pass_mark': 2 / 3,
+      'correct_answers': {'0': 'A', '1': 'B', '2': 'C'},
+    });
+    expect(result.score, 1.0);
+    expect(result.correctCount, 3);
+    expect(result.passMark, closeTo(2 / 3, 0.000000001));
+  });
   test('module pass mark defaults to exact two thirds', () {
     final module = PublishedCourseModule.fromJson({
       'module_number': 1,

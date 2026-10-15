@@ -60,6 +60,8 @@ class EmployeeCourseListNotifier
   final String? token;
   WebSocketChannel? _channel;
   bool _isDisposed = false;
+  int _fetchSequence = 0;
+  int _dataRevision = 0;
 
   EmployeeCourseListNotifier({required this.token})
       : super(EmployeeCourseListState()) {
@@ -84,6 +86,7 @@ class EmployeeCourseListNotifier
                     Course.fromPublishedJson(item as Map<String, dynamic>))
                 .toList();
             if (!_isDisposed) {
+              _dataRevision++;
               state = EmployeeCourseListState(
                   courses: courseList, isLoading: false);
             }
@@ -128,7 +131,10 @@ class EmployeeCourseListNotifier
     });
   }
 
-  Future<void> fetchCourses({bool showLoading = true}) async {
+  Future<bool> fetchCourses({bool showLoading = true}) async {
+    if (_isDisposed) return false;
+    final sequence = ++_fetchSequence;
+    final revision = _dataRevision;
     if (showLoading) {
       state = EmployeeCourseListState(courses: state.courses, isLoading: true);
     }
@@ -137,6 +143,9 @@ class EmployeeCourseListNotifier
         Uri.parse(AppConstants.myCoursesEndpoint),
         headers: _authHeaders(token),
       );
+      if (_isDisposed || sequence != _fetchSequence || revision != _dataRevision) {
+        return false;
+      }
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as List<dynamic>;
         final courseList = decoded
@@ -144,6 +153,7 @@ class EmployeeCourseListNotifier
                 Course.fromPublishedJson(item as Map<String, dynamic>))
             .toList();
         state = EmployeeCourseListState(courses: courseList, isLoading: false);
+        return true;
       } else {
         state = EmployeeCourseListState(
           courses: state.courses,
@@ -152,12 +162,16 @@ class EmployeeCourseListNotifier
         );
       }
     } catch (e) {
+      if (_isDisposed || sequence != _fetchSequence || revision != _dataRevision) {
+        return false;
+      }
       state = EmployeeCourseListState(
         courses: state.courses,
         isLoading: false,
         error: e.toString(),
       );
     }
+    return false;
   }
 
   Future<void> updateModuleProgress(
@@ -226,6 +240,7 @@ class EmployeeCourseListNotifier
     int moduleNumber,
     Map<String, dynamic> payload,
   ) {
+    _dataRevision++;
     final moduleKey = moduleNumber.toString();
     final nextCourses = state.courses.map((course) {
       if (course.courseId != courseId) return course;

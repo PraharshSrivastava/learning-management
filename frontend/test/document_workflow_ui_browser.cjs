@@ -212,6 +212,28 @@ const server = http.createServer((request,response) => {
   await page.waitForTimeout(400);
   assert.equal([...drafts.values()].filter(d=>!d.removed).length,beforeRemove);
   await page.screenshot({path:path.resolve(__dirname,'../../docs/design/document-builder/implemented-option-a-documents.png')});
+  await page.getByRole('button',{name:'Remove',exact:true}).first().click();
+  await page.getByRole('button',{name:'Remove draft',exact:true}).click();
+  await page.getByRole('button',{name:'Undo',exact:true}).waitFor();
+  await page.waitForTimeout(11000);
+  assert.equal(await page.getByRole('button',{name:'Undo',exact:true}).count(),0,'Draft removal notification must expire');
+  await page.getByRole('button',{name:'Remove',exact:true}).first().click();
+  await page.getByRole('button',{name:'Remove draft',exact:true}).click();
+  await page.getByRole('button',{name:'Undo',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Close',exact:true}).click();
+  await page.waitForTimeout(500);
+  assert.equal(await page.getByRole('button',{name:'Undo',exact:true}).count(),0,'Draft removal notification must close immediately');
+  await page.getByRole('button',{name:'Remove',exact:true}).first().click();
+  await page.getByRole('button',{name:'Remove draft',exact:true}).click();
+  await page.getByRole('button',{name:'Undo',exact:true}).waitFor();
+  const removedOnce=[...drafts.values()].filter(d=>!d.removed).length;
+  await page.getByRole('button',{name:'Remove',exact:true}).first().click();
+  await page.getByRole('button',{name:'Remove draft',exact:true}).click();
+  await page.waitForTimeout(700);
+  assert.equal(await page.getByRole('button',{name:'Undo',exact:true}).count(),1);
+  await page.getByRole('button',{name:'Undo',exact:true}).click();
+  await page.waitForTimeout(400);
+  assert.equal([...drafts.values()].filter(d=>!d.removed).length,removedOnce,'Undo restores only the latest removed draft');
   for(const width of [1024,736,390]) {
     await page.setViewportSize({width,height:1000});await page.waitForTimeout(300);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);

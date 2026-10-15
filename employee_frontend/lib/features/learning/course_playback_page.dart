@@ -10,6 +10,7 @@ import 'package:employee_frontend/core/video/hls_video_player.dart';
 import 'package:employee_frontend/data/models/models.dart';
 import 'package:employee_frontend/state/employee_providers.dart';
 import 'package:employee_frontend/core/config/app_constants.dart';
+import 'course_resume.dart';
 
 class CoursePlaybackView extends ConsumerStatefulWidget {
   final Course course;
@@ -30,12 +31,18 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   final Map<int, String> _gradedCorrectAnswers = {};
   final Map<int, String> _gradedExplanations = {};
   final GlobalKey _quizSectionKey = GlobalKey();
+  final GlobalKey _videoSectionKey = GlobalKey();
   bool _isQuizSubmitted = false;
+  bool _isSubmitting = false;
+  bool _resumeLoading = true;
+  bool _showCompletedCourse = false;
+  String? _resumeError;
+  int _entryGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadProgressForCurrentModule();
+    Future.microtask(_resumeCourse);
   }
 
   @override
@@ -47,30 +54,120 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         _locallyWatchedModules.clear();
         _locallyPassedModules.clear();
         _localQuizScores.clear();
-        _loadProgressForCurrentModule();
+        _resumeLoading = true;
+        _isSubmitting = false;
+        _entryGeneration++;
       });
+      Future.microtask(_resumeCourse);
+    } else if (!_resumeLoading && widget.course.publishedModules.isNotEmpty) {
+      final previousModules = oldWidget.course.publishedModules;
+      final previousNumber = _activeModuleIndex < previousModules.length
+          ? previousModules[_activeModuleIndex].moduleNumber
+          : null;
+      final nextIndex = widget.course.publishedModules
+          .indexWhere((module) => module.moduleNumber == previousNumber);
+      if (nextIndex >= 0) {
+        _activeModuleIndex = nextIndex;
+      } else {
+        _activeModuleIndex = firstIncompleteModule(widget.course) ?? 0;
+        _loadProgressForCurrentModule();
+      }
     }
   }
 
+  Future<void> _resumeCourse() async {
+    if (!mounted) return;
+    final generation = ++_entryGeneration;
+    final courseId = widget.course.courseId;
+    setState(() {
+      _resumeLoading = true;
+      _resumeError = null;
+    });
+    final notifier = ref.read(employeeCourseListProvider.notifier);
+    var loaded = false;
+    // Startup HTTP and websocket snapshots can overlap. Retry a superseded
+    // fetch rather than selecting a module from an older response.
+    for (var attempt = 0; attempt < 3 && !loaded; attempt++) {
+      loaded = await notifier.fetchCourses(showLoading: false);
+      if (!mounted || generation != _entryGeneration) {
+        return;
+      }
+      if (ref.read(employeeCourseListProvider).error != null) {
+        break;
+      }
+    }
+    if (!mounted ||
+        generation != _entryGeneration ||
+        widget.course.courseId != courseId) {
+      return;
+    }
+    final state = ref.read(employeeCourseListProvider);
+    final matches =
+        state.courses.where((course) => course.courseId == courseId);
+    if (!loaded || matches.isEmpty) {
+      setState(() {
+        _resumeLoading = false;
+        _resumeError = state.error ??
+            (matches.isEmpty
+                ? 'This course is no longer available.'
+                : 'Progress changed while loading. Please retry.');
+      });
+      return;
+    }
+    final fresh = matches.first;
+    final resumeIndex = firstIncompleteModule(fresh);
+    setState(() {
+      _activeModuleIndex = resumeIndex ?? 0;
+      _showCompletedCourse =
+          resumeIndex == null && fresh.publishedModules.isNotEmpty;
+      _resumeLoading = false;
+      _loadProgressForCurrentModule(course: fresh);
+    });
+    if (resumeIndex != null) {
+      final module = fresh.publishedModules[resumeIndex];
+      if (fresh.moduleProgress['${module.moduleNumber}']?.videoWatched ==
+          true) {
+        _scrollToQuiz();
+      }
+    }
+  }
+
+  void _scrollToQuiz() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _quizSectionKey.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(target,
+            duration: const Duration(milliseconds: 300), alignment: 0.05);
+      }
+    });
+  }
+
   void _onModuleChanged(int newIndex) {
+    if (_isSubmitting ||
+        newIndex < 0 ||
+        newIndex >= widget.course.publishedModules.length) {
+      return;
+    }
     setState(() {
       _activeModuleIndex = newIndex;
       _loadProgressForCurrentModule();
     });
   }
 
-  void _loadProgressForCurrentModule() {
+  void _loadProgressForCurrentModule({Course? course}) {
+    final currentCourse = course ?? widget.course;
     _selectedAnswers.clear();
     _gradedCorrectAnswers.clear();
     _gradedExplanations.clear();
     _isQuizSubmitted = false;
 
-    if (widget.course.publishedModules.isEmpty) return;
+    if (currentCourse.publishedModules.isEmpty) return;
 
-    final currModuleStr = widget
-        .course.publishedModules[_activeModuleIndex].moduleNumber
+    final currModuleStr = currentCourse
+        .publishedModules[_activeModuleIndex].moduleNumber
         .toString();
-    final currProgress = widget.course.moduleProgress[currModuleStr];
+    final currProgress = currentCourse.moduleProgress[currModuleStr];
 
     if (currProgress != null && currProgress.selectedAnswers != null) {
       _selectedAnswers.addAll(currProgress.selectedAnswers!);
@@ -89,8 +186,10 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       return prevProgress?.videoWatched == true ||
           _locallyWatchedModules.contains(prevModuleNumber);
     }
-    return prevProgress?.quizPassed == true ||
-        _locallyPassedModules.contains(prevModuleNumber);
+    return (prevProgress?.videoWatched == true ||
+            _locallyWatchedModules.contains(prevModuleNumber)) &&
+        (prevProgress?.quizPassed == true ||
+            _locallyPassedModules.contains(prevModuleNumber));
   }
 
   bool _isQuizUnlocked(int moduleIndex) {
@@ -106,6 +205,36 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 900;
+
+    if (_resumeLoading) return const Center(child: CircularProgressIndicator());
+    if (_resumeError != null) {
+      return Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('Could not load your saved progress.\n$_resumeError',
+            textAlign: TextAlign.center),
+        TextButton(onPressed: _resumeCourse, child: const Text('Retry')),
+      ]));
+    }
+    if (_showCompletedCourse && widget.course.publishedModules.isNotEmpty) {
+      return Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.verified_rounded,
+            color: AppTheme.accentGreen, size: 48),
+        const SizedBox(height: 16),
+        const Text('Course completed',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const Text('Your completed modules and quiz results are saved.'),
+        TextButton(
+            onPressed: () => setState(() {
+                  _showCompletedCourse = false;
+                  _activeModuleIndex = 0;
+                  _loadProgressForCurrentModule();
+                }),
+            child: const Text('Review course')),
+        TextButton(
+            onPressed: widget.onBack, child: const Text('Back to courses')),
+      ]));
+    }
 
     if (widget.course.publishedModules.isEmpty) {
       return Center(
@@ -156,7 +285,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                     children: [
                       _buildHeaderSection(module),
                       const SizedBox(height: 20),
-                      _buildVideoPlayerSection(module),
+                      KeyedSubtree(
+                          key: _videoSectionKey,
+                          child: _buildVideoPlayerSection(module)),
                       const SizedBox(height: 20),
                       _buildNotesSection(module),
                       const SizedBox(height: 32),
@@ -207,11 +338,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
   Widget _buildCourseWorkspaceHeader() {
     final total = widget.course.publishedModules.length;
-    final passed = widget.course.publishedModules.where((module) {
-      return widget
-              .course.moduleProgress['${module.moduleNumber}']?.quizPassed ==
-          true;
-    }).length;
+    final passed =
+        widget.course.publishedModules.where(_isModuleQuizPassed).length;
     final progress = total == 0 ? 0.0 : passed / total;
 
     return Container(
@@ -322,7 +450,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
           const SizedBox(height: 20),
           _buildHeaderSection(module),
           const SizedBox(height: 16),
-          _buildVideoPlayerSection(module),
+          KeyedSubtree(
+              key: _videoSectionKey, child: _buildVideoPlayerSection(module)),
           const SizedBox(height: 16),
           _buildNotesSection(module),
           const SizedBox(height: 24),
@@ -554,9 +683,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
     final progress = widget.course.moduleProgress[moduleStr];
     final bool isAlreadyPassed = progress?.quizPassed == true ||
         _locallyPassedModules.contains(module.moduleNumber);
-    final quizScore = progress?.quizScore?.toDouble() ??
-        _localQuizScores[module.moduleNumber] ??
-        0.0;
+    final quizScore = _localQuizScores[module.moduleNumber] ??
+        progress?.quizScore?.toDouble();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -605,7 +733,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'You have already passed this quiz with a score of ${(quizScore * 100).toStringAsFixed(1)}%. You can review the questions below.',
+                      quizScore == null
+                          ? 'Quiz passed. Saved score unavailable. You can review your saved answers below.'
+                          : 'Quiz passed — ${(quizScore * 100).toStringAsFixed(2)}%. Your saved answers are shown below.',
                       style: GoogleFonts.inter(
                           color: AppTheme.accentGreen,
                           fontWeight: FontWeight.bold),
@@ -632,12 +762,17 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: _isQuizSubmitted ||
+                  onPressed: _isSubmitting ||
+                          _isQuizSubmitted ||
                           _selectedAnswers.length < questionsList.length
                       ? null
                       : () => _submitQuiz(module),
                   child: Text(
-                    _isQuizSubmitted ? 'Submitted' : 'Submit Quiz',
+                    _isSubmitting
+                        ? 'Submitting…'
+                        : _isQuizSubmitted
+                            ? 'Submitted'
+                            : 'Submit Quiz',
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -692,8 +827,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
           ),
           const SizedBox(height: 16),
           Column(
-            children: question.options.map((optionText) {
-              final optIndex = question.options.indexOf(optionText);
+            children: question.options.asMap().entries.map((entry) {
+              final optIndex = entry.key;
+              final optionText = entry.value;
               final optKey = String.fromCharCode(65 + optIndex); // A, B, C, D
               final isOptSelected = selectedAnswer == optKey;
 
@@ -712,7 +848,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   cardBgColor = AppTheme.accentGreen.withOpacity(0.08);
                   suffixIcon = const Icon(Icons.check_circle_rounded,
                       color: AppTheme.accentGreen, size: 18);
-                } else if (isOptSelected && !isAlreadyPassed) {
+                } else if (isOptSelected) {
                   cardBorderColor = AppTheme.accentRed;
                   cardBgColor = AppTheme.accentRed.withOpacity(0.08);
                   suffixIcon = const Icon(Icons.cancel_rounded,
@@ -737,10 +873,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                           : 1),
                 ),
                 child: RadioListTile<String>(
-                  groupValue: isAlreadyPassed && correctAnswer.isNotEmpty
-                      ? correctAnswer
-                      : selectedAnswer,
-                  onChanged: isSubmitted
+                  groupValue: selectedAnswer,
+                  onChanged: isSubmitted || _isSubmitting
                       ? null
                       : (val) {
                           if (val != null) {
@@ -770,6 +904,12 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
               );
             }).toList(),
           ),
+          if (isSubmitted)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('Your answer: ${selectedAnswer ?? "Unavailable"} · '
+                  'Correct answer: ${question.correct.isNotEmpty ? question.correct : _gradedCorrectAnswers[questionIndex] ?? "Unavailable"}'),
+            ),
           if (isSubmitted &&
               (question.explanation.isNotEmpty ||
                   (_gradedExplanations[questionIndex]?.isNotEmpty ?? false)))
@@ -809,6 +949,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   }
 
   Future<void> _submitQuiz(PublishedCourseModule module) async {
+    if (_isSubmitting) return;
     if (_selectedAnswers.length < module.quiz.length) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -817,31 +958,43 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       return;
     }
 
-    setState(() {
-      _isQuizSubmitted = true;
-    });
+    final courseId = widget.course.courseId;
+    final entryGeneration = _entryGeneration;
+    final answers = Map<int, String>.from(_selectedAnswers);
+    setState(() => _isSubmitting = true);
 
     late final QuizSubmissionResult result;
     try {
       result = await ref.read(employeeCourseListProvider.notifier).submitQuiz(
-            widget.course.courseId,
+            courseId,
             module.moduleNumber,
-            Map<int, String>.from(_selectedAnswers),
+            answers,
           );
     } catch (error) {
-      if (!mounted) return;
-      setState(() => _isQuizSubmitted = false);
+      if (!mounted || entryGeneration != _entryGeneration) return;
+      setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(error.toString().replaceFirst('Exception: ', ''))),
       );
       return;
     }
-    if (!mounted) return;
+    if (!mounted ||
+        entryGeneration != _entryGeneration ||
+        widget.course.courseId != courseId) {
+      return;
+    }
+    setState(() => _isSubmitting = false);
+    if (widget.course.publishedModules.isEmpty ||
+        widget.course.publishedModules[_activeModuleIndex].moduleNumber !=
+            module.moduleNumber) {
+      return;
+    }
 
     final passed = result.passed;
     final score = result.score;
     setState(() {
+      _isQuizSubmitted = true;
       _gradedCorrectAnswers
         ..clear()
         ..addAll(result.correctAnswers);
@@ -859,24 +1012,13 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
         _locallyWatchedModules.add(module.moduleNumber);
         _localQuizScores[module.moduleNumber] = score;
       });
-      if (!isFinalModule) {
-        final nextModule =
-            widget.course.publishedModules[_activeModuleIndex + 1];
-        _showLearningSuccessSnackBar(
-          context,
-          message: 'Quiz passed. Opening Module ${nextModule.moduleNumber}.',
-          icon: Icons.verified_rounded,
-        );
-        _onModuleChanged(_activeModuleIndex + 1);
-        return;
-      }
     } else {
       setState(() {
         _locallyWatchedModules.remove(module.moduleNumber);
       });
     }
 
-    showDialog(
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
@@ -886,15 +1028,47 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                 : 'Quiz Failed',
             style: TextStyle(
                 color: passed ? AppTheme.accentGreen : AppTheme.accentRed)),
-        content: Text(
-          passed
-              ? 'You scored ${(score * 100).toStringAsFixed(1)}%. ${isFinalModule ? "You have successfully finished the course." : "The next module is now unlocked!"}'
-              : 'You scored ${(score * 100).toStringAsFixed(1)}%. You need at least two-thirds (${(result.passMark * 100).toStringAsFixed(1)}%) to pass.\n\nYou must re-watch the video lesson to try the quiz again.',
-        ),
+        content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+                child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                    '${result.correctCount} of ${result.totalQuestions} correct (${(score * 100).toStringAsFixed(2)}%)',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 8),
+                Text(
+                    'Pass requirement: ${(result.passMark * 100).toStringAsFixed(2)}%.'),
+                if (!passed)
+                  const Text('Rewatch the lesson before trying again.'),
+                for (final entry in module.quiz.asMap().entries) ...[
+                  const Divider(height: 28),
+                  Text('Question ${entry.key + 1}: ${entry.value.question}',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(answers[entry.key] == result.correctAnswers[entry.key]
+                      ? 'Correct ✓'
+                      : 'Incorrect ✗'),
+                  Text(
+                      'Your answer: ${_answerLabel(entry.value, answers[entry.key])}'),
+                  Text(
+                      'Correct answer: ${_answerLabel(entry.value, result.correctAnswers[entry.key])}'),
+                  if (result.explanations[entry.key]?.isNotEmpty == true)
+                    Text(result.explanations[entry.key]!),
+                ],
+              ],
+            ))),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context); // close dialog
+              if (!mounted ||
+                  widget.course.courseId != courseId ||
+                  entryGeneration != _entryGeneration) {
+                return;
+              }
               if (!passed) {
                 // If failed, they have to rewatch the video
                 setState(() {
@@ -903,15 +1077,41 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                   _gradedCorrectAnswers.clear();
                   _gradedExplanations.clear();
                 });
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  final target = _videoSectionKey.currentContext;
+                  if (target != null) {
+                    Scrollable.ensureVisible(target,
+                        duration: const Duration(milliseconds: 300));
+                  }
+                });
+              } else if (isFinalModule) {
+                if (widget.onBack != null) {
+                  widget.onBack!();
+                } else {
+                  setState(() => _showCompletedCourse = true);
+                }
+              } else {
+                final submittedIndex = widget.course.publishedModules
+                    .indexWhere(
+                        (item) => item.moduleNumber == module.moduleNumber);
+                if (submittedIndex >= 0) _onModuleChanged(submittedIndex + 1);
               }
             },
             child: Text(passed && isFinalModule
-                ? 'Finish'
-                : (passed ? 'Continue' : 'Try Again')),
+                ? 'Finish course'
+                : (passed ? 'Continue to next module' : 'Rewatch lesson')),
           ),
         ],
       ),
     );
+  }
+
+  String _answerLabel(PublishedQuizQuestion question, String? key) {
+    if (key == null || key.isEmpty) return 'Unavailable';
+    final index = key.codeUnitAt(0) - 65;
+    if (index < 0 || index >= question.options.length) return 'Unavailable';
+    return '$key — ${question.options[index]}';
   }
 
   void _handleVideoCompleted(int moduleNumber) {
@@ -942,8 +1142,9 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       return progress?.videoWatched == true ||
           _locallyWatchedModules.contains(module.moduleNumber);
     }
-    return progress?.quizPassed == true ||
-        _locallyPassedModules.contains(module.moduleNumber);
+    return _isModuleVideoWatched(module) &&
+        (progress?.quizPassed == true ||
+            _locallyPassedModules.contains(module.moduleNumber));
   }
 
   ({IconData icon, Color color, Color background, String label}) _moduleStatus(

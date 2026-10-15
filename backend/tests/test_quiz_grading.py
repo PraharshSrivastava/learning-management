@@ -47,6 +47,29 @@ def test_exactly_two_out_of_three_passes() -> None:
     assert result["pass_mark"] == pytest.approx(2 / 3)
 
 
+@pytest.mark.parametrize("published_shape", [False, True])
+def test_three_correct_answers_score_one_hundred_percent(published_shape) -> None:
+    module = _module(3)
+    if published_shape:
+        module["quiz"] = [
+            {"question": "Question", "options": ["Correct", "Incorrect"], "correct": "A"}
+            for _ in range(3)
+        ]
+    result = _grade_quiz(module, {"0": "A", "1": "A", "2": "A"})
+    assert result["correct_count"] == result["total_questions"] == 3
+    assert result["quiz_score"] == 1.0
+    assert result["quiz_passed"] is True
+
+
+@pytest.mark.parametrize("correct_count", [0, 1])
+def test_less_than_two_correct_answers_fails_three_question_quiz(correct_count) -> None:
+    answers = {str(index): "A" if index < correct_count else "B" for index in range(3)}
+    result = _grade_quiz(_module(3), answers)
+    assert result["correct_count"] == correct_count
+    assert result["quiz_score"] == pytest.approx(correct_count / 3)
+    assert result["quiz_passed"] is False
+
+
 @pytest.mark.parametrize(
     ("answers", "passed"),
     [

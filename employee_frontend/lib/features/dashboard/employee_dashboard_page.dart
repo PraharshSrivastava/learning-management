@@ -130,6 +130,7 @@ class _EmployeeDashboardPageState extends ConsumerState<EmployeeDashboardPage> w
                                 usingPreviewData: usingPreviewData,
                               )
                             : CoursePlaybackView(
+                                  key: ValueKey('${authState.employee?.employeeId}:${openCourse.courseId}'),
                                 course: openCourse,
                                 onBack: () {
                                   setState(() => _openCourseId = null);
