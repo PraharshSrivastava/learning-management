@@ -22,7 +22,7 @@ from app.repositories.courses import get_course
 from app.repositories.database import get_connection
 
 
-def repair_images(apply=False, render=False):
+def repair_images(apply=False, render=False, resume=None):
     if render and not apply:
         raise ValueError("--render requires --apply")
     backup = (
@@ -30,6 +30,14 @@ def repair_images(apply=False, render=False):
         / "maintenance"
         / ("builder-images-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
     )
+    if resume:
+        backup = Path(resume).resolve()
+        if (
+            not apply
+            or not backup.is_relative_to((settings.storage_dir / "maintenance").resolve())
+            or not backup.is_dir()
+        ):
+            raise ValueError("Resume requires an existing maintenance backup and --apply")
     results = []
     with get_connection() as db:
         courses = db.execute(
@@ -47,11 +55,21 @@ def repair_images(apply=False, render=False):
             ).fetchall()
             metadata = copy.deepcopy(course["metadata_json"])
             canonical = {}
+            resume_modules = set()
+            saved_backup = backup / f"{cid}.json"
+            if resume and saved_backup.is_file():
+                saved = json.loads(saved_backup.read_text(encoding="utf-8"))
+                assert saved["course"]["course_id"] == cid
+                resume_modules = {
+                    row["module_number"]
+                    for row in saved["modules"]
+                    if any(not im.get("file_path") for im in row["metadata_json"].get("images", []))
+                }
             for image in [
                 *metadata.get("images", []),
                 *[im for row in rows for im in row["metadata_json"].get("images", [])],
             ]:
-                if image.get("file_path") or not image.get("image_id"):
+                if (image.get("file_path") and not resume_modules) or not image.get("image_id"):
                     continue
                 filename = f"builder_{cid}_{image['image_id']}.png"
                 path = (settings.image_dir / filename).resolve()
@@ -88,7 +106,7 @@ def repair_images(apply=False, render=False):
                 ]
                 for value in changed:
                     normalize(value)
-                if any(
+                if row["module_number"] in resume_modules or any(
                     value != row[key]
                     for value, key in zip(
                         changed, ("metadata_json", "slides_json", "planned_slides_json")
@@ -97,13 +115,14 @@ def repair_images(apply=False, render=False):
                     updates.append((row, changed))
             if apply:
                 backup.mkdir(parents=True, exist_ok=True, mode=0o700)
-                (backup / f"{cid}.json").write_text(
-                    json.dumps(
-                        {"course": dict(course), "modules": [dict(row) for row in rows]},
-                        default=str,
-                    ),
-                    encoding="utf-8",
-                )
+                if not saved_backup.exists():
+                    saved_backup.write_text(
+                        json.dumps(
+                            {"course": dict(course), "modules": [dict(row) for row in rows]},
+                            default=str,
+                        ),
+                        encoding="utf-8",
+                    )
                 db.execute(
                     "UPDATE courses SET metadata_json = ? WHERE course_id = ?",
                     (Jsonb(metadata), cid),
@@ -139,22 +158,50 @@ def repair_images(apply=False, render=False):
                     if module.get("video_path"):
                         video = resolve_public_asset_path(module["video_path"], settings)
                         for old in video.parent.glob(video.stem + ".*"):
-                            if old.is_file() and old.suffix != ".lock":
+                            if (
+                                old.is_file()
+                                and old.suffix != ".lock"
+                                and not (media / old.name).exists()
+                            ):
                                 shutil.copy2(old, media / old.name)
                         hls = video.with_name(video.stem + "_hls")
-                        if hls.is_dir():
+                        if hls.is_dir() and not (media / hls.name).exists():
                             shutil.copytree(hls, media / hls.name)
                     old_html = settings.slide_dir / cid / f"module_{number}.html"
-                    if old_html.is_file():
+                    if old_html.is_file() and not (media / old_html.name).exists():
                         shutil.copy2(old_html, media / old_html.name)
                     html = generate_html_slides_for_module(cid, number - 1, module)
                     frames = media / "verified-frames"
-                    frames.mkdir()
+                    frames.mkdir(exist_ok=True)
                     capture_slide_frames(
                         html, slide_count=len(module["slides"]), output_dir=str(frames)
                     )
                     print(json.dumps({"verified_image_frames": cid, "module": number}), flush=True)
-                    render_video_for_module(fresh, cid, number)
+                    import hashlib
+
+                    current_video = (
+                        resolve_public_asset_path(module["video_path"], settings)
+                        if module.get("video_path")
+                        else None
+                    )
+                    original_video = media / current_video.name if current_video else None
+                    already_rebuilt = False
+                    if (
+                        resume
+                        and current_video
+                        and current_video.is_file()
+                        and original_video.is_file()
+                    ):
+                        with (
+                            current_video.open("rb") as current,
+                            original_video.open("rb") as original,
+                        ):
+                            already_rebuilt = (
+                                hashlib.file_digest(current, "sha256").digest()
+                                != hashlib.file_digest(original, "sha256").digest()
+                            )
+                    if not already_rebuilt:
+                        render_video_for_module(fresh, cid, number)
                     # Verify an image frame in the encoded MP4, not only the HTML.
                     import subprocess
 
@@ -171,6 +218,7 @@ def repair_images(apply=False, render=False):
                         if slide.get("layout_type") == "image" or slide.get("is_image_slide"):
                             proof = frames / f"encoded-image-{index}.png"
                             video = resolve_public_asset_path(module["video_path"], settings)
+                            movie = proof.with_suffix(".mov")
                             subprocess.run(
                                 [
                                     imageio_ffmpeg.get_ffmpeg_exe(),
@@ -181,11 +229,26 @@ def repair_images(apply=False, render=False):
                                     str(video),
                                     "-frames:v",
                                     "1",
-                                    str(proof),
+                                    "-an",
+                                    "-c:v",
+                                    "png",
+                                    "-f",
+                                    "mov",
+                                    str(movie),
                                 ],
                                 check=True,
                                 capture_output=True,
                             )
+                            # The maintained FFmpeg build supports MOV but intentionally
+                            # omits the image2 muxer. MOV stores this lossless PNG packet.
+                            from io import BytesIO
+
+                            packet = movie.read_bytes()
+                            signature = packet.find(b"\x89PNG\r\n\x1a\n")
+                            if signature < 0:
+                                raise RuntimeError("PNG frame packet was not found in MOV")
+                            with Image.open(BytesIO(packet[signature:])) as decoded:
+                                decoded.save(proof)
                             with (
                                 Image.open(frames / f"slide_{index}.png") as expected,
                                 Image.open(proof) as actual,
@@ -223,5 +286,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--render", action="store_true")
+    parser.add_argument(
+        "--resume", help="Resume an interrupted repair using its maintenance backup directory"
+    )
     args = parser.parse_args()
-    repair_images(args.apply, args.render)
+    repair_images(args.apply, args.render, args.resume)
