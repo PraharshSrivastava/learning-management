@@ -47,9 +47,9 @@ function makeCourse() {
         const keys = {'0':'A','1':'A','2':'B'};
         const count = Object.keys(keys).filter(k => keys[k] === answers[k]).length;
         const passed = count >= 2;
-        result = {quiz_passed:passed,quiz_score:count/3,correct_count:count,total_questions:3,pass_mark:2/3,correct_answers:keys,explanations:{'0':'Listen before responding.','1':'Confirm what was heard.','2':'Confirm the next step.'}};
+        result = {quiz_passed:passed,quiz_score:count/3,correct_count:count,total_questions:3,pass_mark:2/3,answer_results:Object.fromEntries(Object.keys(keys).map(k=>[k,keys[k]===answers[k]]))};
         course.module_progress[n] = {video_watched:passed,quiz_passed:passed,quiz_score:count/3,selected_answers:passed?answers:null};
-        if (passed) course.modules[n-1].quiz.forEach((q,i) => {q.correct=keys[i];q.explanation=result.explanations[i];});
+        if (passed) course.modules[n-1].quiz.forEach((q,i) => {q.answer_correct=result.answer_results[i];});
       } else if (url.pathname.includes('/lms/me')) result = {performance_views:[]};
       else if (url.pathname.includes('/employees')) result = [];
       await route.fulfill({contentType:'application/json',body:JSON.stringify(result)});
@@ -67,7 +67,10 @@ function makeCourse() {
     await page.getByRole('button',{name:'Submit Quiz',exact:true}).click();
     await page.waitForTimeout(1000);
     await page.getByText('2 of 3 correct (66.67%)',{exact:true}).waitFor();
+    await page.screenshot({path:path.join(__dirname,'../build/quiz-review-66.png')});
     assert.match(await page.locator('body').innerText(), /Incorrect/);
+    assert.equal(await page.getByText(/Correct answer:/).count(),0);
+    assert.equal(await page.getByRole('dialog').count(),0,'Results stay on the quiz page');
     assert.equal(submissions.length,1);
     employeeSocket?.send(JSON.stringify([course]));
     await page.waitForTimeout(1000);
@@ -116,6 +119,8 @@ function makeCourse() {
     await page.getByRole('radio').nth(1).click(); await page.getByRole('radio').nth(5).click(); await page.getByRole('radio').nth(10).click();
     await page.getByRole('button',{name:'Submit Quiz',exact:true}).click();
     await page.getByText('0 of 3 correct (0.00%)',{exact:true}).waitFor();
+    assert.equal(await page.getByText(/Correct answer:/).count(),0);
+    assert.equal((await page.locator('body').innerText()).match(/Incorrect/g)?.length,3);
     await page.getByRole('button',{name:'Rewatch lesson',exact:true}).click();
     assert.equal(await page.getByRole('button',{name:'Submit Quiz',exact:true}).count(),0);
     console.log('PASS: failed quiz displays results and requires rewatch');

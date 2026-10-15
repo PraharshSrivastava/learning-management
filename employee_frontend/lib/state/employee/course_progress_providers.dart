@@ -18,8 +18,7 @@ class QuizSubmissionResult {
   final int correctCount;
   final int totalQuestions;
   final double passMark;
-  final Map<int, String> correctAnswers;
-  final Map<int, String> explanations;
+  final Map<int, bool> answerResults;
 
   const QuizSubmissionResult({
     required this.passed,
@@ -27,17 +26,16 @@ class QuizSubmissionResult {
     required this.correctCount,
     required this.totalQuestions,
     required this.passMark,
-    required this.correctAnswers,
-    required this.explanations,
+    required this.answerResults,
   });
 
   factory QuizSubmissionResult.fromJson(Map<String, dynamic> json) {
-    Map<int, String> parseIndexedMap(dynamic value) {
-      final result = <int, String>{};
+    Map<int, bool> parseIndexedMap(dynamic value) {
+      final result = <int, bool>{};
       if (value is Map) {
         value.forEach((key, item) {
           final index = int.tryParse(key.toString());
-          if (index != null) result[index] = item?.toString() ?? '';
+          if (index != null && item is bool) result[index] = item;
         });
       }
       return result;
@@ -49,8 +47,7 @@ class QuizSubmissionResult {
       correctCount: (json['correct_count'] as num).toInt(),
       totalQuestions: (json['total_questions'] as num).toInt(),
       passMark: (json['pass_mark'] as num).toDouble(),
-      correctAnswers: parseIndexedMap(json['correct_answers']),
-      explanations: parseIndexedMap(json['explanations']),
+      answerResults: parseIndexedMap(json['answer_results']),
     );
   }
 }

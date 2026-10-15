@@ -11,6 +11,7 @@ import 'package:employee_frontend/data/models/models.dart';
 import 'package:employee_frontend/state/employee_providers.dart';
 import 'package:employee_frontend/core/config/app_constants.dart';
 import 'course_resume.dart';
+import 'quiz_answer_card.dart';
 
 class CoursePlaybackView extends ConsumerStatefulWidget {
   final Course course;
@@ -28,8 +29,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   final Set<int> _locallyWatchedModules = <int>{};
   final Set<int> _locallyPassedModules = <int>{};
   final Map<int, double> _localQuizScores = {};
-  final Map<int, String> _gradedCorrectAnswers = {};
-  final Map<int, String> _gradedExplanations = {};
+  final Map<int, bool> _answerResults = {};
+  QuizSubmissionResult? _lastQuizResult;
   final GlobalKey _quizSectionKey = GlobalKey();
   final GlobalKey _videoSectionKey = GlobalKey();
   bool _isQuizSubmitted = false;
@@ -158,8 +159,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   void _loadProgressForCurrentModule({Course? course}) {
     final currentCourse = course ?? widget.course;
     _selectedAnswers.clear();
-    _gradedCorrectAnswers.clear();
-    _gradedExplanations.clear();
+    _answerResults.clear();
+    _lastQuizResult = null;
     _isQuizSubmitted = false;
 
     if (currentCourse.publishedModules.isEmpty) return;
@@ -619,7 +620,7 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
   Widget _buildQuizSection(PublishedCourseModule module) {
     final isQuizUnlocked = _isQuizUnlocked(_activeModuleIndex);
 
-    if (!isQuizUnlocked) {
+    if (!isQuizUnlocked && !_isQuizSubmitted) {
       return Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -717,34 +718,8 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
             ),
           ],
         ),
-        if (isAlreadyPassed)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.accentGreen.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.accentGreen),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: AppTheme.accentGreen),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      quizScore == null
-                          ? 'Quiz passed. Saved score unavailable. You can review your saved answers below.'
-                          : 'Quiz passed — ${(quizScore * 100).toStringAsFixed(2)}%. Your saved answers are shown below.',
-                      style: GoogleFonts.inter(
-                          color: AppTheme.accentGreen,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        if (_isQuizSubmitted || isAlreadyPassed)
+          _buildQuizSummary(module, isAlreadyPassed, quizScore),
         const SizedBox(height: 20),
         ListView.builder(
           shrinkWrap: true,
@@ -752,7 +727,22 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
           itemCount: questionsList.length + 1,
           itemBuilder: (context, index) {
             if (index == questionsList.length) {
-              if (isAlreadyPassed) return const SizedBox.shrink();
+              if (_isQuizSubmitted || isAlreadyPassed) {
+                final passed = _lastQuizResult?.passed ?? isAlreadyPassed;
+                final finalModule = _activeModuleIndex ==
+                    widget.course.publishedModules.length - 1;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: FilledButton(
+                    onPressed: () => _finishQuizReview(module, passed),
+                    child: Text(!passed
+                        ? 'Rewatch lesson'
+                        : finalModule
+                            ? 'Finish course'
+                            : 'Continue to next module'),
+                  ),
+                );
+              }
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: ElevatedButton(
@@ -792,160 +782,87 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
 
   Widget _buildQuestionCard(
       int questionIndex, PublishedQuizQuestion question, bool isAlreadyPassed) {
-    final selectedAnswer = _selectedAnswers[questionIndex];
-    final isSubmitted = _isQuizSubmitted || isAlreadyPassed;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.lightGray, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'QUESTION ${questionIndex + 1}',
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.gray,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            question.question,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textBlack,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Column(
-            children: question.options.asMap().entries.map((entry) {
-              final optIndex = entry.key;
-              final optionText = entry.value;
-              final optKey = String.fromCharCode(65 + optIndex); // A, B, C, D
-              final isOptSelected = selectedAnswer == optKey;
-
-              final correctAnswer = question.correct.isNotEmpty
-                  ? question.correct
-                  : _gradedCorrectAnswers[questionIndex] ?? '';
-              final isCorrectOpt = correctAnswer == optKey;
-
-              Color cardBorderColor = AppTheme.lightGray;
-              Color cardBgColor = Colors.white;
-              Widget? suffixIcon;
-
-              if (isSubmitted) {
-                if (isCorrectOpt) {
-                  cardBorderColor = AppTheme.accentGreen;
-                  cardBgColor = AppTheme.accentGreen.withOpacity(0.08);
-                  suffixIcon = const Icon(Icons.check_circle_rounded,
-                      color: AppTheme.accentGreen, size: 18);
-                } else if (isOptSelected) {
-                  cardBorderColor = AppTheme.accentRed;
-                  cardBgColor = AppTheme.accentRed.withOpacity(0.08);
-                  suffixIcon = const Icon(Icons.cancel_rounded,
-                      color: AppTheme.accentRed, size: 18);
-                } else {
-                  cardBgColor = Colors.grey.shade50;
-                }
-              } else if (isOptSelected) {
-                cardBorderColor = AppTheme.primaryBlue;
-                cardBgColor = AppTheme.primaryBlue.withOpacity(0.05);
-              }
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: cardBgColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: cardBorderColor,
-                      width: isOptSelected || (isSubmitted && isCorrectOpt)
-                          ? 2
-                          : 1),
-                ),
-                child: RadioListTile<String>(
-                  groupValue: selectedAnswer,
-                  onChanged: isSubmitted || _isSubmitting
-                      ? null
-                      : (val) {
-                          if (val != null) {
-                            setState(
-                              () => _selectedAnswers[questionIndex] = val,
-                            );
-                          }
-                        },
-                  title: Text(
-                    optionText,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: isSubmitted && isCorrectOpt
-                          ? AppTheme.accentGreen
-                          : AppTheme.textBlack,
-                      fontWeight: isOptSelected || (isSubmitted && isCorrectOpt)
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  value: optKey,
-                  activeColor: isSubmitted && isCorrectOpt
-                      ? AppTheme.accentGreen
-                      : AppTheme.primaryBlue,
-                  secondary: suffixIcon,
-                ),
-              );
-            }).toList(),
-          ),
-          if (isSubmitted)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('Your answer: ${selectedAnswer ?? "Unavailable"} · '
-                  'Correct answer: ${question.correct.isNotEmpty ? question.correct : _gradedCorrectAnswers[questionIndex] ?? "Unavailable"}'),
-            ),
-          if (isSubmitted &&
-              (question.explanation.isNotEmpty ||
-                  (_gradedExplanations[questionIndex]?.isNotEmpty ?? false)))
-            Padding(
-              padding: const EdgeInsets.only(top: 12.0),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.lightGray.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.lightbulb_outline,
-                        size: 18, color: AppTheme.accentOrange),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        question.explanation.isNotEmpty
-                            ? question.explanation
-                            : _gradedExplanations[questionIndex]!,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                          color: AppTheme.textBlack.withOpacity(0.8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
+    return QuizAnswerCard(
+      questionIndex: questionIndex,
+      question: question,
+      selectedAnswer: _selectedAnswers[questionIndex],
+      submitted: _isQuizSubmitted || isAlreadyPassed,
+      answerCorrect: _answerResults[questionIndex] ?? question.answerCorrect,
+      onChanged: _isSubmitting
+          ? null
+          : (value) {
+              setState(() => _selectedAnswers[questionIndex] = value);
+            },
     );
+  }
+
+  Widget _buildQuizSummary(
+      PublishedCourseModule module, bool alreadyPassed, double? savedScore) {
+    final result = _lastQuizResult;
+    final passed = result?.passed ?? alreadyPassed;
+    final color = passed ? AppTheme.accentGreen : AppTheme.accentRed;
+    final score = result?.score ?? savedScore;
+    final scoreText = score == null
+        ? 'Saved score unavailable'
+        : '${(score * 100).toStringAsFixed(2)}%';
+    final detail = result == null
+        ? scoreText
+        : '${result.correctCount} of ${result.totalQuestions} correct ($scoreText)';
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: .08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(passed ? 'Quiz passed' : 'Quiz not passed',
+            style: TextStyle(
+                color: color, fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(detail,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+        const SizedBox(height: 8),
+        Text(
+            'Pass requirement: ${((result?.passMark ?? module.passMark) * 100).toStringAsFixed(2)}%.'),
+        Text(passed
+            ? 'Review your selections, then continue when you are ready.'
+            : 'Rewatch the lesson before trying again.'),
+      ]),
+    );
+  }
+
+  void _finishQuizReview(PublishedCourseModule module, bool passed) {
+    if (_isSubmitting) return;
+    if (!passed) {
+      setState(() {
+        _isQuizSubmitted = false;
+        _lastQuizResult = null;
+        _selectedAnswers.clear();
+        _answerResults.clear();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final target = _videoSectionKey.currentContext;
+        if (target != null) {
+          Scrollable.ensureVisible(target,
+              duration: const Duration(milliseconds: 300));
+        }
+      });
+      return;
+    }
+    final index = widget.course.publishedModules
+        .indexWhere((item) => item.moduleNumber == module.moduleNumber);
+    if (index < 0) return;
+    if (index == widget.course.publishedModules.length - 1) {
+      if (widget.onBack != null) {
+        widget.onBack!();
+      } else {
+        setState(() => _showCompletedCourse = true);
+      }
+    } else {
+      _onModuleChanged(index + 1);
+    }
   }
 
   Future<void> _submitQuiz(PublishedCourseModule module) async {
@@ -991,127 +908,21 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
       return;
     }
 
-    final passed = result.passed;
-    final score = result.score;
     setState(() {
       _isQuizSubmitted = true;
-      _gradedCorrectAnswers
+      _lastQuizResult = result;
+      _answerResults
         ..clear()
-        ..addAll(result.correctAnswers);
-      _gradedExplanations
-        ..clear()
-        ..addAll(result.explanations);
-    });
-
-    final isFinalModule =
-        _activeModuleIndex == widget.course.publishedModules.length - 1;
-
-    if (passed) {
-      setState(() {
+        ..addAll(result.answerResults);
+      if (result.passed) {
         _locallyPassedModules.add(module.moduleNumber);
         _locallyWatchedModules.add(module.moduleNumber);
-        _localQuizScores[module.moduleNumber] = score;
-      });
-    } else {
-      setState(() {
+        _localQuizScores[module.moduleNumber] = result.score;
+      } else {
         _locallyWatchedModules.remove(module.moduleNumber);
-      });
-    }
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text(
-            passed
-                ? (isFinalModule ? 'Course Completed!' : 'Quiz Passed!')
-                : 'Quiz Failed',
-            style: TextStyle(
-                color: passed ? AppTheme.accentGreen : AppTheme.accentRed)),
-        content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-                child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                    '${result.correctCount} of ${result.totalQuestions} correct (${(score * 100).toStringAsFixed(2)}%)',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 18)),
-                const SizedBox(height: 8),
-                Text(
-                    'Pass requirement: ${(result.passMark * 100).toStringAsFixed(2)}%.'),
-                if (!passed)
-                  const Text('Rewatch the lesson before trying again.'),
-                for (final entry in module.quiz.asMap().entries) ...[
-                  const Divider(height: 28),
-                  Text('Question ${entry.key + 1}: ${entry.value.question}',
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(answers[entry.key] == result.correctAnswers[entry.key]
-                      ? 'Correct ✓'
-                      : 'Incorrect ✗'),
-                  Text(
-                      'Your answer: ${_answerLabel(entry.value, answers[entry.key])}'),
-                  Text(
-                      'Correct answer: ${_answerLabel(entry.value, result.correctAnswers[entry.key])}'),
-                  if (result.explanations[entry.key]?.isNotEmpty == true)
-                    Text(result.explanations[entry.key]!),
-                ],
-              ],
-            ))),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // close dialog
-              if (!mounted ||
-                  widget.course.courseId != courseId ||
-                  entryGeneration != _entryGeneration) {
-                return;
-              }
-              if (!passed) {
-                // If failed, they have to rewatch the video
-                setState(() {
-                  _isQuizSubmitted = false;
-                  _selectedAnswers.clear();
-                  _gradedCorrectAnswers.clear();
-                  _gradedExplanations.clear();
-                });
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
-                  final target = _videoSectionKey.currentContext;
-                  if (target != null) {
-                    Scrollable.ensureVisible(target,
-                        duration: const Duration(milliseconds: 300));
-                  }
-                });
-              } else if (isFinalModule) {
-                if (widget.onBack != null) {
-                  widget.onBack!();
-                } else {
-                  setState(() => _showCompletedCourse = true);
-                }
-              } else {
-                final submittedIndex = widget.course.publishedModules
-                    .indexWhere(
-                        (item) => item.moduleNumber == module.moduleNumber);
-                if (submittedIndex >= 0) _onModuleChanged(submittedIndex + 1);
-              }
-            },
-            child: Text(passed && isFinalModule
-                ? 'Finish course'
-                : (passed ? 'Continue to next module' : 'Rewatch lesson')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _answerLabel(PublishedQuizQuestion question, String? key) {
-    if (key == null || key.isEmpty) return 'Unavailable';
-    final index = key.codeUnitAt(0) - 65;
-    if (index < 0 || index >= question.options.length) return 'Unavailable';
-    return '$key — ${question.options[index]}';
+      }
+    });
+    _scrollToQuiz();
   }
 
   void _handleVideoCompleted(int moduleNumber) {

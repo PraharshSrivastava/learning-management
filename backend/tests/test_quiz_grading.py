@@ -95,15 +95,33 @@ def test_rejects_incomplete_or_invalid_answers() -> None:
         _grade_quiz(_module(3), {"0": "A", "1": "A", "2": "Z"})
 
 
-def test_learner_payload_hides_answers_until_quiz_is_passed() -> None:
+def test_learner_payload_never_exposes_answer_key_or_explanations() -> None:
     hidden = _learner_modules([_module(3)], {"1": {"quiz_passed": False}})
-    revealed = _learner_modules([_module(3)], {"1": {"quiz_passed": True}})
+    revealed = _learner_modules([_module(3)], {"1": {
+        "quiz_passed": True, "selected_answers": {"0": "A", "1": "B", "2": "A"}
+    }})
 
     assert hidden[0]["pass_mark"] == pytest.approx(QUIZ_PASS_MARK)
     assert "correct" not in hidden[0]["quiz"][0]
     assert "explanation" not in hidden[0]["quiz"][0]
-    assert revealed[0]["quiz"][0]["correct"] == "A"
-    assert revealed[0]["quiz"][0]["explanation"] == "A is correct."
+    for question in revealed[0]["quiz"]:
+        assert "correct" not in question
+        assert "correct_option" not in question
+        assert "explanation" not in question
+    assert [q["answer_correct"] for q in revealed[0]["quiz"]] == [True, False, True]
+    assert "answer_correct" not in hidden[0]["quiz"][0]
+
+
+def test_grading_feedback_contains_only_selected_answer_results() -> None:
+    result = _grade_quiz(_module(3), {"0": "A", "1": "B", "2": "B"})
+    assert result["answer_results"] == {"0": True, "1": False, "2": False}
+    assert "correct_answers" not in result
+    assert "explanations" not in result
+
+
+def test_passed_quiz_without_saved_answers_does_not_invent_review_results() -> None:
+    module = _learner_modules([_module(3)], {"1": {"quiz_passed": True}})[0]
+    assert all("answer_correct" not in question for question in module["quiz"])
 
 
 def test_client_cannot_submit_its_own_quiz_result() -> None:
@@ -159,7 +177,14 @@ def test_course_cannot_be_manually_completed_before_modules_pass(monkeypatch) ->
         )
 
 
-def test_module_progress_uses_backend_grading_and_persists_pass(monkeypatch) -> None:
+@pytest.mark.parametrize("answers,correct_count,passed", [
+    ({"0": "A", "1": "A", "2": "B"}, 2, True),
+    ({"0": "A", "1": "A", "2": "A"}, 3, True),
+    ({"0": "A", "1": "B", "2": "B"}, 1, False),
+])
+def test_module_progress_uses_backend_grading_and_persists_pass(
+    monkeypatch, answers, correct_count, passed
+) -> None:
     course = {
         "course_id": "course-1",
         "status": "published",
@@ -195,18 +220,22 @@ def test_module_progress_uses_backend_grading_and_persists_pass(monkeypatch) -> 
         learning.update_module_progress(
             "course-1",
             "1",
-            ModuleProgressUpdateRequest(selected_answers={"0": "A", "1": "A", "2": "B"}),
+            ModuleProgressUpdateRequest(selected_answers=answers),
         )
     )
 
     saved_module = course_progress["modules"]["1"]
-    assert response["quiz_passed"] is True
-    assert response["correct_count"] == 2
-    assert saved_module["quiz_passed"] is True
-    assert saved_module["quiz_score"] == pytest.approx(2 / 3)
-    assert saved_module["selected_answers"] == {"0": "A", "1": "A", "2": "B"}
+    assert response["quiz_passed"] is passed
+    assert response["correct_count"] == correct_count
+    assert response["answer_results"] == {key: value == "A" for key, value in answers.items()}
+    assert "correct_answers" not in response
+    assert "explanations" not in response
+    assert saved_module["quiz_passed"] is passed
+    assert saved_module["video_watched"] is passed
+    assert saved_module["quiz_score"] == pytest.approx(correct_count / 3)
+    assert saved_module["selected_answers"] == (answers if passed else None)
     assert course_progress["attempts"]["1"]["count"] == 1
-    assert course_progress["status"] == "completed"
+    assert course_progress["status"] == ("completed" if passed else "started")
     assert progress_repository.saved is course_progress
 
 

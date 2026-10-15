@@ -66,17 +66,6 @@ def _question_text(question: dict) -> str:
     return str(question.get("question_text") or question.get("question") or "")
 
 
-def _quiz_feedback(questions: list[dict]) -> tuple[dict[str, str], dict[str, str]]:
-    correct_answers = {
-        str(index): _question_correct_answer(question) for index, question in enumerate(questions)
-    }
-    explanations = {
-        str(index): str(question.get("explanation") or "")
-        for index, question in enumerate(questions)
-    }
-    return correct_answers, explanations
-
-
 def _grade_quiz(module: dict, selected_answers: dict[str, str]) -> dict:
     questions = _quiz_questions(module)
     if not questions:
@@ -88,6 +77,7 @@ def _grade_quiz(module: dict, selected_answers: dict[str, str]) -> dict:
         raise DomainValidationError("Every quiz question must be answered exactly once")
 
     normalized_answers: dict[str, str] = {}
+    answer_results: dict[str, bool] = {}
     correct_count = 0
     for index, question in enumerate(questions):
         key = str(index)
@@ -99,12 +89,12 @@ def _grade_quiz(module: dict, selected_answers: dict[str, str]) -> dict:
         if answer not in option_keys:
             raise DomainValidationError(f"Question {index + 1} has an invalid selected answer")
         normalized_answers[key] = answer
+        answer_results[key] = answer == correct_answer
         if answer == correct_answer:
             correct_count += 1
 
     total_questions = len(questions)
     passed = correct_count * QUIZ_PASS_DENOMINATOR >= total_questions * QUIZ_PASS_NUMERATOR
-    correct_answers, explanations = _quiz_feedback(questions)
     return {
         "quiz_passed": passed,
         "quiz_score": correct_count / total_questions,
@@ -112,8 +102,7 @@ def _grade_quiz(module: dict, selected_answers: dict[str, str]) -> dict:
         "total_questions": total_questions,
         "pass_mark": QUIZ_PASS_MARK,
         "selected_answers": normalized_answers,
-        "correct_answers": correct_answers,
-        "explanations": explanations,
+        "answer_results": answer_results,
     }
 
 
@@ -130,7 +119,8 @@ def _learner_modules(
             questions = []
             module_id = str(module.get("module_id") or module.get("module_number") or "module")
             module_key = str(module.get("module_number") or "")
-            reveal_answers = bool((module_progress or {}).get(module_key, {}).get("quiz_passed"))
+            saved_progress = (module_progress or {}).get(module_key, {})
+            saved_answers = saved_progress.get("selected_answers") or {}
             for index, question in enumerate(questions_source, start=1):
                 _, option_texts = _question_options(question)
                 learner_question = {
@@ -138,12 +128,10 @@ def _learner_modules(
                     "question": _question_text(question),
                     "options": option_texts,
                 }
-                if reveal_answers:
-                    learner_question.update(
-                        {
-                            "correct": _question_correct_answer(question),
-                            "explanation": question.get("explanation", ""),
-                        }
+                saved_answer = saved_answers.get(str(index - 1))
+                if saved_progress.get("quiz_passed") and saved_answer is not None:
+                    learner_question["answer_correct"] = (
+                        str(saved_answer).strip().upper() == _question_correct_answer(question)
                     )
                 questions.append(learner_question)
             learner_module["quiz"] = questions
@@ -385,8 +373,7 @@ async def update_module_progress(
                     "correct_count",
                     "total_questions",
                     "pass_mark",
-                    "correct_answers",
-                    "explanations",
+                    "answer_results",
                 )
             }
         )

@@ -283,6 +283,7 @@ class PublishedQuizQuestion {
   final List<String> options;
   final String correct;
   final String explanation;
+  final bool? answerCorrect;
 
   PublishedQuizQuestion({
     required this.questionId,
@@ -290,6 +291,7 @@ class PublishedQuizQuestion {
     required this.options,
     required this.correct,
     required this.explanation,
+    this.answerCorrect,
   });
 
   factory PublishedQuizQuestion.fromJson(Map<String, dynamic> json) {
@@ -300,6 +302,7 @@ class PublishedQuizQuestion {
           (json['options'] as List? ?? []).map((e) => e.toString()).toList(),
       correct: json['correct']?.toString() ?? '',
       explanation: json['explanation']?.toString() ?? '',
+      answerCorrect: json['answer_correct'] is bool ? json['answer_correct'] as bool : null,
     );
   }
 }

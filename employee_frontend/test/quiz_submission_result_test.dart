@@ -10,7 +10,7 @@ void main() {
       'correct_count': 3,
       'total_questions': 3,
       'pass_mark': 2 / 3,
-      'correct_answers': {'0': 'A', '1': 'B', '2': 'C'},
+      'answer_results': {'0': true, '1': true, '2': true},
     });
     expect(result.score, 1.0);
     expect(result.correctCount, 3);
@@ -33,14 +33,12 @@ void main() {
       'correct_count': 2,
       'total_questions': 3,
       'pass_mark': 2 / 3,
-      'correct_answers': {'0': 'A', '1': 'B', '2': 'C'},
-      'explanations': {'0': 'First explanation'},
+      'answer_results': {'0': true, '1': true, '2': false},
     });
 
     expect(result.passed, isTrue);
     expect(result.correctCount, 2);
     expect(result.totalQuestions, 3);
-    expect(result.correctAnswers, {0: 'A', 1: 'B', 2: 'C'});
-    expect(result.explanations, {0: 'First explanation'});
+    expect(result.answerResults, {0: true, 1: true, 2: false});
   });
 }
