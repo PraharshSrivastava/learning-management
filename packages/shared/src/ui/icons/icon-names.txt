@@ -143,3 +143,5 @@ volume_off_rounded
 volume_up_rounded
 warning_amber_rounded
 wifi_off_outlined
+arrow_drop_down
+drag_handle

@@ -1,4 +1,22 @@
-/** Placeholder until the feature port lands. */
+import { CourseLibraryAccess } from '../courses/CourseLibraryAccess'
+import { CoursesSidebar } from '../courses/CoursesSidebar'
+import { EmptyCourseView } from '../courses/EmptyCourseView'
+import { useSelectedCourse } from '../courses/courseQueries'
+import { TrainingView } from './TrainingView'
+
+/** Courses tab: own course list and the training view of the selected course. */
 export function CoursesTab() {
-  return <div className="p-6 text-text-secondary">CoursesTab</div>
+  const { course } = useSelectedCourse()
+  return (
+    <CourseLibraryAccess>
+      <div className="flex h-full">
+        <div className="w-[380px] shrink-0 p-5">
+          <CoursesSidebar selectedId={course?.courseId ?? null} />
+        </div>
+        <div className="min-w-0 flex-1 pt-5 pr-6 pb-6 pl-6">
+          {course ? <TrainingView course={course} /> : <EmptyCourseView />}
+        </div>
+      </div>
+    </CourseLibraryAccess>
+  )
 }
