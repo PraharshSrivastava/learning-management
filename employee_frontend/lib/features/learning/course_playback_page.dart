@@ -701,21 +701,23 @@ class _CoursePlaybackViewState extends ConsumerState<CoursePlaybackView> {
                 color: AppTheme.primaryBlue,
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.accentGreen.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${_selectedAnswers.length}/${questionsList.length} answered',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.accentGreen,
+            if (!_isQuizSubmitted && !isAlreadyPassed)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceSecondary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Answered ${_selectedAnswers.length} of ${questionsList.length}',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
         if (_isQuizSubmitted || isAlreadyPassed)

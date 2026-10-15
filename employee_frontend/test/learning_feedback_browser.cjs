@@ -64,9 +64,11 @@ function makeCourse() {
     assert.ok((await page.locator('body').innerText()).includes('Lesson 3'));
     const radios = page.getByRole('radio');
     await radios.nth(0).click(); await radios.nth(4).click(); await radios.nth(8).click();
+    await page.getByText('Answered 3 of 3',{exact:true}).waitFor({state:'attached'});
     await page.getByRole('button',{name:'Submit Quiz',exact:true}).click();
     await page.waitForTimeout(1000);
     await page.getByText('2 of 3 correct (66.67%)',{exact:true}).waitFor();
+    assert.equal(await page.getByText(/Answered \d+ of \d+/).count(),0);
     await page.screenshot({path:path.join(__dirname,'../build/quiz-review-66.png')});
     assert.match(await page.locator('body').innerText(), /Incorrect/);
     assert.equal(await page.getByText(/Correct answer:/).count(),0);
@@ -83,6 +85,7 @@ function makeCourse() {
     await page.getByRole('radio').nth(8).waitFor();
     assert.equal(await page.getByRole('radio').nth(8).getAttribute('aria-checked'),'true');
     assert.equal(await page.getByRole('radio').nth(9).getAttribute('aria-checked'),'false');
+    assert.equal(await page.getByText(/Answered \d+ of \d+/).count(),0);
     employeeSocket?.send(JSON.stringify([course]));
     await page.waitForTimeout(500);
     assert.equal(await page.getByRole('radio').nth(8).getAttribute('aria-checked'),'true');
