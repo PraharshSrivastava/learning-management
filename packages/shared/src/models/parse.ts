@@ -4,6 +4,17 @@ import { z } from 'zod'
 
 export type JsonRecord = Record<string, unknown>
 
+// z.unknown().transform skips missing keys in zod 4. z.preprocess runs on them, so absent
+// keys get the same fallback as null ones.
+export const lenient = <T>(fn: (value: unknown) => T) =>
+  z.preprocess(
+    fn,
+    z.custom<T>(() => true),
+  )
+
+// Raw passthrough that tolerates a missing key.
+export const raw = () => lenient((v) => v)
+
 export function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -16,60 +27,53 @@ export function dartString(value: unknown): string {
 }
 
 // x?.toString() ?? fallback
-export const str = (fallback = '') =>
-  z.unknown().transform((v) => (v == null ? fallback : dartString(v)))
+export const str = (fallback = '') => lenient((v) => (v == null ? fallback : dartString(v)))
 
 // x?.toString() (String?)
-export const optStr = () => z.unknown().transform((v) => (v == null ? null : dartString(v)))
+export const optStr = () => lenient((v) => (v == null ? null : dartString(v)))
 
 // x as String? ?? fallback (non-strings fall back instead of throwing)
-export const onlyStr = (fallback = '') =>
-  z.unknown().transform((v) => (typeof v === 'string' ? v : fallback))
+export const onlyStr = (fallback = '') => lenient((v) => (typeof v === 'string' ? v : fallback))
 
 // x as String? (non-strings become null)
-export const optOnlyStr = () => z.unknown().transform((v) => (typeof v === 'string' ? v : null))
+export const optOnlyStr = () => lenient((v) => (typeof v === 'string' ? v : null))
 
 // (x as num?)?.toInt() ?? fallback
 export const int = (fallback = 0) =>
-  z
-    .unknown()
-    .transform((v) => (typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : fallback))
+  lenient((v) => (typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : fallback))
 
 // (x as num?)?.toInt()
 export const optInt = () =>
-  z.unknown().transform((v) => (typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : null))
+  lenient((v) => (typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : null))
 
 // (x as num?)?.toDouble() ?? fallback
 export const num = (fallback = 0) =>
-  z.unknown().transform((v) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback))
+  lenient((v) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback))
 
 // (x as num?)?.toDouble()
-export const optNum = () =>
-  z.unknown().transform((v) => (typeof v === 'number' && Number.isFinite(v) ? v : null))
+export const optNum = () => lenient((v) => (typeof v === 'number' && Number.isFinite(v) ? v : null))
 
 // x == true
-export const bool = () => z.unknown().transform((v) => v === true)
+export const bool = () => lenient((v) => v === true)
 
 // x != false
-export const boolNotFalse = () => z.unknown().transform((v) => v !== false)
+export const boolNotFalse = () => lenient((v) => v !== false)
 
 // x as bool?
-export const optBool = () => z.unknown().transform((v) => (typeof v === 'boolean' ? v : null))
+export const optBool = () => lenient((v) => (typeof v === 'boolean' ? v : null))
 
 // (x as List? ?? []).map((e) => e.toString()).toList()
 export const strList = () =>
-  z.unknown().transform((v) => (Array.isArray(v) ? v.map((item) => dartString(item)) : []))
+  lenient((v) => (Array.isArray(v) ? v.map((item) => dartString(item)) : []))
 
 // x as List? ?? []
-export const unknownList = () =>
-  z.unknown().transform((v): unknown[] => (Array.isArray(v) ? v : []))
+export const unknownList = () => lenient((v): unknown[] => (Array.isArray(v) ? v : []))
 
 // x as Map<String, dynamic>? (non-maps become null)
-export const optRecord = () =>
-  z.unknown().transform((v): JsonRecord | null => (isRecord(v) ? v : null))
+export const optRecord = () => lenient((v): JsonRecord | null => (isRecord(v) ? v : null))
 
 // x as Map<String, dynamic>? ?? {}
-export const record = () => z.unknown().transform((v): JsonRecord => (isRecord(v) ? v : {}))
+export const record = () => lenient((v): JsonRecord => (isRecord(v) ? v : {}))
 
 // (x as List? ?? []).map(Item.fromJson). Bad items throw, as the Dart hard cast does.
 export const list = <T extends z.ZodType>(item: T) =>
@@ -81,7 +85,7 @@ export const nested = <T extends z.ZodType>(schema: T) =>
 
 // Report helper _int: num -> toInt, else int.tryParse('$v') ?? 0
 export const looseInt = () =>
-  z.unknown().transform((v) => {
+  lenient((v) => {
     if (typeof v === 'number') return Number.isFinite(v) ? Math.trunc(v) : 0
     const text = dartString(v)
     return /^[+-]?\d+$/.test(text) ? Number.parseInt(text, 10) : 0

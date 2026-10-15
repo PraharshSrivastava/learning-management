@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import {
   bool,
+  raw,
   dartString,
   int,
   isRecord,
@@ -96,8 +97,8 @@ export const courseSchema = z
     thumbnail_path: str(),
     status: str(),
     created_at: str(),
-    generation: z.unknown(),
-    module_count: z.unknown(),
+    generation: raw(),
+    module_count: raw(),
     is_assignable: bool(),
   })
   .transform((j) => {

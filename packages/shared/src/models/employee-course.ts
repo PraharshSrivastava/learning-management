@@ -16,6 +16,7 @@ import {
   optNum,
   optOnlyStr,
   parseDartDate,
+  raw,
   reparse,
   str,
   unknownList,
@@ -51,7 +52,7 @@ export const employeeModuleProgressSchema = z
     video_watched: bool(),
     quiz_passed: bool(),
     quiz_score: optNum(),
-    selected_answers: z.unknown(),
+    selected_answers: raw(),
     attempt_count: int(),
   })
   .transform((j) => ({
@@ -90,8 +91,8 @@ export const employeeCourseSchema = z
     started_at: optOnlyStr(),
     completed_at: optOnlyStr(),
     modules: list(publishedCourseModuleSchema),
-    module_progress: z.unknown(),
-    quiz_attempts: z.unknown(),
+    module_progress: raw(),
+    quiz_attempts: raw(),
   })
   .transform((j, ctx) => {
     const progress = isRecord(j.module_progress) ? j.module_progress : {}

@@ -3,7 +3,19 @@
 // the backend contract with the same fallbacks (_int, _number, num? checks).
 // The unused Dart Performance* classes in frontend models.dart are not ported.
 import { z } from 'zod'
-import { bool, int, isRecord, list, looseInt, optBool, optNum, optStr, str, strList } from './parse'
+import {
+  bool,
+  int,
+  isRecord,
+  lenient,
+  list,
+  looseInt,
+  optBool,
+  optNum,
+  optStr,
+  str,
+  strList,
+} from './parse'
 
 export const reportCourseOptionSchema = z
   .object({ course_id: str(), course_name: str() })
@@ -53,7 +65,7 @@ export const assignmentReportRowSchema = z
     scored_modules: looseInt(),
     course_status: str('active'),
     // Dart: row['access_available'] == false hides access, so only an explicit false counts.
-    access_available: z.unknown().transform((v) => v !== false),
+    access_available: lenient((v) => v !== false),
     access_reason: optStr(),
     on_time: bool(),
   })
@@ -349,7 +361,7 @@ export const employeeReportRowSchema = z
 export type EmployeeReportRow = z.output<typeof employeeReportRowSchema>
 
 // summary is dict[str, int]; non-numbers count as 0 (_number in Dart).
-const countMap = z.unknown().transform((v) => {
+const countMap = lenient((v) => {
   const out: Record<string, number> = {}
   if (isRecord(v)) {
     for (const [key, value] of Object.entries(v)) {

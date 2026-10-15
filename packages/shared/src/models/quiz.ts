@@ -1,7 +1,7 @@
 // Quiz models (Dart: QuizQuestion/QuizOption in both apps, employee PublishedQuizQuestion,
 // employee_frontend course_progress_providers.dart QuizSubmissionResult).
 import { z } from 'zod'
-import { indexedMap, isRecord, list, str, strList } from './parse'
+import { indexedMap, isRecord, raw, list, str, strList } from './parse'
 
 export const quizOptionSchema = z
   .object({ key: str(), text: str() })
@@ -48,13 +48,13 @@ export const parsePublishedQuizQuestion = (json: unknown): PublishedQuizQuestion
 // Hard casts in Dart: score, counts and pass mark are required numbers.
 export const quizSubmissionResultSchema = z
   .object({
-    quiz_passed: z.unknown(),
+    quiz_passed: raw(),
     quiz_score: z.number(),
     correct_count: z.number(),
     total_questions: z.number(),
     pass_mark: z.number(),
-    correct_answers: z.unknown(),
-    explanations: z.unknown(),
+    correct_answers: raw(),
+    explanations: raw(),
   })
   .transform((j) => ({
     passed: j.quiz_passed === true,
