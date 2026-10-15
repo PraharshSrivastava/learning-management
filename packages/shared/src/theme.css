@@ -254,3 +254,12 @@
     animation-duration: 3s !important;
   }
 }
+
+@keyframes lms-indeterminate {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}

@@ -1,5 +1,7 @@
 import { HubGate } from '@lms/shared/auth/HubGate'
 import { SessionProvider, useSession } from '@lms/shared/auth/session'
+import { ToastProvider } from '@lms/shared/ui/Toast'
+import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { TrainerLoginPage } from './auth/TrainerLoginPage'
 import { parseTrainer, type Trainer } from './auth/trainer'
 import { OverlayProvider } from './shell/overlay'
@@ -17,9 +19,13 @@ export function App() {
         <SessionProvider<Trainer>
           initialPerson={session.person ? parseTrainer(session.person) : null}
         >
-          <OverlayProvider>
-            <TrainerAuthGate />
-          </OverlayProvider>
+          <TooltipProvider>
+            <ToastProvider>
+              <OverlayProvider>
+                <TrainerAuthGate />
+              </OverlayProvider>
+            </ToastProvider>
+          </TooltipProvider>
         </SessionProvider>
       )}
     </HubGate>
