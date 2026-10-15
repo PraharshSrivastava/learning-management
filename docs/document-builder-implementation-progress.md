@@ -137,3 +137,23 @@ document creation and draft Remove/Undo. Screenshots prefixed implemented-ai-ass
 are from the compiled application with synthetic fixtures. VM deployment uses the
 existing maintained backend image plus application code, isolated PostgreSQL scope
 acceptance, database/config backups, active-job checks and health verification.
+
+
+## 15 October 2026 — Builder image handoff correction
+
+Confirmed a metadata mismatch: builder exports stored path/url, while the Blueprint
+CourseImage model and HTML/video generation use file_path. PDF preview worked because
+it used the original owned disk asset. New exports now use the canonical assets/images
+file_path field. PNG is supported; changing image format does not address this defect.
+
+Added a regression check spanning an actual PNG and PDF export through the course
+handoff and image-slide HTML. Video capture now waits for image loading and rejects
+broken images before encoding. Added an explicit dry-run-by-default maintenance script
+for affected legacy builder image records, with metadata/media backups, preservation
+of quiz/lifecycle fields, and optional targeted video rebuilding using existing audio.
+Encoded image frames are checked against verified slide screenshots.
+
+Legacy broader checks exposed an unchanged landscape grouping expectation (the current
+code uses one landscape image per slide) and a Windows directory-rename failure in
+the mocked HLS test. Linux candidate verification and real HLS/video rendering are
+used to validate this fix; no landscape grouping policy is changed.

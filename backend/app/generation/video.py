@@ -82,6 +82,14 @@ def capture_slide_frames(
             page.goto(Path(html_file).resolve().as_uri())
             page.wait_for_load_state("networkidle")
             _inject_local_slide_assets(page)
+            page.wait_for_function(
+                "Array.from(document.images).every(image => image.complete)", timeout=15000
+            )
+            broken_images = page.evaluate(
+                "Array.from(document.images).filter(image => image.naturalWidth === 0).map(image => image.getAttribute('src') || '(empty image source)')"
+            )
+            if broken_images:
+                raise RuntimeError("Slide images could not be loaded: " + ", ".join(broken_images))
             page.evaluate("document.fonts.ready")
             page.add_style_tag(
                 content=".slide { animation: none !important; transition: none !important; }"

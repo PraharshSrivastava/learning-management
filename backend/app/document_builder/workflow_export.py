@@ -250,8 +250,7 @@ class WorkflowExport:
                             width, height = image.size
                         record = {
                             "image_id": block.assetId,
-                            "path": str(destination),
-                            "url": public_asset_url("images", destination.name),
+                            "file_path": public_asset_url("images", destination.name),
                             "caption": block.caption,
                             "width": width,
                             "height": height,
