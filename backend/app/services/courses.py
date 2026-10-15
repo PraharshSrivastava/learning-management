@@ -90,7 +90,9 @@ class CourseService:
 
         if blueprint_changed:
             self._invalidate_generated_content(course)
-        self.repository.save_draft(course)
+        self.repository.save_draft(
+            course, release_generation_worker=blueprint_changed
+        )
         return course
 
     def update_module_quiz(

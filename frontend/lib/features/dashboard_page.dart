@@ -80,6 +80,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> with WidgetsBindi
     final generationState = ref.watch(courseGenerationProvider);
     final updateState = ref.watch(courseUpdateProvider);
     final fullCourseGenState = ref.watch(fullCourseGenerationProvider);
+    ref.listen<FullCourseGenerationState>(fullCourseGenerationProvider,
+        (previous, next) {
+      if (next.status != FullCourseGenStatus.error ||
+          previous?.status == FullCourseGenStatus.error ||
+          !mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(next.error ?? 'Course generation could not start.'),
+          backgroundColor: AppTheme.accentRed,
+        ));
+    });
     final isPublishingAssignment = activeTab == 3 &&
         ref.watch(assignmentProvider.select((state) => state.isPublishing));
 
