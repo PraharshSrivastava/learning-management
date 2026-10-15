@@ -10,7 +10,10 @@ type Register = (entry: OverlayEntry | { id: string; message: null }) => void
 
 const OverlayContext = createContext<Register | null>(null)
 
-/** Shows the blocking progress overlay for long backend jobs. The newest active job is on top. */
+/**
+ * Shows the blocking progress overlay for long backend jobs. The newest active job is on top.
+ * The app behind it is inert, so keyboard and screen readers cannot reach it (Flutter ModalBarrier).
+ */
 export function OverlayProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<OverlayEntry[]>([])
   const [register] = useState<Register>(
@@ -23,7 +26,9 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const top = entries.at(-1)
   return (
     <OverlayContext value={register}>
-      {children}
+      <div inert={top != null} className="contents">
+        {children}
+      </div>
       {top && <LoadingOverlay message={top.message} />}
     </OverlayContext>
   )
