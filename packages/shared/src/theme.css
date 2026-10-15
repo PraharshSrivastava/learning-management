@@ -1,5 +1,7 @@
 /* Shared design tokens. Values match frontend/lib/core/theme/app_theme.dart. */
 @import 'tailwindcss';
+/* Vite scans only the app root. Also scan the shared components. */
+@source '.';
 
 @font-face {
   font-family: 'Barlow';
