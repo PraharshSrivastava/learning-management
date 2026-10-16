@@ -16,7 +16,10 @@ interface DialogProps {
   className?: string
 }
 
-/** Material 3 AlertDialog: radius 28, padding 24, title 24/32, surfaceContainerHigh of the brand seed. */
+/**
+ * Material 3 AlertDialog: radius 28, padding 24, no shadow, surfaceContainerHigh of the brand seed.
+ * The title uses the app headlineSmall style (Manrope 24/30 w800).
+ */
 export function Dialog({
   open,
   onOpenChange,
@@ -57,11 +60,11 @@ export function Dialog({
           style={{ maxWidth: width }}
           className={clsx(
             'fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100%-48px)] w-[calc(100%-80px)] -translate-x-1/2 -translate-y-1/2 flex-col',
-            'rounded-[28px] bg-[#e8e7ef] p-6 shadow-[0_8px_24px_rgb(0_0_0/0.2)] focus:outline-none',
+            'rounded-[28px] bg-[#e8e7ef] p-6 focus:outline-none',
             className,
           )}
         >
-          <RadixDialog.Title className="font-dm text-2xl leading-8 text-[#191c20]">
+          <RadixDialog.Title className="font-manrope text-2xl leading-[30px] font-extrabold tracking-normal text-text-black">
             {title}
           </RadixDialog.Title>
           {children && (

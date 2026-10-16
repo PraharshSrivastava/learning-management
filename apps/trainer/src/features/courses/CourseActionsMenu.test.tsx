@@ -2,6 +2,7 @@
 import { parseCourse } from '@lms/shared/models'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubBrowser, stubFetch } from '../documents/test/renderDocuments'
 import { CourseActionsMenu } from './CourseActionsMenu'
@@ -13,13 +14,16 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const menuFor = (overrides: Record<string, unknown>) => {
+const menuFor = (
+  overrides: Record<string, unknown>,
+  props: Omit<ComponentProps<typeof CourseActionsMenu>, 'course'> = {},
+) => {
   const course = parseCourse(courseJson(overrides))
   return function Menu() {
     return (
       <>
         <p>Mounted</p>
-        <CourseActionsMenu course={course} />
+        <CourseActionsMenu course={course} {...props} />
       </>
     )
   }
@@ -120,6 +124,27 @@ describe('CourseActionsMenu', () => {
     const { search } = renderCourses(menuFor({ lifecycle_state: 'disabled' }))
     await userEvent.click(within(await openMenu()).getByRole('menuitem', { name: 'Enable' }))
     await waitFor(() => expect(search()).toMatchObject({ tab: 'assign', course: 'c1' }))
+  })
+
+  it('Enable runs the Assign tab publish step when given', async () => {
+    stubFetch(() => null)
+    const onEnable = vi.fn(async () => {})
+    const { search } = renderCourses(menuFor({ lifecycle_state: 'disabled' }, { onEnable }))
+    await userEvent.click(within(await openMenu()).getByRole('menuitem', { name: 'Enable' }))
+    await waitFor(() => expect(onEnable).toHaveBeenCalledOnce())
+    expect(search().tab).not.toBe('assign')
+  })
+
+  it('tells the Assign tab about a change before the report refresh', async () => {
+    stubFetch(() => null)
+    const onChanged = vi.fn(async () => {})
+    renderCourses(menuFor({ lifecycle_state: 'draft', can_delete: true }, { onChanged }))
+    await userEvent.click(within(await openMenu()).getByRole('menuitem', { name: 'Delete' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Type DELETE'), 'DELETE')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByText('Delete completed.')).toBeInTheDocument()
+    expect(onChanged).toHaveBeenCalledWith('Delete')
   })
 
   it('another trainer has no mutation menu', async () => {

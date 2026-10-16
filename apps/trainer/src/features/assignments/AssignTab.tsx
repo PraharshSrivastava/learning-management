@@ -85,17 +85,13 @@ export function AssignTab({ request = fetchRequester }: { request?: Requester })
   )
   useBlockingOverlay(isPublishing, PUBLISH_MESSAGE)
 
+  // The menu refreshes the course lists and reports itself.
   const onCourseChanged = async (deleted: boolean) => {
-    await Promise.allSettled([
-      queryClient.invalidateQueries({ queryKey: trainerKeys.courses }),
-      queryClient.invalidateQueries({ queryKey: trainerKeys.assignableCourses }),
-    ])
     // Disable replaces the draft with the saved inactive rule, as Flutter applied the disable reply.
     // Skip it when the user moved to another course.
     if (!deleted && courseId != null && workspace.getState().loadedCourseId === courseId) {
       await workspace.reloadSavedRule(courseId)
     }
-    await queryClient.invalidateQueries({ queryKey: trainerKeys.performance })
   }
 
   const sidebar = (

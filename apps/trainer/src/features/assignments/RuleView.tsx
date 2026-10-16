@@ -9,9 +9,9 @@ import { Tooltip } from '@lms/shared/ui/Tooltip'
 import clsx from 'clsx'
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { Trainer } from '../../auth/trainer'
+import { CourseActionsMenu } from '../courses/CourseActionsMenu'
 import { PREVIEW_PAGE_SIZE, type Requester } from './api'
 import { ActionButton, ChoiceChip, Notice, Switch } from './controls'
-import { CourseActionsMenu } from './CourseActionsMenu'
 import { deadlineRange, isDeadlineInRange } from './dates'
 import { GroupList, OutlinedNumberField } from './groups'
 import { ObserverPanel } from './ObserverPanel'
@@ -99,7 +99,6 @@ export function RuleView({ course, workspace, request, onCourseChanged }: RuleVi
         </ActionButton>
         <CourseActionsMenu
           course={course}
-          request={request}
           onEnable={confirmPublish}
           onChanged={(action) => onCourseChanged(action === 'Delete')}
         />

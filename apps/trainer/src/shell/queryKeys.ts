@@ -7,6 +7,5 @@ export const trainerKeys = {
   courses: ['courses'] as const,
   course: (courseId: string) => ['courses', 'detail', courseId] as const,
   assignableCourses: ['assignment', 'courses'] as const,
-  assignment: ['assignment'] as const,
   performance: ['performance'] as const,
 }

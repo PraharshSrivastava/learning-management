@@ -21,7 +21,7 @@ const DESCRIPTIONS = {
     'Permanently delete this unused course and generated content. The source document is retained. Type DELETE to confirm.',
 } as const
 
-type ConfirmAction = keyof typeof DESCRIPTIONS
+export type ConfirmAction = keyof typeof DESCRIPTIONS
 
 const PREVIEW_ERROR = 'Could not load the action preview. Refresh and try again.'
 const ACTION_ERROR = 'Course action failed. Refresh and try again.'
@@ -79,13 +79,22 @@ interface CourseActionsMenuProps {
   course: Course
   /** Text and icon color of the trigger. Default is the body text color. */
   foregroundColor?: string
+  /** Replaces the default Enable step (open the Assign tab). The Assign tab asks to publish. */
+  onEnable?: () => Promise<void>
+  /** Runs after the course lists refresh. The Assign tab reloads its saved rule here. */
+  onChanged?: (action: ConfirmAction) => Promise<void>
 }
 
 /**
  * Owner-only lifecycle menu: Disable, Enable, Delete. Enable opens the Assign tab, because
  * publishing an assignment enables the course. Disable and Delete ask for confirmation first.
  */
-export function CourseActionsMenu({ course, foregroundColor }: CourseActionsMenuProps) {
+export function CourseActionsMenu({
+  course,
+  foregroundColor,
+  onEnable,
+  onChanged,
+}: CourseActionsMenuProps) {
   const { person, token } = useSession<Trainer>()
   const queryClient = useQueryClient()
   const updateSearch = useUpdateTrainerSearch()
@@ -113,7 +122,8 @@ export function CourseActionsMenu({ course, foregroundColor }: CourseActionsMenu
   const select = async (action: CourseAction) => {
     if (busy) return
     if (action === 'Enable') {
-      updateSearch({ course: course.courseId, tab: 'assign' })
+      if (onEnable) await onEnable()
+      else updateSearch({ course: course.courseId, tab: 'assign' })
       return
     }
     setBusy(true)
@@ -153,9 +163,7 @@ export function CourseActionsMenu({ course, foregroundColor }: CourseActionsMenu
       const refresh = { throwOnError: true }
       await queryClient.invalidateQueries({ queryKey: trainerKeys.courses }, refresh)
       await queryClient.invalidateQueries({ queryKey: trainerKeys.assignableCourses }, refresh)
-      if (action !== 'Delete') {
-        await queryClient.invalidateQueries({ queryKey: trainerKeys.assignment }, refresh)
-      }
+      await onChanged?.(action)
       await queryClient.invalidateQueries({ queryKey: trainerKeys.performance }, refresh)
       toast(`${action} completed.`)
     } catch (error) {
@@ -241,11 +249,7 @@ function ConfirmationDialog({
       width={1360}
       // The Flutter AlertDialog sizes to its text.
       className="w-max! max-w-[calc(100%-80px)]!"
-      title={
-        <span className="block font-manrope text-2xl leading-[30px] font-extrabold tracking-normal text-text-black">
-          {`${action} ${courseName}?`}
-        </span>
-      }
+      title={`${action} ${courseName}?`}
       actions={
         <>
           <button

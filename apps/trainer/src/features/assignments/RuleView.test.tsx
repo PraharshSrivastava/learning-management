@@ -1,16 +1,12 @@
 // RTL tests for the rule editor and group editing.
 import { configureApi } from '@lms/shared/api/client'
-import { createQueryClient } from '@lms/shared/api/queryClient'
-import { SessionProvider } from '@lms/shared/auth/session'
 import { parseCourse } from '@lms/shared/models'
-import { ToastProvider } from '@lms/shared/ui/Toast'
-import { TooltipProvider } from '@lms/shared/ui/Tooltip'
-import { QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Reply, RequestInit, Requester } from './api'
 import { deadlineRange } from './dates'
+import { renderCourses } from '../courses/test/renderCourses'
 import { RuleView } from './RuleView'
 import { AssignmentWorkspace } from './workspace'
 
@@ -66,22 +62,16 @@ function setup(rule: Record<string, unknown>) {
     refreshPerformance: async () => {},
     debounceMs: 0,
   })
-  const client = createQueryClient()
-  const view = render(
-    <QueryClientProvider client={client}>
-      <SessionProvider initialPerson={null}>
-        <TooltipProvider>
-          <ToastProvider>
-            <RuleView
-              course={course}
-              workspace={workspace}
-              request={request}
-              onCourseChanged={async () => {}}
-            />
-          </ToastProvider>
-        </TooltipProvider>
-      </SessionProvider>
-    </QueryClientProvider>,
+  const view = renderCourses(
+    () => (
+      <RuleView
+        course={course}
+        workspace={workspace}
+        request={request}
+        onCourseChanged={async () => {}}
+      />
+    ),
+    { person: null },
   )
   return { ...view, calls, workspace }
 }
