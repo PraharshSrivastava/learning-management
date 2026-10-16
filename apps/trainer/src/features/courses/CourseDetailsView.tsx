@@ -221,7 +221,7 @@ function BlueprintEditor({ course }: { course: Course }) {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 [scrollbar-width:none]">
         <SectionHeader icon="description">Course Description</SectionHeader>
         <BodyTextArea
           label="Course Description"

@@ -137,7 +137,7 @@ export function CourseLibraryInspector() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-6 [scrollbar-width:none]">
       <div className="flex flex-wrap items-center gap-3">
         <SearchField
           value={search}
@@ -284,9 +284,9 @@ function CourseDetail({
       </InfoCard>
       {generation && (
         <Expansion title="Generation status">
-          <p className="m-0 text-center">Status: {text(generation.status)}</p>
-          <p className="m-0 text-center">Stage: {text(generation.current_checkpoint ?? '')}</p>
-          {generation.error != null && <p className="m-0 text-center">{text(generation.error)}</p>}
+          <p className="m-0">Status: {text(generation.status)}</p>
+          <p className="m-0">Stage: {text(generation.current_checkpoint ?? '')}</p>
+          {generation.error != null && <p className="m-0">{text(generation.error)}</p>}
         </Expansion>
       )}
       <div className="h-[640px] overflow-hidden">
@@ -308,30 +308,38 @@ function InfoCard({ children }: { children: ReactNode }) {
   )
 }
 
-/** Material ExpansionTile: a 48 px header row between 1 px clear borders. It shows its children when open. */
+/**
+ * Material ExpansionTile: a 48 px header row. When open, 1 px outline dividers frame the
+ * tile, the icon turns primary blue and the children show.
+ */
 function Expansion({ title, children }: { title: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const id = useId()
   return (
-    <div className="py-px">
+    <div className={clsx('border-y', open ? 'border-[#757780]' : 'border-transparent')}>
       <button
         type="button"
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen(!open)}
-        className={clsx(
-          'flex h-12 w-full items-center gap-4 pr-6 pl-4 text-left hover:bg-black/4 focus-visible:outline-2 focus-visible:outline-brand-blue-light',
-          open ? 'text-primary-blue' : 'text-[#1a1b21]',
-        )}
+        className="flex h-12 w-full items-center gap-4 pr-6 pl-4 text-left text-[#1a1b21] hover:bg-black/4 focus-visible:outline-2 focus-visible:outline-brand-blue-light"
       >
         <span className="min-w-0 flex-1 text-[15px] leading-[22.5px]">{title}</span>
         <Icon
           name="expand_more"
           size={24}
-          className={clsx('transition-transform', open ? 'rotate-180' : 'text-[#44474f]')}
+          className={clsx(
+            'transition-transform',
+            open ? 'rotate-180 text-primary-blue' : 'text-[#44474f]',
+          )}
         />
       </button>
-      {open && <div id={id}>{children}</div>}
+      {open && (
+        // Flutter centers each child box; the text inside it keeps start alignment.
+        <div id={id} className="flex flex-col items-center">
+          {children}
+        </div>
+      )}
     </div>
   )
 }

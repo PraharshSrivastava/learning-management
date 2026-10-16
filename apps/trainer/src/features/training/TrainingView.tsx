@@ -244,7 +244,7 @@ function TranscriptSection({ module }: { module: CourseModule }) {
           No slide narration script is available for this module yet.
         </p>
       ) : (
-        <ol className="m-0 flex min-h-0 list-none flex-col gap-2.5 overflow-y-auto p-4">
+        <ol className="m-0 flex min-h-0 list-none flex-col gap-2.5 overflow-y-auto p-4 [scrollbar-width:none]">
           {slides.map((slide, index) => (
             <li
               key={index}
