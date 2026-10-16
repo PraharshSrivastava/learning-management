@@ -1,32 +1,4 @@
-# Flutter/Dart build files
-frontend/.dart_tool/
-frontend/.flutter-plugins
-frontend/.flutter-plugins-dependencies
-frontend/.metadata
-frontend/build/
-frontend/.env
 /.env
-frontend/.pub-cache/
-frontend/.pub/
-frontend/**/doc/api/
-frontend/**/ios/Flutter/.last_build_id
-frontend/android/app/debug/
-frontend/android/app/profile/
-frontend/android/app/release/
-
-employee_frontend/.dart_tool/
-employee_frontend/.flutter-plugins
-employee_frontend/.flutter-plugins-dependencies
-employee_frontend/.metadata
-employee_frontend/build/
-employee_frontend/.env
-employee_frontend/.pub-cache/
-employee_frontend/.pub/
-employee_frontend/**/doc/api/
-employee_frontend/**/ios/Flutter/.last_build_id
-employee_frontend/android/app/debug/
-employee_frontend/android/app/profile/
-employee_frontend/android/app/release/
 
 # Python / Backend files
 backend/__pycache__/
@@ -63,16 +35,11 @@ audio-esv2-90p-bg-10p (7).mp3
 sana_crm_login_test.mp3
 improvements.txt
 refinements.txt
-employee_frontend/analyze_output.txt
-employee_frontend/out.txt
-employee_frontend/output.txt
 *_extracted_text.txt
 *.wav
 
 # Consolidated ignores; keep package-level ignore files out of git.
 backend/.gitignore
-frontend/.gitignore
-employee_frontend/.gitignore
 
 # Editor & System
 .vscode/
