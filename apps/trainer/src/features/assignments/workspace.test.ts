@@ -258,6 +258,92 @@ function emptyGroup(): AssignmentGroup {
   }
 }
 
+describe('AssignmentWorkspace mutations', () => {
+  it('Publish sends the rule and shows the assignment counters', async () => {
+    const { workspace, calls, refreshCourses, refreshPerformance } = setup((path) => {
+      const read = reads(path)
+      if (read) return read
+      if (route(path).endsWith('/publish-assignment')) {
+        return ok({
+          ...saved('one', 9),
+          total_assigned_count: 5,
+          assigned_count: 3,
+          reactivated_count: 1,
+          removed_count: 2,
+          deadline_update_count: 4,
+        })
+      }
+      return ok(saved('one'))
+    })
+    await workspace.loadForCourse('one')
+    await workspace.publish('one', 3)
+    const publish = calls.find((c) => route(c.path).endsWith('/publish-assignment'))
+    expect(publish?.method).toBe('POST')
+    expect(publish?.json).toMatchObject({
+      expected_lifecycle_revision: 3,
+      expected_updated_at: 'v1',
+    })
+    const state = workspace.getState()
+    expect(state.isPublishing).toBe(false)
+    expect(state.message).toBe(
+      'Course published and assigned successfully. 5 employees currently assigned. ' +
+        '3 new assignments created, 1 restored, 2 removed, 4 deadlines updated.',
+    )
+    expect(state.assignedCount).toBe(3)
+    expect(state.rule.deadlineDays).toBe(9)
+    expect(refreshCourses).toHaveBeenCalled()
+    expect(refreshPerformance).toHaveBeenCalled()
+  })
+
+  it('a failed report refresh after Publish keeps the success message and shows an error', async () => {
+    const { workspace, refreshCourses } = setup((path) => reads(path) ?? ok(saved('one')))
+    await workspace.loadForCourse('one')
+    refreshCourses.mockResolvedValueOnce(false)
+    await workspace.publish('one')
+    expect(workspace.getState().message).toContain('Course published')
+    expect(workspace.getState().error).toContain('could not be refreshed')
+  })
+
+  it('preview paging and search request the chosen page', async () => {
+    const { workspace, calls } = setup((path) => {
+      if (route(path).endsWith('/employee-preview')) {
+        return ok({ total: 60, total_assigned_count: 0, employees: [] })
+      }
+      return reads(path) ?? ok(saved('one'))
+    })
+    await workspace.loadForCourse('one')
+    await workspace.fetchEmployeePreview({ page: 3 })
+    await workspace.fetchEmployeePreview({ view: 'assigned', search: 'kiran', page: 1 })
+    const pages = calls
+      .filter((c) => route(c.path).endsWith('/employee-preview'))
+      .map((c) => new URLSearchParams(c.path.split('?')[1]))
+    expect(pages.at(-2)?.get('page')).toBe('3')
+    expect(pages.at(-1)?.get('view')).toBe('assigned')
+    expect(pages.at(-1)?.get('search')).toBe('kiran')
+    expect(pages.at(-1)?.get('page')).toBe('1')
+    expect(workspace.getState().previewPage).toBe(1)
+  })
+
+  it('reloading the saved rule drops a dirty draft, as after Disable', async () => {
+    let active = true
+    const { workspace } = setup((path) => {
+      const read = reads(path)
+      if (read) return read
+      const data = saved('one')
+      data.rule.is_active = active
+      return ok(data)
+    })
+    await workspace.loadForCourse('one')
+    workspace.updateRule({ ...workspace.getState().rule, deadlineDays: 30 })
+    expect(workspace.getState().dirty).toBe(true)
+    active = false
+    await workspace.reloadSavedRule('one')
+    expect(workspace.getState().dirty).toBe(false)
+    expect(workspace.getState().rule.isActive).toBe(false)
+    expect(workspace.getState().rule.deadlineDays).toBe(7)
+  })
+})
+
 describe('groupValidationError', () => {
   it('accepts an empty rule', () => {
     expect(groupValidationError(defaultAssignmentRule())).toBeNull()

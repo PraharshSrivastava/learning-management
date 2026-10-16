@@ -124,27 +124,30 @@ export function CourseActionsMenu({
 
   return (
     <>
-      <Menu
-        items={actions.map((action): MenuItem => ({
-          key: action,
-          label: action,
-          onSelect: () => void act(action),
-        }))}
-        align="start"
-        trigger={
-          <Tooltip content="Course actions">
-            <button
-              type="button"
-              disabled={!enabled}
-              aria-label="Course actions"
-              className="inline-flex items-center rounded p-2.5 text-sm text-text-black hover:bg-black/4 focus-visible:outline-2 focus-visible:outline-brand-blue-light disabled:text-gray disabled:hover:bg-transparent"
-            >
-              {busy ? 'Working…' : 'Actions'}
-              <Icon name="expand_more" />
-            </button>
-          </Tooltip>
-        }
-      />
+      {/* The tooltip wraps the menu: a Tooltip inside the menu trigger drops its open handler. */}
+      <Tooltip content="Course actions">
+        <span className="inline-flex">
+          <Menu
+            items={actions.map((action): MenuItem => ({
+              key: action,
+              label: action,
+              onSelect: () => void act(action),
+            }))}
+            align="start"
+            trigger={
+              <button
+                type="button"
+                disabled={!enabled}
+                aria-label="Course actions"
+                className="inline-flex items-center rounded p-2.5 text-sm text-text-black hover:bg-black/4 focus-visible:outline-2 focus-visible:outline-brand-blue-light disabled:text-gray disabled:hover:bg-transparent"
+              >
+                {busy ? 'Working…' : 'Actions'}
+                <Icon name="expand_more" />
+              </button>
+            }
+          />
+        </span>
+      </Tooltip>
       {pending && (
         <ConfirmAction
           key={pending.action}

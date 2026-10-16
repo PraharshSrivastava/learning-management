@@ -6,10 +6,11 @@ import { parseCourse } from '@lms/shared/models'
 import { ToastProvider } from '@lms/shared/ui/Toast'
 import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Reply, RequestInit, Requester } from './api'
+import { deadlineRange } from './dates'
 import { RuleView } from './RuleView'
 import { AssignmentWorkspace } from './workspace'
 
@@ -195,8 +196,22 @@ describe('RuleView', () => {
     })
     await workspace.loadForCourse('c1')
     const section = await screen.findByRole('region', { name: 'Completion Deadline' })
-    expect(within(section).getByRole('button', { name: '2099-10-31' })).toBeTruthy()
+    const date = within(section).getByLabelText('Completion date') as HTMLInputElement
+    expect(date.value).toBe('2099-10-31')
     expect(within(section).getByText('Due by the end of this date (Asia/Kolkata).')).toBeTruthy()
+
+    // Only a complete date inside today .. 1 January ten years on reaches the rule.
+    const { min, max } = deadlineRange()
+    expect(date.min).toBe(min)
+    expect(date.max).toBe(max)
+    fireEvent.change(date, { target: { value: max } })
+    expect(workspace.getState().rule.deadlineDate).toBe(max)
+    fireEvent.change(date, { target: { value: '2000-01-01' } })
+    expect(workspace.getState().rule.deadlineDate).toBe(max)
+    expect(date.getAttribute('aria-invalid')).toBe('true')
+    fireEvent.blur(date)
+    expect(date.value).toBe(max)
+    expect(date.getAttribute('aria-invalid')).toBeNull()
 
     await user.click(within(section).getByRole('button', { name: 'Days after assignment' }))
     const field = within(section).getByRole('textbox', { name: 'Due days after assignment' })
@@ -223,5 +238,15 @@ describe('RuleView', () => {
     expect(put.init.method).toBe('PUT')
     expect(put.init.json).toMatchObject({ include_all: false, expected_updated_at: 'v1' })
     expect(await screen.findByText('Assignment rule saved.')).toBeTruthy()
+  })
+  it('the form is inert while a save runs, so the keyboard cannot edit it', async () => {
+    const { workspace, container } = setup({ include_all: true, deadline_days: 7 })
+    await workspace.loadForCourse('c1')
+    await screen.findByRole('switch', { name: 'All active employees' })
+    const card = container.querySelector('[aria-busy]')!
+    expect(card.hasAttribute('inert')).toBe(false)
+    act(() => workspace['set']({ isSaving: true }))
+    expect(card.hasAttribute('inert')).toBe(true)
+    expect(card.getAttribute('aria-busy')).toBe('true')
   })
 })

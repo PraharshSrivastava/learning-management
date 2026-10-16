@@ -239,8 +239,8 @@ function ConfirmationDialog({
         if (!open) onCancel()
       }}
       width={1360}
-      // The Flutter AlertDialog sizes to its text and uses the Material 3 surface tone.
-      className="w-max! max-w-[calc(100%-80px)]! bg-[#e8e7ef]!"
+      // The Flutter AlertDialog sizes to its text.
+      className="w-max! max-w-[calc(100%-80px)]!"
       title={
         <span className="block font-manrope text-2xl leading-[30px] font-extrabold tracking-normal text-text-black">
           {`${action} ${courseName}?`}

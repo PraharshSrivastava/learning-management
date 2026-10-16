@@ -4,7 +4,7 @@ import { parseCourse, parseEmployee, type Employee } from '@lms/shared/models'
 import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Reply, Requester } from './api'
 import { ObserverPanel } from './ObserverPanel'
 
@@ -28,7 +28,12 @@ function config(revision: number, active: boolean) {
   }
 }
 
-function panel(request: Requester, employees: Employee[], refreshGeneration = 0) {
+function panel(
+  request: Requester,
+  employees: Employee[],
+  refreshGeneration = 0,
+  onDraftObservers: (ids: string[]) => void = () => {},
+) {
   return (
     <TooltipProvider>
       <ObserverPanel
@@ -37,7 +42,7 @@ function panel(request: Requester, employees: Employee[], refreshGeneration = 0)
         refreshGeneration={refreshGeneration}
         isAssignmentActive
         request={request}
-        onDraftObservers={() => {}}
+        onDraftObservers={onDraftObservers}
       />
     </TooltipProvider>
   )
@@ -121,5 +126,63 @@ describe('ObserverPanel', () => {
     expect(reads).toBe(2)
     expect(screen.getByRole('button', { name: 'Employees (2)' })).toBeTruthy()
     expect(screen.getByText(/Active access:/)).toBeTruthy()
+  })
+  it('Apply Observers posts the saved revision and shows the result', async () => {
+    const user = userEvent.setup()
+    let applied: unknown = null
+    const request: Requester = async (path, init = {}) => {
+      if (path.endsWith('/options')) return { status: 200, body: { departments: [] } }
+      if (path.endsWith('/observers/apply')) {
+        applied = init.json
+        return { status: 200, body: config(4, true) }
+      }
+      return { status: 200, body: config(3, false) }
+    }
+    render(panel(request, [employee('observer'), employee('a')]))
+    await user.click(await screen.findByRole('button', { name: 'Apply Observers' }))
+    expect(await screen.findByText('Observer access applied.')).toBeTruthy()
+    expect(applied).toEqual({ revision: 3 })
+    expect(screen.getByText(/Active access:/)).toBeTruthy()
+  })
+
+  it('a reply after unmount does not change the workspace draft', async () => {
+    let release: (reply: Reply) => void = () => {}
+    const request: Requester = (path) =>
+      path.endsWith('/options')
+        ? Promise.resolve({ status: 200, body: { departments: [] } })
+        : new Promise<Reply>((resolve) => (release = resolve))
+    const onDraft = vi.fn()
+    const view = render(panel(request, [employee('observer')], 0, onDraft))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save Observers' })).toBeTruthy())
+    view.unmount()
+    release({ status: 200, body: config(1, false) })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(onDraft).not.toHaveBeenCalled()
+  })
+
+  it('an older load reply cannot replace a newer save', async () => {
+    const user = userEvent.setup()
+    let releaseSave: (reply: Reply) => void = () => {}
+    let releaseLoad: (reply: Reply) => void = () => {}
+    let reads = 0
+    const request: Requester = async (path, init = {}) => {
+      if (path.endsWith('/options')) return { status: 200, body: { departments: [] } }
+      if (init.method === 'PUT') return new Promise<Reply>((resolve) => (releaseSave = resolve))
+      reads++
+      if (reads === 1) return { status: 200, body: config(1, false) }
+      return new Promise<Reply>((resolve) => (releaseLoad = resolve))
+    }
+    const employees = [employee('observer'), employee('a')]
+    const view = render(panel(request, employees, 0))
+    await user.click(await screen.findByRole('button', { name: 'Save Observers' }))
+    // A header refresh while the PUT runs. Its GET reads the old configuration and answers last.
+    view.rerender(panel(request, employees, 1))
+    await waitFor(() => expect(reads).toBe(2))
+    releaseSave({ status: 200, body: config(2, false) })
+    expect(await screen.findByText(/^Saved\./)).toBeTruthy()
+    releaseLoad({ status: 200, body: { ...config(1, false), observers: [] } })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.getByText(/^Saved\./)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Employees (1)' })).toBeTruthy()
   })
 })

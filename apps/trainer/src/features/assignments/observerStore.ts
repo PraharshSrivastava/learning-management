@@ -47,7 +47,10 @@ export class ObserverStore {
     effective: {},
   }
   private listeners = new Set<() => void>()
+  /** Bumped by each load and finished save, so a stale load reply is dropped. */
   private request = 0
+  /** False while the panel is unmounted. Its replies must not change the workspace draft. */
+  private mounted = false
   private generation: number | undefined
 
   constructor(
@@ -62,6 +65,12 @@ export class ObserverStore {
   }
 
   getState = () => this.state
+
+  /** Mount effect of the panel. Returns the unmount cleanup. */
+  attach = () => {
+    this.mounted = true
+    return () => void (this.mounted = false)
+  }
 
   private set(patch: Partial<ObserverState>) {
     this.state = { ...this.state, ...patch }
@@ -114,7 +123,7 @@ export class ObserverStore {
       ])
       const config = parseObserverConfig(this.response(configReply))
       const departments = parseObserverDepartments(this.response(optionsReply))
-      if (serial !== this.request) return
+      if (serial !== this.request || !this.mounted) return
       if (!preserveDraft || !this.state.dirty) {
         this.set({ ...this.accept(config), departments, busy: false })
       } else {
@@ -130,7 +139,7 @@ export class ObserverStore {
       }
       this.notifyDraft()
     } catch (error) {
-      if (serial !== this.request) return
+      if (serial !== this.request || !this.mounted) return
       if (error instanceof Expired) {
         this.set({
           busy: false,
@@ -179,6 +188,9 @@ export class ObserverStore {
             json: { revision, observers: selections.map(observerSelectionToJson) },
           })
       const config = parseObserverConfig(this.response(reply))
+      if (!this.mounted) return
+      // The save reply is newer than any load still in flight, so those loads are dropped.
+      this.request += 1
       this.set({
         ...this.accept(config),
         busy: false,
@@ -191,6 +203,7 @@ export class ObserverStore {
       })
       this.notifyDraft()
     } catch (error) {
+      if (!this.mounted) return
       this.set({
         busy: false,
         message: {

@@ -88,14 +88,24 @@ interface CheckboxRowProps extends Omit<InputHTMLAttributes<HTMLInputElement>, '
   checked: boolean
   onChange: (checked: boolean) => void
   children: ReactNode
+  /** Flutter `dense: true`: 40 px rows and 13 px text instead of 48 px and 16 px. */
+  dense?: boolean
 }
 
-/** Flutter CheckboxListTile(dense): label left, 18 px box right. */
-export function CheckboxRow({ checked, onChange, children, disabled, ...rest }: CheckboxRowProps) {
+/** Flutter CheckboxListTile with compact desktop density: label left, 18 px box right. */
+export function CheckboxRow({
+  checked,
+  onChange,
+  children,
+  disabled,
+  dense = false,
+  ...rest
+}: CheckboxRowProps) {
   return (
     <label
       className={clsx(
-        'flex min-h-12 items-center gap-4 px-4 text-sm text-[#191c20]',
+        'flex items-center gap-4 pr-6 pl-4 tracking-[0.5px] text-[#191c20]',
+        dense ? 'min-h-10 text-[13px]' : 'min-h-12 text-base',
         disabled ? 'opacity-40' : 'cursor-pointer hover:bg-black/4',
       )}
     >

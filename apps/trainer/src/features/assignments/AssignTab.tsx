@@ -90,9 +90,10 @@ export function AssignTab({ request = fetchRequester }: { request?: Requester })
       queryClient.invalidateQueries({ queryKey: trainerKeys.courses }),
       queryClient.invalidateQueries({ queryKey: trainerKeys.assignableCourses }),
     ])
-    // Reload the rule so a Disable shows at once. Skip it when the user moved to another course.
+    // Disable replaces the draft with the saved inactive rule, as Flutter applied the disable reply.
+    // Skip it when the user moved to another course.
     if (!deleted && courseId != null && workspace.getState().loadedCourseId === courseId) {
-      await workspace.refreshAssignmentWorkspace(courseId)
+      await workspace.reloadSavedRule(courseId)
     }
     await queryClient.invalidateQueries({ queryKey: trainerKeys.performance })
   }

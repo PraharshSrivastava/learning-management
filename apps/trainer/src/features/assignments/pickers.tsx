@@ -95,10 +95,11 @@ function MultiSelectBody({
           onChange={setQuery}
           placeholder={`Search ${title.toLowerCase()}`}
         />
-        <div className="mt-3 min-h-0 flex-1 overflow-auto">
+        <div className="mt-3 min-h-0 flex-1 overflow-auto [scrollbar-width:none]">
           {filtered.map((value) => (
             <CheckboxRow
               key={value}
+              dense
               checked={picked.includes(value)}
               onChange={(checked) =>
                 setPicked((current) =>

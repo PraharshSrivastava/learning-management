@@ -12,7 +12,7 @@ import type { Trainer } from '../../auth/trainer'
 import { PREVIEW_PAGE_SIZE, type Requester } from './api'
 import { ActionButton, ChoiceChip, Notice, Switch } from './controls'
 import { CourseActionsMenu } from './CourseActionsMenu'
-import { DatePickerDialog, formatYmd, parseYmd, todayInKolkata, type Ymd } from './DatePicker'
+import { deadlineRange, isDeadlineInRange } from './dates'
 import { GroupList, OutlinedNumberField } from './groups'
 import { ObserverPanel } from './ObserverPanel'
 import type { AssignmentState, AssignmentWorkspace } from './workspace'
@@ -61,7 +61,8 @@ export function RuleView({ course, workspace, request, onCourseChanged }: RuleVi
   }
 
   return (
-    <div className={clsx('card overflow-auto p-6', busy && 'pointer-events-none')} aria-busy={busy}>
+    // `inert` blocks keyboard input too, so no edit lands during a save (Flutter AbsorbPointer).
+    <div className="card overflow-auto p-6" inert={busy} aria-busy={busy}>
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="w-[240px] pt-[5px]">
           <h2 className="font-barlow text-2xl leading-[1.2] font-extrabold text-text-black">
@@ -292,17 +293,6 @@ function Deadline({
   disabled: boolean
   onChange: (rule: AssignmentRule) => void
 }) {
-  const [picker, setPicker] = useState<{ initial: Ymd; first: Ymd; last: Ymd } | null>(null)
-  const openPicker = () => {
-    const today = todayInKolkata()
-    const stored = parseYmd(rule.deadlineDate)
-    const before = (a: Ymd, b: Ymd) => formatYmd(a) < formatYmd(b)
-    setPicker({
-      initial: stored == null || before(stored, today) ? today : stored,
-      first: today,
-      last: { year: today.year + 10, month: 1, day: 1 },
-    })
-  }
   return (
     <div>
       <div className="flex flex-wrap gap-3">
@@ -331,33 +321,58 @@ function Deadline({
             />
           </div>
         ) : (
-          <ActionButton
-            icon="calendar_month_outlined"
-            iconSize={18}
+          <DeadlineDate
+            value={rule.deadlineDate}
             disabled={disabled}
-            onClick={openPicker}
-          >
-            {rule.deadlineDate ?? 'Select completion date'}
-          </ActionButton>
+            onChange={(deadlineDate) => onChange({ ...rule, deadlineDate })}
+          />
         )}
         {rule.deadlineMode === 'fixed' && (
           <p className="pt-2">Due by the end of this date (Asia/Kolkata).</p>
         )}
       </div>
-      {picker && (
-        <DatePickerDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setPicker(null)
-          }}
-          {...picker}
-          onPick={(date) => {
-            setPicker(null)
-            onChange({ ...rule, deadlineDate: formatYmd(date), deadlineMode: 'fixed' })
-          }}
-        />
-      )}
     </div>
+  )
+}
+
+/** Native date input. Partly typed or out-of-range dates stay local until blur, then revert. */
+function DeadlineDate({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: string | null
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  const { min, max } = deadlineRange()
+  const [text, setText] = useState(value ?? '')
+  const [shown, setShown] = useState(value)
+  if (shown !== value) {
+    setShown(value)
+    setText(value ?? '')
+  }
+  const invalid = text !== '' && !isDeadlineInRange(text)
+  return (
+    <input
+      type="date"
+      aria-label="Completion date"
+      aria-invalid={invalid || undefined}
+      value={text}
+      min={min}
+      max={max}
+      disabled={disabled}
+      onChange={(event) => {
+        const next = event.target.value
+        setText(next)
+        if (isDeadlineInRange(next)) {
+          setShown(next)
+          onChange(next)
+        }
+      }}
+      onBlur={() => setText(value ?? '')}
+      className="h-9 rounded-lg border border-input-border bg-white px-3 text-sm text-text-black focus:border-brand-blue-light focus:outline-none disabled:bg-surface-secondary disabled:text-gray aria-invalid:border-accent-red"
+    />
   )
 }
 

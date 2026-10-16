@@ -49,6 +49,7 @@ export function ObserverPanel({
   // The parent keys this panel by course, trainer and permissions, so one store per mount.
   const [store] = useState(() => new ObserverStore(course.courseId, request, onDraftObservers))
   const state = useSyncExternalStore(store.subscribe, store.getState)
+  useEffect(() => store.attach(), [store])
   useEffect(() => store.syncGeneration(refreshGeneration), [store, refreshGeneration])
   const [choosing, setChoosing] = useState<Choosing | null>(null)
   const [confirmReload, setConfirmReload] = useState(false)
@@ -247,7 +248,8 @@ function ScopeDialog({
     >
       <div className="flex h-[380px] flex-col">
         {field === 'employees' && (
-          <div className="flex flex-wrap items-center gap-2">
+          // Flutter Wrap in a centered Column: the row is centered and its items align to the top.
+          <div className="flex flex-wrap items-start justify-center gap-2">
             <ActionButton
               variant="text"
               icon="done_all"
@@ -262,7 +264,7 @@ function ScopeDialog({
             <span>{picked.length} selected</span>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto [scrollbar-width:none]">
           {options.map((option) => (
             <CheckboxRow
               key={option.id}
