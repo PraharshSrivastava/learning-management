@@ -1,9 +1,6 @@
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
-import * as RadixSelect from '@radix-ui/react-select'
 import clsx from 'clsx'
 import {
-  useRef,
-  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -129,73 +126,36 @@ interface BuilderSelectProps {
   className?: string
 }
 
-// Radix Select has no item for an empty value, so the empty choice gets a stand-in value.
-const EMPTY = '__empty__'
-
-const selectText =
-  'min-w-0 flex-1 truncate text-left font-manrope text-lg leading-[24.3px] font-bold tracking-[0.15px] text-primary-blue'
-
 /**
- * DropdownButtonFormField: titleMedium text, ellipsis, and a gray arrow. The menu opens with the
- * chosen row over the field, as the Material menu does. It starts 16 px left of the field and is
- * 40 px wider than the field.
+ * DropdownButtonFormField closed look: titleMedium text, ellipsis, and a gray arrow. The option
+ * list is the native one, not a copy of the Material menu.
  */
 export function BuilderSelect({ id, value, options, onChange, className }: BuilderSelectProps) {
-  const trigger = useRef<HTMLButtonElement>(null)
-  const [menuWidth, setMenuWidth] = useState<number>()
   return (
-    <RadixSelect.Root
-      value={value === '' ? EMPTY : value}
-      onValueChange={(next) => onChange(next === EMPTY ? '' : next)}
-      onOpenChange={(open) => {
-        if (open) setMenuWidth(trigger.current?.offsetWidth)
-      }}
-    >
-      <RadixSelect.Trigger
-        ref={trigger}
+    <div className={clsx('relative h-9 w-full', className)}>
+      <select
         id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
         className={clsx(
-          'flex h-9 w-full cursor-pointer items-center rounded-lg bg-white pr-3 inset-ring inset-ring-input-border',
+          'block size-full cursor-pointer appearance-none truncate rounded-lg bg-white pr-9 pl-[15px] inset-ring inset-ring-input-border',
+          'font-manrope text-lg leading-[24.3px] font-bold tracking-[0.15px] text-primary-blue',
           'focus-visible:shadow-[0_0_0_0.4px_var(--color-brand-blue-light)] focus-visible:outline-none focus-visible:inset-ring-brand-blue-light',
-          className,
         )}
       >
-        {/* Value takes no class, so a span styles it. */}
-        <span className={clsx(selectText, 'pl-[15px]')}>
-          <RadixSelect.Value>
-            {options.find((option) => option.value === value)?.label}
-          </RadixSelect.Value>
-        </span>
-        <Icon name="arrow_drop_down" size={24} color="#616161" />
-      </RadixSelect.Trigger>
-      <RadixSelect.Portal>
-        <RadixSelect.Content
-          position="item-aligned"
-          style={{ width: menuWidth === undefined ? undefined : menuWidth + 40 }}
-          className="z-50 overflow-hidden rounded bg-white shadow-[0_5px_5px_-3px_rgb(0_0_0/0.2),0_8px_10px_1px_rgb(0_0_0/0.14),0_3px_14px_2px_rgb(0_0_0/0.12)]"
-        >
-          <RadixSelect.Viewport className="py-2">
-            {options.map((option) => (
-              <RadixSelect.Item
-                key={option.value}
-                value={option.value === '' ? EMPTY : option.value}
-                className={clsx(
-                  selectText,
-                  'flex h-12 cursor-pointer items-center pr-4 pl-[31px] outline-none select-none data-[highlighted]:bg-[#d7d7d7]',
-                )}
-              >
-                {/* Radix puts the row text box over the value text. The box starts 15 px to the
-                    right of the row text, so the menu starts 16 px left of the field and the row
-                    text lines up with the field edge, as in Flutter. */}
-                <RadixSelect.ItemText>
-                  <span className="relative -left-[15px]">{option.label}</span>
-                </RadixSelect.ItemText>
-              </RadixSelect.Item>
-            ))}
-          </RadixSelect.Viewport>
-        </RadixSelect.Content>
-      </RadixSelect.Portal>
-    </RadixSelect.Root>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <Icon
+        name="arrow_drop_down"
+        size={24}
+        color="#616161"
+        className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2"
+      />
+    </div>
   )
 }
 
