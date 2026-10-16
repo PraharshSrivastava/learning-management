@@ -8,8 +8,10 @@ narration audio, and module videos.
 
 ```text
 backend/             FastAPI API, generation pipeline, PostgreSQL-backed storage
-frontend/            Flutter trainer/admin web app
-employee_frontend/   Flutter employee learning web app
+apps/trainer/        React trainer/admin web app
+apps/employee/       React employee learning web app
+packages/shared/     Shared React code: API client, models, auth, UI, performance
+deploy/              Web Dockerfile used by both React apps
 ```
 
 The backend owns course generation and persistence. The trainer frontend uploads
@@ -35,8 +37,8 @@ only see courses that have been fully generated, published, and assigned to them
 
 ```mermaid
 flowchart LR
-    Hub[Company Hub] --> TrainerApp[Trainer Flutter App]
-    Hub --> EmployeeApp[Employee Flutter App]
+    Hub[Company Hub] --> TrainerApp[Trainer React App]
+    Hub --> EmployeeApp[Employee React App]
 
     TrainerApp --> API[FastAPI Backend]
     EmployeeApp --> API
@@ -77,8 +79,8 @@ workspaces:
 
 ## Trainer App Flow
 
-The trainer app lives in `frontend/`. It is a Flutter web app using Riverpod
-state providers. Its main screen is a tabbed dashboard:
+The trainer app lives in `apps/trainer/`. It is a React web app that keeps
+server state in TanStack Query. Its main screen is a tabbed dashboard:
 
 ```text
 Documents -> Blueprint -> Courses -> Assign -> Performance
@@ -226,16 +228,16 @@ database and `HUB_LAUNCH_DEV_MODE=true`, then run from `backend`:
 The seed is synthetic and guarded to run only against the named demo database.
 It creates one local trainer identity, 100 employees, four courses, and 400
 assignments with varied completion, overdue, quiz, and activity states. It
-will not overwrite an existing demo. For the trainer frontend, set its
-ignored `.env` to `API_BASE_URL=http://127.0.0.1:3061`, allow the frontend
-origin in `CORS_ALLOWED_ORIGINS`, and open the app as *Performance Demo Trainer*.
+will not overwrite an existing demo. For the trainer frontend, start it with
+`LMS_DEV_BACKEND=http://127.0.0.1:3061 pnpm dev:trainer` and open the app as
+*Performance Demo Trainer*.
 
 ### Trainer Architecture
 
 ```mermaid
 flowchart LR
-    UI[Trainer Flutter Screens] --> Providers[Riverpod Trainer Providers]
-    Providers --> Constants[AppConstants API URLs]
+    UI[Trainer React Screens] --> Providers[TanStack Query Hooks]
+    Providers --> Constants[Shared API Client]
     Constants --> HTTP[HTTP Requests]
     HTTP --> Routes[FastAPI Routes]
 
@@ -296,7 +298,7 @@ course from the beginning.
 
 ## Employee App Flow
 
-The employee app lives in `employee_frontend/`. It is a Flutter web app focused
+The employee app lives in `apps/employee/`. It is a React web app focused
 on learning, not authoring. Employees see a dashboard, their course library,
 notifications, and the course playback workspace.
 
@@ -346,7 +348,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    UI[Employee Flutter Screens] --> Providers[Riverpod Employee Providers]
+    UI[Employee React Screens] --> Providers[TanStack Query Hooks]
     Providers --> HTTP[HTTP + WebSocket]
     HTTP --> LearningRoutes[FastAPI Learning Routes]
 
@@ -510,8 +512,8 @@ The root Compose stack is the deployment shape for the current app:
 
 ```text
 backend            FastAPI API and generation pipeline
-frontend           trainer/admin Flutter web app
-employee_frontend  employee Flutter web app
+frontend           trainer/admin React web app (apps/trainer)
+employee_frontend  employee React web app (apps/employee)
 ```
 
 PostgreSQL is controlled by the `COMPOSE_PROFILES` environment setting:
@@ -591,8 +593,8 @@ Port map:
 
 ```text
 3060 -> backend container port 8000
-6969 -> trainer frontend container port 80
-6970 -> employee frontend container port 80
+6969 -> trainer frontend container port 8080
+6970 -> employee frontend container port 8080
 127.0.0.1:5432 -> bundled postgres container port 5432, only when COMPOSE_PROFILES=bundled-db
 ```
 
@@ -648,42 +650,40 @@ intentionally want to erase the bundled test database.
 
 ## Frontends
 
-Trainer app:
+The two React apps and the shared package form one pnpm workspace.
+Use Node 24 and pnpm 11 (`corepack enable`).
+The workspace refuses package versions younger than 14 days (`minimumReleaseAge`).
 
-```powershell
-cd frontend
-flutter pub get
-flutter run -d chrome
+```bash
+pnpm install
+pnpm dev:trainer    # http://localhost:5173
+pnpm dev:employee   # http://localhost:5174
 ```
 
-Employee app:
+The Vite dev servers proxy `/api` and `/assets` to the backend at `http://127.0.0.1:3060`.
+They set the same `X-LMS-App` and `X-Forwarded-Prefix` headers as nginx.
+Set `LMS_DEV_BACKEND` to use another backend, for example `LMS_DEV_BACKEND=http://127.0.0.1:8000`.
 
-```powershell
-cd employee_frontend
-flutter pub get
-flutter run -d chrome
+Each app is served at the root and at its public mount: `/lms/trainer` for the trainer app and `/lms` for the employee app.
+The build uses relative asset paths, and nginx rewrites `<base href="/" />` to the mount.
+By default the apps call the API on the same origin and mount, so no backend URL is baked into the build.
+`VITE_API_BASE_URL` (Docker build arg `API_BASE_URL`) overrides this when the API is on another origin.
+
+Checks:
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm format:check
+pnpm build
 ```
-
-Both Flutter apps read `API_BASE_URL` through `flutter_dotenv`. In local
-development they fall back to:
-
-```text
-http://localhost:8000
-```
-
-That `8000` port is for direct terminal development only, for example when the
-backend is started with `uvicorn app.main:app --reload --port 8000`. Docker/VM
-deployment exposes the backend on host port `3060`.
-
-For the Docker deployment, frontend builds use same-origin `/api` and `/assets`
-through nginx, so no VM-specific backend URL is baked into the Flutter build.
 
 ## Environment
 
 For Docker deployment, copy the root `.env.example` to `.env` and set real
 values. The root template is the only committed env template. Direct terminal
-runs may still use private local env files such as `backend/.env`,
-`frontend/.env`, and `employee_frontend/.env`.
+runs may still use private local env files such as `backend/.env`.
 
 Key settings:
 
@@ -964,10 +964,8 @@ cd backend
 
 Frontend checks:
 
-```powershell
-cd frontend
-flutter analyze
-
-cd ..\employee_frontend
-flutter analyze
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
 ```
