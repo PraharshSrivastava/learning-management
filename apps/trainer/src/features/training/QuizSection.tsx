@@ -91,6 +91,9 @@ function QuestionCard({
   onSelect,
   onSubmit,
 }: QuestionCardProps) {
+  const selectedIndex = question.options.findIndex((option) => option.key === selected)
+  // One tab stop per group: the selected answer, or the first one before a pick.
+  const tabStopIndex = Math.max(selectedIndex, 0)
   return (
     <article className="mb-5 rounded-xl border border-light-gray bg-white p-5">
       <p className="m-0 font-inter text-[11px] font-bold tracking-[1px] text-gray">
@@ -101,12 +104,30 @@ function QuestionCard({
         {question.questionText}
       </p>
       <div className="h-4" />
-      <div role="radiogroup" aria-label={`Question ${index + 1} options`}>
-        {question.options.map((option) => (
+      <div
+        role="radiogroup"
+        aria-label={`Question ${index + 1} options`}
+        onKeyDown={(event) => {
+          if (submitted) return
+          const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key]
+          if (step === undefined) return
+          // Arrows move from the focused answer, as in a native radio group.
+          const radios = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')]
+          const current = radios.findIndex((radio) => radio.contains(event.target as Node))
+          const next = (current + step + radios.length) % radios.length
+          const option = question.options[next]
+          if (current < 0 || !option) return
+          event.preventDefault()
+          onSelect(option.key)
+          radios[next]?.focus()
+        }}
+      >
+        {question.options.map((option, optionIndex) => (
           <OptionRow
             key={option.key}
             optionKey={option.key}
             text={option.text}
+            tabStop={optionIndex === tabStopIndex}
             isSelected={selected === option.key}
             isCorrect={question.correctOption === option.key}
             submitted={submitted}
@@ -148,15 +169,18 @@ function QuestionCard({
 interface OptionRowProps {
   optionKey: string
   text: string
+  tabStop: boolean
   isSelected: boolean
   isCorrect: boolean
   submitted: boolean
   onSelect: () => void
 }
 
+/** One answer. Arrow keys in the radio group move the selection, so only one answer is a tab stop. */
 function OptionRow({
   optionKey,
   text,
+  tabStop,
   isSelected,
   isCorrect,
   submitted,
@@ -199,6 +223,7 @@ function OptionRow({
       type="button"
       role="radio"
       aria-checked={isSelected}
+      tabIndex={tabStop ? 0 : -1}
       disabled={submitted}
       onClick={onSelect}
       className="mb-2 flex w-full items-center rounded-lg px-[15px] py-[11px] text-left font-inter transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light disabled:cursor-default"

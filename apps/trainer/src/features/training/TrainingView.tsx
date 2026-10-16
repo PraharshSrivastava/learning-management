@@ -5,6 +5,7 @@ import { Icon } from '@lms/shared/ui/icons/Icon'
 import { HlsVideoPlayer } from '@lms/shared/video/HlsVideoPlayer'
 import clsx from 'clsx'
 import { useState } from 'react'
+import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
 import { ActionButton } from './ActionButton'
 import { ring } from './flutterStyle'
 import { QuizSection, type QuizAnswers } from './QuizSection'
@@ -27,15 +28,52 @@ interface TrainingViewProps {
   readOnly?: boolean
 }
 
-/** Trainer view of one course: learning path, module video, notes, transcript, and quiz. */
+/**
+ * Trainer view of one course: learning path, module video, notes, transcript, and quiz.
+ * The open module is `module` in the URL, so reload and the back button keep it. The read-only
+ * library view shows another course inside the page, so it keeps the module in local state.
+ */
 export function TrainingView({ course, readOnly = false }: TrainingViewProps) {
   // The key resets the module and quiz answers when another course opens.
-  return <TrainingBody key={course.courseId} course={course} readOnly={readOnly} />
+  return readOnly ? (
+    <LocalModuleTraining key={course.courseId} course={course} />
+  ) : (
+    <UrlModuleTraining key={course.courseId} course={course} />
+  )
 }
 
-function TrainingBody({ course, readOnly }: { course: Course; readOnly: boolean }) {
-  const isMobile = useMediaQuery('(max-width: 899.98px)')
+function LocalModuleTraining({ course }: { course: Course }) {
   const [activeIndex, setActiveIndex] = useState(0)
+  return (
+    <TrainingBody course={course} readOnly activeIndex={activeIndex} onSelect={setActiveIndex} />
+  )
+}
+
+function UrlModuleTraining({ course }: { course: Course }) {
+  const position = useTrainerSearch().module ?? 1
+  const updateSearch = useUpdateTrainerSearch()
+  return (
+    <TrainingBody
+      course={course}
+      readOnly={false}
+      activeIndex={position - 1}
+      // Each module change is a history entry, so Back returns to the previous module.
+      onSelect={(index) => {
+        if (index !== position - 1) updateSearch({ module: index > 0 ? index + 1 : undefined })
+      }}
+    />
+  )
+}
+
+interface TrainingBodyProps {
+  course: Course
+  readOnly: boolean
+  activeIndex: number
+  onSelect: (index: number) => void
+}
+
+function TrainingBody({ course, readOnly, activeIndex, onSelect }: TrainingBodyProps) {
+  const isMobile = useMediaQuery('(max-width: 899.98px)')
   const [answers, setAnswers] = useState<QuizAnswers>({ selected: {}, submitted: {} })
   const generation = useModuleGeneration(course.courseId)
 
@@ -80,7 +118,7 @@ function TrainingBody({ course, readOnly }: { course: Course; readOnly: boolean 
             <span className="sr-only">Module</span>
             <select
               value={moduleIndex}
-              onChange={(event) => setActiveIndex(Number(event.target.value))}
+              onChange={(event) => onSelect(Number(event.target.value))}
               className="w-full cursor-pointer appearance-none bg-transparent pr-6 font-barlow text-sm font-semibold text-primary-blue outline-none"
             >
               {course.modules.map((item, index) => (
@@ -112,7 +150,7 @@ function TrainingBody({ course, readOnly }: { course: Course; readOnly: boolean 
         <h2 className="m-0 mb-4 font-barlow text-xs leading-normal font-bold tracking-[1.5px] text-gray">
           COURSE CONTENT
         </h2>
-        <ModuleList modules={course.modules} activeIndex={moduleIndex} onSelect={setActiveIndex} />
+        <ModuleList modules={course.modules} activeIndex={moduleIndex} onSelect={onSelect} />
       </aside>
     </div>
   )
@@ -231,10 +269,17 @@ function NotesSection({ module }: { module: CourseModule }) {
 function TranscriptSection({ module }: { module: CourseModule }) {
   const slides = transcriptSlides(module)
   return (
-    <section className="flex max-h-[360px] flex-col rounded-2xl border border-light-gray bg-white">
+    // Flutter's Column fills the 360 px max height, so the empty card keeps that height.
+    <section
+      className={clsx(
+        'flex flex-col rounded-2xl border border-light-gray bg-white',
+        slides.length === 0 ? 'h-[360px]' : 'max-h-[360px]',
+      )}
+    >
       <div className="flex items-center px-[18px] pt-3.5 pb-3">
         <Icon name="notes_rounded" size={18} color="var(--color-primary-blue)" />
-        <h3 className="relative top-px m-0 ml-2 font-inter text-sm font-bold text-primary-blue">
+        {/* The 21 px line box makes the header 47 px high, as Flutter renders it. */}
+        <h3 className="relative top-px m-0 ml-2 font-inter text-sm leading-[21px] font-bold text-primary-blue">
           Slide Script / Transcript
         </h3>
       </div>
@@ -265,7 +310,8 @@ function TranscriptSection({ module }: { module: CourseModule }) {
                   {slideTitle(slide, index)}
                 </span>
               </div>
-              <p className="mt-2.5 mb-0 font-barlow text-[13.5px] leading-[1.45] whitespace-pre-line text-text-black">
+              {/* Flutter rounds the text box up to whole pixels, so one line is 20 px high. */}
+              <p className="mt-2.5 mb-0 min-h-5 font-barlow text-[13.5px] leading-[1.45] whitespace-pre-line text-text-black">
                 {slide.script}
               </p>
             </li>

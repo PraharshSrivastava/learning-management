@@ -38,6 +38,8 @@ export const trainerSearchSchema = z.object({
   library: z.literal(true).optional().catch(undefined),
   /** Course open in the All Courses library. */
   libraryCourse: optionalText,
+  /** 1-based position of the module open on the Courses tab. It is absent for the first module. */
+  module: z.coerce.number().int().min(2).optional().catch(undefined),
 })
 
 export type TrainerSearch = z.output<typeof trainerSearchSchema>
@@ -46,14 +48,21 @@ export function useTrainerSearch(): TrainerSearch {
   return useSearch({ strict: false }) as TrainerSearch
 }
 
-/** Merges a patch into the search params. `undefined` removes a key. */
+/**
+ * Merges a patch into the search params. `undefined` removes a key.
+ * Another course opens at its first module, as in Flutter.
+ */
 export function useUpdateTrainerSearch() {
   const navigate = useNavigate()
   return useCallback(
     (patch: Partial<TrainerSearch>, options: { replace?: boolean } = {}) =>
       void navigate({
         to: '/',
-        search: (previous: TrainerSearch) => ({ ...previous, ...patch }),
+        search: (previous: TrainerSearch) => {
+          const next = { ...previous, ...patch }
+          if (next.course !== previous.course) delete next.module
+          return next
+        },
         replace: options.replace,
       }),
     [navigate],

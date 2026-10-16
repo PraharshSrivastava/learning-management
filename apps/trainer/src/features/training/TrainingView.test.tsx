@@ -5,10 +5,19 @@ import { ToastProvider } from '@lms/shared/ui/Toast'
 import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from '@tanstack/react-router'
 import userEvent from '@testing-library/user-event'
-import type { ReactNode } from 'react'
+import { useSyncExternalStore, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OverlayProvider } from '../../shell/overlay'
+import { trainerSearchSchema, useUpdateTrainerSearch } from '../../shell/search'
 import { TrainingView } from './TrainingView'
 
 vi.mock('@lms/shared/video/HlsVideoPlayer', () => ({
@@ -49,19 +58,47 @@ function courseJson(overrides: Record<string, unknown> = {}) {
 
 const course = (overrides?: Record<string, unknown>): Course => parseCourse(courseJson(overrides))
 
-function renderView(ui: ReactNode) {
+/** Renders the view under a memory router at `url`. `show` swaps the view, as a new course does. */
+async function renderView(ui: ReactNode, { url = '/?tab=courses&course=c1' } = {}) {
+  let current = ui
+  const listeners = new Set<() => void>()
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  }
+  const Page = () => useSyncExternalStore(subscribe, () => current)
+  const rootRoute = createRootRoute({ component: Outlet })
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    validateSearch: trainerSearchSchema,
+    component: Page,
+  })
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute]),
+    history: createMemoryHistory({ initialEntries: [url] }),
+  })
   const client = createQueryClient()
   const invalidate = vi.spyOn(client, 'invalidateQueries')
   const view = render(
     <QueryClientProvider client={client}>
       <TooltipProvider>
         <ToastProvider>
-          <OverlayProvider>{ui}</OverlayProvider>
+          <OverlayProvider>
+            <RouterProvider router={router} />
+          </OverlayProvider>
         </ToastProvider>
       </TooltipProvider>
     </QueryClientProvider>,
   )
-  return { ...view, client, invalidate }
+  const show = (next: ReactNode) => {
+    current = next
+    act(() => listeners.forEach((listener) => listener()))
+  }
+  const search = () => router.state.location.search as Record<string, unknown>
+  // The router renders the route after it loads, on a later tick.
+  await act(() => router.load())
+  return { ...view, router, client, invalidate, show, search }
 }
 
 function mockViewport(mobile: boolean) {
@@ -84,9 +121,19 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** Stands in for the sidebar, which opens another course through the shared search update. */
+function CourseSwitch() {
+  const updateSearch = useUpdateTrainerSearch()
+  return (
+    <button type="button" onClick={() => updateSearch({ course: 'c2' })}>
+      Open c2
+    </button>
+  )
+}
+
 describe('TrainingView content', () => {
-  it('shows the first module with video, notes, transcript and quiz', () => {
-    renderView(<TrainingView course={course()} />)
+  it('shows the first module with video, notes, transcript and quiz', async () => {
+    await renderView(<TrainingView course={course()} />)
     expect(screen.getByRole('heading', { name: 'Code of conduct', level: 2 })).toBeInTheDocument()
     expect(screen.getAllByText('MODULE 1')).toHaveLength(2)
     expect(screen.getByTestId('player').textContent).toContain('m1_hls/master.m3u8')
@@ -97,14 +144,14 @@ describe('TrainingView content', () => {
     expect(screen.getByRole('button', { name: 'Download Video' })).toBeInTheDocument()
   })
 
-  it('shows the empty course card when there are no modules', () => {
-    renderView(<TrainingView course={course({ modules: [] })} />)
+  it('shows the empty course card when there are no modules', async () => {
+    await renderView(<TrainingView course={course({ modules: [] })} />)
     expect(screen.getByText('No Modules Available')).toBeInTheDocument()
   })
 
   it('shows placeholders for a module without video, notes, script and quiz', async () => {
     const user = userEvent.setup()
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     expect(screen.getByText('No Video Compiled Yet')).toBeInTheDocument()
     expect(screen.queryByTestId('player')).not.toBeInTheDocument()
@@ -118,7 +165,7 @@ describe('TrainingView content', () => {
 
   it('marks the active module in the list', async () => {
     const user = userEvent.setup()
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     const [first, second] = screen.getAllByRole('button', { name: /^MODULE \d/ })
     expect(first).toHaveAttribute('aria-current', 'true')
     await user.click(second!)
@@ -126,48 +173,59 @@ describe('TrainingView content', () => {
     expect(first).not.toHaveAttribute('aria-current')
   })
 
-  it('uses a dropdown on narrow screens', () => {
+  it('uses a dropdown on narrow screens', async () => {
     mockViewport(true)
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     const select = screen.getByRole('combobox', { name: 'Module' })
     fireEvent.change(select, { target: { value: '1' } })
-    expect(screen.getByRole('heading', { name: 'Reporting', level: 2 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Reporting', level: 2 })).toBeInTheDocument()
     expect(screen.queryByText('COURSE CONTENT')).not.toBeInTheDocument()
   })
 
-  it('goes back to the first module when another course opens', async () => {
+  it('opens another course at its first module', async () => {
     const user = userEvent.setup()
-    const { rerender } = renderView(<TrainingView course={course()} />)
-    await user.click(screen.getByRole('button', { name: /Reporting/ }))
-    expect(screen.getByRole('heading', { name: 'Reporting', level: 2 })).toBeInTheDocument()
-    rerender(
-      <QueryClientProvider client={createQueryClient()}>
-        <TooltipProvider>
-          <ToastProvider>
-            <OverlayProvider>
-              <TrainingView course={course({ course_id: 'c2' })} />
-            </OverlayProvider>
-          </ToastProvider>
-        </TooltipProvider>
-      </QueryClientProvider>,
+    const { search } = await renderView(
+      <>
+        <TrainingView course={course()} />
+        <CourseSwitch />
+      </>,
     )
+    await user.click(await screen.findByRole('button', { name: /Reporting/ }))
+    expect(search().module).toBe(2)
+    await user.click(screen.getByRole('button', { name: 'Open c2' }))
+    expect(search()).toEqual({ tab: 'courses', course: 'c2' })
     expect(screen.getByRole('heading', { name: 'Code of conduct', level: 2 })).toBeInTheDocument()
   })
 
-  it('keeps a valid module when the course loses modules', () => {
-    const { rerender } = renderView(<TrainingView course={course()} />)
-    const fewer = course({ modules: courseJson().modules.slice(0, 1) })
-    rerender(
-      <QueryClientProvider client={createQueryClient()}>
-        <TooltipProvider>
-          <ToastProvider>
-            <OverlayProvider>
-              <TrainingView course={fewer} />
-            </OverlayProvider>
-          </ToastProvider>
-        </TooltipProvider>
-      </QueryClientProvider>,
-    )
+  it('keeps the module in the URL, so reload and Back restore it', async () => {
+    const user = userEvent.setup()
+    const { router, search } = await renderView(<TrainingView course={course()} />, {
+      url: '/?tab=courses&course=c1&module=2',
+    })
+    expect(await screen.findByRole('heading', { name: 'Reporting', level: 2 })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Code of conduct/ }))
+    expect(search().module).toBeUndefined()
+    expect(screen.getByRole('heading', { name: 'Code of conduct', level: 2 })).toBeInTheDocument()
+    await act(async () => router.history.back())
+    await waitFor(() => expect(search().module).toBe(2))
+    expect(screen.getByRole('heading', { name: 'Reporting', level: 2 })).toBeInTheDocument()
+  })
+
+  it('ignores a module number that is not in the URL schema', async () => {
+    await renderView(<TrainingView course={course()} />, {
+      url: '/?tab=courses&course=c1&module=x',
+    })
+    expect(
+      await screen.findByRole('heading', { name: 'Code of conduct', level: 2 }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps a valid module when the course loses modules', async () => {
+    const { show } = await renderView(<TrainingView course={course()} />, {
+      url: '/?tab=courses&course=c1&module=2',
+    })
+    await screen.findByRole('heading', { name: 'Reporting', level: 2 })
+    show(<TrainingView course={course({ modules: courseJson().modules.slice(0, 1) })} />)
     expect(screen.getByRole('heading', { name: 'Code of conduct', level: 2 })).toBeInTheDocument()
   })
 })
@@ -175,7 +233,7 @@ describe('TrainingView content', () => {
 describe('TrainingView quiz', () => {
   it('checks an answer, shows the result and the explanation, and updates the score', async () => {
     const user = userEvent.setup()
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     const check = screen.getAllByRole('button', { name: 'Check Answer' })[0]!
     expect(check).toBeDisabled()
     const group = screen.getByRole('radiogroup', { name: 'Question 1 options' })
@@ -189,7 +247,7 @@ describe('TrainingView quiz', () => {
 
   it('locks the options after the answer is checked', async () => {
     const user = userEvent.setup()
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     const group = screen.getByRole('radiogroup', { name: 'Question 1 options' })
     await user.click(within(group).getByRole('radio', { name: /Second/ }))
     await user.click(screen.getAllByRole('button', { name: 'Check Answer' })[0]!)
@@ -202,7 +260,7 @@ describe('TrainingView quiz', () => {
 
   it('shows Completed when every question is checked and Reset Quiz clears the answers', async () => {
     const user = userEvent.setup()
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     for (const index of [1, 2]) {
       const group = screen.getByRole('radiogroup', { name: `Question ${index} options` })
       await user.click(within(group).getAllByRole('radio')[0]!)
@@ -214,9 +272,31 @@ describe('TrainingView quiz', () => {
     expect(screen.getAllByRole('button', { name: 'Check Answer' })).toHaveLength(2)
   })
 
+  it('moves and selects with arrow keys and keeps one tab stop per question', async () => {
+    const user = userEvent.setup()
+    await renderView(<TrainingView course={course()} />)
+    const group = await screen.findByRole('radiogroup', { name: 'Question 1 options' })
+    const [first, second] = within(group).getAllByRole('radio')
+    expect(first).toHaveAttribute('tabindex', '0')
+    expect(second).toHaveAttribute('tabindex', '-1')
+    first!.focus()
+    await user.keyboard('{ArrowDown}')
+    expect(second).toHaveFocus()
+    expect(second).toHaveAttribute('aria-checked', 'true')
+    expect(second).toHaveAttribute('tabindex', '0')
+    expect(first).toHaveAttribute('tabindex', '-1')
+    await user.keyboard('{ArrowRight}')
+    expect(first).toHaveFocus()
+    expect(first).toHaveAttribute('aria-checked', 'true')
+    await user.keyboard('{ArrowUp}')
+    expect(second).toHaveFocus()
+    await user.tab()
+    expect(screen.getAllByRole('button', { name: 'Check Answer' })[0]).toHaveFocus()
+  })
+
   it('keeps answers per module when the user switches modules', async () => {
     const user = userEvent.setup()
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     const group = screen.getByRole('radiogroup', { name: 'Question 1 options' })
     await user.click(within(group).getByRole('radio', { name: /First/ }))
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
@@ -230,9 +310,17 @@ describe('TrainingView quiz', () => {
 })
 
 describe('TrainingView read-only mode', () => {
+  it('keeps the module out of the URL', async () => {
+    const user = userEvent.setup()
+    const { search } = await renderView(<TrainingView course={course()} readOnly />)
+    await user.click(await screen.findByRole('button', { name: /Reporting/ }))
+    expect(screen.getByRole('heading', { name: 'Reporting', level: 2 })).toBeInTheDocument()
+    expect(search().module).toBeUndefined()
+  })
+
   it('disables both generation buttons but keeps download', async () => {
     const user = userEvent.setup()
-    renderView(<TrainingView course={course()} readOnly />)
+    await renderView(<TrainingView course={course()} readOnly />)
     expect(screen.getByRole('button', { name: 'Download Video' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     expect(screen.getByRole('button', { name: 'Compile Module Video' })).toBeDisabled()
@@ -253,7 +341,7 @@ describe('TrainingView generation', () => {
     const user = userEvent.setup()
     let finish: (response: Response) => void = () => {}
     const fetchMock = stubFetch(() => new Promise((resolve) => (finish = resolve)))
-    const { invalidate } = renderView(<TrainingView course={course()} />)
+    const { invalidate } = await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
     expect(await screen.findByText('Generating video')).toBeInTheDocument()
@@ -271,7 +359,7 @@ describe('TrainingView generation', () => {
     stubFetch(async (url) =>
       url.includes('/generate-quiz') ? json(generated) : json({ detail: 'down' }, 500),
     )
-    const { client } = renderView(<TrainingView course={course()} />)
+    const { client } = await renderView(<TrainingView course={course()} />)
     client.setQueryData(['courses'], [course()])
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     await user.click(screen.getByRole('button', { name: 'Generate Quiz Now' }))
@@ -285,7 +373,7 @@ describe('TrainingView generation', () => {
   it('sends one request only when the quiz button is clicked twice', async () => {
     const user = userEvent.setup()
     stubFetch(() => new Promise(() => {}))
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     const button = screen.getByRole('button', { name: 'Generate Quiz Now' })
     await user.click(button)
@@ -298,7 +386,7 @@ describe('TrainingView generation', () => {
   it('shows the server error in a toast and removes the overlay', async () => {
     const user = userEvent.setup()
     stubFetch(() => Promise.resolve(json({ detail: 'Not enough slides.' }, 400)))
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
     expect(await screen.findByText('Not enough slides.')).toBeInTheDocument()
@@ -309,7 +397,7 @@ describe('TrainingView generation', () => {
   it('removes the overlay when the view unmounts during a request', async () => {
     const user = userEvent.setup()
     stubFetch(() => new Promise(() => {}))
-    const { unmount } = renderView(<TrainingView course={course()} />)
+    const { unmount } = await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
     expect(await screen.findByText('Generating video')).toBeInTheDocument()
@@ -330,7 +418,7 @@ describe('TrainingView download', () => {
     ) {
       clicked.push(this)
     })
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: 'Download Video' }))
     await waitFor(() => expect(clicked).toHaveLength(1))
     expect(clicked[0]!.download).toBe('c1-module-1-code-of-conduct.mp4')
@@ -346,7 +434,7 @@ describe('TrainingView download', () => {
     ) {
       clicked.push(this)
     })
-    renderView(<TrainingView course={course()} />)
+    await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: 'Download Video' }))
     await waitFor(() => expect(clicked).toHaveLength(1))
     expect(clicked[0]!.target).toBe('_blank')
