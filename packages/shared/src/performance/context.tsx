@@ -81,6 +81,7 @@ export function ReportProvider({
     initialReportState(app, linkedReport),
   )
   // openLinkedReport: a later link changes the open report and keeps its view and course status.
+  // A new object is a new link, so callers keep the same object while the link does not change.
   const [appliedLink, setAppliedLink] = useState(linkedReport)
   if (linkedReport !== appliedLink) {
     setAppliedLink(linkedReport)

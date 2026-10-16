@@ -1,8 +1,8 @@
 import { useLmsAccess } from '@lms/shared/auth/lmsAccess'
 import { useSession } from '@lms/shared/auth/session'
 import { isNewAssignment, orderedAssigned, type EmployeeCourse } from '@lms/shared/models'
-import { PerformanceReport } from '@lms/shared/performance/PerformanceReport'
-import { useEffect, useState, type ReactNode } from 'react'
+import { LazyPerformanceReport } from '@lms/shared/performance/LazyPerformanceReport'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Employee } from '../auth/employee'
 import { CoursePlayback } from '../learning/CoursePlayback'
 import { AppBar } from './AppBar'
@@ -77,18 +77,22 @@ export function EmployeeDashboard() {
   }
 
   const showPerformance = activeIndex === 3
+  // A new link object opens the link again, so keep one object per URL link.
+  const linkedReport = useMemo(
+    () =>
+      search.view === 'team-performance'
+        ? { courseId: search.course_id ?? null, status: search.status ?? null }
+        : null,
+    [search.view, search.course_id, search.status],
+  )
 
   let content
   if (showPerformance) {
-    const linked =
-      search.view === 'team-performance'
-        ? { courseId: search.course_id ?? null, status: search.status ?? null }
-        : null
     content = (
-      <PerformanceReport
+      <LazyPerformanceReport
         key={`${person?.employeeId}:${token}:${access?.permissions_version}:${access?.report_scope_version}`}
         app="employee"
-        linkedReport={linked}
+        linkedReport={linkedReport}
       />
     )
   } else if (openCourse) {

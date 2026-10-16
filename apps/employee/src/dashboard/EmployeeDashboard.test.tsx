@@ -5,10 +5,14 @@ import { courseJson, moduleJson } from '../test/fixtures'
 import { FakeSocket, renderDashboard, stubFetch, stubSocket } from '../test/renderApp'
 import { RECONNECT_BASE_MS } from './useEmployeeCourses'
 
+// Each link object the report got. A new object opens the link again.
+const linkedReports = vi.hoisted(() => [] as unknown[])
+
 vi.mock('@lms/shared/performance/PerformanceReport', () => ({
-  PerformanceReport: ({ linkedReport }: { linkedReport: unknown }) => (
-    <div data-testid="performance">{JSON.stringify(linkedReport)}</div>
-  ),
+  PerformanceReport: ({ linkedReport }: { linkedReport: unknown }) => {
+    linkedReports.push(linkedReport)
+    return <div data-testid="performance">{JSON.stringify(linkedReport)}</div>
+  },
 }))
 
 const DAY = 24 * 60 * 60 * 1000
@@ -41,6 +45,7 @@ let performanceViews: string[] = []
 
 beforeEach(() => {
   performanceViews = []
+  linkedReports.length = 0
   stubSocket()
   stubFetch((url) => {
     if (url.pathname.endsWith('/api/me/courses')) return courses
@@ -160,6 +165,15 @@ describe('EmployeeDashboard', () => {
     expect(screen.getByRole('button', { name: 'Performance' })).toBeInTheDocument()
     // Flutter showed no label here, as its label list has no Performance entry.
     expect(within(screen.getByRole('banner')).getByText('Performance')).toBeInTheDocument()
+  })
+
+  it('keeps the same linked report object when the dashboard renders again', async () => {
+    performanceViews = ['team']
+    renderDashboard('/?view=team-performance&course_id=c9&status=passed')
+    await screen.findByTestId('performance')
+    act(() => FakeSocket.instances[0]!.send(courses))
+    await waitFor(() => expect(linkedReports.length).toBeGreaterThan(1))
+    expect(new Set(linkedReports).size).toBe(1)
   })
 
   it('replaces the list from the socket and reconnects after a close', async () => {

@@ -1,7 +1,7 @@
 // Dart: frontend/lib/features/dashboard_page.dart:45-60 and :193 (portal mount and e-mail link),
 // frontend/lib/features/performance/performance_report_portal.dart:31-45 (initState openLinkedReport),
 // frontend/lib/features/courses/course_library_access.dart:101 (View Performance).
-import { PerformanceReport } from '@lms/shared/performance/PerformanceReport'
+import { LazyPerformanceReport } from '@lms/shared/performance/LazyPerformanceReport'
 import { useLayoutEffect, useState } from 'react'
 import { takePendingLinkedReport } from '../../shell/linkedReport'
 import { useTrainerSearch } from '../../shell/search'
@@ -25,5 +25,5 @@ export function PerformanceTab() {
     if (next) setLinked(next)
   }, [tab])
 
-  return <PerformanceReport app="trainer" linkedReport={linked} />
+  return <LazyPerformanceReport app="trainer" linkedReport={linked} />
 }
