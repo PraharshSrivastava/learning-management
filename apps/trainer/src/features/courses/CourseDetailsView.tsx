@@ -1,4 +1,5 @@
 import { assetUrl, videoAssetUrl } from '@lms/shared/api/client'
+import { useHasMediaTicket } from '@lms/shared/api/useMediaTicket'
 import type { Course, CourseImage } from '@lms/shared/models'
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
 import { Spinner } from '@lms/shared/ui/Spinner'
@@ -42,23 +43,31 @@ interface CourseDetailsViewProps {
 /** Blueprint tab detail pane: archived notice, loading state, or the blueprint editor. */
 export function CourseDetailsView({ course, detailError = null }: CourseDetailsViewProps) {
   if (course.lifecycleState === 'archived') return <ArchivedCourseView course={course} />
-  if (course.modules.length === 0 && course.moduleCount > 0) {
-    return (
-      <div className="card flex h-full items-center justify-center p-6">
-        {detailError ? (
-          <div role="alert" className="flex flex-col items-center text-center">
-            <Icon name="error_outline_rounded" size={32} className="text-accent-red" />
-            <p className="m-0 mt-2 font-barlow leading-[21px] font-bold">Error loading course</p>
-            <p className="m-0 mt-1 text-xs leading-[16.8px] text-gray">{detailError}</p>
-          </div>
-        ) : (
-          <Spinner label="Loading course" />
-        )}
-      </div>
-    )
-  }
+  if (isDetailPending(course)) return <CourseDetailPending detailError={detailError} />
   // A new course or a changed server copy resets the form, as didUpdateWidget did.
   return <BlueprintEditor key={editorSignature(course)} course={course} />
+}
+
+/** The sidebar summary has modules, but the course details have not loaded yet. */
+export function isDetailPending(course: Course): boolean {
+  return course.modules.length === 0 && course.moduleCount > 0
+}
+
+/** Detail pane while the course details load, or the load error. */
+export function CourseDetailPending({ detailError }: { detailError: string | null }) {
+  return (
+    <div className="card flex h-full items-center justify-center p-6">
+      {detailError ? (
+        <div role="alert" className="flex flex-col items-center text-center">
+          <Icon name="error_outline_rounded" size={32} className="text-accent-red" />
+          <p className="m-0 mt-2 font-barlow leading-[21px] font-bold">Error loading course</p>
+          <p className="m-0 mt-1 text-xs leading-[16.8px] text-gray">{detailError}</p>
+        </div>
+      ) : (
+        <Spinner label="Loading course" />
+      )}
+    </div>
+  )
 }
 
 /** Legacy branch for a course in the archived state. */
@@ -577,7 +586,11 @@ function ModuleCard({ course, module, index, onChange, onDelete }: ModuleCardPro
 }
 
 function ImageCard({ image, moduleNumber }: { image: CourseImage; moduleNumber: number | null }) {
-  const [broken, setBroken] = useState(false)
+  // The URL changes when the media ticket arrives, so a load that failed without it retries.
+  useHasMediaTicket()
+  const src = assetUrl(image.filePath)
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null)
+  const broken = brokenSrc === src
   const mapped = moduleNumber != null
   return (
     <li className="flex aspect-[1.3] flex-col overflow-hidden rounded-lg border border-light-gray bg-white shadow-[0_2px_4px_rgb(0_0_0/0.02)]">
@@ -586,9 +599,9 @@ function ImageCard({ image, moduleNumber }: { image: CourseImage; moduleNumber: 
           <Icon name="broken_image" size={24} className="text-gray" />
         ) : (
           <img
-            src={assetUrl(image.filePath)}
+            src={src}
             alt={image.caption || 'Extracted image'}
-            onError={() => setBroken(true)}
+            onError={() => setBrokenSrc(src)}
             className="max-h-full max-w-full object-contain"
           />
         )}

@@ -1,4 +1,5 @@
-import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import { setMediaTicket } from '@lms/shared/api/client'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { trainerKeys } from '../../shell/queryKeys'
@@ -13,7 +14,9 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
+  setMediaTicket(null)
 })
 
 const courses = [
@@ -152,6 +155,119 @@ describe('Blueprint editor', () => {
     handles[0]!.focus()
     await userEvent.keyboard('{ArrowDown}')
     expect(screen.getByLabelText('Module 1 title')).toHaveValue('Reporting')
+  })
+})
+
+describe('Blueprint detail pane', () => {
+  it('shows the course detail load error instead of the spinner', async () => {
+    api({
+      'GET /api/courses': [courseJson({ modules: [] })],
+      'GET /api/courses/c1': () => new Response('{"detail":"Forbidden"}', { status: 403 }),
+    })
+    renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    expect(await screen.findByText('Error loading course')).toBeInTheDocument()
+  })
+
+  it('retries a broken image when the media ticket arrives', async () => {
+    const image = { image_id: 'i1', caption: 'Chart', file_path: 'assets/img/chart.png' }
+    api({ 'GET /api/courses/c1': courseJson({ images: [image] }) })
+    renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    fireEvent.error(await screen.findByAltText('Chart'))
+    expect(screen.queryByAltText('Chart')).not.toBeInTheDocument()
+    act(() => setMediaTicket('t1'))
+    expect(screen.getByAltText('Chart').getAttribute('src')).toContain('media_ticket=t1')
+  })
+})
+
+describe('Full course generation', () => {
+  const generated = courseJson({
+    thumbnail_path: 'assets/t.png',
+    modules: [
+      {
+        module_number: 1,
+        title: 'Basics',
+        source_text: 'Basics text',
+        num_questions: 0,
+        video_path: 'assets/v.mp4',
+        quiz: { questions: [] },
+      },
+    ],
+    module_count: 1,
+  })
+  const calls = (fetchMock: ReturnType<typeof api>) =>
+    fetchMock.mock.calls.map(
+      ([input, init]) => `${init?.method ?? 'GET'} ${new URL(String(input), 'http://x').pathname}`,
+    )
+
+  it('saves, starts a job, polls it, and opens the Courses tab', async () => {
+    let polls = 0
+    let done = false
+    const fetchMock = api({
+      'PUT /api/courses/c1': courseJson(),
+      'POST /api/courses/c1/generation-jobs': { id: 'j1', course_id: 'c1', status: 'queued' },
+      'GET /api/generation-jobs/j1': () => {
+        polls += 1
+        done = polls >= 2
+        return { id: 'j1', course_id: 'c1', status: done ? 'completed' : 'running' }
+      },
+      'GET /api/courses/c1': () => (done ? generated : courseJson()),
+    })
+    const { search } = renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    fireEvent.click(await screen.findByRole('button', { name: /Generate Course/ }))
+    await waitFor(() => expect(calls(fetchMock)).toContain('POST /api/courses/c1/generation-jobs'))
+    expect(calls(fetchMock).indexOf('PUT /api/courses/c1')).toBeLessThan(
+      calls(fetchMock).indexOf('POST /api/courses/c1/generation-jobs'),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(4000))
+    await act(() => vi.advanceTimersByTimeAsync(4000))
+    await waitFor(() => expect(search().tab).toBe('courses'))
+    expect(polls).toBe(2)
+  })
+
+  it('shows a failed job and stays on the Blueprint tab', async () => {
+    api({
+      'PUT /api/courses/c1': courseJson(),
+      'POST /api/courses/c1/generation-jobs': { id: 'j1', course_id: 'c1', status: 'queued' },
+      'GET /api/generation-jobs/j1': {
+        id: 'j1',
+        course_id: 'c1',
+        status: 'failed',
+        error: 'Out of credits',
+      },
+    })
+    const { search } = renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    fireEvent.click(await screen.findByRole('button', { name: /Generate Course/ }))
+    await act(() => vi.advanceTimersByTimeAsync(4000))
+    expect(await screen.findByText('Out of credits')).toBeInTheDocument()
+    expect(search().tab).toBe('blueprint')
+  })
+
+  it('does not start a job when the save fails', async () => {
+    const fetchMock = api({
+      'PUT /api/courses/c1': () => new Response('{"detail":"Nope"}', { status: 400 }),
+    })
+    renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    await userEvent.click(await screen.findByRole('button', { name: /Generate Course/ }))
+    expect(await screen.findByText(/Nope/)).toBeInTheDocument()
+    expect(calls(fetchMock)).not.toContain('POST /api/courses/c1/generation-jobs')
+  })
+
+  it('resumes from the checkpoint without a save', async () => {
+    const failed = courseJson({
+      generation: { status: 'failed', failed_checkpoint: 'wave_1', error: 'Timed out' },
+    })
+    const fetchMock = api({
+      'GET /api/courses': [failed],
+      'GET /api/courses/c1': failed,
+      'POST /api/courses/c1/continue-generation': generated,
+    })
+    const { search } = renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    await userEvent.click(await screen.findByRole('button', { name: /Continue generation/ }))
+    await waitFor(() => expect(search().tab).toBe('courses'))
+    expect(calls(fetchMock)).toContain('POST /api/courses/c1/continue-generation')
+    expect(calls(fetchMock)).not.toContain('PUT /api/courses/c1')
   })
 })
 
