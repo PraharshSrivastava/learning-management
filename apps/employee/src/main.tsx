@@ -1,6 +1,7 @@
 import '@lms/shared/theme.css'
 import { configureApi, runtimeUrls } from '@lms/shared/api/client'
 import { createQueryClient } from '@lms/shared/api/queryClient'
+import { removeLegacyServiceWorker } from '@lms/shared/app/legacyServiceWorker'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
   createRootRoute,
@@ -14,6 +15,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { employeeSearchSchema } from './dashboard/search'
+
+removeLegacyServiceWorker()
 
 configureApi({
   app: 'employee',
