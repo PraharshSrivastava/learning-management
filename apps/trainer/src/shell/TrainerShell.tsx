@@ -7,6 +7,8 @@ import { useState, type ComponentType } from 'react'
 import type { Trainer } from '../auth/trainer'
 import { AssignTab } from '../features/assignments/AssignTab'
 import { BlueprintTab } from '../features/courses/BlueprintTab'
+import { useCourseSaveOverlay } from '../features/courses/courseQueries'
+import { useFullCourseGenerationOverlay } from '../features/courses/useFullCourseGeneration'
 import { DocumentsTab } from '../features/documents/DocumentsTab'
 import { PerformanceTab } from '../features/performance/PerformanceTab'
 import { CoursesTab } from '../features/training/CoursesTab'
@@ -40,6 +42,10 @@ export function TrainerShell() {
   // Visited tabs stay mounted, like Flutter's IndexedStack, so their state survives a tab switch.
   const [visited, setVisited] = useState<ReadonlySet<TrainerTab>>(() => new Set([activeTab]))
   if (!visited.has(activeTab)) setVisited(new Set(visited).add(activeTab))
+  // Registered here, not in BlueprintEditor, so Back/Forward or a tab change cannot unmount the
+  // overlay while the job it is blocking for keeps running in the background.
+  useFullCourseGenerationOverlay()
+  useCourseSaveOverlay()
 
   const openTab = (tab: TrainerTab) => {
     for (const queryKey of tabQueries[tab]) void queryClient.invalidateQueries({ queryKey })

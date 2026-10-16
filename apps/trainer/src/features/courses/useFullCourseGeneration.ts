@@ -27,7 +27,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 /**
  * Full course generation (FullCourseGenerationNotifier). A new run starts a backend job and polls
  * it every 4 s. A resume continues from the failed checkpoint in one request. The overlay stays
- * up while either runs, also when the user opens another tab.
+ * up while either runs, also when the user opens another tab; see useFullCourseGenerationOverlay.
  */
 export function useFullCourseGeneration() {
   const queryClient = useQueryClient()
@@ -120,7 +120,6 @@ export function useFullCourseGeneration() {
   })
 
   const running = useIsMutating({ mutationKey: FULL_GENERATION_KEY }) > 0
-  useBlockingOverlay(running, 'Generating course content')
 
   return {
     running,
@@ -128,4 +127,13 @@ export function useFullCourseGeneration() {
       if (!running) mutation.mutate({ courseId, fromCheckpoint })
     },
   }
+}
+
+/**
+ * Shows the blocking overlay from shell level, so it stays up across a tab or course change that
+ * unmounts BlueprintEditor while the job keeps running (the Flutter root Stack never let go of it).
+ */
+export function useFullCourseGenerationOverlay(): void {
+  const running = useIsMutating({ mutationKey: FULL_GENERATION_KEY }) > 0
+  useBlockingOverlay(running, 'Generating course content')
 }

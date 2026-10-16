@@ -132,7 +132,14 @@ export function useUpdateCourse() {
       await refreshCourses()
     },
   })
+  return mutation
+}
+
+/**
+ * Shows the blocking overlay from shell level, so it stays up across a tab or course change that
+ * unmounts BlueprintEditor while the save keeps running.
+ */
+export function useCourseSaveOverlay(): void {
   const saving = useIsMutating({ mutationKey: UPDATE_KEY }) > 0
   useBlockingOverlay(saving, 'Saving course blueprint modifications...')
-  return mutation
 }
