@@ -13,6 +13,7 @@ import {
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { employeeSearchSchema } from './dashboard/search'
 
 configureApi({
   app: 'employee',
@@ -21,7 +22,12 @@ configureApi({
 })
 
 const rootRoute = createRootRoute({ component: Outlet })
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: App })
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  validateSearch: employeeSearchSchema,
+  component: App,
+})
 
 const router = createRouter({
   routeTree: rootRoute.addChildren([indexRoute]),
