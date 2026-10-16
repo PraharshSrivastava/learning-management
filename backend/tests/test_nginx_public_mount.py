@@ -78,8 +78,8 @@ def backend_echo():
 
 
 @pytest.mark.parametrize("directory,mount,role", [
-    ("frontend", "/lms/trainer", "trainer"),
-    ("employee_frontend", "/lms", "employee"),
+    ("apps/trainer", "/lms/trainer", "trainer"),
+    ("apps/employee", "/lms", "employee"),
 ])
 @pytest.mark.parametrize("trusted", [False, True])
 def test_nginx_serves_both_mounts_and_overwrites_forwarding(tmp_path, backend_echo, directory, mount, role, trusted):
@@ -90,12 +90,11 @@ def test_nginx_serves_both_mounts_and_overwrites_forwarding(tmp_path, backend_ec
     config.write_text(template)
     static = tmp_path / "web"
     static.mkdir()
-    (static / "index.html").write_text('<html><base href="/"><body>entry</body></html>')
-    (static / "flutter_bootstrap.js").write_text("bootstrap")
+    (static / "index.html").write_text('<html><base href="/" /><body>entry</body></html>')
+    (static / "static").mkdir()
+    (static / "static" / "index-abc123.js").write_text("bundle")
     (static / "assets").mkdir()
     (static / "assets" / ".env").write_text("API_BASE_URL=\n")
-    (static / "canvaskit").mkdir()
-    (static / "canvaskit" / "canvaskit.wasm").write_bytes(b"wasm")
     videos = tmp_path / "videos"
     videos.mkdir()
     (videos / "clip.mp4").write_bytes(b"0123456789")
@@ -133,15 +132,16 @@ def test_nginx_serves_both_mounts_and_overwrites_forwarding(tmp_path, backend_ec
             for path in ["/", "/index.html", "/dashboard"]:
                 with fetch(prefix + path) as response:
                     assert response.status == 200
-                    assert f'<base href="{prefix}/">' in response.read().decode()
+                    assert f'<base href="{prefix}/" />' in response.read().decode()
                     assert "no-store" in response.headers["Cache-Control"]
-            for path, content in [("/flutter_bootstrap.js", b"bootstrap"),
-                                  ("/assets/.env", b"API_BASE_URL=\n"),
-                                  ("/canvaskit/canvaskit.wasm", b"wasm")]:
+            for path, content in [("/static/index-abc123.js", b"bundle"),
+                                  ("/assets/.env", b"API_BASE_URL=\n")]:
                 with fetch(prefix + path) as response:
                     assert response.status == 200
                     assert response.read() == content
-            with fetch(prefix + "/canvaskit/missing.wasm?hub_launch_token=private-missing-marker") as response:
+            with fetch(prefix + "/static/index-abc123.js") as response:
+                assert "immutable" in response.headers["Cache-Control"]
+            with fetch(prefix + "/static/missing.js?hub_launch_token=private-missing-marker") as response:
                 assert response.status == 404
             with fetch(prefix + "/api/hub/launch/" + role + "?hub_launch_token=private-launch-marker", {
                 "X-Forwarded-Prefix": "/evil", "X-LMS-App": "evil",

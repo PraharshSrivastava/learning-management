@@ -29,18 +29,6 @@ python3 scripts/security/compare_trivy.py before.json candidate.json --output co
 
 `summarize_trivy.py` writes source-package remediation groups and a CSV retaining every occurrence, severity, advisory URL, listed fix and vendor status. Grouping is not a finding exemption. `compare_trivy.py` reports added/removed ecosystem-package-advisory occurrences and rejects different detected OS families; vendor coverage/severity changes cannot be counted as fixes. Verify scanner/database equivalence separately. Refresh-only changes must be reported separately from patch changes. Comparisons omit target paths and should use separate reports for each component.
 
-## Audit hosted Dart packages
-
-Use Python 3 with PyYAML, available in the existing backend development environment:
-
-```powershell
-& backend/.venv/Scripts/python.exe scripts/security/audit_pub.py frontend/pubspec.lock employee_frontend/pubspec.lock --output tmp/security-evidence/pub-audit.json
-```
-
-Only public pub.dev package names and exact versions are sent to OSV. Errors or paginated results fail instead of being interpreted as a clean audit. SDK/git/path packages are explicitly recorded as coverage gaps. Check that compiled `.dart_tool/package_config.json` matches the lockfile; a successful build with an overwritten lockfile alone is insufficient evidence. Frontend Dockerfiles now enforce locks with the compatible pinned SDK. These queries do not assess all Flutter/CanvasKit engine vulnerabilities or native plugin binaries.
-
-Keep raw JSON and database metadata, review the critical/high families and supported fixes first, implement a coherent batch, and rerun only checks affected by the change. Generate release-linked SBOMs after the tested artifact set is finalized.
-
 ## Native candidate and inherited risk review
 
 The selected backend native build and open release gates are recorded in [the round-two report](../../docs/security/sbom-lms-backend-remediation-round2-2026-10-06.md). XML, PCRE2 and PNG are operator-built packages; FFmpeg is a manually inventoried restricted build. These need upstream advisory review in addition to the Ubuntu package scan. Linux amd64 is the tested platform. Keep the raw scanner report unchanged.
