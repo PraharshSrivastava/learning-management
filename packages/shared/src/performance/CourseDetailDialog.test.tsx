@@ -84,6 +84,12 @@ function stubDetail(handler: (url: URL) => unknown = () => detail()) {
   })
 }
 
+/** Opens the dialog once the access loaded, like a click in the loaded report. */
+function Opened({ courseId }: { courseId: string }) {
+  const { views } = useReport()
+  return <CourseDetailDialog courseId={views.length > 0 ? courseId : null} onClose={() => {}} />
+}
+
 it('shows course learning path and opens employees', async () => {
   stubResize(1040 - 48)
   const fetchMock = stubDetail()
@@ -137,6 +143,16 @@ it('shows the load error and closes', async () => {
   expect(screen.getByText('Unable to load performance data (404)')).toBeInTheDocument()
   await userEvent.click(screen.getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('encodes a course id with slashes and query characters in the request path', async () => {
+  stubResize()
+  const fetchMock = stubReportApi(['all_courses'], () => detail())
+  renderReport(<Opened courseId="c/1?x" />)
+
+  await screen.findByRole('dialog', { name: 'Client Conversations' })
+  const urls = fetchMock.mock.calls.map(([input]) => String(input))
+  expect(urls.some((url) => url.includes('/api/trainer/performance/courses/c%2F1%3Fx?'))).toBe(true)
 })
 
 it('shows the access guard when the report context changes', async () => {

@@ -53,7 +53,7 @@ function GuardedCourse({ courseId, onClose }: { courseId: string; onClose: () =>
 function CourseDialogContent({ courseId, onClose }: { courseId: string; onClose: () => void }) {
   const { state, dispatch } = useReport()
   const detail = useReportQuery(
-    'courses/' + courseId,
+    'courses/' + encodeURIComponent(courseId),
     without(scopeParams(state), 'course_id'),
     parseCourseDetailReport,
   )
