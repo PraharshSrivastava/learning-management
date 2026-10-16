@@ -1,0 +1,3516 @@
+{
+  "model": "gemma-4-e4b",
+  "mode": "json_schema",
+  "kind": "release-evaluation",
+  "humanReviewRequired": true,
+  "results": [
+    {
+      "case": "outline-2-short",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Understanding Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to accurately understand customer concerns and needs.",
+            "sections": [
+              "Introduction to Active Listening in Customer Service",
+              "Techniques for Effective Listening (e.g., paraphrasing, summarizing)",
+              "Identifying the Core Issue: Moving Beyond Surface Complaints",
+              "Scenario Practice: Listening for the Real Problem",
+              "Takeaways: Key Listening Habits",
+              "Common Mistakes to Avoid When Listening"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "New support employees will be able to clearly confirm agreed-upon next steps with the customer to ensure mutual understanding and satisfaction.",
+            "sections": [
+              "The Importance of Closure and Next Steps",
+              "Phrasing for Confirmation: Asking Open and Closed Questions",
+              "Documenting and Summarizing Agreements",
+              "Scenario Practice: Confirming Solutions and Timelines",
+              "Good vs. Bad Confirmation Examples",
+              "Takeaways: Ensuring Customer Confidence"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 9.5
+    },
+    {
+      "case": "outline-2-standard",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Understanding Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to fully understand a customer's issue and confirm their needs.",
+            "sections": [
+              "Introduction to Active Listening in Support",
+              "Techniques for Effective Listening (e.g., paraphrasing, summarizing)",
+              "Identifying Customer Emotion and Tone",
+              "Scenario Practice: Listening for the Core Issue (Good vs. Bad Examples)",
+              "Key Takeaways: The Power of Hearing vs. Hearing"
+            ]
+          },
+          {
+            "title": "Confirming Next Steps: Setting Clear Expectations",
+            "objective": "New support employees will be able to clearly articulate and confirm the agreed-upon next steps with the customer to ensure mutual understanding.",
+            "sections": [
+              "Why Confirming Next Steps Matters",
+              "Phrasing for Clarity: Moving from Ambiguity to Action",
+              "Structuring the Resolution Summary (What, Who, When)",
+              "Scenario Practice: Confirming Action Plans (Illustrative Examples)",
+              "Common Mistakes to Avoid When Setting Expectations",
+              "Key Takeaways: Closing the Loop Effectively"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 10.36
+    },
+    {
+      "case": "outline-2-detailed",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Understanding Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to fully understand customer concerns and identify underlying needs.",
+            "sections": [
+              "Introduction to Active Listening in Customer Service",
+              "Techniques of Active Listening (e.g., paraphrasing, summarizing)",
+              "Identifying Customer Emotion and Tone",
+              "Scenario Practice: Recognizing Unstated Needs (Illustrative)",
+              "Common Listening Mistakes to Avoid (Bad Examples)",
+              "Key Takeaways: The Power of Hearing vs. Listening"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "New support employees will be able to effectively confirm mutual understanding and establish clear, actionable next steps with the customer.",
+            "sections": [
+              "The Importance of Mutual Agreement",
+              "Phrasing for Confirmation: Checking for Understanding",
+              "Documenting and Communicating Next Steps Clearly",
+              "Scenario Practice: Confirming Complex Solutions (Good Examples)",
+              "Mistakes in Closing the Interaction (Vague Commitments)",
+              "Action Plan: Summarizing and Confirming Next Steps (Takeaways)"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 9.67
+    },
+    {
+      "case": "outline-4-short",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Hearing What the Customer Needs",
+            "objective": "Participants will be able to demonstrate active listening techniques to fully understand customer concerns.",
+            "sections": [
+              "Introduction to Active Listening",
+              "Techniques for Attentive Listening (e.g., non-verbal cues, minimizing interruptions)",
+              "Identifying the Core Issue: Moving beyond surface complaints",
+              "Scenario Practice: Listening for the real problem",
+              "Takeaways: Key listening habits"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: Paraphrasing and Summarizing",
+            "objective": "Participants will learn how to accurately confirm their understanding of the customer's issue and desired outcome.",
+            "sections": [
+              "Why Confirmation Matters in Customer Service",
+              "Using Paraphrasing: Restating the customer's words",
+              "Summarizing: Creating a clear overview of the situation",
+              "Illustrative Example: When and how to summarize a complex issue",
+              "Mistakes to Avoid: Assuming you know the answer"
+            ]
+          },
+          {
+            "title": "Defining Clear Next Steps: Setting Expectations",
+            "objective": "Participants will be able to clearly articulate and confirm actionable next steps with the customer.",
+            "sections": [
+              "The Importance of Clear Next Steps",
+              "Structuring the Solution: What happens now?",
+              "Confirming Agreement: Ensuring mutual understanding of the plan",
+              "Good vs. Bad: Examples of setting expectations (Good/Bad)",
+              "Scenario Practice: Guiding the customer to a resolution path"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Full Service Cycle",
+            "objective": "Participants will integrate active listening, confirmation, and next-step definition into a cohesive customer interaction.",
+            "sections": [
+              "Review: The Listening-Confirming-Acting Loop",
+              "Role-Playing Scenarios: Full interaction practice",
+              "Handling Ambiguity: What to do when next steps are unclear",
+              "Mistakes in the Full Cycle: Common pitfalls",
+              "Final Takeaways: Your commitment to clear customer communication"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 16.14
+    },
+    {
+      "case": "outline-4-standard",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Foundation of Active Listening in Support",
+            "objective": "Participants will be able to identify and apply active listening techniques to fully understand customer needs and concerns.",
+            "sections": [
+              "What is Active Listening?",
+              "Verbal and Non-Verbal Cues in Customer Interactions",
+              "Techniques for Deep Understanding (Paraphrasing, Summarizing)",
+              "Scenario Practice: Identifying Unstated Needs",
+              "Takeaways: Listening Checklist"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Ensuring Mutual Understanding",
+            "objective": "Participants will learn structured methods to confirm that the next steps agreed upon with the customer are clear to both parties.",
+            "sections": [
+              "Why Confirmation is Crucial in Customer Service",
+              "Phrasing for Confirmation (Open vs. Closed Questions)",
+              "The 'Next Steps' Protocol: Documenting Agreement",
+              "Illustrative Scenario: Ambiguous Resolution",
+              "Mistakes to Avoid When Confirming"
+            ]
+          },
+          {
+            "title": "Navigating Complex Conversations: Handling Uncertainty",
+            "objective": "Participants will develop strategies to manage situations where the solution or next steps are not immediately clear.",
+            "sections": [
+              "When You Don't Know the Answer: Setting Expectations",
+              "Managing Customer Frustration During Delays",
+              "Escalation Pathways and Clear Handoffs",
+              "Bad vs. Good: Handling an Unresolved Issue Scenario",
+              "Takeaways: Managing Expectations"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Complete Service Cycle",
+            "objective": "Participants will integrate active listening and clear confirmation into a smooth, professional customer service interaction.",
+            "sections": [
+              "Review: Listening to Understand vs. Listening to Reply",
+              "Step-by-Step Guide: From Greeting to Next Steps Confirmation",
+              "Role-Playing Scenarios: Full Interaction Practice",
+              "Review of Common Mistakes in the Cycle",
+              "Final Takeaways: Becoming a Confident Communicator"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 15.61
+    },
+    {
+      "case": "outline-4-detailed",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Foundation of Active Listening in Support",
+            "objective": "Participants will be able to identify and apply active listening techniques to fully understand customer needs and concerns.",
+            "sections": [
+              "Introduction to Customer Service Mindset",
+              "What is Active Listening? (Definition and Importance)",
+              "Techniques for Active Listening (e.g., paraphrasing, summarizing)",
+              "Activity: Listening Scenarios (Good vs. Bad Examples)",
+              "Takeaways: Key Listening Habits"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: Clarity and Next Steps",
+            "objective": "Participants will learn structured methods to confirm they have accurately understood the customer's issue and agree on clear, actionable next steps.",
+            "sections": [
+              "The Importance of Confirmation: Preventing Misunderstandings",
+              "Phrasing for Confirmation: Open vs. Closed Questions",
+              "Structuring the Next Steps Agreement (Who, What, When)",
+              "Scenario Practice: Confirming Complex Issues (Illustrative)",
+              "Mistakes to Avoid When Confirming"
+            ]
+          },
+          {
+            "title": "Handling Ambiguity and Unclear Requests",
+            "objective": "Participants will develop strategies to professionally address vague customer requests and guide the conversation toward clear resolution paths.",
+            "sections": [
+              "Identifying Ambiguity in Customer Language",
+              "Techniques for Probing for Detail (Gentle Questioning)",
+              "When to Escalate vs. When to Clarify",
+              "Scenario Analysis: Dealing with Vague Complaints (Good/Bad Examples)",
+              "Takeaways: Guiding the Customer to Clarity"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Full Service Cycle",
+            "objective": "Participants will integrate active listening, confirmation, and next-step setting into a cohesive, professional customer interaction.",
+            "sections": [
+              "Review: The Listening-Confirming Loop",
+              "Full Interaction Walkthrough: From Greeting to Resolution",
+              "Role-Playing Scenarios: End-to-End Practice (Including Mistakes)",
+              "Best Practices Checklist for Every Call/Chat",
+              "Final Takeaways and Commitment to Practice"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 16.86
+    },
+    {
+      "case": "outline-8-short",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Effective Customer Interaction",
+            "objective": "Understand the importance of active listening in customer service.",
+            "sections": [
+              "What is Active Listening?",
+              "Why Listening Matters in Support",
+              "Setting a Professional Tone"
+            ]
+          },
+          {
+            "title": "Mastering the Art of Listening",
+            "objective": "Identify and practice techniques for truly hearing customer needs.",
+            "sections": [
+              "Distinguishing Hearing from Listening",
+              "Non-Verbal Cues in Support Calls",
+              "Avoiding Interruptions"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: Paraphrasing and Summarizing",
+            "objective": "Learn to accurately reflect customer statements to ensure mutual understanding.",
+            "sections": [
+              "Techniques for Paraphrasing",
+              "When and How to Summarize",
+              "Illustrative Scenario: Misunderstanding a Request"
+            ]
+          },
+          {
+            "title": "Identifying and Clarifying Next Steps",
+            "objective": "Develop skills to clearly define and confirm actionable next steps with the customer.",
+            "sections": [
+              "What Constitutes a 'Next Step'?",
+              "Asking Probing Questions",
+              "Confirming Agreement on Action Items"
+            ]
+          },
+          {
+            "title": "Handling Ambiguity and Unclear Requests",
+            "objective": "Apply strategies to guide customers toward providing clear information when their request is vague.",
+            "sections": [
+              "Recognizing Ambiguity",
+              "Guiding Questions vs. Leading Questions",
+              "Mistakes to Avoid When Seeking Clarity"
+            ]
+          },
+          {
+            "title": "Reviewing Good vs. Bad Confirmation Practices",
+            "objective": "Differentiate between effective and ineffective ways to confirm understanding and next steps.",
+            "sections": [
+              "Good Example: Clear Confirmation",
+              "Bad Example: Vague Acknowledgment",
+              "Takeaways: Best Practices for Confirmation"
+            ]
+          },
+          {
+            "title": "Putting It All Together: Full Interaction Flow",
+            "objective": "Integrate listening, confirmation, and next-step definition into a complete service interaction.",
+            "sections": [
+              "The Listening-Confirming Cycle",
+              "Scenario Practice: Complex Issue Resolution",
+              "Reviewing the Full Process"
+            ]
+          },
+          {
+            "title": "Continuous Improvement in Customer Dialogue",
+            "objective": "Identify areas for personal growth in listening and confirmation skills.",
+            "sections": [
+              "Self-Assessment Checklist",
+              "Common Pitfalls to Watch Out For",
+              "Final Takeaways and Resources"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 18.12
+    },
+    {
+      "case": "outline-8-standard",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Effective Customer Interaction",
+            "objective": "Understand the importance of active listening in providing excellent customer service.",
+            "sections": [
+              "What is Customer Service Excellence?",
+              "The Role of the Support Employee",
+              "Why Listening Matters: Building Trust",
+              "Takeaway: Core Principles of Service"
+            ]
+          },
+          {
+            "title": "Mastering Active Listening Techniques",
+            "objective": "Learn and practice specific techniques to fully comprehend customer needs and concerns.",
+            "sections": [
+              "Differentiating Hearing from Listening",
+              "Verbal Cues: Paraphrasing and Summarizing",
+              "Non-Verbal Cues in Communication (Tone and Pace)",
+              "Scenario Practice: Identifying Unspoken Needs",
+              "Mistakes to Avoid When Listening"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: Clarity and Accuracy",
+            "objective": "Develop skills to confirm that the understanding of the customer's issue is 100% accurate before proceeding.",
+            "sections": [
+              "The Importance of Confirmation Before Action",
+              "Phrasing Questions for Clarity (Open vs. Closed)",
+              "Techniques for Validating Customer Statements",
+              "Good vs. Bad Confirmation Examples",
+              "Takeaway: The Confirmation Checklist"
+            ]
+          },
+          {
+            "title": "Identifying and Clarifying Next Steps",
+            "objective": "Effectively guide the conversation toward clear, agreed-upon actions to resolve the customer's issue.",
+            "sections": [
+              "Defining 'Next Steps' in a Support Context",
+              "Collaborative Problem Solving: Working with the Customer",
+              "Setting Realistic Expectations for Resolution Time",
+              "Scenario Practice: Moving from Problem to Plan",
+              "Mistakes in Setting Expectations"
+            ]
+          },
+          {
+            "title": "Handling Complex or Emotional Interactions",
+            "objective": "Apply listening and confirmation skills when customers are frustrated or the issue is complicated.",
+            "sections": [
+              "De-escalation Through Empathetic Listening",
+              "Acknowledging Emotion vs. Solving the Problem",
+              "When to Escalate: Knowing Your Limits",
+              "Illustrative Scenario: Dealing with High Frustration",
+              "Takeaway: Maintaining Professionalism Under Pressure"
+            ]
+          },
+          {
+            "title": "Structuring the Resolution Process",
+            "objective": "Organize the interaction flow to ensure listening, confirmation, and next steps are logically executed.",
+            "sections": [
+              "The Ideal Customer Service Flowchart",
+              "Reviewing the Steps: Listen -> Confirm -> Act",
+              "Documenting the Agreed-Upon Next Steps",
+              "Good Flow Example vs. Poor Flow Example",
+              "Mistakes in Process Management"
+            ]
+          },
+          {
+            "title": "Putting It All Together: Full Interaction Simulation",
+            "objective": "Integrate active listening, confirmation, and next-step setting into a complete service interaction.",
+            "sections": [
+              "Comprehensive Role-Playing Scenarios",
+              "Self-Assessment Checklist for Service Calls",
+              "Reviewing Best Practices Across All Stages",
+              "Scenario Analysis: Identifying Strengths and Weaknesses",
+              "Takeaway: Your Personal Service Action Plan"
+            ]
+          },
+          {
+            "title": "Continuous Improvement in Customer Service",
+            "objective": "Understand how to review past interactions to continuously improve listening and confirmation skills.",
+            "sections": [
+              "Feedback Loops: Receiving and Giving Feedback",
+              "Analyzing Call Recordings (If Applicable)",
+              "Identifying Personal Growth Areas",
+              "Commitment to Excellence: Long-Term Goals",
+              "Final Takeaway: Becoming a Service Expert"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 34.59
+    },
+    {
+      "case": "outline-8-detailed",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Customer Focus",
+            "objective": "Understand the importance of active listening in providing excellent customer service.",
+            "sections": [
+              "What is Customer Service Excellence?",
+              "The Role of the Support Employee",
+              "Why Listening Matters: Beyond Just Hearing",
+              "Takeaway: Defining Customer Focus"
+            ]
+          },
+          {
+            "title": "Mastering Active Listening Techniques",
+            "objective": "Learn and practice specific techniques to fully understand a customer's needs and concerns.",
+            "sections": [
+              "Differentiating Hearing vs. Listening",
+              "Verbal Cues: Paraphrasing and Summarizing",
+              "Non-Verbal Cues in Communication (Tone and Pace)",
+              "Techniques for Clarification (Open vs. Closed Questions)",
+              "Illustrative Scenario: Initial Customer Inquiry"
+            ]
+          },
+          {
+            "title": "Identifying Customer Needs and Intent",
+            "objective": "Develop the ability to accurately discern the underlying problem or goal behind a customer's stated issue.",
+            "sections": [
+              "Surface Level vs. Root Cause Analysis",
+              "Recognizing Emotional States (Frustration, Confusion, Urgency)",
+              "Probing Questions to Uncover Needs",
+              "Mistakes to Avoid: Assuming You Know the Answer",
+              "Good vs. Bad Example: Identifying True Need"
+            ]
+          },
+          {
+            "title": "Confirming Understanding and Next Steps",
+            "objective": "Effectively confirm that both the employee and the customer agree on the path forward.",
+            "sections": [
+              "The Importance of Confirmation",
+              "Phrasing Confirmation Statements Clearly",
+              "Collaboratively Defining Next Steps",
+              "Scenario Practice: Agreeing on a Solution",
+              "Takeaway: The Power of Mutual Agreement"
+            ]
+          },
+          {
+            "title": "Handling Ambiguity and Unclear Requests",
+            "objective": "Gain strategies for managing situations where the customer's request is vague or incomplete.",
+            "sections": [
+              "When to Ask for More Information",
+              "Structuring Clarification Questions",
+              "Managing Customer Impatience During Clarification",
+              "Illustrative Scenario: Vague Technical Issue",
+              "Mistakes to Avoid: Guessing the Solution"
+            ]
+          },
+          {
+            "title": "Scenario Deep Dive: Listening in Action",
+            "objective": "Apply active listening and confirmation skills in complex, real-world customer service scenarios.",
+            "sections": [
+              "Scenario 1: High Emotion/Frustration",
+              "Scenario 2: Complex, Multi-Step Issue",
+              "Scenario 3: Unclear Expectations",
+              "Role-Playing Practice: Listening and Confirming",
+              "Good vs. Bad: Handling Escalation Points"
+            ]
+          },
+          {
+            "title": "Reviewing Communication Pitfalls",
+            "objective": "Identify common listening and confirmation errors and learn how to correct them immediately.",
+            "sections": [
+              "Common Listening Errors (Interrupting, Rehearsing)",
+              "Confirmation Failures (Vague Commitments, Misunderstanding)",
+              "How to Recover from a Misunderstanding",
+              "Self-Assessment Checklist: Before You Respond",
+              "Takeaway: Continuous Improvement"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Service Flow",
+            "objective": "Integrate listening, understanding, and confirmation into a smooth, professional customer interaction flow.",
+            "sections": [
+              "The Ideal Customer Interaction Sequence",
+              "Review: From Greeting to Next Steps",
+              "Quick Reference Guide: Key Phrases for Confirmation",
+              "Final Practice Simulation",
+              "Course Wrap-up and Next Steps"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 26.41
+    },
+    {
+      "case": "module-9",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, your primary goal is to acknowledge their feelings and clearly outline what will happen next. This shows empathy and professionalism, even when the issue is difficult."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a product they received arrived damaged. The customer sounds frustrated and upset. How should the support employee respond to acknowledge the concern and confirm the next step?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by validating their frustration (e.g., 'I understand why you are upset about receiving a damaged item') before moving to the solution (e.g., 'Let me check our return policy right now to arrange a replacement for you')."
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is immediately jumping to a solution without first acknowledging the customer's emotion. This can make the customer feel unheard."
+          },
+          {
+            "type": "paragraph",
+            "text": "A better approach is to use empathetic language first. For example, instead of saying, 'We can send you a new one,' try, 'I sincerely apologize that your item arrived damaged; I can certainly help get a replacement sent out to you today.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before proposing a solution. Confirm the next steps clearly so the customer knows exactly what to expect."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 13.12
+    },
+    {
+      "case": "module-10",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, your primary goal is to acknowledge their feelings and clearly define what will happen next. This shows empathy and professionalism, even when the situation is difficult."
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective complaint handling involves three key steps: Acknowledging the concern, investigating the issue, and confirming the next steps with the customer."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a product they received arrived damaged. The customer sounds frustrated and upset. How should the support employee respond to acknowledge the concern and confirm the next steps?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by validating their frustration, such as, 'I completely understand why you are upset about receiving a damaged item, and I apologize for that experience.' Then, the employee must confirm the next step, such as, 'To fix this for you, I can immediately process a replacement shipment. Does that sound like the best next step?'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is immediately jumping to a solution without first acknowledging the customer's emotion. For example, saying, 'We can send you a new one,' without first apologizing or validating their frustration can make the customer feel unheard."
+          },
+          {
+            "type": "paragraph",
+            "text": "A better approach is to lead with empathy. Instead of just offering a solution, start by saying, 'I am so sorry this happened; let's get this sorted out for you.' This validates their feeling before moving to the action plan."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern and validate their feelings before proposing any solution or confirming next steps."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 16.84
+    },
+    {
+      "case": "module-11",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, your primary goal is to acknowledge their feelings and validate their issue before moving toward a solution. This shows empathy and de-escalates the situation. Acknowledging the concern is not the same as agreeing with their premise, but it is crucial for building rapport."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the concern, you must clearly confirm the next steps. This manages expectations and ensures the customer knows what will happen next, even if the resolution isn't immediate. Clarity in next steps is key to a positive customer experience."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a product they received arrived damaged. The customer is visibly frustrated and states, 'This is unacceptable! I paid good money for something broken!' How should the support employee respond to acknowledge the concern and confirm next steps?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would first validate the frustration, such as, 'I completely understand why you are upset; receiving a damaged item is very frustrating.' Then, the employee must confirm the next step, such as, 'To fix this for you, I can immediately process a replacement order, and I will personally ensure it ships out tomorrow. Does that sound like the best next step?'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately jumping to a solution without acknowledging the emotion. For example, saying, 'Okay, I can send you a replacement,' without first validating their anger can make the customer feel unheard, leading to further escalation."
+          },
+          {
+            "type": "paragraph",
+            "text": "Better Approach: Using empathetic language first. Instead of just offering a fix, start with, 'I am so sorry this happened. That is certainly not the experience we want you to have.' This validates their feeling before you confirm the action you will take."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's concern with empathy before detailing the resolution or next steps. Confirming the next steps provides control and clarity during a stressful interaction."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 19.31
+    },
+    {
+      "case": "module-12",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is to acknowledge their concern professionally and ensure they feel heard. This validation is crucial before moving toward a resolution or confirming next steps."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls upset because a recent order arrived damaged. The team leader must first acknowledge the damage and the customer's frustration before discussing replacement options."
+          },
+          {
+            "type": "paragraph",
+            "text": "A key part of this process is confirming the next steps. This prevents the customer from feeling like their issue is being passed around without a clear path forward."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern first. Then, clearly state what action will be taken next to resolve the issue."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 8.48
+    },
+    {
+      "case": "module-13",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a concern, the immediate goal is not to solve the problem instantly, but to acknowledge their feelings and confirm you understand the issue. This validation is crucial for de-escalation and building trust."
+          },
+          {
+            "type": "heading",
+            "text": "The Acknowledge and Confirm Process"
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective complaint handling involves two key steps: Acknowledging the concern (validating their emotion) and Confirming the next steps (setting clear expectations)."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls, frustrated because a promised delivery was late. Instead of immediately offering a discount, the team leader first says, 'I understand how frustrating it is when a delivery doesn't arrive when expected. Let me look into this delay for you.' This acknowledges the frustration. Then, they confirm the next step: 'I will check the tracking system right now and call you back within the hour with an update on its location.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is jumping straight to a solution without first validating the customer's experience. This can make the customer feel unheard, even if the solution itself is correct."
+          },
+          {
+            "type": "paragraph",
+            "text": "A better approach is to use empathetic language to mirror their concern before proposing action. For example, instead of 'It's not our fault the delivery was late,' try, 'I apologize for the inconvenience this late delivery has caused you.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's concern before attempting to resolve it. Clearly state what action you will take and when they can expect an update."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 24.17
+    },
+    {
+      "case": "module-14",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints: Acknowledging Concerns and Confirming Next Steps"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to validate their feelings and ensure they feel heard. Acknowledging the concern demonstrates empathy and de-escalates the situation, which is crucial before moving toward solutions. This process requires active listening and clear communication regarding the path forward."
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective complaint handling involves three key stages: Acknowledgment, Investigation/Resolution Planning, and Confirmation of Next Steps. By following these steps, you move the interaction from an emotional confrontation to a professional problem-solving session."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A long-time client calls, clearly frustrated because a recent order arrived damaged. They express significant disappointment with the quality control. How should the team leader respond initially to acknowledge their concern?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A weak response might be, 'Well, we can send a replacement, but you need to send us photos first.' This sounds transactional and dismissive of their frustration. A better response focuses first on empathy: 'I completely understand why you are frustrated; receiving a damaged item is unacceptable, especially for a valued client like yourself. Let's get this sorted out for you.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Jumping immediately to policy or solutions without first validating the customer's emotion. This makes the customer feel like their feelings are an obstacle to the process, rather than a valid reaction to a problem."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's feeling (e.g., frustration, disappointment) before discussing the logistics of the solution. This builds rapport and lowers tension."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 17.2
+    },
+    {
+      "case": "module-15",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a concern, the immediate goal is to acknowledge their feelings and the validity of their issue. This shows empathy and de-escalates the situation before moving toward a solution. Confirming next steps ensures the customer knows what to expect."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer approaches the branch manager upset because a promised service was not delivered on time. The manager must first acknowledge the delay and the customer's frustration before outlining the steps to resolve the service gap."
+          },
+          {
+            "type": "paragraph",
+            "text": "A key part of handling complaints is confirming the agreed-upon next steps. This prevents misunderstandings and manages expectations throughout the resolution process."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern first. Then, clearly state what action will be taken and when they can expect an update."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 9.31
+    },
+    {
+      "case": "module-16",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to acknowledge their feelings and confirm that you understand the issue. This validation is crucial for de-escalation and building trust. Acknowledging the concern shows the customer they have been heard."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the concern, the next critical step is to clearly outline what actions will be taken next. This sets clear expectations for the customer regarding resolution time and process."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer approaches the branch manager upset because a promised service upgrade was not applied to their account. The manager must first acknowledge the frustration regarding the missed upgrade, and then clearly state the next steps, such as 'I am going to review the service agreement immediately and call you back within the hour with a confirmed resolution.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately defending the company or blaming another department when a complaint is first raised. This invalidates the customer's experience and escalates the situation."
+          },
+          {
+            "type": "paragraph",
+            "text": "Better Approach: Using empathetic language to validate the customer's feeling before moving to solutions. For instance, instead of saying, 'It's not our fault,' try, 'I understand why you are frustrated about this delay, and I apologize for the inconvenience it has caused.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's concern before attempting to solve the problem. Following acknowledgment, clearly confirm the specific next steps you will take to address the complaint."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 16.59
+    },
+    {
+      "case": "module-17",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints: Acknowledging Concerns and Confirming Next Steps"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to validate the customer's feelings and demonstrate that you are actively listening. Acknowledging the concern shows empathy and de-escalates the situation, which is crucial before moving toward a resolution. This process ensures the customer feels heard, even if the outcome is not immediately favorable."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the concern, the next critical step is to confirm clear next steps. This prevents the customer from feeling abandoned or uncertain about what will happen next. You must clearly articulate what actions you will take, who will take them, and when they can expect an update."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer approaches the branch manager, visibly upset, stating, 'I have been waiting three weeks for a loan decision, and no one has called me back. This is unacceptable service!'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Poor Response (Weak): 'Well, I don't know why they haven't called you back. You'll just have to wait a little longer.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective Response (Better): 'I sincerely apologize for the delay and the frustration this waiting period has caused you. That is not the level of service we aim to provide. Let me look into your file right now to see exactly where it is in the process. I will personally ensure I call you back by the end of the business day with a concrete update on the timeline.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately defending company policy or blaming another department before fully acknowledging the customer's distress. This invalidates their experience and escalates the conflict."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's emotion before jumping into problem-solving. Follow acknowledgment with a clear, actionable commitment regarding the next steps."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 19.27
+    },
+    {
+      "case": "edit-18",
+      "task": "edit",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Briefly summarize what the customer is concerned about and confirm the next steps together.",
+        "summary": "Simplified the instruction to be more direct and supportive for new staff.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.27
+    },
+    {
+      "case": "edit-19",
+      "task": "edit",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Actively listen to the customer. Then, restate their main issue in your own words and clearly confirm the agreed-upon next steps.",
+        "summary": "Replaced the instruction to 'Listen carefully' with more actionable advice ('Actively listen') and made the confirmation step more concrete.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 4.05
+    },
+    {
+      "case": "edit-20",
+      "task": "edit",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Summarize the concern and confirm the next step.",
+        "summary": "Corrected the spelling of 'carfully' to 'carefully'.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.22
+    },
+    {
+      "case": "edit-21",
+      "task": "edit",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen attentively. Summarize the customer's concern and confirm the agreed-upon next steps.",
+        "summary": "Replaced informal language with a more professional tone while maintaining the core instruction to listen, summarize, and confirm next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.28
+    },
+    {
+      "case": "edit-22",
+      "task": "edit",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen actively. Summarize the issue and confirm the next steps.",
+        "summary": "Shortened the instruction to be more concise while maintaining the core meaning of active listening, summarizing, and confirming next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.17
+    },
+    {
+      "case": "edit-23",
+      "task": "edit",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Summarize the customer's concern and confirm the agreed-upon next step.",
+        "summary": "Replaced 'carfully' with 'carefully' and clarified the action by specifying 'customer's concern' and 'agreed-upon next step' for better professionalism.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 4.59
+    },
+    {
+      "case": "answer-24",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should listen without interrupting, summarize the customer's concern, and confirm your understanding.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.23
+    },
+    {
+      "case": "answer-25",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No refund deadline is specified in the provided information.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 2.7
+    },
+    {
+      "case": "answer-26",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The named escalation contact is not specified in the provided source material.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 2.98
+    },
+    {
+      "case": "answer-27",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided text does not specify a compensation limit.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 2.52
+    },
+    {
+      "case": "answer-28",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpt does not contain any instructions regarding ignoring instructions, so it does not state whether that should change your task.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.5
+    },
+    {
+      "case": "answer-29",
+      "task": "answer",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should summarize the customer's concern and confirm your understanding of it. [synthetic_source/page_1]",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.3
+    },
+    {
+      "case": "outline-2-short",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Understanding Customer Needs",
+            "objective": "Participants will be able to demonstrate active listening techniques to accurately understand customer concerns and needs.",
+            "sections": [
+              "Introduction to Active Listening in Support",
+              "Techniques for Attentive Listening (Verbal and Non-Verbal)",
+              "Identifying Underlying Customer Needs",
+              "Scenario Practice: Listening for the Real Issue",
+              "Key Takeaways: The Power of Hearing vs. Listening",
+              "Common Mistakes to Avoid When Listening"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "Participants will be able to confirm clear, actionable next steps with customers to ensure mutual understanding and satisfaction.",
+            "sections": [
+              "The Importance of Closure and Clarity",
+              "Phrasing Next Steps: Being Direct and Empathetic",
+              "Techniques for Summarizing and Confirming Understanding",
+              "Scenario Practice: Confirming Resolution and Next Actions",
+              "Good vs. Bad Examples of Confirming Next Steps",
+              "Action Plan: Ensuring the Customer Knows What Happens Now"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 8.86
+    },
+    {
+      "case": "outline-2-standard",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Understanding Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to fully understand a customer's issue and confirm their needs.",
+            "sections": [
+              "Introduction to Active Listening in Customer Service",
+              "Techniques for Effective Listening (e.g., paraphrasing, summarizing)",
+              "Identifying Underlying Customer Needs vs. Stated Problems",
+              "Scenario Practice: Listening for the Core Issue",
+              "Common Listening Mistakes and How to Avoid Them",
+              "Key Takeaways: The Power of Hearing What Isn't Said"
+            ]
+          },
+          {
+            "title": "Confirming Next Steps: Setting Clear Expectations",
+            "objective": "New support employees will be able to clearly articulate and confirm the agreed-upon next steps with the customer to ensure mutual understanding.",
+            "sections": [
+              "The Importance of Clear Next Steps in Support",
+              "Phrasing for Confirmation: Asking Open vs. Closed Questions",
+              "Documenting and Summarizing Agreed Actions",
+              "Scenario Practice: Confirming Resolution Paths (Good vs. Bad Examples)",
+              "Handling Disagreements on Next Steps",
+              "Mistakes to Avoid When Setting Expectations",
+              "Key Takeaways: Closing the Loop Effectively"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 10.55
+    },
+    {
+      "case": "outline-2-detailed",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Understanding Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to accurately capture customer concerns and identify underlying needs.",
+            "sections": [
+              "Introduction to Active Listening in Customer Service",
+              "Techniques of Active Listening (Paraphrasing, Summarizing, Reflecting)",
+              "Identifying Customer Emotion and Tone",
+              "Scenario Practice: Listening for the Real Issue (Illustrative)",
+              "Common Listening Mistakes to Avoid (Bad vs. Good Examples)",
+              "Key Takeaways: The Power of Hearing vs. Hearing"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "New support employees will be able to clearly confirm agreed-upon next steps with the customer to ensure mutual understanding and satisfaction.",
+            "sections": [
+              "The Importance of Closure and Next Steps",
+              "Phrasing for Confirmation: Asking Open vs. Closed Questions",
+              "Techniques for Summarizing Action Items",
+              "Scenario Practice: Confirming Resolution and Next Steps (Illustrative)",
+              "Mistakes in Confirmation (Vague Language vs. Specific Commitments)",
+              "Best Practices for Follow-Up and Documentation",
+              "Key Takeaways: Ensuring the Customer Leaves Knowing What Happens Next"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 10.59
+    },
+    {
+      "case": "outline-4-short",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Art of Active Listening in Support",
+            "objective": "Participants will be able to demonstrate active listening techniques to fully understand customer needs and concerns.",
+            "sections": [
+              "What is Active Listening?",
+              "Verbal and Non-Verbal Cues of Listening",
+              "Techniques: Paraphrasing and Summarizing",
+              "Scenario Practice: Identifying Unstated Needs",
+              "Takeaway: Listening Checklist"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Expectations",
+            "objective": "Participants will learn how to confirm understanding and clearly define actionable next steps with the customer.",
+            "sections": [
+              "Why Confirmation Matters in Service",
+              "Phrasing for Clarity: Moving from Ambiguity to Action",
+              "The 'Next Steps' Protocol",
+              "Illustrative Scenario: Vague Request vs. Clear Plan",
+              "Mistakes to Avoid: Assuming Understanding"
+            ]
+          },
+          {
+            "title": "Handling Misunderstandings Gracefully",
+            "objective": "Participants will develop strategies to correct misunderstandings while maintaining a positive and professional customer relationship.",
+            "sections": [
+              "Recognizing When Miscommunication Occurs",
+              "Apologizing Effectively Without Blame",
+              "Re-stating the Issue: A Gentle Correction",
+              "Bad vs. Good Responses to Confusion",
+              "Takeaway: De-escalating Through Clarity"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Full Cycle",
+            "objective": "Participants will integrate active listening and clear confirmation into a complete customer interaction flow.",
+            "sections": [
+              "Review: Listen -> Confirm -> Act",
+              "Role-Playing Scenarios: Complex Issues",
+              "Analyzing Successful Interactions (Good Examples)",
+              "Common Pitfalls: Rushing the Customer",
+              "Final Takeaway: Your Service Commitment"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 14.23
+    },
+    {
+      "case": "outline-4-standard",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Foundation of Active Listening in Support",
+            "objective": "Participants will be able to identify and apply active listening techniques to fully understand customer needs and concerns.",
+            "sections": [
+              "What is Active Listening?",
+              "Verbal and Non-Verbal Cues in Customer Interactions",
+              "Techniques for Showing You Are Listening (Paraphrasing, Summarizing)",
+              "Scenario Practice: Identifying Unstated Needs",
+              "Takeaway: The Power of Presence"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Ensuring Mutual Understanding",
+            "objective": "Participants will learn structured methods to confirm that the next steps agreed upon are clear to both the customer and the support employee.",
+            "sections": [
+              "Why Confirmation is Crucial for Customer Satisfaction",
+              "Phrasing Next Steps Clearly (Action-Oriented Language)",
+              "The 'Recap and Confirm' Process",
+              "Illustrative Scenario: Ambiguous Instructions vs. Clear Confirmation",
+              "Mistakes to Avoid When Confirming"
+            ]
+          },
+          {
+            "title": "Handling Complexity: When Next Steps Aren't Simple",
+            "objective": "Participants will develop strategies for managing complex customer issues where the resolution requires multiple steps or handoffs.",
+            "sections": [
+              "Deconstructing Complex Requests into Manageable Steps",
+              "Setting Realistic Expectations for Timelines",
+              "Managing Handoffs: Internal and External Communication",
+              "Bad vs. Good: Managing Customer Frustration During Delays",
+              "Takeaway: Ownership Through Process"
+            ]
+          },
+          {
+            "title": "Putting It Together: The Full Customer Journey Cycle",
+            "objective": "Participants will integrate active listening and clear confirmation into a complete, professional customer service interaction.",
+            "sections": [
+              "Review: Listening -> Understanding -> Confirming",
+              "Role-Playing Scenarios: From Initial Contact to Resolution",
+              "Analyzing Successful and Unsuccessful Interactions",
+              "Mistakes in the Full Cycle: Common Pitfalls",
+              "Action Plan: Applying Skills in Your First Week"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 16.59
+    },
+    {
+      "case": "outline-4-detailed",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Foundations of Active Listening in Customer Support",
+            "objective": "Participants will be able to identify and apply active listening techniques to fully understand customer needs and concerns.",
+            "sections": [
+              "Introduction to Customer Service Essentials",
+              "What is Active Listening?",
+              "Verbal and Non-Verbal Cues in Customer Interactions",
+              "Techniques: Paraphrasing, Summarizing, and Reflecting Feelings",
+              "Illustrative Scenario: Identifying Unstated Needs",
+              "Takeaways: Key Active Listening Habits",
+              "Common Mistakes to Avoid in Listening"
+            ]
+          },
+          {
+            "title": "Confirming Understanding and Setting Expectations",
+            "objective": "Participants will learn structured methods to confirm that they have accurately understood the customer's issue and clearly define the next steps.",
+            "sections": [
+              "The Importance of Confirmation: Avoiding Misunderstandings",
+              "Phrasing for Confirmation: Open vs. Closed Questions",
+              "Techniques for Summarizing the Issue (The 'Recap')",
+              "Defining Clear Next Steps: What, When, and Who",
+              "Illustrative Scenario: Confirming a Complex Technical Issue",
+              "Bad vs. Good Examples of Next Step Confirmation",
+              "Takeaways: Structuring a Clear Resolution Path",
+              "Mistakes to Avoid When Setting Expectations"
+            ]
+          },
+          {
+            "title": "Handling Ambiguity and Unclear Requests",
+            "objective": "Participants will develop strategies to navigate vague customer requests by asking clarifying questions without sounding dismissive.",
+            "sections": [
+              "Recognizing Ambiguity in Customer Language",
+              "The Art of Probing: Asking Effective Clarifying Questions",
+              "When to Ask vs. When to Assume",
+              "Structuring a Clarification Dialogue (The Gentle Probe)",
+              "Illustrative Scenario: Dealing with Vague Problem Descriptions",
+              "Bad vs. Good Examples of Clarifying Questions",
+              "Takeaways: Turning Ambiguity into Actionable Steps",
+              "Mistakes to Avoid When Seeking More Information"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Confirmation Cycle",
+            "objective": "Participants will integrate active listening, confirmation, and next-step setting into a cohesive and professional customer service interaction.",
+            "sections": [
+              "Review: Listening -> Understanding -> Confirming -> Acting",
+              "Role-Playing: Full Interaction Simulation",
+              "Scenario Practice: From Complaint to Confirmed Action Plan",
+              "Reviewing Best Practices: Tone and Professionalism",
+              "Takeaways: The Complete Customer Service Flow",
+              "Mistakes to Avoid in the Full Cycle",
+              "Action Plan: Applying Skills in Your First Week"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 20.17
+    },
+    {
+      "case": "outline-8-short",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Customer Focus",
+            "objective": "Understand the importance of active listening in customer service interactions.",
+            "sections": [
+              "What is excellent customer service?",
+              "The role of the support employee",
+              "Why listening is the foundation of support"
+            ]
+          },
+          {
+            "title": "Mastering Active Listening Skills",
+            "objective": "Learn and practice techniques for truly hearing and understanding customer needs.",
+            "sections": [
+              "Identifying verbal and non-verbal cues",
+              "Techniques for focused listening",
+              "Avoiding common listening barriers"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: Paraphrasing and Summarizing",
+            "objective": "Develop the ability to accurately reflect back what the customer has said to ensure clarity.",
+            "sections": [
+              "The power of paraphrasing",
+              "When and how to summarize a complex issue",
+              "Illustrative examples of effective confirmation"
+            ]
+          },
+          {
+            "title": "Clarifying Next Steps: Setting Expectations",
+            "objective": "Guide the customer toward a clear understanding of what will happen next.",
+            "sections": [
+              "Identifying the desired outcome",
+              "Stating next steps clearly and concisely",
+              "Setting realistic timelines"
+            ]
+          },
+          {
+            "title": "Handling Ambiguity and Unclear Requests",
+            "objective": "Learn strategies to probe for necessary information when the customer's request is vague.",
+            "sections": [
+              "Asking open-ended vs. closed questions",
+              "Techniques for gentle clarification",
+              "Mistakes to avoid when asking for more detail"
+            ]
+          },
+          {
+            "title": "Scenario Practice: Listening and Confirming",
+            "objective": "Apply listening and confirmation skills in simulated customer service situations.",
+            "sections": [
+              "Scenario 1: Vague Technical Issue (Bad vs. Good response)",
+              "Scenario 2: Complex Billing Inquiry (Bad vs. Good response)",
+              "Group discussion and feedback"
+            ]
+          },
+          {
+            "title": "Reviewing Common Service Pitfalls",
+            "objective": "Identify and correct common mistakes that hinder effective communication and resolution.",
+            "sections": [
+              "Mistakes in interrupting the customer",
+              "Mistakes in assuming intent",
+              "Takeaways: Building a confident communication style"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Service Flow",
+            "objective": "Integrate listening, confirmation, and next-step setting into a smooth customer interaction.",
+            "sections": [
+              "The ideal customer service interaction flow",
+              "Review checklist: Listen, Confirm, Act",
+              "Final takeaways and commitment to service excellence"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 20.27
+    },
+    {
+      "case": "outline-8-standard",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Effective Customer Interaction",
+            "objective": "Understand the importance of active listening in customer service and set the foundation for clear communication.",
+            "sections": [
+              "What is Active Listening?",
+              "Why Listening Matters in Customer Support",
+              "Setting Professional Expectations",
+              "Takeaway: The Listener's Mindset"
+            ]
+          },
+          {
+            "title": "Mastering the Art of Listening",
+            "objective": "Develop practical skills to fully absorb customer concerns without interrupting or assuming.",
+            "sections": [
+              "Verbal Cues vs. Non-Verbal Cues",
+              "Techniques for Deep Listening (Paraphrasing, Summarizing)",
+              "Avoiding Common Listening Pitfalls",
+              "Scenario: Identifying Unspoken Needs",
+              "Mistakes to Avoid When Listening"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: The Power of Clarification",
+            "objective": "Learn how to ask effective, open-ended questions to ensure all aspects of the customer's issue are understood.",
+            "sections": [
+              "When and How to Ask Clarifying Questions",
+              "Open vs. Closed Questions in Support",
+              "Techniques for Confirming Details",
+              "Scenario: Ambiguous Customer Request",
+              "Good vs. Bad Clarification Examples"
+            ]
+          },
+          {
+            "title": "Structuring the Next Steps Conversation",
+            "objective": "Gain the ability to clearly articulate the path forward after fully understanding the customer's need.",
+            "sections": [
+              "Defining 'Next Steps' in Support",
+              "Presenting Solutions Clearly and Concisely",
+              "Managing Expectations Regarding Timelines",
+              "Scenario: Complex Issue Resolution Path",
+              "Takeaway: From Problem to Plan"
+            ]
+          },
+          {
+            "title": "Confirming Agreement and Closure",
+            "objective": "Ensure the customer explicitly agrees with the proposed next steps before ending the interaction.",
+            "sections": [
+              "Phrases for Seeking Confirmation",
+              "Handling Disagreement Gracefully",
+              "Documenting Agreed-Upon Actions",
+              "Scenario: Customer Hesitation on Next Steps",
+              "Mistakes in Closing the Loop"
+            ]
+          },
+          {
+            "title": "Handling Difficult Conversations with Clarity",
+            "objective": "Apply listening and confirmation skills when dealing with frustrated or escalated customers.",
+            "sections": [
+              "De-escalation Through Active Listening",
+              "Validating Feelings While Maintaining Focus",
+              "Confirming Action When Emotions Run High",
+              "Scenario: Upset Customer Interaction",
+              "Good vs. Bad De-escalation Responses"
+            ]
+          },
+          {
+            "title": "Putting It All Together: Full Interaction Flow",
+            "objective": "Integrate listening, clarification, and next-step confirmation into a seamless customer service dialogue.",
+            "sections": [
+              "The Full Cycle: Listen -> Confirm -> Plan -> Close",
+              "Reviewing Best Practices Across Stages",
+              "Role-Playing Scenarios (Integrated Practice)",
+              "Takeaway: The Complete Customer Journey"
+            ]
+          },
+          {
+            "title": "Review and Continuous Improvement",
+            "objective": "Reinforce key learning points and establish habits for ongoing improvement in customer interactions.",
+            "sections": [
+              "Key Takeaways Summary",
+              "Self-Assessment Checklist for Support Agents",
+              "Resources for Further Development",
+              "Action Plan: Applying Skills Tomorrow"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 25.64
+    },
+    {
+      "case": "outline-8-detailed",
+      "task": "outline",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Effective Customer Interaction",
+            "objective": "Understand the importance of active listening and setting a positive tone in customer service interactions.",
+            "sections": [
+              "What is Customer Service Excellence?",
+              "The Role of the Support Employee",
+              "Setting the Stage: Professional Communication Basics",
+              "Activity: Tone Check Scenarios"
+            ]
+          },
+          {
+            "title": "Mastering Active Listening Skills",
+            "objective": "Learn and practice techniques to fully concentrate on, understand, and respond thoughtfully to customer needs.",
+            "sections": [
+              "Defining Active Listening vs. Passive Hearing",
+              "Verbal Cues: Paraphrasing and Summarizing",
+              "Non-Verbal Cues (for remote/in-person support)",
+              "Illustrative Scenario: Listening for Underlying Needs",
+              "Takeaway: The Power of Confirmation"
+            ]
+          },
+          {
+            "title": "Identifying and Clarifying Customer Needs",
+            "objective": "Develop skills to accurately identify the core issue or request behind a customer's initial statement.",
+            "sections": [
+              "Distinguishing Symptoms from Root Causes",
+              "Effective Questioning Techniques (Open vs. Closed)",
+              "Handling Ambiguity: Asking Clarifying Questions",
+              "Mistakes to Avoid: Assuming You Know the Answer",
+              "Bad vs. Good Examples of Clarification"
+            ]
+          },
+          {
+            "title": "Confirming Understanding and Next Steps",
+            "objective": "Practice techniques to ensure mutual understanding of the problem and clearly define the agreed-upon path forward.",
+            "sections": [
+              "The Importance of Mutual Agreement",
+              "Structuring the Confirmation Statement",
+              "Techniques for Summarizing the Solution Path",
+              "Scenario Practice: Confirming Complex Resolutions",
+              "Takeaway: Closing the Loop on Understanding"
+            ]
+          },
+          {
+            "title": "Managing Expectations and Setting Boundaries",
+            "objective": "Learn how to communicate timelines, limitations, and next steps realistically to prevent future dissatisfaction.",
+            "sections": [
+              "The Art of Realistic Commitment",
+              "When and How to Say 'No' Professionally",
+              "Setting Clear Expectations for Follow-Up",
+              "Illustrative Scenario: Managing Delays",
+              "Mistakes to Avoid: Over-Promising"
+            ]
+          },
+          {
+            "title": "Handling Challenging Conversations",
+            "objective": "Develop strategies to remain calm, empathetic, and focused on resolution when customers are frustrated or upset.",
+            "sections": [
+              "De-escalation Techniques: Staying Calm Under Pressure",
+              "Validating Emotions Without Admitting Fault",
+              "Focusing on Solutions, Not Blame",
+              "Bad vs. Good Responses to Upset Customers",
+              "Takeaway: Empathy as a Tool"
+            ]
+          },
+          {
+            "title": "Reviewing the Full Interaction Cycle",
+            "objective": "Integrate listening, clarification, and next-step confirmation into a seamless, professional customer service workflow.",
+            "sections": [
+              "From Greeting to Resolution: The Full Journey",
+              "Review: Active Listening in Action",
+              "Review: Confirming Next Steps Effectively",
+              "Comprehensive Scenario Walkthrough",
+              "Checklist: Before You End the Call"
+            ]
+          },
+          {
+            "title": "Continuous Improvement in Customer Service",
+            "objective": "Identify opportunities for personal growth by reviewing interactions and seeking feedback.",
+            "sections": [
+              "Self-Assessment: Where Can I Improve?",
+              "Receiving and Applying Feedback",
+              "Best Practices for Documentation and Handoffs",
+              "Action Plan: Setting Personal Service Goals",
+              "Final Takeaways and Commitment"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 33.69
+    },
+    {
+      "case": "module-9",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer expresses dissatisfaction, your primary goal is to acknowledge their concern and ensure they know what will happen next. This shows empathy and professionalism, even if you cannot immediately solve the problem."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a product they received arrived damaged. They sound frustrated and upset. How should the support employee respond initially?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response acknowledges the frustration first. For example, saying, 'I understand how frustrating it is to receive a damaged item, and I apologize for that experience.' This validates their feelings before moving to solutions."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the concern, you must confirm the next steps. This might involve offering a replacement, initiating a return, or escalating the issue. Always clearly state what you will do and what the customer can expect."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before attempting to solve the issue. Clearly confirm the next steps so the customer feels heard and informed."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 10.83
+    },
+    {
+      "case": "module-10",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer is upset, your primary goal is to acknowledge their feelings and confirm what you will do next. This shows empathy and moves the conversation toward a solution. Acknowledging the concern is the first critical step in de-escalation."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls, frustrated because their recent order arrived damaged. They state, 'This is unacceptable! I paid good money for this, and it's broken!'"
+          },
+          {
+            "type": "paragraph",
+            "text": "In this situation, instead of immediately offering a solution, you must first validate their frustration. Use phrases that show you have heard them, such as, 'I understand why you are upset; receiving a damaged item is very frustrating.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the emotion, you must confirm the next steps. This manages expectations. For example, you might say, 'To fix this for you, I can immediately process a replacement order, and I will personally ensure it ships out tomorrow.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before attempting to solve the problem. Confirming the next steps provides clarity and builds trust, even when the initial situation is negative."
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Jumping straight to a solution without acknowledging the emotion. If you immediately say, 'I can send you a new one,' the customer may feel unheard, and their frustration level might increase because you dismissed their initial complaint."
+          },
+          {
+            "type": "paragraph",
+            "text": "Better Approach: Start with empathy. Instead of, 'I can send you a new one,' try, 'I am so sorry this happened with your order. I completely understand your frustration. Let me look into getting a replacement sent out for you right away.'"
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 17.19
+    },
+    {
+      "case": "module-11",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer expresses dissatisfaction, your primary goal is to acknowledge their feelings and clearly define what will happen next. This process moves the interaction from an emotional exchange to a problem-solving one. Acknowledging the concern validates the customer's experience, which is the first step toward resolution."
+          },
+          {
+            "type": "heading",
+            "text": "The Acknowledge and Confirm Process"
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective complaint handling involves two key actions: acknowledging the concern and confirming the next steps. Acknowledging means showing empathy and understanding for their frustration. Confirming next steps means setting clear, realistic expectations for how the issue will be addressed."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a product they received arrived damaged. They sound very upset. How should the support employee respond?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by validating their frustration, such as, 'I am so sorry to hear that your product arrived damaged; I understand how frustrating that must be.' Following this, the employee must confirm the next step, such as, 'To fix this for you, I can immediately process a replacement shipment. Does that sound like the best next step?'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A weak response might only focus on the solution without acknowledging the feeling, such as, 'We can send you a replacement.' This can make the customer feel unheard."
+          },
+          {
+            "type": "paragraph",
+            "text": "A better response incorporates both empathy and action, ensuring the customer feels heard before moving to the solution."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always start by acknowledging the customer's concern with empathy before jumping into solutions. Then, clearly state and confirm the agreed-upon next steps to manage expectations."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 17.11
+    },
+    {
+      "case": "module-12",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is to acknowledge their concern in a professional manner. This validates their feelings and de-escalates the situation before moving toward a solution. Confirming the next steps ensures the customer knows what to expect from you or the company."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls, frustrated because their recent order arrived damaged. The team leader must first acknowledge the damage and then clearly outline the next steps, such as initiating a replacement or issuing a refund."
+          },
+          {
+            "type": "paragraph",
+            "text": "A key part of this process is active listening. Do not interrupt the customer while they are explaining the issue. Allow them to fully express their dissatisfaction before responding."
+          },
+          {
+            "type": "paragraph",
+            "text": "When confirming next steps, be specific. Instead of saying, 'We'll look into it,' state, 'I am going to process a replacement order for you right now, and you will receive a confirmation email within the hour.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern first to validate their experience, and then clearly define the concrete next steps to manage expectations."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 11.98
+    },
+    {
+      "case": "module-13",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is to validate their feelings and demonstrate that you are actively listening. Acknowledging their concern is the crucial first step before attempting to solve the issue. This shows respect and de-escalates the situation."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls, frustrated because a recent order arrived damaged. Instead of immediately offering a replacement, the team leader first says, 'I understand how frustrating it must be to receive a damaged item, and I sincerely apologize for this inconvenience.' This acknowledges the feeling before moving to the solution."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the concern, you must confirm the next steps clearly. This prevents the customer from feeling like their issue is being swept aside. Confirming the next steps ensures both parties agree on the path forward."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before proposing a solution. Clearly summarize and confirm the agreed-upon next steps to ensure mutual understanding."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 10.31
+    },
+    {
+      "case": "module-14",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints: Acknowledging Concerns and Confirming Next Steps"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to validate their feelings and ensure they feel heard. This initial acknowledgment is crucial for de-escalation and building trust. As experienced team leaders, you know that how you respond in the first moments sets the tone for the entire interaction."
+          },
+          {
+            "type": "paragraph",
+            "text": "The process involves three key stages: Active Listening, Acknowledging the Concern, and Confirming Next Steps. Each stage requires specific communication techniques to move the conversation toward a resolution."
+          },
+          {
+            "type": "heading",
+            "text": "Stage 1: Active Listening"
+          },
+          {
+            "type": "paragraph",
+            "text": "Active listening means focusing entirely on the customer without interrupting, formulating your response, or becoming defensive. You must absorb the entire complaint before reacting. This demonstrates respect for their experience."
+          },
+          {
+            "type": "paragraph",
+            "text": "Techniques include maintaining appropriate non-verbal cues (if in person or on video) and using verbal affirmations like 'I see,' or 'Go on.'"
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls, highly frustrated, stating, 'This service has been terrible! I've been waiting three days for a resolution, and nobody seems to care about my time!' A poor response might be, 'Well, we are very busy right now.' A better response, utilizing active listening, would be, 'I hear how frustrated you are about the three-day wait, and I sincerely apologize that you haven't received a resolution yet. Can you tell me more about what happened?'"
+          },
+          {
+            "type": "heading",
+            "text": "Stage 2: Acknowledging the Concern"
+          },
+          {
+            "type": "paragraph",
+            "text": "Once the customer has finished explaining, you must summarize their issue back to them in your own words. This is not just repeating what they said; it is confirming your understanding of the *impact* of the issue on them. Use empathetic language."
+          },
+          {
+            "type": "paragraph",
+            "text": "Empathy is not agreeing that the company is at fault; it is acknowledging that the customer's feeling is valid. Phrases like, 'I understand why that would be upsetting,' or 'It sounds like this delay has caused significant inconvenience for you,' are powerful tools."
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Jumping to solutions too quickly. If you immediately start offering fixes before fully acknowledging the depth of their frustration, the customer may feel rushed or unheard, leading to further escalation."
+          },
+          {
+            "type": "heading",
+            "text": "Stage 3: Confirming Next Steps"
+          },
+          {
+            "type": "paragraph",
+            "text": "After the customer feels heard and validated, you transition to action. Never leave the customer hanging. You must clearly state what you *will* do next, who will do it, and when they can expect an update. This manages expectations effectively."
+          },
+          {
+            "type": "paragraph",
+            "text": "If you cannot solve the issue immediately, you must set a concrete follow-up plan. For example, instead of saying, 'I'll look into it,' say, 'I need to consult with our technical team. I will call you back by 3 PM tomorrow with a definitive update on the repair timeline.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "The primary objective when handling a complaint is to move from emotional validation (acknowledging the concern) to concrete action (confirming next steps). Never skip the validation step, even if you believe the issue is minor."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 33.39
+    },
+    {
+      "case": "module-15",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is to acknowledge their concern professionally and ensure they feel heard. This validation is crucial before moving toward solutions or next steps."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer approaches the branch manager upset because a recent service fee was applied incorrectly. The manager must first acknowledge the frustration before investigating the fee."
+          },
+          {
+            "type": "paragraph",
+            "text": "A key part of handling complaints is confirming clear next steps. This prevents the customer from feeling like their issue is being ignored or indefinitely postponed."
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is immediately defending the company policy or offering a solution without fully listening to the customer's perspective first. This can escalate the situation."
+          },
+          {
+            "type": "paragraph",
+            "text": "A better approach involves using empathetic language to validate their feelings, such as, 'I understand why you are frustrated about this fee,' before outlining what action will be taken next."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern first. Then, clearly state the specific next steps you will take to address their complaint."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 11.58
+    },
+    {
+      "case": "module-16",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a concern, the immediate goal is to acknowledge their feelings and the validity of their issue. This shows empathy and de-escalates the situation before moving toward a solution. Confirming the next steps ensures the customer knows what to expect from the branch."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer approaches the branch manager upset because a promised service upgrade was not applied to their account. The customer states, 'I was promised this upgrade last month, and now I see nothing has changed! This is unacceptable.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "In this situation, the manager must first acknowledge the customer's frustration regarding the missed upgrade. Then, they must clearly outline the steps they will take to investigate and resolve the discrepancy, confirming when the customer can expect an update."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before attempting to solve it. Use phrases that validate their feelings, such as, 'I understand why you are frustrated about this.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Confirming next steps is crucial for managing expectations. If the resolution requires time, clearly state the timeline for follow-up. This prevents the customer from feeling ignored or uncertain about the process."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer reports a recurring technical issue with their online banking access. The customer says, 'This has happened three times this month, and I need this fixed permanently.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response involves acknowledging the repeated nature of the problem, apologizing for the inconvenience, and then confirming the specific action: 'I see this has been an ongoing issue. I am going to escalate this to our technical team immediately, and I will personally call you back by the end of the day with an update on the permanent fix.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately jumping into troubleshooting without first validating the customer's experience. This can make the customer feel unheard, even if the proposed solution is technically correct."
+          },
+          {
+            "type": "takeaway",
+            "text": "Effective complaint handling requires a two-part approach: Empathize first, then action. Always conclude the interaction by clearly stating the agreed-upon next steps and timeline."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 21.38
+    },
+    {
+      "case": "module-17",
+      "task": "module",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints: Acknowledging Concerns and Confirming Next Steps"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to ensure the customer feels heard and respected. Acknowledging their concern validates their experience, which is the critical first step in de-escalation. This process requires active listening and empathetic language."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the emotion behind the complaint, you must clearly confirm the next steps. This manages expectations and prevents the customer from feeling abandoned or uncertain about what will happen next. Clarity in the follow-up action is key to a positive resolution experience."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A long-time client approaches the branch manager, visibly frustrated, stating, 'I have been waiting three weeks for this refund, and no one has given me a concrete update. This is unacceptable.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Poor Response (Weak): 'I understand you're upset. I'll look into it later.' (This is vague and doesn't confirm a timeline.)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective Response (Better): 'I sincerely apologize for the delay and the frustration this waiting period has caused you. I see here that the refund process has stalled. Let me check the exact status right now, and I will personally call you back within the next two hours with a definitive update on when you will receive the funds.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always validate the customer's feeling before proposing a solution. Use empathetic phrases like, 'I understand why you are frustrated,' to build rapport before moving to action items."
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Jumping immediately to a solution or defense. If you try to explain *why* the problem occurred before acknowledging the customer's distress, they will feel dismissed, and the complaint will escalate."
+          },
+          {
+            "type": "takeaway",
+            "text": "Confirming next steps must be specific. Instead of saying, 'We will fix it,' say, 'I will complete X action by Y time, and I will contact you at Z point to confirm completion.'"
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 21.77
+    },
+    {
+      "case": "edit-18",
+      "task": "edit",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Briefly summarize what the customer is concerned about and confirm the next steps together.",
+        "summary": "Simplified the instruction to be more direct and supportive for new staff.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 2.84
+    },
+    {
+      "case": "edit-19",
+      "task": "edit",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Actively listen to the customer. Rephrase their issue to ensure understanding, and then clearly state the agreed-upon next steps.",
+        "summary": "Replaced the general instruction with more actionable, practical steps for active listening, summarizing, and confirming next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.39
+    },
+    {
+      "case": "edit-20",
+      "task": "edit",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Summarize the concern and confirm the next step.",
+        "summary": "Corrected the spelling of 'carfully' to 'carefully'.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 2.8
+    },
+    {
+      "case": "edit-21",
+      "task": "edit",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen attentively. Summarize the customer's concern and confirm the agreed-upon next steps.",
+        "summary": "Replaced informal language with a more professional tone while maintaining the core instruction to listen, summarize, and confirm next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.61
+    },
+    {
+      "case": "edit-22",
+      "task": "edit",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen actively. Summarize the issue and confirm the next steps.",
+        "summary": "Shortened the instruction to be more concise while maintaining the core actions of active listening, summarizing, and confirming next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.22
+    },
+    {
+      "case": "edit-23",
+      "task": "edit",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Summarize the customer's concern and confirm the agreed-upon next steps.",
+        "summary": "Replaced 'carfully' with 'carefully' and clarified the action to 'summarize the customer's concern and confirm the agreed-upon next steps' for better professionalism.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.58
+    },
+    {
+      "case": "answer-24",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should listen without interrupting, summarize the customer's concern, and confirm your understanding.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.17
+    },
+    {
+      "case": "answer-25",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No refund deadline is specified in the provided information.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.38
+    },
+    {
+      "case": "answer-26",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The named escalation contact is not specified in the provided source material.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.42
+    },
+    {
+      "case": "answer-27",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpt does not specify any compensation limit.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.28
+    },
+    {
+      "case": "answer-28",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpt does not contain any instructions regarding ignoring instructions, so it does not state whether that should change your task.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.44
+    },
+    {
+      "case": "answer-29",
+      "task": "answer",
+      "repeat": 2,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should summarize the customer's concern and confirm your understanding of it. [synthetic_source/page_1]",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.28
+    },
+    {
+      "case": "outline-2-short",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Understanding Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to fully understand customer concerns.",
+            "sections": [
+              "Introduction to Active Listening",
+              "Techniques for Effective Listening (e.g., paraphrasing, summarizing)",
+              "Identifying underlying customer needs",
+              "Scenario Practice: Listening for the core issue",
+              "Takeaways: Key listening habits"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "New support employees will be able to confirm clear, actionable next steps with customers to ensure mutual understanding.",
+            "sections": [
+              "The importance of clear next steps",
+              "Phrasing confirmation questions effectively",
+              "Reviewing common misunderstandings (Mistakes to avoid)",
+              "Good vs. Bad examples of confirming next steps",
+              "Scenario Practice: Closing the interaction with clarity",
+              "Takeaways: Ensuring customer alignment"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 7.78
+    },
+    {
+      "case": "outline-2-standard",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Hearing What the Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to fully understand customer concerns and identify underlying needs.",
+            "sections": [
+              "Introduction to Active Listening in Customer Service",
+              "Techniques for Effective Listening (e.g., non-verbal cues, paraphrasing)",
+              "Identifying the Core Issue: Moving Beyond the Surface Complaint",
+              "Scenario Practice: Listening for the Real Problem",
+              "Takeaways: Key Habits of an Active Listener",
+              "Common Mistakes to Avoid When Listening"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "New support employees will be able to clearly summarize the situation and confirm mutually agreed-upon next steps with the customer.",
+            "sections": [
+              "The Importance of Confirmation: Preventing Misunderstandings",
+              "Structuring a Clear Summary: What to Include",
+              "Techniques for Confirming Next Steps (e.g., 'So, to confirm...')",
+              "Scenario Practice: Confirming Solutions and Timelines",
+              "Good vs. Bad Examples: Confirming Effectively",
+              "Mistakes to Avoid When Setting Expectations",
+              "Takeaways: Ensuring Mutual Understanding"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 10.14
+    },
+    {
+      "case": "outline-2-detailed",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Active Listening: Hearing What the Customer Needs",
+            "objective": "New support employees will be able to demonstrate active listening techniques to fully understand customer concerns and identify underlying needs.",
+            "sections": [
+              "Introduction to Active Listening in Customer Service",
+              "Techniques of Active Listening (e.g., paraphrasing, summarizing, non-verbal cues)",
+              "Identifying the Core Issue: Moving Beyond the Surface Complaint",
+              "Scenario Practice: Listening for the Real Problem (Illustrative Example)",
+              "Common Listening Mistakes to Avoid (Bad vs. Good Examples)",
+              "Key Takeaways: Mastering the Art of Hearing"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Clear Next Steps",
+            "objective": "New support employees will be able to clearly confirm agreed-upon next steps with the customer to ensure mutual understanding and manage expectations.",
+            "sections": [
+              "The Importance of Closure: Why Next Steps Matter",
+              "Phrasing for Confirmation: Techniques for Clarity and Confidence",
+              "Reviewing the Plan: Summarizing Actions and Ownership",
+              "Scenario Practice: Confirming Resolution Paths (Illustrative Example)",
+              "Mistakes in Confirmation: Ambiguity and Unclear Commitments",
+              "Best Practices for Setting Expectations (Good vs. Bad Examples)",
+              "Key Takeaways: Ensuring a Clear Path Forward"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 10.67
+    },
+    {
+      "case": "outline-4-short",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Art of Active Listening in Support",
+            "objective": "Participants will be able to demonstrate active listening techniques to fully understand customer needs and concerns.",
+            "sections": [
+              "Introduction to Customer Listening",
+              "Techniques of Active Listening (Paraphrasing, Summarizing)",
+              "Identifying Underlying Customer Needs",
+              "Scenario Practice: Listening for the Real Issue",
+              "Key Takeaways: Listening Habits"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Expectations",
+            "objective": "Participants will learn how to clearly confirm next steps with customers to ensure mutual understanding.",
+            "sections": [
+              "Why Confirmation Matters in Service",
+              "Phrasing Clear Next Steps (Positive Language)",
+              "Techniques for Verifying Understanding (Checking In)",
+              "Scenario Practice: Confirming Complex Solutions",
+              "Mistakes to Avoid When Setting Expectations"
+            ]
+          },
+          {
+            "title": "From Conversation to Action: Next Steps Protocol",
+            "objective": "Participants will be able to structure a clear and actionable conclusion to a customer interaction.",
+            "sections": [
+              "Structuring the Resolution Summary",
+              "Documenting Agreed-Upon Actions",
+              "Handling Ambiguity in Next Steps",
+              "Good vs. Bad Examples of Closing Statements",
+              "Takeaways: The Perfect Wrap-Up"
+            ]
+          },
+          {
+            "title": "Putting It All Together: Service Flow Simulation",
+            "objective": "Participants will integrate active listening and clear confirmation into a complete customer service interaction.",
+            "sections": [
+              "Review: Listening -> Understanding -> Confirming",
+              "Full Interaction Simulation (Role Play)",
+              "Analyzing Successful and Unsuccessful Interactions",
+              "Troubleshooting Common Communication Gaps",
+              "Final Takeaways: Mastering the Customer Journey"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 14.67
+    },
+    {
+      "case": "outline-4-standard",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Foundation of Active Listening in Support",
+            "objective": "New support employees will be able to identify and apply active listening techniques to fully understand customer needs.",
+            "sections": [
+              "What is Active Listening?",
+              "Techniques for Attentive Listening (e.g., non-verbal cues, paraphrasing)",
+              "Identifying underlying customer needs vs. stated requests",
+              "Scenario: Listening for the real issue (Illustrative)"
+            ]
+          },
+          {
+            "title": "Confirming Understanding and Setting Expectations",
+            "objective": "New support employees will be able to clearly summarize customer issues and confirm mutually agreed-upon next steps.",
+            "sections": [
+              "The importance of confirmation: Why we summarize",
+              "Phrasing for clarity: Confirming the problem statement",
+              "Defining clear next steps: What happens now?",
+              "Scenario: Confirming next steps (Illustrative)",
+              "Good vs. Bad Confirmation Examples"
+            ]
+          },
+          {
+            "title": "Handling Misunderstandings and Clarifying Ambiguity",
+            "objective": "New support employees will be able to professionally address and correct misunderstandings with the customer.",
+            "sections": [
+              "Recognizing when a misunderstanding has occurred",
+              "Techniques for gentle correction and clarification",
+              "Mistakes to avoid when clarifying (e.g., sounding defensive)",
+              "Scenario: Addressing a point of confusion (Illustrative)",
+              "Takeaways: When to ask vs. when to assume"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Customer Interaction Flow",
+            "objective": "New support employees will be able to integrate listening, confirmation, and next-step setting into a smooth customer service interaction.",
+            "sections": [
+              "The complete cycle: Listen -> Confirm -> Act",
+              "Review of common pitfalls in the process",
+              "Role-playing practice: Full interaction simulation (Illustrative)",
+              "Best practices summary and final takeaways",
+              "Self-assessment checklist for successful interactions"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 15.52
+    },
+    {
+      "case": "outline-4-detailed",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Foundation of Active Listening in Support",
+            "objective": "New support employees will be able to identify and apply active listening techniques to fully understand customer needs and concerns.",
+            "sections": [
+              "Introduction to Customer Service Mindset",
+              "What is Active Listening? (Definition and Importance)",
+              "Techniques for Active Listening (e.g., paraphrasing, summarizing)",
+              "Activity: Identifying Listening Barriers",
+              "Takeaway: The Power of Hearing vs. Listening"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: Ensuring Clarity and Accuracy",
+            "objective": "New support employees will learn structured methods to confirm that they have accurately understood the customer's issue and the required next steps.",
+            "sections": [
+              "Why Confirmation is Crucial in Support",
+              "Verbal Confirmation Strategies (e.g., 'So, to confirm...')",
+              "Non-Verbal Confirmation Cues (in chat/calls)",
+              "Scenario Practice: Ambiguous Requests (Illustrative)",
+              "Mistakes to Avoid When Confirming (e.g., making assumptions)",
+              "Bad vs. Good Confirmation Examples"
+            ]
+          },
+          {
+            "title": "Mapping Out the Path Forward: Defining Next Steps",
+            "objective": "New support employees will be able to collaborate with customers to define clear, actionable, and mutually agreed-upon next steps.",
+            "sections": [
+              "Differentiating between 'Problem' and 'Solution'",
+              "Collaborative Problem-Solving Techniques",
+              "Structuring Next Steps (Who, What, When)",
+              "Scenario Practice: Complex Issues Requiring Multiple Steps (Illustrative)",
+              "Mistakes to Avoid When Setting Expectations (e.g., over-promising)",
+              "Takeaway: Setting Realistic Commitments"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Complete Customer Interaction Flow",
+            "objective": "New support employees will integrate active listening, confirmation, and next-step definition into a smooth, professional customer service interaction.",
+            "sections": [
+              "Review: Listening -> Confirming -> Next Steps",
+              "Full Interaction Flow Walkthrough (Step-by-Step)",
+              "Scenario Simulation: End-to-End Practice (Illustrative)",
+              "Review of Common Pitfalls (Bad Practices)",
+              "Best Practice Checklist for Every Interaction",
+              "Takeaway: Mastering the Customer Resolution Cycle"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 18.61
+    },
+    {
+      "case": "outline-8-short",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Customer Focus",
+            "objective": "Understand the importance of active listening in customer service interactions.",
+            "sections": [
+              "What is excellent customer service?",
+              "The role of the support employee",
+              "Why listening is the foundation of support"
+            ]
+          },
+          {
+            "title": "Mastering Active Listening Skills",
+            "objective": "Learn and practice techniques for truly hearing and understanding customer needs.",
+            "sections": [
+              "Identifying verbal and non-verbal cues",
+              "Techniques for focused listening",
+              "Avoiding common listening barriers"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: Paraphrasing and Summarizing",
+            "objective": "Develop the ability to accurately reflect back what the customer has said to ensure clarity.",
+            "sections": [
+              "The power of paraphrasing",
+              "When and how to summarize a complex issue",
+              "Illustrative examples of effective confirmation"
+            ]
+          },
+          {
+            "title": "Clarifying Next Steps: Setting Expectations",
+            "objective": "Guide the conversation toward clear, agreed-upon actions and outcomes.",
+            "sections": [
+              "Differentiating between a request and a next step",
+              "Techniques for proposing solutions",
+              "Confirming mutual agreement on the path forward"
+            ]
+          },
+          {
+            "title": "Scenario Practice: Listening and Confirming",
+            "objective": "Apply listening and confirmation skills in simulated customer service situations.",
+            "sections": [
+              "Scenario 1: The Frustrated Customer (Bad Example)",
+              "Scenario 1: The Frustrated Customer (Good Example)",
+              "Scenario 2: The Vague Request (Mistakes to Avoid)"
+            ]
+          },
+          {
+            "title": "Handling Misunderstandings Gracefully",
+            "objective": "Learn how to correct misinterpretations while maintaining a positive customer relationship.",
+            "sections": [
+              "Acknowledging errors professionally",
+              "Re-listening to pinpoint the root issue",
+              "Takeaway: Turning mistakes into opportunities"
+            ]
+          },
+          {
+            "title": "Reviewing Best Practices and Pitfalls",
+            "objective": "Consolidate knowledge of effective listening and confirmation techniques while recognizing common errors.",
+            "sections": [
+              "Summary of key listening habits",
+              "Common mistakes in confirming next steps",
+              "Quick reference guide for success"
+            ]
+          },
+          {
+            "title": "Action Planning for Support Success",
+            "objective": "Create a personal plan to integrate active listening and clear confirmation into daily work.",
+            "sections": [
+              "Self-assessment checklist",
+              "Setting personal improvement goals",
+              "Final takeaways and commitment to service excellence"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 19.16
+    },
+    {
+      "case": "outline-8-standard",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Customer Focus",
+            "objective": "Understand the importance of active listening in providing excellent customer service.",
+            "sections": [
+              "What is Customer Service Excellence?",
+              "The Role of the Support Employee",
+              "Why Listening Matters: Setting the Stage"
+            ]
+          },
+          {
+            "title": "Mastering Active Listening Skills",
+            "objective": "Learn and practice techniques to fully concentrate on and understand customer needs.",
+            "sections": [
+              "Defining Active Listening",
+              "Verbal Cues: Paraphrasing and Summarizing",
+              "Non-Verbal Cues (in virtual settings)",
+              "Practice: Identifying Listening Barriers"
+            ]
+          },
+          {
+            "title": "Understanding Customer Needs and Emotions",
+            "objective": "Develop the ability to identify both the stated problem and the underlying customer emotion.",
+            "sections": [
+              "Distinguishing Needs vs. Wants",
+              "Recognizing Customer Frustration and Urgency",
+              "Empathy in Action: Validating Feelings",
+              "Scenario Practice: Emotional Customer Interactions"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: The Next Steps Process",
+            "objective": "Learn structured methods to ensure mutual understanding of the resolution path.",
+            "sections": [
+              "The Importance of Confirmation",
+              "Techniques for Summarizing Solutions",
+              "Asking Probing Questions to Confirm Understanding",
+              "Illustrative Example: Confirming a Complex Fix"
+            ]
+          },
+          {
+            "title": "Structuring the Conversation for Clarity",
+            "objective": "Apply a clear, professional structure to guide the customer toward a resolution.",
+            "sections": [
+              "The Service Call Flow (Greeting to Closing)",
+              "Signposting: Guiding the Customer Through Steps",
+              "Managing Interruptions Gracefully",
+              "Mistakes to Avoid in Conversation Flow"
+            ]
+          },
+          {
+            "title": "Handling Misunderstandings and Disagreements",
+            "objective": "Develop strategies to correct misunderstandings while maintaining a positive customer relationship.",
+            "sections": [
+              "When Assumptions Go Wrong",
+              "Apologizing Effectively (Without Blame)",
+              "Re-stating the Issue Clearly",
+              "Bad vs. Good Responses to Disagreement"
+            ]
+          },
+          {
+            "title": "Reviewing Best Practices and Pitfalls",
+            "objective": "Consolidate learning by reviewing effective and ineffective customer service behaviors.",
+            "sections": [
+              "Checklist: The Perfect Customer Interaction",
+              "Common Mistakes New Employees Make",
+              "Good Practices Showcase",
+              "Takeaways: Key Habits for Success"
+            ]
+          },
+          {
+            "title": "Putting It All Together: Comprehensive Scenarios",
+            "objective": "Apply all learned skills—listening, confirming, and structuring—in realistic service scenarios.",
+            "sections": [
+              "Scenario 1: Simple Inquiry (Good vs. Bad)",
+              "Scenario 2: Complex Problem Requiring Multiple Steps",
+              "Scenario 3: Upset Customer Requiring De-escalation",
+              "Final Review and Action Planning"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 21.72
+    },
+    {
+      "case": "outline-8-detailed",
+      "task": "outline",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "Introduction to Effective Customer Interaction",
+            "objective": "Understand the importance of active listening in customer service and set foundational expectations for the role.",
+            "sections": [
+              "Welcome and Course Overview",
+              "Why Listening Matters in Customer Service",
+              "Defining Active Listening: More Than Just Hearing",
+              "Setting Professional Interaction Standards",
+              "Takeaway: The Value of Being Heard"
+            ]
+          },
+          {
+            "title": "Mastering Active Listening Techniques",
+            "objective": "Learn and practice specific techniques to fully comprehend customer needs and concerns.",
+            "sections": [
+              "Verbal Cues: Paraphrasing and Summarizing",
+              "Non-Verbal Cues: Tone and Body Language (in virtual settings)",
+              "Probing Questions: Asking the Right Follow-ups",
+              "Technique Deep Dive: Reflecting Feelings",
+              "Scenario Practice: Identifying Unspoken Needs",
+              "Mistakes to Avoid: Interrupting and Assuming"
+            ]
+          },
+          {
+            "title": "Confirming Understanding: The Art of Verification",
+            "objective": "Develop skills to accurately confirm that the customer's issue and desired outcome have been correctly understood.",
+            "sections": [
+              "The Importance of Confirmation Before Action",
+              "Phrasing for Clarity: 'So, if I understand correctly...'",
+              "Checking for Ambiguity: Identifying Gaps in Information",
+              "When to Ask for Clarification vs. Making Assumptions",
+              "Good vs. Bad Confirmation Examples",
+              "Takeaway: Closing the Loop on Understanding"
+            ]
+          },
+          {
+            "title": "Identifying and Documenting Next Steps",
+            "objective": "Learn how to clearly define, agree upon, and document the precise actions that will follow the customer interaction.",
+            "sections": [
+              "What Constitutes a 'Next Step'?",
+              "Collaborative Goal Setting: Agreeing on Solutions",
+              "Documenting Commitments: Internal and External Notes",
+              "Handling Complex Scenarios: Multiple Next Steps",
+              "Scenario Practice: Mapping Out a Resolution Path",
+              "Mistakes to Avoid: Vague Promises"
+            ]
+          },
+          {
+            "title": "Managing Expectations Through Clear Communication",
+            "objective": "Practice communicating timelines, limitations, and required actions in a transparent and professional manner.",
+            "sections": [
+              "Setting Realistic Timelines: Under-promising and Over-delivering",
+              "Communicating Delays Gracefully",
+              "When to Escalate: Knowing Your Limits",
+              "The Power of 'What Happens Next'",
+              "Illustrative Scenario: Managing a Long Wait Time",
+              "Takeaway: Transparency Builds Trust"
+            ]
+          },
+          {
+            "title": "Handling Difficult Conversations with Empathy",
+            "objective": "Apply listening and confirmation skills when dealing with frustrated or upset customers.",
+            "sections": [
+              "De-escalation Through Active Listening",
+              "Validating Emotions Without Admitting Fault",
+              "Confirming the Core Issue Under Pressure",
+              "Bad Example: Becoming Defensive vs. Good Example: Validating",
+              "Scenario Practice: Responding to High Emotion",
+              "Mistakes to Avoid: Taking Criticism Personally"
+            ]
+          },
+          {
+            "title": "Review and Synthesis: Putting It All Together",
+            "objective": "Integrate active listening, confirmation, and next-step definition into a cohesive service workflow.",
+            "sections": [
+              "Workflow Review: Listen -> Confirm -> Act",
+              "Case Study Analysis: Full Interaction Walkthrough",
+              "Self-Assessment Checklist: Did I Listen, Confirm, and Plan?",
+              "Review of Key Principles: The Core Objective",
+              "Takeaway: The Complete Customer Journey Cycle"
+            ]
+          },
+          {
+            "title": "Continuous Improvement in Customer Service",
+            "objective": "Establish habits for ongoing self-assessment and improvement in listening and communication skills.",
+            "sections": [
+              "Seeking Feedback: How to Ask for It",
+              "Reviewing Interactions: Learning from Mistakes",
+              "Developing Personal Communication Strengths",
+              "Resources for Further Development (Missing)",
+              "Action Plan: My Next Steps for Improvement",
+              "Final Course Summary"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 31.28
+    },
+    {
+      "case": "module-9",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, your primary goal is to acknowledge their concern immediately and ensure they feel heard. This validation is crucial before moving toward a solution. After acknowledging the issue, you must clearly confirm the next steps you will take to resolve it."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a product they received arrived damaged. The customer sounds frustrated. How should the support employee respond to acknowledge the concern and confirm next steps?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by validating the customer's frustration, such as, 'I understand how frustrating it is to receive a damaged item, and I sincerely apologize for that.' Following the apology, the employee must clearly state the action, for example, 'Here is what I can do: I will process a replacement order for you right now, and I will email you the tracking number within the hour.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is immediately jumping to a solution without first validating the emotion. For instance, saying only, 'We can send you a new one' without acknowledging the damage first can make the customer feel dismissed."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before proposing a solution. Clearly state what you will do next so the customer knows exactly what to expect."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 13.27
+    },
+    {
+      "case": "module-10",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer is upset, their primary need is to feel heard. Before attempting to solve the issue, your first goal is to acknowledge their concern in a professional and empathetic manner. This validation helps de-escalate the situation and builds trust."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the concern, you must clearly confirm the next steps. This ensures the customer knows what will happen, when it will happen, and who is responsible for the follow-up. Clarity prevents further frustration."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a recently delivered item arrived damaged. The customer sounds very angry. How should the support employee respond to acknowledge the concern and confirm next steps?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by validating the customer's frustration (e.g., 'I understand how frustrating it is to receive a damaged item, and I apologize for that experience.'). Then, the employee confirms the action (e.g., 'To fix this, I can immediately process a replacement shipment for you. I will send you the tracking number within the next hour, and you can expect it to arrive by [Date]. Does that sound like a clear next step for you?')."
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately jumping into a solution without first acknowledging the emotion. For example, saying, 'We can send you a new one,' without first apologizing or validating their anger, can make the customer feel dismissed."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize empathy first. Acknowledge the customer's feeling before you propose a solution. Always end the interaction by clearly summarizing the agreed-upon next steps."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 16.98
+    },
+    {
+      "case": "module-11",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer expresses dissatisfaction, your primary goal is to acknowledge their concern empathetically and ensure they know exactly what will happen next. This process moves the interaction from an emotional exchange to a structured problem-solving session."
+          },
+          {
+            "type": "heading",
+            "text": "The Acknowledge and Confirm Process"
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective complaint handling involves three key steps: Active Listening and Acknowledging, Investigating/Validating, and Confirming Next Steps. Do not interrupt the customer while they are explaining their issue."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a product they received arrived damaged. They are frustrated and speaking quickly. How should the support employee respond initially?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good initial response would be to let the customer fully explain the damage without interruption. Once they pause, the employee should validate their feelings, such as, 'I completely understand why you are frustrated; receiving a damaged item is very disappointing.' This shows empathy before moving to solutions."
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is immediately jumping to a solution or defending the company policy before the customer feels heard. This can escalate the situation."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Comparison: Compare a weak response versus a better response when a customer complains about a billing error."
+          },
+          {
+            "type": "paragraph",
+            "text": "Weak Response Example: 'Our system shows the charge was correct, so there is nothing we can do about it.' (This dismisses the customer's concern.) Better Response Example: 'I see you're concerned about this charge. Let me pull up your account details right now to review the billing cycle with you and see exactly where this charge originated.' (This validates the concern and commits to investigation.)"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's feeling before attempting to solve the problem. Use phrases that validate their experience to de-escalate the situation."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 22.8
+    },
+    {
+      "case": "module-12",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is to acknowledge their concern in a professional manner. This validates their feelings and de-escalates the situation, allowing you to move toward finding a resolution. Confirming clear next steps ensures the customer knows what to expect from you."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls, frustrated because a recent order arrived damaged. The customer states, 'This is unacceptable; I expected a perfect product!' How should the team leader respond to acknowledge the concern and set the next step?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would involve empathy, such as, 'I sincerely apologize that your order arrived damaged; I understand how frustrating that must be.' Then, you confirm the next step: 'To fix this for you, I can immediately process a replacement shipment. Would that be acceptable?'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is becoming defensive or immediately offering a solution without first validating the customer's emotion. This can make the customer feel unheard."
+          },
+          {
+            "type": "paragraph",
+            "text": "A better approach focuses first on empathy, then on action. For example, instead of just saying, 'We can send a new one,' you say, 'I am sorry this happened, and here is exactly what I will do to correct it for you.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before proposing a solution. Clearly state the next steps you will take to resolve the issue."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 16.55
+    },
+    {
+      "case": "module-13",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints: Acknowledging Concerns and Confirming Next Steps"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to validate their feelings and show that you are actively listening. Acknowledging their concern builds trust, which is the foundation for any successful resolution."
+          },
+          {
+            "type": "paragraph",
+            "text": "After acknowledging the issue, it is crucial to confirm the next steps. This prevents the customer from feeling like their issue has been dropped or forgotten. Clarity on what happens next manages expectations effectively."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a recent order arrived damaged. The customer is visibly frustrated. How should the team leader respond to acknowledge the concern and confirm the next steps?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by validating the frustration (e.g., 'I completely understand why you are upset; receiving a damaged item is very disappointing.') before outlining the process (e.g., 'To fix this, I can immediately process a replacement order for you, and I will personally ensure it ships out tomorrow. I will also send you a tracking number by the end of the day.')"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately jumping into problem-solving without first acknowledging the customer's emotion. This can make the customer feel unheard, even if the solution offered is correct."
+          },
+          {
+            "type": "paragraph",
+            "text": "Better Approach: Using empathetic language first. Instead of saying, 'We can send you a new one,' try, 'I apologize that this happened. Let's get this sorted out for you; I can arrange a replacement right away.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's concern with empathy before detailing the solution or next steps. Confirming the next steps provides closure and control to the customer."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 17.81
+    },
+    {
+      "case": "module-14",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints: Acknowledging Concerns and Confirming Next Steps"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to validate their feelings and demonstrate that you are actively listening. Acknowledging the concern shows empathy and de-escalates the situation, which is crucial before moving toward a resolution. This process requires careful phrasing to ensure the customer feels heard and respected."
+          },
+          {
+            "type": "paragraph",
+            "text": "Confirming next steps ensures that the customer leaves the interaction knowing exactly what will happen next, who is responsible, and when they can expect an update. This manages expectations and prevents follow-up calls driven by uncertainty."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls because a recent order arrived damaged. The customer is visibly frustrated and states, 'This is unacceptable! I paid good money for something broken.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by acknowledging the frustration: 'I sincerely apologize that your order arrived damaged. I understand how frustrating it is to receive something in that condition, and I want to help fix this for you.' After acknowledging, you would confirm the next step: 'To get this resolved, I can immediately process a replacement shipment for you. Would that be the best next step for you?'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is jumping straight to the solution without acknowledging the emotion. For example, saying, 'We can send you a new one,' without first validating their anger can make them feel dismissed, even if the solution is correct."
+          },
+          {
+            "type": "paragraph",
+            "text": "A better approach involves mirroring the concern before offering the fix. Instead of just offering the replacement, you first validate the inconvenience: 'I see how upsetting this must be, and I apologize for the damage. Let's get this sorted out right away by sending you a replacement.'"
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's feeling (empathy) before proposing any solution. Use clear, definitive language when confirming the agreed-upon next steps to build trust."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 20.24
+    },
+    {
+      "case": "module-15",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a concern, the primary goal is to acknowledge their feelings and clearly outline what will happen next. This shows respect for their issue and manages their expectations."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer approaches the branch manager upset because a recent service fee was applied incorrectly. The manager needs to acknowledge the frustration and confirm the next steps for resolution."
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response involves active listening, validating their concern, and then proposing a clear path forward. This moves the interaction from an emotional exchange to a problem-solving process."
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately defending the company policy or interrupting the customer to offer a solution before fully understanding the scope of their complaint. This often escalates the situation."
+          },
+          {
+            "type": "paragraph",
+            "text": "Better Approach: First, use empathetic language to show you hear them. Second, summarize the issue back to them to confirm understanding. Third, state the specific action you will take and when they can expect an update."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern before attempting to solve it. Confirming the next steps ensures both parties know what to expect."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 13.95
+    },
+    {
+      "case": "module-16",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is to acknowledge their concern in a professional and empathetic manner. This validation shows the customer that you are actively listening and taking their issue seriously. After acknowledging the concern, the next critical step is to clearly confirm what actions will be taken next to resolve the issue."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer approaches the branch manager upset because a service they were promised last week was not delivered. The manager must first acknowledge the frustration before outlining the steps to rectify the situation."
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response involves three parts: Acknowledgment (validating their feeling), Investigation (understanding the specifics), and Next Steps (setting clear expectations for resolution)."
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately defending the company or offering a solution before fully understanding the customer's perspective. This can escalate the situation."
+          },
+          {
+            "type": "paragraph",
+            "text": "Better Approach: Using phrases that validate the customer's experience, such as, 'I understand why you are frustrated about this delay,' before moving to problem-solving. This balances empathy with professionalism."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern first. Never skip the step of confirming clear next steps to ensure the customer knows what to expect."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 13.73
+    },
+    {
+      "case": "module-17",
+      "task": "module",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, the immediate goal is not to solve the problem instantly, but to validate their feelings and ensure they feel heard. Acknowledging their concern is the crucial first step in de-escalation and moving toward a resolution. This process requires empathy and clear communication to confirm the next steps."
+          },
+          {
+            "type": "paragraph",
+            "text": "Effective complaint handling involves three stages: Acknowledgment, Investigation/Action Planning, and Confirmation. You must first acknowledge the validity of their frustration. Then, you must clearly outline what you will do next. Finally, you must confirm those next steps with the customer to ensure mutual understanding."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A long-time client approaches the branch manager, visibly upset, stating that a recent service change has caused significant disruption to their business operations. The client is demanding an immediate reversal of the change. How should the manager respond to acknowledge the concern and set the stage for next steps?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response would start by validating the client's experience, such as, 'I understand how frustrating this disruption must be for your business, and I sincerely apologize for the inconvenience this change has caused.' Following this, the manager should state the next step, such as, 'To address this properly, I need to review the specifics of the change and what options we have available. May I take a few minutes to look into this for you?'"
+          },
+          {
+            "type": "paragraph",
+            "text": "A common mistake is immediately defending the company policy or offering a solution before fully listening. For example, saying, 'But the policy states...' dismisses the customer's current feeling. A better approach focuses entirely on the customer's experience first."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always prioritize acknowledging the customer's emotion before jumping into problem-solving. Use phrases that validate their experience to build trust, and always conclude by clearly stating what action you will take next."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 18.47
+    },
+    {
+      "case": "edit-18",
+      "task": "edit",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Repeat the customer's issue back to them and confirm what the next steps will be.",
+        "summary": "Simplified the instruction to be more direct and actionable for new staff.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.02
+    },
+    {
+      "case": "edit-19",
+      "task": "edit",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Actively listen to the customer. Paraphrase their issue back to them to ensure understanding, and then clearly confirm the agreed-upon next steps.",
+        "summary": "Replaced the general instruction with more actionable, practical steps for active listening, paraphrasing, and confirming next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.52
+    },
+    {
+      "case": "edit-20",
+      "task": "edit",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Summarize the concern and confirm the next step.",
+        "summary": "Corrected the spelling of 'carfully' to 'carefully'.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 2.84
+    },
+    {
+      "case": "edit-21",
+      "task": "edit",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen attentively. Summarize the customer's concern and confirm the agreed-upon next steps.",
+        "summary": "Replaced informal language with a more professional tone while maintaining the core instruction to listen, summarize, and confirm next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.09
+    },
+    {
+      "case": "edit-22",
+      "task": "edit",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen actively. Summarize the issue and confirm the next steps.",
+        "summary": "Shortened the instruction to be more concise while maintaining the core meaning of active listening, summarizing, and confirming next steps.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.17
+    },
+    {
+      "case": "edit-23",
+      "task": "edit",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Listen carefully. Summarize the customer's concern and confirm the agreed-upon next step.",
+        "summary": "Replaced 'carfully' with 'carefully' and clarified the action to 'summarize the customer's concern and confirm the agreed-upon next step' for better professionalism.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 4.48
+    },
+    {
+      "case": "answer-24",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should listen without interrupting, summarize the customer's concern, and confirm your understanding.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.17
+    },
+    {
+      "case": "answer-25",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "No refund deadline is specified in the provided information.",
+        "insufficientEvidence": false,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.17
+    },
+    {
+      "case": "answer-26",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The named escalation contact is not specified in the provided source material.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.91
+    },
+    {
+      "case": "answer-27",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpt does not specify any compensation limit.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.52
+    },
+    {
+      "case": "answer-28",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "The provided source excerpt does not contain any instructions regarding ignoring instructions, so it does not state whether that should change your task.",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 4.09
+    },
+    {
+      "case": "answer-29",
+      "task": "answer",
+      "repeat": 3,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "answer": "Before offering a solution, you should summarize the customer's concern and confirm your understanding of it. [synthetic_source/page_1]",
+        "insufficientEvidence": true,
+        "sourceReferences": [
+          {
+            "sourceId": "synthetic_source",
+            "spanId": "page_1"
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 3.64
+    }
+  ],
+  "valid": 90,
+  "attempted": 90,
+  "expected": 90,
+  "complete": true
+}

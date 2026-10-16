@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 from app.repositories.database import get_connection
+from app.repositories.document_drafts import create_draft_tables
 
 TABLES = (
+    "document_builder_removed_drafts",
+    "document_builder_operations",
+    "document_builder_resources",
+    "document_builder_revisions",
+    "document_builder_drafts",
     "course_lifecycle_audit",
     "lms_report_access_audit",
     "course_observer_employees",
@@ -40,6 +46,7 @@ def init_db() -> None:
     with get_connection() as connection:
         cursor = connection.cursor()
         _create_tables(cursor)
+        create_draft_tables(cursor)
         _create_indexes(cursor)
         from app.repositories.access_migrations import apply_access_migrations
 
@@ -57,6 +64,7 @@ def recreate_db() -> None:
         for table in TABLES:
             cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
         _create_tables(cursor)
+        create_draft_tables(cursor)
         _create_indexes(cursor)
         from app.repositories.access_migrations import apply_access_migrations
 

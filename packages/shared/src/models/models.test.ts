@@ -186,8 +186,7 @@ describe('quiz', () => {
       correct_count: 3,
       total_questions: 4,
       pass_mark: 0.6667,
-      correct_answers: { '0': 'A', '1': 'B', x: 'C' },
-      explanations: { '0': null, '1': 'ok' },
+      answer_results: { '0': true, '1': false, '2': 'true', x: true },
     })
     expect(result).toEqual({
       passed: true,
@@ -195,15 +194,14 @@ describe('quiz', () => {
       correctCount: 3,
       totalQuestions: 4,
       passMark: 0.6667,
-      correctAnswers: { 0: 'A', 1: 'B' },
-      explanations: { 0: '', 1: 'ok' },
+      answerResults: { 0: true, 1: false },
     })
   })
   it('falls back for optional maps and throws for required numbers', () => {
     const base = { quiz_score: 1, correct_count: 1, total_questions: 1, pass_mark: 0.5 }
-    const result = parseQuizSubmissionResult({ ...base, quiz_passed: 'yes', correct_answers: [1] })
+    const result = parseQuizSubmissionResult({ ...base, quiz_passed: 'yes', answer_results: [1] })
     expect(result.passed).toBe(false)
-    expect(result.correctAnswers).toEqual({})
+    expect(result.answerResults).toEqual({})
     expect(() => parseQuizSubmissionResult({ ...base, quiz_score: null })).toThrow()
   })
   it('builds the submit body', () => {

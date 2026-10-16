@@ -1,19 +1,22 @@
 import { errorMessage, hlsVideoAssetUrl, videoAssetUrl } from '@lms/shared/api/client'
 import { useHasMediaTicket } from '@lms/shared/api/useMediaTicket'
-import type { EmployeeCourse, PublishedCourseModule } from '@lms/shared/models'
+import type {
+  EmployeeCourse,
+  PublishedCourseModule,
+  QuizSubmissionResult,
+} from '@lms/shared/models'
 import { Button } from '@lms/shared/ui/Button'
-import { Dialog, DialogClose } from '@lms/shared/ui/Dialog'
 import { Icon } from '@lms/shared/ui/icons/Icon'
 import { ProgressBar } from '@lms/shared/ui/ProgressBar'
 import { useToast } from '@lms/shared/ui/Toast'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
 import { HlsVideoPlayer } from '@lms/shared/video/HlsVideoPlayer'
 import clsx from 'clsx'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { percentLabel } from '../dashboard/progress'
+import { useEffect, useRef, useState } from 'react'
 import { useModuleProgress } from '../dashboard/useEmployeeCourses'
 import { useViewportWidth } from '../dashboard/useViewportWidth'
 import {
+  resumeModuleIndex,
   isQuizUnlocked,
   isVideoUnlocked,
   isVideoWatched,
@@ -26,13 +29,6 @@ import { emptyQuizState, QuizSection, type QuizState } from './Quiz'
 const DEFAULT_NOTES =
   'Complete the video lesson, then use the quiz to confirm your understanding of this module.'
 
-interface ResultDialog {
-  passed: boolean
-  isFinalModule: boolean
-  score: number
-  passMark: number
-}
-
 function without(set: ReadonlySet<number>, value: number): ReadonlySet<number> {
   if (!set.has(value)) return set
   const next = new Set(set)
@@ -43,23 +39,35 @@ function without(set: ReadonlySet<number>, value: number): ReadonlySet<number> {
 /** Saved answers of a passed quiz, loaded when a module opens. */
 function quizStateFor(course: EmployeeCourse, index: number): QuizState {
   const module = course.publishedModules[index]
-  const saved = module ? course.moduleProgress[String(module.moduleNumber)]?.selectedAnswers : null
-  if (!saved) return emptyQuizState()
+  if (!module) return emptyQuizState()
+  const progress = course.moduleProgress[String(module.moduleNumber)]
+  const saved = progress?.selectedAnswers
+  if (!saved || progress.quizPassed !== true) return emptyQuizState()
   return { ...emptyQuizState(), selectedAnswers: { ...saved }, submitted: true }
 }
 
 /**
  * Flutter `CoursePlaybackView`. The parent remounts it with `key={courseId}`, so a course change
- * starts from module 1 with no local progress.
+ * resumes at the first incomplete module. Background updates preserve the current module.
  */
-export function CoursePlayback({ course, onBack }: { course: EmployeeCourse; onBack: () => void }) {
-  const [activeIndex, setActiveIndex] = useState(0)
+export function CoursePlayback({
+  course,
+  initialCourse = course,
+  onBack,
+}: {
+  course: EmployeeCourse
+  initialCourse?: EmployeeCourse
+  onBack: () => void
+}) {
+  const [activeIndex, setActiveIndex] = useState(() => resumeModuleIndex(initialCourse))
   const [watched, setWatched] = useState<ReadonlySet<number>>(() => new Set())
   const [unsaved, setUnsaved] = useState<ReadonlySet<number>>(() => new Set())
   const [passed, setPassed] = useState<ReadonlySet<number>>(() => new Set())
   const [localScores, setLocalScores] = useState<Record<number, number>>({})
-  const [quiz, setQuiz] = useState<QuizState>(() => quizStateFor(course, 0))
-  const [result, setResult] = useState<ResultDialog | null>(null)
+  const [quiz, setQuiz] = useState<QuizState>(() =>
+    quizStateFor(initialCourse, resumeModuleIndex(initialCourse)),
+  )
+  const [result, setResult] = useState<QuizSubmissionResult | null>(null)
   const isMobile = useViewportWidth() < 900
   const quizRef = useRef<HTMLDivElement>(null)
   const scrollToQuiz = useRef(false)
@@ -104,6 +112,7 @@ export function CoursePlayback({ course, onBack }: { course: EmployeeCourse; onB
     if (grading.current) return
     setActiveIndex(index)
     setQuiz(quizStateFor(course, index))
+    setResult(null)
   }
 
   const handleVideoEnded = (target: PublishedCourseModule) => {
@@ -138,7 +147,6 @@ export function CoursePlayback({ course, onBack }: { course: EmployeeCourse; onB
   const handleSubmit = async () => {
     if (grading.current) return
     const target = module
-    const index = activeIndex
     const answers = { ...quiz.selectedAnswers }
     grading.current = true
     setQuiz((current) => ({ ...current, submitted: true }))
@@ -163,46 +171,38 @@ export function CoursePlayback({ course, onBack }: { course: EmployeeCourse; onB
     }
     setQuiz((current) => ({
       ...current,
-      gradedCorrectAnswers: { ...outcome.correctAnswers },
-      gradedExplanations: { ...outcome.explanations },
+      answerResults: { ...outcome.answerResults },
     }))
-    const isFinalModule = index === modules.length - 1
     if (outcome.passed) {
       setPassed((current) => new Set(current).add(target.moduleNumber))
       setWatched((current) => new Set(current).add(target.moduleNumber))
       setLocalScores((current) => ({ ...current, [target.moduleNumber]: outcome.score }))
-      const next = modules[index + 1]
-      if (!isFinalModule && next) {
-        showToast(`Quiz passed. Opening Module ${next.moduleNumber}.`, {
-          tone: 'learning',
-          icon: 'verified_rounded',
-          duration: 3000,
-        })
-        setActiveIndex(index + 1)
-        setQuiz(quizStateFor(course, index + 1))
-        return
-      }
     } else {
       // The backend clears the video completion of a failed quiz.
       videoSaves.current.delete(target.moduleNumber)
       setWatched((current) => without(current, target.moduleNumber))
     }
-    setResult({
-      passed: outcome.passed,
-      isFinalModule,
-      score: outcome.score,
-      passMark: outcome.passMark,
-    })
+    setResult(outcome)
+    scrollToQuiz.current = true
   }
 
   const closeResult = () => {
-    if (result && !result.passed) setQuiz(emptyQuizState())
-    setResult(null)
+    if (result && !result.passed) {
+      setQuiz(emptyQuizState())
+      setResult(null)
+      quizRef.current
+        ?.closest<HTMLElement>('[data-scroll-pane]')
+        ?.scrollTo({ top: 0, behavior: 'smooth' })
+    } else if (activeIndex === modules.length - 1) {
+      onBack()
+    } else {
+      changeModule(activeIndex + 1)
+    }
   }
 
   const progress = course.moduleProgress[String(module.moduleNumber)]
   const alreadyPassed = progress?.quizPassed === true || passed.has(module.moduleNumber)
-  const score = progress?.quizScore ?? localScores[module.moduleNumber] ?? 0
+  const score = localScores[module.moduleNumber] ?? progress?.quizScore ?? null
 
   const content = (
     <>
@@ -236,6 +236,15 @@ export function CoursePlayback({ course, onBack }: { course: EmployeeCourse; onB
             }))
           }
           onSubmit={() => void handleSubmit()}
+          review={result}
+          reviewAction={
+            result && !result.passed
+              ? 'Rewatch lesson'
+              : activeIndex === modules.length - 1
+                ? 'Finish course'
+                : 'Continue to next module'
+          }
+          onReviewAction={closeResult}
         />
       </div>
     </>
@@ -280,7 +289,6 @@ export function CoursePlayback({ course, onBack }: { course: EmployeeCourse; onB
           </div>
         </div>
       )}
-      <QuizResultDialog result={result} onClose={closeResult} />
     </>
   )
 }
@@ -509,56 +517,5 @@ function ModuleSelect({ course, activeIndex, local, onChange }: ModuleNavProps) 
         className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2"
       />
     </div>
-  )
-}
-
-function QuizResultDialog({
-  result,
-  onClose,
-}: {
-  result: ResultDialog | null
-  onClose: () => void
-}) {
-  // Keep the last result while the dialog closes, so the text does not flash.
-  const [shown, setShown] = useState(result)
-  if (result && result !== shown) setShown(result)
-  const data = result ?? shown
-  let title: ReactNode = ''
-  let body = ''
-  let action = ''
-  if (data) {
-    const scoreText = `You scored ${percentLabel(data.score)}%.`
-    title = data.passed
-      ? data.isFinalModule
-        ? 'Course Completed!'
-        : 'Quiz Passed!'
-      : 'Quiz Failed'
-    body = data.passed
-      ? `${scoreText} ${data.isFinalModule ? 'You have successfully finished the course.' : 'The next module is now unlocked!'}`
-      : `${scoreText} You need at least two-thirds (${percentLabel(data.passMark)}%) to pass.\n\nYou must re-watch the video lesson to try the quiz again.`
-    action = data.passed && data.isFinalModule ? 'Finish' : data.passed ? 'Continue' : 'Try Again'
-  }
-  return (
-    <Dialog
-      open={result != null}
-      onOpenChange={(open) => !open && onClose()}
-      dismissible={false}
-      className="tracking-normal"
-      title={
-        <span className={data?.passed ? 'text-accent-green' : 'text-accent-red'}>{title}</span>
-      }
-      actions={
-        <DialogClose asChild>
-          <button
-            type="button"
-            className="inline-flex min-h-10 items-center rounded-full px-3 text-[14px] font-medium text-primary-blue hover:bg-brand-blue-50"
-          >
-            {action}
-          </button>
-        </DialogClose>
-      }
-    >
-      <p className="m-0 whitespace-pre-line">{body}</p>
-    </Dialog>
   )
 }

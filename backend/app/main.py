@@ -38,6 +38,12 @@ async def lifespan(_: FastAPI):
     ensure_storage_directories(settings)
     generation_queue.start()
     init_db()
+    if settings.document_builder_workflow_enabled:
+        from app.api.document_drafts import jobs, repository
+        from app.document_builder.workflow_jobs import executor
+
+        for draft_id, owner, operation_id in repository.recover_operations():
+            executor.submit(jobs.run, draft_id, owner, operation_id)
     start_directory_sync_scheduler()
     start_email_notification_scheduler()
     recover_interrupted_generations()
@@ -47,6 +53,11 @@ async def lifespan(_: FastAPI):
         await stop_email_notification_scheduler()
         await stop_directory_sync_scheduler()
         generation_jobs.shutdown()
+        if settings.document_builder_workflow_enabled:
+            from app.document_builder.workflow_jobs import executor, stopping
+
+            stopping.set()
+            executor.shutdown(wait=True, cancel_futures=True)
         close_pool()
 
 
@@ -60,6 +71,7 @@ def create_app() -> FastAPI:
         allow_credentials=origins != ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["Content-Length", "Last-Modified"],
     )
     app.middleware("http")(request_context_middleware)
     install_exception_handlers(app)

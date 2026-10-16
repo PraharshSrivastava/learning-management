@@ -1,0 +1,111 @@
+{
+  "model": "gemma-4-e4b",
+  "mode": "json_schema",
+  "kind": "capability-smoke",
+  "humanReviewRequired": true,
+  "results": [
+    {
+      "case": "outline-4-standard",
+      "task": "outline",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "modules": [
+          {
+            "title": "The Foundation of Active Listening in Support",
+            "objective": "New support employees will be able to identify and apply active listening techniques to fully understand customer needs.",
+            "sections": [
+              "Introduction to Customer Service Mindset",
+              "What is Active Listening?",
+              "Techniques: Paraphrasing and Reflecting Feelings",
+              "Scenario Practice: Identifying Unspoken Needs",
+              "Takeaways: Listening Checklist"
+            ]
+          },
+          {
+            "title": "Confirming Clarity: Setting Expectations",
+            "objective": "Trainees will learn how to confirm understanding and clearly articulate next steps to the customer.",
+            "sections": [
+              "Why Confirmation Matters: Preventing Misunderstandings",
+              "Phrasing for Clarity: Moving from Ambiguity to Action",
+              "The 'Next Steps' Protocol",
+              "Illustrative Scenario: Confirming a Complex Resolution",
+              "Mistakes to Avoid: Assuming vs. Confirming"
+            ]
+          },
+          {
+            "title": "Navigating Difficult Conversations",
+            "objective": "Employees will practice maintaining composure and confirming next steps even when customers are frustrated or unclear.",
+            "sections": [
+              "De-escalation Basics: Staying Calm Under Pressure",
+              "Handling Vague or Emotional Input",
+              "Techniques for Clarification Without Sounding Challenging",
+              "Bad vs. Good Responses in Conflict Scenarios",
+              "Takeaways: Maintaining Professional Tone"
+            ]
+          },
+          {
+            "title": "Putting It All Together: The Service Flow",
+            "objective": "Trainees will integrate active listening, confirmation, and next-step setting into a complete customer interaction.",
+            "sections": [
+              "Review: Listening -> Understanding -> Confirming",
+              "Full Interaction Walkthrough: From Greeting to Closure",
+              "Role-Playing Scenarios: Full Cycle Practice",
+              "Self-Assessment: Identifying Personal Strengths and Gaps",
+              "Final Takeaways: Your Commitment to Clear Service"
+            ]
+          }
+        ]
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 20.25
+    },
+    {
+      "case": "module-9",
+      "task": "module",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "blocks": [
+          {
+            "type": "heading",
+            "text": "Handling Complaints"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a customer raises a complaint, your primary goal is to acknowledge their feelings and clearly outline what you will do next. This shows empathy and professionalism, even when the situation is difficult."
+          },
+          {
+            "type": "scenario",
+            "text": "Illustrative Scenario: A customer calls upset because their recent order arrived damaged. They state, 'I am so frustrated; this is unacceptable!' How should you respond to acknowledge their concern and confirm the next step?"
+          },
+          {
+            "type": "paragraph",
+            "text": "A good response validates their frustration before moving to a solution. For example, you might say, 'I completely understand why you are frustrated; receiving a damaged item is very disappointing. Let me look into this right away and confirm the next steps for a replacement.'"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common Mistake: Immediately jumping to a solution without acknowledging the emotion. For instance, saying, 'We can send you a new one,' without first validating their anger can make the customer feel unheard."
+          },
+          {
+            "type": "paragraph",
+            "text": "Better Approach: Starting with empathy. Instead of just offering a fix, start by saying something like, 'I hear how upset you are about this, and I apologize for the inconvenience.' This builds trust before you confirm the resolution steps."
+          },
+          {
+            "type": "takeaway",
+            "text": "Always acknowledge the customer's concern first. Then, clearly state the specific next steps you will take to resolve the issue."
+          }
+        ],
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 14.69
+    }
+  ],
+  "valid": 2,
+  "attempted": 2,
+  "expected": 2,
+  "complete": true
+}

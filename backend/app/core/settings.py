@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 from email.utils import getaddresses
 from pathlib import Path
+from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -76,6 +78,13 @@ class Settings(BaseModel):
     llm_max_input_tokens: int = Field(default=87000, ge=256)
     llm_max_output_tokens: int = Field(default=12000, ge=256)
 
+    # New workflow stays disabled until model/editor/handoff acceptance gates pass.
+    document_builder_workflow_enabled: bool = False
+    document_builder_model: str | None = None
+    document_builder_output_mode: Literal["prompt", "json_object", "json_schema"] = "json_schema"
+    document_builder_model_timeout_seconds: float = Field(default=90, gt=0, le=600)
+    document_builder_operation_deadline_seconds: float = Field(default=240, gt=0, le=1200)
+
     langfuse_enabled: bool = False
     langfuse_host: str | None = None
     langfuse_public_key: str | None = None
@@ -91,6 +100,9 @@ class Settings(BaseModel):
     tts_voice: str = "priyanka"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
     tts_speed: float = Field(default=0.9, gt=0)
+    caption_align_command: tuple[str, ...] = ()
+    caption_align_model_path: str = ""
+    caption_align_device: str = "cpu"
     slide_transition_pause_seconds: float = Field(default=1.0, ge=0)
     thumbnail_endpoint: str = "http://35.238.33.238:4000/v1/images/generations"
     thumbnail_model: str = "z-image-turbo"
@@ -161,6 +173,15 @@ class Settings(BaseModel):
         if not value:
             raise ValueError("TTS_MODEL_NAME must not be empty")
         return value
+
+    @field_validator("caption_align_command", mode="before")
+    @classmethod
+    def parse_caption_command(cls, value: object) -> tuple[str, ...]:
+        if isinstance(value, str):
+            value = json.loads(value)
+        if not isinstance(value, (list, tuple)) or any(not isinstance(arg, str) or not arg for arg in value):
+            raise ValueError("CAPTION_ALIGN_COMMAND must be a JSON list of nonempty command arguments")
+        return tuple(value)
 
     @field_validator("lms_hub_login_url")
     @classmethod
@@ -326,6 +347,11 @@ class Settings(BaseModel):
                 "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "100000"),
                 "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "87000"),
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),
+                "document_builder_workflow_enabled": values.get("DOCUMENT_BUILDER_WORKFLOW_ENABLED", "false"),
+                "document_builder_model": values.get("DOCUMENT_BUILDER_MODEL") or None,
+                "document_builder_output_mode": values.get("DOCUMENT_BUILDER_OUTPUT_MODE", "json_schema"),
+                "document_builder_model_timeout_seconds": values.get("DOCUMENT_BUILDER_MODEL_TIMEOUT_SECONDS", "90"),
+                "document_builder_operation_deadline_seconds": values.get("DOCUMENT_BUILDER_OPERATION_DEADLINE_SECONDS", "240"),
                 "langfuse_enabled": values.get("LANGFUSE_ENABLED", "false"),
                 "langfuse_host": values.get("LANGFUSE_BASE_URL")
                 or values.get("LANGFUSE_HOST")
@@ -348,6 +374,9 @@ class Settings(BaseModel):
                 "tts_voice": values.get("TTS_VOICE", "priyanka"),
                 "tts_temperature": values.get("TTS_TEMPERATURE", "0.6"),
                 "tts_speed": values.get("TTS_SPEED", "0.9"),
+                "caption_align_command": values.get("CAPTION_ALIGN_COMMAND", "[]"),
+                "caption_align_model_path": values.get("CAPTION_ALIGN_MODEL_PATH", ""),
+                "caption_align_device": values.get("CAPTION_ALIGN_DEVICE", "cpu"),
                 "slide_transition_pause_seconds": values.get(
                     "SLIDE_TRANSITION_PAUSE_SECONDS", "1.0"
                 ),

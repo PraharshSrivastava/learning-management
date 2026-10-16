@@ -96,7 +96,14 @@ export function EmployeeDashboard() {
       />
     )
   } else if (openCourse) {
-    content = <CoursePlayback key={openCourse.courseId} course={openCourse} onBack={closeCourse} />
+    content = (
+      <FreshCoursePlayback
+        key={openCourse.courseId}
+        course={openCourse}
+        refetch={refetch}
+        onBack={closeCourse}
+      />
+    )
   } else if (activeIndex === 1) {
     content = (
       <PageFrame
@@ -166,6 +173,71 @@ export function EmployeeDashboard() {
         open={dialogCourses != null}
         onOpenChange={(open) => !open && setDialogCourses(null)}
       />
+    </div>
+  )
+}
+
+/** Fetch authoritative progress once on entry. Later live updates never reset the chosen module. */
+function FreshCoursePlayback({
+  course,
+  refetch,
+  onBack,
+}: {
+  course: EmployeeCourse
+  refetch: ReturnType<typeof useEmployeeCourses>['refetch']
+  onBack: () => void
+}) {
+  const [entry, setEntry] = useState<EmployeeCourse | null>(null)
+  const [error, setError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      if (!cancelled) setError(true)
+    }, 30_000)
+    void refetch({ throwOnError: true })
+      .then(
+        (result) => {
+          if (cancelled || timedOut) return
+          const fresh = result.data?.find((item) => item.courseId === course.courseId)
+          if (!fresh) setError(true)
+          else setEntry(fresh)
+        },
+        () => {
+          if (!cancelled && !timedOut) setError(true)
+        },
+      )
+      .finally(() => clearTimeout(timer))
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [course.courseId, refetch, attempt])
+  if (entry) return <CoursePlayback course={course} initialCourse={entry} onBack={onBack} />
+  return (
+    <div className="p-8" role={error ? 'alert' : 'status'}>
+      <p>
+        {error
+          ? 'Could not load your latest progress. Retry before opening the course.'
+          : 'Loading your latest progress…'}
+      </p>
+      {error && (
+        <button
+          type="button"
+          className="mt-4 rounded-lg bg-primary-blue px-4 py-2 text-white"
+          onClick={() => {
+            setError(false)
+            setAttempt((value) => value + 1)
+          }}
+        >
+          Retry course
+        </button>
+      )}
+      <button type="button" className="ml-4 text-primary-blue" onClick={onBack}>
+        Back to dashboard
+      </button>
     </div>
   )
 }

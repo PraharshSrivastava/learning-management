@@ -101,9 +101,11 @@ describe('DocumentBuilder', () => {
     await fillMetadata()
     await userEvent.click(button('Download PDF'))
     expect(within(chat()).getByText(builderText.emptyDraft)).toBeInTheDocument()
-    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('document-builder'))).toBe(
-      false,
-    )
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => init?.method === 'POST' && String(input).includes('document-builder'),
+      ),
+    ).toBe(false)
   })
 
   it('sends the prompt with history, applied settings, and the draft, and keeps images', async () => {

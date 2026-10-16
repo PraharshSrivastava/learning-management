@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16
+    env_file: .env.pilot
+    volumes:
+      - pilot-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lms_document_pilot -d lms_document_pilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  backend:
+    build:
+      context: ./backend
+    env_file: .env.pilot
+    volumes:
+      - pilot-storage:/app/storage
+    ports:
+      - "127.0.0.1:13060:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+      args:
+        APP: trainer
+        API_BASE_URL: ""
+    volumes:
+      - pilot-storage:/srv/lms/storage:ro
+      - ./tmp/document-builder-pilot/trainer.nginx.conf:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - "127.0.0.1:16969:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+volumes:
+  pilot-db:
+  pilot-storage:

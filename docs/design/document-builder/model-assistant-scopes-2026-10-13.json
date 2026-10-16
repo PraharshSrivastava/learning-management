@@ -1,0 +1,43 @@
+{
+  "model": "gemma-4-e4b",
+  "mode": "json_schema",
+  "kind": "capability-smoke",
+  "humanReviewRequired": true,
+  "results": [
+    {
+      "case": "revise-module",
+      "task": "revise",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacements": [
+          "Pay close attention to what the customer is saying without cutting them off.",
+          "Before you suggest a fix, make sure you fully understand their issue."
+        ],
+        "summary": "This module teaches new employees the importance of active listening by advising them to listen without interruption and to confirm the customer's concern before providing any solutions.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 5.14
+    },
+    {
+      "case": "insert-scenario",
+      "task": "insert",
+      "repeat": 1,
+      "status": "valid",
+      "attempts": 1,
+      "response": {
+        "replacementText": "Illustrative scenario: A customer calls in, clearly frustrated, stating, 'This service has been unreliable for weeks! I keep having to restart my connection, and it's costing me time and money.' The support employee immediately jumps in to offer a technical fix without fully acknowledging the customer's frustration. The customer interrupts, saying, 'No, I just want someone to understand how annoying this is before we talk about fixes.' The employee pauses, takes a breath, and responds, 'I hear how frustrating it is that you've been dealing with unreliable service for weeks, and I understand how much time and money this is costing you.'",
+        "summary": "This scenario illustrates a customer expressing frustration over ongoing service issues. It contrasts an immediate, unacknowledged technical response with a supportive response that first validates the customer's feelings.",
+        "sourceReferences": []
+      },
+      "promptVersion": "document-workflow-v2",
+      "seconds": 9.8
+    }
+  ],
+  "valid": 2,
+  "attempted": 2,
+  "expected": 2,
+  "complete": true
+}

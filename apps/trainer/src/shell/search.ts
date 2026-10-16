@@ -34,6 +34,8 @@ export const trainerSearchSchema = z.object({
   file: optionalText,
   /** Document builder is open on the Documents tab. */
   builder: z.literal(true).optional().catch(undefined),
+  /** Persistent document workflow selection; legacy builder links remain valid. */
+  draft: optionalText,
   /** The All Courses library is open on the Blueprint and Courses tabs. */
   library: z.literal(true).optional().catch(undefined),
   /** Course open in the All Courses library. */

@@ -33,7 +33,10 @@ export function isModuleComplete(
       (local.watched.has(module.moduleNumber) && !local.unsaved?.has(module.moduleNumber))
     )
   }
-  return progressOf(course, module)?.quizPassed === true || local.passed.has(module.moduleNumber)
+  return (
+    (progressOf(course, module)?.quizPassed === true && isVideoWatched(course, module, local)) ||
+    local.passed.has(module.moduleNumber)
+  )
 }
 
 /** Flutter `_isVideoUnlocked`: the first module is open, the others need the previous one complete. */
@@ -94,10 +97,20 @@ export function moduleStatus(
   }
 }
 
-/** Header count: modules with a passed quiz on the server. */
+/** Resume first incomplete module; a completed course opens its final module. */
+export function resumeModuleIndex(course: EmployeeCourse): number {
+  const none: LocalProgress = { watched: new Set(), passed: new Set() }
+  const first = course.publishedModules.findIndex(
+    (module) => !isModuleComplete(course, module, none),
+  )
+  return first < 0 ? Math.max(0, course.publishedModules.length - 1) : first
+}
+
+/** Header count includes completed video-only modules. */
 export function passedModuleCount(course: EmployeeCourse): number {
-  return course.publishedModules.filter((module) => progressOf(course, module)?.quizPassed === true)
-    .length
+  return course.publishedModules.filter((module) =>
+    isModuleComplete(course, module, { watched: new Set(), passed: new Set() }),
+  ).length
 }
 
 /** Option key for an index: A, B, C, D. */

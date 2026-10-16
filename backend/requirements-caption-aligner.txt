@@ -1,0 +1,3 @@
+# Optional worker environment only; do not add this ML stack to the LMS API image.
+# Pin/lock its transitive dependencies separately before production deployment.
+qwen-asr==0.0.6

@@ -6,15 +6,13 @@ import { optionKey } from './moduleRules'
 
 export interface QuizState {
   selectedAnswers: Record<number, string>
-  gradedCorrectAnswers: Record<number, string>
-  gradedExplanations: Record<number, string>
+  answerResults: Record<number, boolean>
   submitted: boolean
 }
 
 export const emptyQuizState = (): QuizState => ({
   selectedAnswers: {},
-  gradedCorrectAnswers: {},
-  gradedExplanations: {},
+  answerResults: {},
   submitted: false,
 })
 
@@ -22,10 +20,13 @@ interface QuizSectionProps {
   module: PublishedCourseModule
   unlocked: boolean
   alreadyPassed: boolean
-  score: number
+  score: number | null
   state: QuizState
   onSelect: (questionIndex: number, answer: string) => void
   onSubmit: () => void
+  review: import('@lms/shared/models').QuizSubmissionResult | null
+  reviewAction: string
+  onReviewAction: () => void
 }
 
 /** Flutter `_buildQuizSection`: locked, no quiz, or the questions with grading. */
@@ -37,8 +38,11 @@ export function QuizSection({
   state,
   onSelect,
   onSubmit,
+  review,
+  reviewAction,
+  onReviewAction,
 }: QuizSectionProps) {
-  if (!unlocked) {
+  if (!unlocked && !review && !alreadyPassed) {
     return (
       <div className="flex items-start gap-3 rounded-[10px] border border-[#f3d19c] bg-[#fff8e8] p-6">
         <Icon name="lock_outline" color="#8a5a00" />
@@ -67,16 +71,38 @@ export function QuizSection({
     <section aria-label="Module quiz">
       <div className="flex items-center justify-between">
         <h2 className="m-0 font-inter text-[18px] font-bold text-primary-blue">Module Quiz</h2>
-        <span className="rounded-xl bg-accent-green/12 px-2.5 py-1 font-inter text-[12px] font-bold text-accent-green">
-          {answered}/{questions.length} answered
-        </span>
+        {!state.submitted && !alreadyPassed && (
+          <span className="rounded-xl bg-light-gray px-2.5 py-1 text-xs font-semibold text-gray">
+            Answered {answered} of {questions.length}
+          </span>
+        )}
       </div>
-      {alreadyPassed && (
-        <div className="mt-4 flex items-center gap-3 rounded-lg border border-accent-green bg-accent-green/10 p-4">
-          <Icon name="check_circle" color="var(--color-accent-green)" />
-          <p className="m-0 min-w-0 flex-1 font-inter font-bold text-accent-green">
-            You have already passed this quiz with a score of {percentLabel(score)}%. You can review
-            the questions below.
+      {(review || alreadyPassed) && (
+        <div
+          role="status"
+          className={clsx(
+            'mt-4 rounded-lg border p-4',
+            review && !review.passed
+              ? 'border-accent-red bg-accent-red/5'
+              : 'border-accent-green bg-accent-green/5',
+          )}
+        >
+          <h3 className="font-bold">
+            {review ? (review.passed ? 'Quiz passed' : 'Quiz not passed') : 'Quiz already passed'}
+          </h3>
+          <p className="font-bold">
+            {review ? `${review.correctCount} of ${review.totalQuestions} correct · ` : ''}
+            {review
+              ? `${percentLabel(review.score)}%`
+              : score == null
+                ? 'Saved score unavailable'
+                : `${percentLabel(score)}%`}
+          </p>
+          <p>Pass requirement: {percentLabel(review?.passMark ?? module.passMark)}%.</p>
+          <p>
+            {review && !review.passed
+              ? 'Rewatch the lesson before trying again.'
+              : 'Review your selected answers, then continue.'}
           </p>
         </div>
       )}
@@ -91,7 +117,15 @@ export function QuizSection({
           onSelect={onSelect}
         />
       ))}
-      {!alreadyPassed && (
+      {review || alreadyPassed ? (
+        <button
+          type="button"
+          onClick={onReviewAction}
+          className="my-6 w-full rounded-lg bg-primary-blue py-4 font-bold text-white"
+        >
+          {reviewAction}
+        </button>
+      ) : (
         <div className="py-6">
           <button
             type="button"
@@ -122,10 +156,8 @@ function QuestionCard({
 }) {
   const selected = state.selectedAnswers[index]
   const submitted = state.submitted || alreadyPassed
-  const correct = question.correct || state.gradedCorrectAnswers[index] || ''
-  const explanation = question.explanation || state.gradedExplanations[index] || ''
-  // When passed, the radio shows the correct answer, as the Flutter groupValue does.
-  const groupValue = alreadyPassed && correct ? correct : selected
+  const answerCorrect = state.answerResults[index] ?? question.answerCorrect
+  const groupValue = selected
   const name = `question-${index}`
   return (
     <div className="mb-5 rounded-xl border border-light-gray bg-white p-5">
@@ -149,22 +181,13 @@ function QuestionCard({
               label={option}
               checked={groupValue === key}
               selected={selected === key}
-              correct={correct === key}
+              correct={answerCorrect}
               submitted={submitted}
-              alreadyPassed={alreadyPassed}
               onSelect={() => onSelect(index, key)}
             />
           )
         })}
       </div>
-      {submitted && explanation && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg bg-light-gray/50 p-3">
-          <Icon name="lightbulb_outline" size={18} color="var(--color-accent-orange)" />
-          <p className="m-0 min-w-0 flex-1 font-inter text-[13px] text-text-black/80 italic">
-            {explanation}
-          </p>
-        </div>
-      )}
     </div>
   )
 }
@@ -177,7 +200,6 @@ function Option({
   selected,
   correct,
   submitted,
-  alreadyPassed,
   onSelect,
 }: {
   name: string
@@ -185,31 +207,24 @@ function Option({
   label: string
   checked: boolean
   selected: boolean
-  correct: boolean
+  correct: boolean | undefined
   submitted: boolean
-  alreadyPassed: boolean
   onSelect: () => void
 }) {
   let border = 'var(--color-light-gray)'
   let background = '#ffffff'
   let suffix: { icon: IconName; color: string } | null = null
   if (submitted) {
-    if (correct) {
-      border = 'var(--color-accent-green)'
-      background = 'rgb(0 168 120 / 0.08)'
-      suffix = { icon: 'check_circle_rounded', color: 'var(--color-accent-green)' }
-    } else if (selected && !alreadyPassed) {
-      border = 'var(--color-accent-red)'
-      background = 'rgb(217 45 32 / 0.08)'
-      suffix = { icon: 'cancel_rounded', color: 'var(--color-accent-red)' }
-    } else {
-      background = '#fafafa'
+    if (selected && correct !== undefined) {
+      border = correct ? 'var(--color-accent-green)' : 'var(--color-accent-red)'
+      background = correct ? 'rgb(0 168 120 / 0.08)' : 'rgb(217 45 32 / 0.08)'
+      suffix = { icon: correct ? 'check_circle_rounded' : 'cancel_rounded', color: border }
     }
   } else if (selected) {
     border = 'var(--color-primary-blue)'
     background = 'rgb(0 49 122 / 0.05)'
   }
-  const emphasis = selected || (submitted && correct)
+  const emphasis = selected
   return (
     // `relative` holds the hidden radio inside the row, so it cannot stretch the page.
     <label
@@ -235,10 +250,17 @@ function Option({
           emphasis ? 'font-semibold' : 'font-normal',
         )}
         style={{
-          color: submitted && correct ? 'var(--color-accent-green)' : 'var(--color-text-black)',
+          color:
+            submitted && selected && correct !== undefined ? border : 'var(--color-text-black)',
         }}
       >
         {label}
+        {submitted && selected && (
+          <span className="mt-1 block text-xs">
+            Your answer ·{' '}
+            {correct === undefined ? 'Result unavailable' : correct ? 'Correct' : 'Incorrect'}
+          </span>
+        )}
       </span>
       {suffix && <Icon name={suffix.icon} size={18} color={suffix.color} className="ml-4" />}
     </label>

@@ -13,6 +13,7 @@ from app.repositories.database import advisory_xact_lock, get_connection
 from app.schemas.course import CourseRecord
 
 COURSE_METADATA_FIELDS = {
+    "document_builder",
     "images",
     "thumbnail_prompt_hash",
 }
@@ -282,7 +283,9 @@ def list_course_summaries_for_trainer(trainer_id: str) -> list[dict]:
         return [_row_to_course_summary(row) for row in rows]
 
 
-def save_course(course: dict, status: str) -> None:
+def save_course(
+    course: dict, status: str, *, release_generation_worker: bool = False
+) -> None:
     course_id = str(course.get("course_id") or uuid.uuid4())
     course["course_id"] = course_id
     course["status"] = status
@@ -298,6 +301,23 @@ def save_course(course: dict, status: str) -> None:
         if existing and existing["status"] == "archived":
             from app.core.exceptions import ConflictError
             raise ConflictError("Restore the archived course before editing its content.")
+        if release_generation_worker:
+            generation = connection.execute(
+                """
+                SELECT status, worker_id FROM course_generation_status
+                WHERE course_id = ? FOR UPDATE
+                """,
+                (course_id,),
+            ).fetchone()
+            if generation and generation["worker_id"] and generation["status"] in {
+                "pending",
+                "running",
+            }:
+                from app.core.exceptions import ConflictError
+                raise ConflictError(
+                    "Course generation is already running. "
+                    "Wait for it to finish before editing the blueprint."
+                )
         document_id = course.get("document_id")
         connection.execute(
             """
@@ -432,6 +452,17 @@ def save_course(course: dict, status: str) -> None:
                     now,
                 ),
             )
+            if release_generation_worker:
+                # A blueprint edit invalidates prior generated output. Its next
+                # generation attempt must be able to claim a fresh worker ID.
+                connection.execute(
+                    """
+                    UPDATE course_generation_status
+                    SET worker_id = NULL, locked_until = NULL
+                    WHERE course_id = ?
+                    """,
+                    (course_id,),
+                )
         connection.commit()
 
 
@@ -750,9 +781,11 @@ class CourseRepository:
     def list_drafts_for_trainer(self, trainer_id: str) -> list[dict]:
         return self.list_for_trainer(trainer_id, "draft")
 
-    def save_draft(self, course: dict) -> None:
+    def save_draft(
+        self, course: dict, *, release_generation_worker: bool = False
+    ) -> None:
         self._validated(course)
-        save_course(course, "draft")
+        save_course(course, "draft", release_generation_worker=release_generation_worker)
 
     def delete_for_trainer(self, course_id: str, trainer_id: str, expected_revision: int | None = None) -> dict | None:
         return delete_course_for_trainer(course_id, trainer_id, expected_revision)
