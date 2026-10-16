@@ -4,12 +4,12 @@ import { dartString, isRecord, parseCourse, type JsonRecord } from '@lms/shared/
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
 import { ProgressBar } from '@lms/shared/ui/ProgressBar'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { setPendingLinkedReport } from '../../shell/linkedReport'
 import { trainerKeys } from '../../shell/queryKeys'
-import { useUpdateTrainerSearch } from '../../shell/search'
+import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
 import { TrainingView } from '../training/TrainingView'
 import { UnderlineDropdown } from './UnderlineDropdown'
 
@@ -27,6 +27,8 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 /** Dart string interpolation of a JSON value. A missing value prints "null", as in Flutter. */
 const text = (value: unknown): string => (value == null ? 'null' : dartString(value))
 const asRecord = (value: unknown): JsonRecord => (isRecord(value) ? value : {})
+const errorText = (failure: unknown) =>
+  failure instanceof Error ? failure.message : String(failure)
 
 interface Detail {
   course: JsonRecord
@@ -36,20 +38,21 @@ interface Detail {
 /**
  * Read-only "All Courses" library (CourseLibraryInspector). It lists every creator's courses 25 at
  * a time. A course opens with its blueprint, assignment settings, and the read-only training view.
+ * The open course is `libraryCourse` in the URL, so reload and the back button keep it.
  */
 export function CourseLibraryInspector() {
-  const { refetch: refreshAccess } = useLmsAccess()
+  const { access, refetch: refreshAccess } = useLmsAccess()
   const queryClient = useQueryClient()
   const updateSearch = useUpdateTrainerSearch()
+  const openCourseId = useTrainerSearch().libraryCourse
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('')
   const [offset, setOffset] = useState(0)
   const [items, setItems] = useState<JsonRecord[]>([])
   const [total, setTotal] = useState(0)
-  const [busy, setBusy] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [detail, setDetail] = useState<Detail | null>(null)
-  // Only the newest request may change the state.
+  const [listBusy, setListBusy] = useState(true)
+  const [listError, setListError] = useState<string | null>(null)
+  // Only the newest list request may change the list state.
   const request = useRef(0)
 
   const get = async (path: string): Promise<JsonRecord> => {
@@ -80,39 +83,50 @@ export function CourseLibraryInspector() {
       if (serial !== request.current) return
       setItems(Array.isArray(page.items) ? page.items.filter(isRecord) : [])
       setTotal(typeof page.total === 'number' ? Math.trunc(page.total) : 0)
-      setBusy(false)
+      setListBusy(false)
     } catch (failure) {
       if (serial !== request.current) return
-      setBusy(false)
-      setError(failure instanceof Error ? failure.message : String(failure))
+      setListBusy(false)
+      setListError(errorText(failure))
     }
+  }
+
+  // The Blueprint and Courses tabs share the URL, so one query serves both inspectors.
+  const detailQuery = useQuery({
+    queryKey: ['library', access?.employee_id, access?.permissions_version, openCourseId],
+    queryFn: async (): Promise<Detail> => {
+      const path = `courses/${encodeURIComponent(openCourseId ?? '')}`
+      const [course, assignment] = await Promise.all([get(path), get(`${path}/assignment`)])
+      return { course, assignment }
+    },
+    enabled: openCourseId != null,
+    // Each open fetches again, as in Flutter. A failure is shown at once, not retried.
+    staleTime: 0,
+    retry: false,
+  })
+  const detail = openCourseId == null ? undefined : detailQuery.data
+  const detailError =
+    openCourseId != null && detailQuery.isError ? errorText(detailQuery.error) : null
+  const busy = listBusy || (openCourseId != null && detailQuery.isFetching)
+  const error = detailError ?? listError
+
+  // A second click on a course that failed to open tries again, as in Flutter.
+  const open = (courseId: string) => {
+    if (courseId === openCourseId) void detailQuery.refetch()
+    else updateSearch({ libraryCourse: courseId })
+  }
+
+  const showList = () => {
+    if (openCourseId != null) updateSearch({ libraryCourse: undefined })
   }
 
   const load = (next: { offset?: number; status?: StatusFilter } = {}) => {
     const serial = ++request.current
-    setBusy(true)
-    setError(null)
-    setDetail(null)
+    setListBusy(true)
+    setListError(null)
+    showList()
     setItems([])
     void fetchPage(serial, next.offset ?? offset, next.status ?? status)
-  }
-
-  const open = async (courseId: string) => {
-    const serial = ++request.current
-    setBusy(true)
-    setError(null)
-    setDetail(null)
-    const path = `courses/${encodeURIComponent(courseId)}`
-    try {
-      const [course, assignment] = await Promise.all([get(path), get(`${path}/assignment`)])
-      if (serial !== request.current) return
-      setDetail({ course, assignment })
-      setBusy(false)
-    } catch (failure) {
-      if (serial !== request.current) return
-      setBusy(false)
-      setError(failure instanceof Error ? failure.message : String(failure))
-    }
   }
 
   const changePage = (nextOffset: number) => {
@@ -172,7 +186,7 @@ export function CourseLibraryInspector() {
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void open(text(item.course_id))}
+                  onClick={() => open(text(item.course_id))}
                   className="flex h-[59px] w-full items-center gap-4 rounded-xl bg-[#f4f3fa] pr-6 pl-4 text-left shadow-[0_1px_1px_rgb(0_0_0/0.16),0_0_1px_rgb(0_0_0/0.06)] enabled:hover:bg-[#e9e8ef] focus-visible:outline-2 focus-visible:outline-brand-blue-light"
                 >
                   <span className="min-w-0 flex-1">
@@ -204,11 +218,7 @@ export function CourseLibraryInspector() {
           </div>
         </>
       ) : (
-        <CourseDetail
-          detail={detail}
-          onBack={() => setDetail(null)}
-          onViewPerformance={viewPerformance}
-        />
+        <CourseDetail detail={detail} onBack={showList} onViewPerformance={viewPerformance} />
       )}
     </div>
   )

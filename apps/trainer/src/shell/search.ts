@@ -34,6 +34,10 @@ export const trainerSearchSchema = z.object({
   file: optionalText,
   /** Document builder is open on the Documents tab. */
   builder: z.literal(true).optional().catch(undefined),
+  /** The All Courses library is open on the Blueprint and Courses tabs. */
+  library: z.literal(true).optional().catch(undefined),
+  /** Course open in the All Courses library. */
+  libraryCourse: optionalText,
 })
 
 export type TrainerSearch = z.output<typeof trainerSearchSchema>

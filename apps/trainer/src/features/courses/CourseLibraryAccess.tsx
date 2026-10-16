@@ -1,16 +1,22 @@
 import { useLmsAccess } from '@lms/shared/auth/lmsAccess'
 import { Icon } from '@lms/shared/ui/icons/Icon'
 import clsx from 'clsx'
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
 import { CourseLibraryInspector } from './CourseLibraryInspector'
 
 /**
  * Wraps the own course portal. A trainer who can view other creators' courses gets a
  * My Courses / All Courses switch. All Courses opens the read-only library inspector.
+ * The switch lives in the URL, so reload and the browser back button keep it.
  */
 export function CourseLibraryAccess({ children }: { children: ReactNode }) {
   const { access } = useLmsAccess()
-  const [all, setAll] = useState(false)
+  const all = useTrainerSearch().library === true
+  const updateSearch = useUpdateTrainerSearch()
+  // Each switch opens the library list or the own portal, as a fresh inspector did in Flutter.
+  const setAll = (next: boolean) =>
+    updateSearch({ library: next || undefined, libraryCourse: undefined })
   if (access?.capabilities.can_view_other_trainers_courses !== true) return <>{children}</>
   return (
     <div className="flex h-full flex-col">

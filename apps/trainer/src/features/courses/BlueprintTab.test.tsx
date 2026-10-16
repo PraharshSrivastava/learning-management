@@ -319,14 +319,41 @@ describe('Course library access', () => {
     )
     expect(String(listCall?.[0])).toContain('scope=all&limit=25&offset=0')
 
+    expect(search().library).toBe(true)
     await userEvent.click(row)
     expect(await screen.findByRole('heading', { name: 'Data Privacy Primer' })).toBeInTheDocument()
+    expect(search().libraryCourse).toBe('x1')
     expect(screen.getByText('Only its creator can make changes.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled()
     expect(screen.getByText('Deadline: 14 days')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /View Performance/ }))
     await waitFor(() => expect(search().tab).toBe('performance'))
+  })
+
+  it('reopens the library course from the URL and Back to library clears it', async () => {
+    api({
+      'GET /api/lms/me': accessJson({ library: true }),
+      'GET /api/trainer/course-library': { total: 0, items: [] },
+      'GET /api/courses/x1': courseJson({ course_id: 'x1', course_name: 'Data Privacy Primer' }),
+      'GET /api/courses/x1/assignment': { rule: { deadline_days: 14 } },
+    })
+    const { search } = renderCourses(BlueprintTab, {
+      url: '/?tab=blueprint&library=true&libraryCourse=x1',
+    })
+    expect(await screen.findByRole('heading', { name: 'Data Privacy Primer' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'All Courses' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: /Back to library/ }))
+    await waitFor(() => expect(search().libraryCourse).toBeUndefined())
+    expect(screen.queryByRole('heading', { name: 'Data Privacy Primer' })).not.toBeInTheDocument()
+    expect(search().library).toBe(true)
+
+    await userEvent.click(screen.getByRole('button', { name: 'My Courses' }))
+    await waitFor(() => expect(search().library).toBeUndefined())
   })
 
   it('filters the library by status', async () => {
