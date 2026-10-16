@@ -6,6 +6,7 @@ import {
   protectedUrl,
   setAuthToken,
   setMediaTicket,
+  withCurrentMediaTicket,
 } from './client'
 
 beforeEach(() => {
@@ -30,6 +31,20 @@ describe('protectedUrl', () => {
     )
     expect(protectedUrl('https://cdn.example.test/a.png')).toBe('https://cdn.example.test/a.png')
     expect(protectedUrl('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA')
+  })
+})
+
+describe('withCurrentMediaTicket', () => {
+  it('replaces an old ticket and leaves other URLs unchanged', () => {
+    const segment = `${window.location.origin}/lms/trainer/assets/v_hls/1.ts?media_ticket=old&x=1`
+    setMediaTicket('new')
+    expect(withCurrentMediaTicket(segment)).toBe(
+      `${window.location.origin}/lms/trainer/assets/v_hls/1.ts?media_ticket=new&x=1`,
+    )
+    const plain = `${window.location.origin}/lms/trainer/assets/v_hls/1.ts`
+    expect(withCurrentMediaTicket(plain)).toBe(plain)
+    setMediaTicket(null)
+    expect(withCurrentMediaTicket(segment)).toBe(segment)
   })
 })
 

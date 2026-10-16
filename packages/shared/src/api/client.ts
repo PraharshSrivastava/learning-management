@@ -50,9 +50,28 @@ const ticketListeners = new Set<() => void>()
  * re-render media, so loaded images and playing videos are not reloaded.
  */
 export function setMediaTicket(ticket: string | null): void {
+  // A direct set, such as on sign-in, also makes pending ticket requests obsolete.
+  latestTicketRequest++
+  storeMediaTicket(ticket)
+}
+
+function storeMediaTicket(ticket: string | null): void {
   const changed = Boolean(ticket) !== Boolean(mediaTicket)
   mediaTicket = ticket
   if (changed) for (const listener of ticketListeners) listener()
+}
+
+let latestTicketRequest = 0
+
+/**
+ * Starts a ticket request and returns the function that stores its result. Only the newest
+ * request stores its ticket, so an obsolete response cannot replace or clear a newer ticket.
+ */
+export function beginMediaTicketRequest(): (ticket: string | null) => void {
+  const request = ++latestTicketRequest
+  return (ticket) => {
+    if (request === latestTicketRequest) storeMediaTicket(ticket)
+  }
 }
 
 export function hasMediaTicket(): boolean {
@@ -81,6 +100,19 @@ export function protectedUrl(url: string): string {
   if (!['http:', 'https:'].includes(parsed.protocol)) return url
   parsed.searchParams.set('media_ticket', mediaTicket)
   return isAbsolute ? parsed.href : `${parsed.pathname}${parsed.search}${parsed.hash}`
+}
+
+/**
+ * Puts the current ticket in a URL that carries an older one. A ticket expires after 15 minutes,
+ * so a long video sends its later requests with the renewed ticket. URLs without one are unchanged.
+ */
+export function withCurrentMediaTicket(url: string): string {
+  if (!mediaTicket) return url
+  const parsed = new URL(url, window.location.href)
+  const ticket = parsed.searchParams.get('media_ticket')
+  if (ticket == null || ticket === mediaTicket) return url
+  parsed.searchParams.set('media_ticket', mediaTicket)
+  return parsed.href
 }
 
 /** Resolves a backend path such as `assets/slides/x.png` against the API base. */

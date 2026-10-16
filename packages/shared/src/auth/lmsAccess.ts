@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { apiRequest, lmsApp, setMediaTicket } from '../api/client'
+import { apiRequest, beginMediaTicketRequest, lmsApp } from '../api/client'
 import { useSession } from './session'
 
 const flag = z.boolean().catch(false)
@@ -39,19 +39,20 @@ export type LmsAccess = z.output<typeof lmsAccessSchema>
 /** Fetches capabilities and a fresh media ticket. Any failure means "no access", as in the Flutter apps. */
 async function fetchLmsAccess(): Promise<LmsAccess | null> {
   const app = lmsApp()
+  const storeTicket = beginMediaTicketRequest()
   try {
     const access = lmsAccessSchema.parse(await apiRequest(`/api/lms/me?app=${app}`))
     try {
       const media = (await apiRequest(`/api/media-ticket?app=${app}`)) as {
         ticket?: unknown
       } | null
-      setMediaTicket(media?.ticket != null ? String(media.ticket) : null)
+      storeTicket(media?.ticket != null ? String(media.ticket) : null)
     } catch {
-      setMediaTicket(null)
+      storeTicket(null)
     }
     return access
   } catch {
-    setMediaTicket(null)
+    storeTicket(null)
     return null
   }
 }

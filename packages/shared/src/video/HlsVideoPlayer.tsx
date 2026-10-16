@@ -1,5 +1,6 @@
 import type Hls from 'hls.js'
 import { useEffect, useRef } from 'react'
+import { withCurrentMediaTicket } from '../api/client'
 import { LinearPlaybackGuard } from './linearPlaybackGuard'
 
 interface HlsVideoPlayerProps {
@@ -112,7 +113,12 @@ export function HlsVideoPlayer({
         const { default: HlsJs } = await import('hls.js')
         if (controller.signal.aborted) return
         if (HlsJs.isSupported()) {
-          hls = new HlsJs()
+          hls = new HlsJs({
+            // The backend puts the ticket of the first request in each playlist line. hls.js does
+            // not open the request again when this callback opened it, so each request uses the
+            // current ticket.
+            xhrSetup: (xhr, url) => xhr.open('GET', withCurrentMediaTicket(url), true),
+          })
           hls.loadSource(hlsUrl)
           hls.attachMedia(video)
           return
@@ -123,8 +129,23 @@ export function HlsVideoPlayer({
       video.src = fallbackUrl
     })()
 
+    // A source the browser loads itself keeps its first ticket. When a later range request fails
+    // with an expired ticket, load the source again with the current ticket at the same position.
+    const handleError = () => {
+      const source = video.currentSrc
+      const renewed = withCurrentMediaTicket(source)
+      if (hls || !source || renewed === source) return
+      const position = video.currentTime
+      const playing = !video.paused
+      video.src = renewed
+      video.currentTime = position
+      if (playing) void video.play().catch(() => {})
+    }
+    video.addEventListener('error', handleError)
+
     return () => {
       controller.abort()
+      video.removeEventListener('error', handleError)
       hls?.destroy()
       video.removeAttribute('src')
       video.load()
