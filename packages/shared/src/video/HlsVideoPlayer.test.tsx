@@ -1,10 +1,23 @@
 import { cleanup, render, waitFor } from '@testing-library/react'
 import type { HlsConfig, LoaderContext } from 'hls.js'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { setMediaTicket } from '../api/client'
 import { HlsVideoPlayer } from './HlsVideoPlayer'
 
 const created = vi.hoisted(() => [] as Partial<HlsConfig>[])
+
+beforeEach(() => {
+  created.length = 0
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  )
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {})
+})
 
 vi.mock('hls.js', () => ({
   default: class {
@@ -22,6 +35,7 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   setMediaTicket(null)
+  vi.restoreAllMocks()
 })
 
 it('sends each hls.js request with the current media ticket', async () => {
@@ -48,4 +62,27 @@ it('sends each hls.js request with the current media ticket', async () => {
     `${window.location.origin}/lms/assets/v_hls/360p/1.ts?media_ticket=renewed`,
     true,
   )
+})
+
+it('keeps one caption toolbar across source changes and does not remount on ticket renewal', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response(null, { status: 404 })),
+  )
+  const { container, rerender, unmount } = render(
+    <HlsVideoPlayer hlsUrl="/one_hls/master.m3u8" fallbackUrl="/one.mp4?media_ticket=first" />,
+  )
+  const original = container.querySelector('video')!
+  expect(original.controls).toBe(false)
+  expect(container.querySelectorAll('.lms-controls')).toHaveLength(1)
+  rerender(
+    <HlsVideoPlayer hlsUrl="/one_hls/master.m3u8" fallbackUrl="/one.mp4?media_ticket=renewed" />,
+  )
+  expect(container.querySelector('video')).toBe(original)
+  rerender(<HlsVideoPlayer hlsUrl="/two_hls/master.m3u8" fallbackUrl="/two.mp4" />)
+  expect(container.querySelector('video')).not.toBe(original)
+  expect(container.querySelectorAll('video')).toHaveLength(1)
+  expect(container.querySelectorAll('.lms-controls')).toHaveLength(1)
+  unmount()
+  expect(container.querySelector('video')).toBeNull()
 })

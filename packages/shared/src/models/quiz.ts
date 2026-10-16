@@ -1,7 +1,7 @@
 // Quiz models (Dart: QuizQuestion/QuizOption in both apps, employee PublishedQuizQuestion,
 // employee_frontend course_progress_providers.dart QuizSubmissionResult).
 import { z } from 'zod'
-import { indexedMap, isRecord, raw, list, str, strList } from './parse'
+import { isRecord, raw, list, str, strList } from './parse'
 
 export const quizOptionSchema = z
   .object({ key: str(), text: str() })
@@ -33,6 +33,7 @@ export const publishedQuizQuestionSchema = z
     options: strList(),
     correct: str(),
     explanation: str(),
+    answer_correct: z.boolean().optional(),
   })
   .transform((j) => ({
     questionId: j.question_id,
@@ -40,6 +41,7 @@ export const publishedQuizQuestionSchema = z
     options: j.options,
     correct: j.correct,
     explanation: j.explanation,
+    answerCorrect: j.answer_correct,
   }))
 export type PublishedQuizQuestion = z.output<typeof publishedQuizQuestionSchema>
 export const parsePublishedQuizQuestion = (json: unknown): PublishedQuizQuestion =>
@@ -53,8 +55,7 @@ export const quizSubmissionResultSchema = z
     correct_count: z.number(),
     total_questions: z.number(),
     pass_mark: z.number(),
-    correct_answers: raw(),
-    explanations: raw(),
+    answer_results: raw(),
   })
   .transform((j) => ({
     passed: j.quiz_passed === true,
@@ -62,8 +63,11 @@ export const quizSubmissionResultSchema = z
     correctCount: Math.trunc(j.correct_count),
     totalQuestions: Math.trunc(j.total_questions),
     passMark: j.pass_mark,
-    correctAnswers: indexedMap(j.correct_answers, true),
-    explanations: indexedMap(j.explanations, true),
+    answerResults: Object.fromEntries(
+      Object.entries(isRecord(j.answer_results) ? j.answer_results : {}).filter(
+        ([key, value]) => /^\d+$/.test(key) && typeof value === 'boolean',
+      ),
+    ) as Record<number, boolean>,
   }))
 export type QuizSubmissionResult = z.output<typeof quizSubmissionResultSchema>
 export const parseQuizSubmissionResult = (json: unknown): QuizSubmissionResult =>

@@ -19,13 +19,11 @@ describe('quiz submission result', () => {
       correct_count: 2,
       total_questions: 3,
       pass_mark: 2 / 3,
-      correct_answers: { '0': 'A', '1': 'B', '2': 'C' },
-      explanations: { '0': 'First explanation' },
+      answer_results: { '0': true, '1': false, '2': true },
     })
     expect(result.passed).toBe(true)
     expect(result.correctCount).toBe(2)
     expect(result.totalQuestions).toBe(3)
-    expect(result.correctAnswers).toEqual({ 0: 'A', 1: 'B', 2: 'C' })
-    expect(result.explanations).toEqual({ 0: 'First explanation' })
+    expect(result.answerResults).toEqual({ 0: true, 1: false, 2: true })
   })
 })

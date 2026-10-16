@@ -16,7 +16,6 @@ case "${1:-status}" in
     python3 - "${2:-/home/karphi/intelligence_layer/.env}" <<'PY'
 from pathlib import Path
 import secrets
-import subprocess
 import sys
 root = Path.cwd()
 target = root / '.env.pilot'
@@ -67,16 +66,12 @@ if not target.exists():
     target.chmod(0o600)
 else:
     print('Keeping existing .env.pilot and pilot database credentials.')
-dockerfile = subprocess.check_output(['git', 'show', 'HEAD:frontend/Dockerfile'], text=True)
-if '--branch 3.24.5' not in dockerfile and '--branch 3.44.0' not in dockerfile:
-    raise SystemExit('Frontend Dockerfile changed; review the pilot SDK patch before building.')
-dockerfile = dockerfile.replace('--branch 3.24.5', '--branch 3.44.0')
-dockerfile = dockerfile.replace('COPY nginx.conf ', 'COPY nginx.pilot.conf ')
-(root / 'frontend/Dockerfile.pilot').write_text(dockerfile)
-nginx = (root / 'frontend/nginx.conf').read_text()
+nginx = (root / 'apps/trainer/nginx.conf').read_text()
 if 'alias /srv/lms/videos/;' not in nginx:
     raise SystemExit('Video mount changed; review pilot Nginx mapping before building.')
-(root / 'frontend/nginx.pilot.conf').write_text(
+pilot_config = root / 'tmp/document-builder-pilot'
+pilot_config.mkdir(parents=True, exist_ok=True)
+(pilot_config / 'trainer.nginx.conf').write_text(
     nginx.replace('alias /srv/lms/videos/;', 'alias /srv/lms/storage/generated/videos/;'))
 print('Prepared isolated pilot configuration; provider credentials were not printed.')
 PY

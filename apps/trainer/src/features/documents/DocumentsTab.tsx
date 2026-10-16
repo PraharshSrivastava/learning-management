@@ -1,4 +1,7 @@
 import type { PdfFile } from '@lms/shared/models'
+import { apiRequest } from '@lms/shared/api/client'
+import { useQuery } from '@tanstack/react-query'
+import { DocumentsWorkspace } from './DocumentsWorkspace'
 import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
 import { DocumentBuilder } from './builder/DocumentBuilder'
 import { CardTitle } from './CardTitle'
@@ -11,6 +14,22 @@ import { useIsMobile } from './useIsMobile'
 
 /** Documents tab (`_buildDocumentsPortal`): upload, create, list, and viewer, or the builder. */
 export function DocumentsTab() {
+  const capability = useQuery({
+    queryKey: ['document-workflow-capabilities'],
+    queryFn: () =>
+      apiRequest('/api/document-builder/capabilities') as Promise<{ workflowEnabled: boolean }>,
+    retry: false,
+  })
+  if (capability.isPending)
+    return (
+      <div role="status" className="p-8">
+        Loading document workspace…
+      </div>
+    )
+  return capability.data?.workflowEnabled ? <DocumentsWorkspace /> : <OldDocumentsTab />
+}
+
+function OldDocumentsTab() {
   const search = useTrainerSearch()
   const updateSearch = useUpdateTrainerSearch()
   const mobile = useIsMobile()

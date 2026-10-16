@@ -6,12 +6,34 @@ import {
   moduleStatus,
   optionKey,
   passedModuleCount,
+  resumeModuleIndex,
   type LocalProgress,
 } from './moduleRules'
 
 const none: LocalProgress = { watched: new Set(), passed: new Set() }
 
 describe('module rules', () => {
+  it('resumes at the pending quiz and does not skip it for a watched video', () => {
+    const course = employeeCourse({
+      modules: [moduleJson(1), moduleJson(2), moduleJson(3)],
+      module_progress: {
+        '1': { video_watched: true, quiz_passed: true },
+        '2': { video_watched: true, quiz_passed: false },
+      },
+    })
+    expect(resumeModuleIndex(course)).toBe(1)
+  })
+  it('resumes after video-only completion and opens final module when complete', () => {
+    const course = employeeCourse({
+      modules: [moduleJson(1, { quiz: [] }), moduleJson(2)],
+      module_progress: {
+        '1': { video_watched: true },
+        '2': { video_watched: true, quiz_passed: true },
+      },
+    })
+    expect(resumeModuleIndex(course)).toBe(1)
+    expect(passedModuleCount(course)).toBe(2)
+  })
   it('opens the first module and locks the next until the quiz passes', () => {
     const course = employeeCourse()
     expect(isVideoUnlocked(course, 0, none)).toBe(true)

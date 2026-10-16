@@ -2,7 +2,7 @@ import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { courseJson, moduleJson, quizQuestion } from '../test/fixtures'
-import { renderDashboard, stubFetch, stubSocket } from '../test/renderApp'
+import { FakeSocket, renderDashboard, stubFetch, stubSocket } from '../test/renderApp'
 
 // The player ends the video on a button click.
 vi.mock('@lms/shared/video/HlsVideoPlayer', () => ({
@@ -30,6 +30,7 @@ let videoSave: unknown = {}
 beforeEach(() => {
   // jsdom has no scrolling.
   Element.prototype.scrollBy = () => {}
+  Element.prototype.scrollTo = () => {}
   grade = { passed: true }
   videoSave = {}
   stubSocket()
@@ -47,8 +48,7 @@ beforeEach(() => {
         correct_count: grade.passed ? 2 : 1,
         total_questions: 2,
         pass_mark: 2 / 3,
-        correct_answers: grade.passed ? { '0': 'A', '1': 'B' } : {},
-        explanations: grade.passed ? { '0': 'Why First' } : {},
+        answer_results: { '0': true, '1': grade.passed },
       }
     }
     return new Response('{}', { status: 404 })
@@ -86,6 +86,121 @@ async function answer(user: ReturnType<typeof userEvent.setup>, quiz: HTMLElemen
 }
 
 describe('CoursePlayback', () => {
+  it('fetches fresh progress before choosing the resumed module from a cached list', async () => {
+    const stale = courseJson({
+      course_id: 'c1',
+      course_name: 'Safety',
+      modules: [moduleJson(1), moduleJson(2), moduleJson(3)],
+    })
+    const fresh = {
+      ...stale,
+      module_progress: {
+        '1': { video_watched: true, quiz_passed: true },
+        '2': { video_watched: true, quiz_passed: true },
+      },
+    }
+    let courseReads = 0
+    fetchMock.mockImplementation(
+      async (input) =>
+        new Response(
+          JSON.stringify(
+            String(input).endsWith('/api/me/courses')
+              ? ++courseReads === 1
+                ? [stale]
+                : [fresh]
+              : {},
+          ),
+        ),
+    )
+    const user = userEvent.setup()
+    renderDashboard()
+    await user.click(await screen.findByRole('button', { name: 'Start Safety' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Module title 3', level: 2 }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Module title 1', level: 2 }),
+    ).not.toBeInTheDocument()
+    expect(courseReads).toBeGreaterThanOrEqual(2)
+  })
+  it('blocks stale module playback when fresh entry progress fails and permits retry', async () => {
+    let courseReads = 0
+    let fail = true
+    fetchMock.mockImplementation(async (input) => {
+      if (String(input).endsWith('/api/me/courses')) {
+        courseReads += 1
+        return courseReads > 1 && fail
+          ? new Response('{}', { status: 500 })
+          : new Response(JSON.stringify([course]))
+      }
+      return new Response('{}')
+    })
+    const user = userEvent.setup()
+    renderDashboard()
+    await user.click(await screen.findByRole('button', { name: 'Start Safety' }))
+    expect(
+      await screen.findByText(
+        'Could not load your latest progress. Retry before opening the course.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('player')).not.toBeInTheDocument()
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Retry course' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Module title 1', level: 2 }),
+    ).toBeInTheDocument()
+  })
+  it('does not invent a zero score when saved passed progress has no quiz score', async () => {
+    const saved = courseJson({
+      course_id: 'c1',
+      modules: [moduleJson(1)],
+      module_progress: { '1': { video_watched: true, quiz_passed: true } },
+    })
+    fetchMock.mockImplementation(
+      async (input) =>
+        new Response(JSON.stringify(String(input).endsWith('/api/me/courses') ? [saved] : {})),
+    )
+    renderDashboard('/?view=course&course_id=c1')
+    expect(await screen.findByText('Saved score unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('0.0%')).not.toBeInTheDocument()
+  })
+  it('keeps an unsubmitted selection during a background refresh', async () => {
+    const { user, quiz } = await openAndWatch()
+    const first = within(quiz).getByRole('radiogroup', { name: 'First question' })
+    await user.click(within(first).getByRole('radio', { name: 'First first' }))
+    await act(() => FakeSocket.instances[0]!.send([course]))
+    expect(within(first).getByRole('radio', { name: 'First first' })).toBeChecked()
+    expect(within(quiz).getByText('Answered 1 of 2')).toHaveClass('text-gray')
+  })
+  it('keeps a manually selected module and saved answers during a background update', async () => {
+    const resumed = courseJson({
+      ...course,
+      module_progress: {
+        '1': {
+          video_watched: true,
+          quiz_passed: true,
+          quiz_score: 1,
+          selected_answers: { '0': 'A', '1': 'B' },
+        },
+      },
+    })
+    fetchMock.mockImplementation(
+      async (input) =>
+        new Response(JSON.stringify(String(input).endsWith('/api/me/courses') ? [resumed] : {})),
+    )
+    const user = userEvent.setup()
+    renderDashboard('/?view=course&course_id=c1')
+    expect(
+      await screen.findByRole('heading', { name: 'Module title 2', level: 2 }),
+    ).toBeInTheDocument()
+    await user.click(
+      within(screen.getByRole('list', { name: 'Course modules' })).getAllByRole('button')[0]!,
+    )
+    expect(screen.getByRole('heading', { name: 'Module title 1', level: 2 })).toBeInTheDocument()
+    await act(() => FakeSocket.instances[0]!.send([resumed]))
+    expect(screen.getByRole('heading', { name: 'Module title 1', level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /First first/ })).toBeChecked()
+  })
   it('locks the next module until the quiz passes', async () => {
     renderDashboard('/?view=course&course_id=c1')
     const list = await screen.findByRole('list', { name: 'Course modules' })
@@ -94,7 +209,7 @@ describe('CoursePlayback', () => {
     expect(items[1]).toHaveTextContent('Locked')
   })
 
-  it('saves the video, passes the quiz and opens the next module', async () => {
+  it('saves the video and waits for Continue before opening the next module', async () => {
     const { user, quiz } = await openAndWatch()
     await waitFor(() =>
       expect(putBodies()).toContainEqual([
@@ -107,7 +222,11 @@ describe('CoursePlayback', () => {
       expect.stringContaining('/modules/1'),
       { selected_answers: { '0': 'A', '1': 'B' } },
     ])
-    expect(await screen.findByText('Quiz passed. Opening Module 2.')).toBeInTheDocument()
+    expect(await screen.findByText('Quiz passed')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Module title 1', level: 2 })).toBeInTheDocument()
+    expect(screen.queryByText(/Answered/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue to next module' }))
     expect(screen.getByRole('heading', { name: 'Module title 2', level: 2 })).toBeInTheDocument()
   })
 
@@ -115,11 +234,11 @@ describe('CoursePlayback', () => {
     grade = { passed: false }
     const { user, quiz } = await openAndWatch()
     await answer(user, quiz)
-    const dialog = await screen.findByRole('dialog', { name: 'Quiz Failed' })
-    expect(dialog).toHaveTextContent('You scored 50.0%.')
-    expect(dialog).toHaveTextContent('You need at least two-thirds (66.7%) to pass.')
-    await user.click(within(dialog).getByRole('button', { name: 'Try Again' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(await screen.findByText('Quiz not passed')).toBeInTheDocument()
+    expect(within(quiz).getByRole('status')).toHaveTextContent('1 of 2 correct')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Your answer · Incorrect')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Rewatch lesson' }))
     expect(quiz).not.toBeInTheDocument()
     expect(screen.getByText('Quiz locked')).toBeInTheDocument()
   })
@@ -132,7 +251,7 @@ describe('CoursePlayback', () => {
     expect(within(quiz).getByRole('button', { name: 'Submit Quiz' })).toBeEnabled()
   })
 
-  it('shows the result dialog after the final module', async () => {
+  it('shows inline results and Finish course after the final module', async () => {
     const single = courseJson({ course_id: 'c1', modules: [moduleJson(1)] })
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input)
@@ -156,8 +275,9 @@ describe('CoursePlayback', () => {
     const quiz = await screen.findByRole('region', { name: 'Module quiz' })
     await user.click(within(quiz).getByRole('radio', { name: 'Q1 first' }))
     await act(() => user.click(within(quiz).getByRole('button', { name: 'Submit Quiz' })))
-    const dialog = await screen.findByRole('dialog', { name: 'Course Completed!' })
-    expect(within(dialog).getByRole('button', { name: 'Finish' })).toBeInTheDocument()
+    expect(await screen.findByText('Quiz passed')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Finish course' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('shows the saved answers of a passed quiz for review', async () => {
@@ -179,12 +299,15 @@ describe('CoursePlayback', () => {
         : new Response('{}'),
     )
     renderDashboard('/?view=course&course_id=c1')
+    const list = await screen.findByRole('list', { name: 'Course modules' })
+    expect(screen.getByRole('heading', { name: 'Module title 2', level: 2 })).toBeInTheDocument()
+    await userEvent.setup().click(within(list).getAllByRole('button')[0]!)
     const quiz = await screen.findByRole('region', { name: 'Module quiz' })
-    expect(quiz).toHaveTextContent('You have already passed this quiz')
+    expect(quiz).toHaveTextContent('Quiz already passed')
     const group = within(quiz).getByRole('radiogroup', { name: 'Q1 question' })
-    expect(within(group).getByRole('radio', { name: 'Q1 second' })).toBeChecked()
+    expect(within(group).getByRole('radio', { name: /Q1 second/ })).toBeChecked()
     for (const radio of within(group).getAllByRole('radio')) expect(radio).toBeDisabled()
-    expect(within(quiz).getByText('Why Q1')).toBeInTheDocument()
+    expect(within(quiz).queryByText('Why Q1')).not.toBeInTheDocument()
     expect(within(quiz).queryByRole('button', { name: 'Submit Quiz' })).not.toBeInTheDocument()
   })
 
@@ -199,7 +322,7 @@ describe('CoursePlayback', () => {
     const quiz = screen.getByRole('region', { name: 'Module quiz' })
     videoSave = {}
     await answer(user, quiz)
-    expect(await screen.findByText('Quiz passed. Opening Module 2.')).toBeInTheDocument()
+    expect(await screen.findByText('Quiz passed')).toBeInTheDocument()
     expect(putBodies().map(([, body]) => body)).toEqual([
       { video_watched: true },
       { video_watched: true },
@@ -216,7 +339,7 @@ describe('CoursePlayback', () => {
     // The server rejects a quiz before the video completion is saved.
     expect(putBodies().map(([, body]) => body)).toEqual([{ video_watched: true }])
     finishSave({})
-    expect(await screen.findByText('Quiz passed. Opening Module 2.')).toBeInTheDocument()
+    expect(await screen.findByText('Quiz passed')).toBeInTheDocument()
     expect(putBodies().map(([, body]) => body)).toEqual([
       { video_watched: true },
       { selected_answers: { '0': 'A', '1': 'B' } },
@@ -274,7 +397,7 @@ describe('CoursePlayback', () => {
         }),
       ),
     )
-    expect(await screen.findByText('Quiz passed. Opening Module 2.')).toBeInTheDocument()
+    expect(await screen.findByText('Quiz passed')).toBeInTheDocument()
     expect(putBodies().filter(([, body]) => 'selected_answers' in body)).toHaveLength(1)
   })
 })

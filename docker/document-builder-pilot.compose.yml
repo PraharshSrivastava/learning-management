@@ -27,12 +27,14 @@ services:
       retries: 20
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.pilot
+      context: .
+      dockerfile: deploy/web.Dockerfile
       args:
+        APP: trainer
         API_BASE_URL: ""
     volumes:
       - pilot-storage:/srv/lms/storage:ro
+      - ./tmp/document-builder-pilot/trainer.nginx.conf:/etc/nginx/templates/default.conf.template:ro
     ports:
       - "127.0.0.1:16969:8080"
     depends_on:

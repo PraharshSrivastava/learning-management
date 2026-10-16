@@ -2,6 +2,7 @@ import type Hls from 'hls.js'
 import { useEffect, useRef } from 'react'
 import { withCurrentMediaTicket } from '../api/client'
 import { LinearPlaybackGuard } from './linearPlaybackGuard'
+import { create } from './captionPlayer.js'
 
 interface HlsVideoPlayerProps {
   hlsUrl: string
@@ -44,6 +45,7 @@ export function HlsVideoPlayer({
   className,
 }: HlsVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const onEndedRef = useRef(onEnded)
   const urlsRef = useRef({ hlsUrl, fallbackUrl })
   useEffect(() => {
@@ -52,6 +54,29 @@ export function HlsVideoPlayer({
   }, [onEnded, hlsUrl, fallbackUrl])
   const hlsSource = withoutTicket(hlsUrl)
   const fallbackSource = withoutTicket(fallbackUrl)
+
+  // Keep the established caption controls outside React's child reconciliation. The media
+  // source effect still owns HLS, authorization renewal, and the playback guard below.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const video = document.createElement('video')
+    video.playsInline = true
+    video.preload = 'auto'
+    videoRef.current = video
+    const player = create(
+      video,
+      () => {},
+      (seconds) => seconds,
+    )
+    container.append(player)
+    void player.loadCaptions(urlsRef.current.fallbackUrl)
+    return () => {
+      player.disposePlayer()
+      player.remove()
+      videoRef.current = null
+    }
+  }, [hlsSource, fallbackSource])
 
   useEffect(() => {
     const video = videoRef.current
@@ -152,13 +177,5 @@ export function HlsVideoPlayer({
     }
   }, [hlsSource, fallbackSource])
 
-  return (
-    <video
-      ref={videoRef}
-      className={className ?? 'h-full w-full bg-black object-contain'}
-      controls
-      playsInline
-      preload="auto"
-    />
-  )
+  return <div ref={containerRef} className={className ?? 'h-full w-full bg-black'} />
 }

@@ -38,7 +38,9 @@ describe('Uploaded Documents list', () => {
   })
 
   it('shows a spinner while loading', async () => {
-    stubFetch(() => new Promise(() => {}))
+    stubFetch((url) =>
+      url.pathname.endsWith('/capabilities') ? { workflowEnabled: false } : new Promise(() => {}),
+    )
     renderDocuments()
     expect(
       await screen.findByRole('progressbar', { name: 'Loading documents' }),

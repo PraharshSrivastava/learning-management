@@ -8,6 +8,11 @@ import { RECONNECT_BASE_MS } from './useEmployeeCourses'
 // Each link object the report got. A new object opens the link again.
 const linkedReports = vi.hoisted(() => [] as unknown[])
 
+// This suite checks navigation; playback has its own player and completion tests.
+vi.mock('@lms/shared/video/HlsVideoPlayer', () => ({
+  HlsVideoPlayer: () => <div data-testid="player" />,
+}))
+
 vi.mock('@lms/shared/performance/PerformanceReport', () => ({
   PerformanceReport: ({ linkedReport }: { linkedReport: unknown }) => {
     linkedReports.push(linkedReport)

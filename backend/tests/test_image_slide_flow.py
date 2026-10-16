@@ -71,7 +71,7 @@ def test_groups_three_vertical_images_on_one_image_slide() -> None:
     assert expanded[1]["image_ids"] == ["img_1", "img_2", "img_3"]
 
 
-def test_splits_third_landscape_image_to_separate_slide() -> None:
+def test_keeps_each_landscape_image_on_a_separate_slide() -> None:
     module = {
         "module_number": 1,
         "slides": [
@@ -91,11 +91,10 @@ def test_splits_third_landscape_image_to_separate_slide() -> None:
 
     expanded = _expand_mapped_image_slides(module)["slides"]
 
-    assert len(expanded) == 3
-    assert expanded[1]["image_layout"] == "landscape"
-    assert expanded[1]["image_ids"] == ["img_1", "img_2"]
-    assert expanded[2]["image_layout"] == "landscape"
-    assert expanded[2]["image_ids"] == ["img_3"]
+    # Production renders landscape screenshots individually for legibility.
+    assert len(expanded) == 4
+    assert [slide["image_layout"] for slide in expanded[1:]] == ["landscape"] * 3
+    assert [slide["image_ids"] for slide in expanded[1:]] == [["img_1"], ["img_2"], ["img_3"]]
 
 
 def test_image_slide_renderer_has_no_visible_caption_or_title() -> None:
