@@ -81,7 +81,7 @@ export type Operation = {
   id: string
   status: string
   error?: string
-  request: { task: string }
+  request: { task: string; sourceImport?: { referenceOnly?: boolean } }
   result?: {
     blocks?: { type: string; text: string }[]
     modules?: { title: string; objective: string; sections: string[] }[]
@@ -90,8 +90,20 @@ export type Operation = {
     replacementText?: string
     summary?: string
     answer?: string
+    insufficientEvidence?: boolean
+    sourceReferences?: SourceReference[]
   }
 }
+export type SourceReference = { sourceId: string; spanId: string }
+export type DraftSource = {
+  id: string
+  documentId?: string
+  name?: string
+  issues: string[]
+  acknowledged: boolean
+  spans: { id: string; text: string; location: string }[]
+}
+export type DraftRevision = { revision: number; reason: string; created_at: string }
 export const id = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
     byte.toString(16).padStart(2, '0'),

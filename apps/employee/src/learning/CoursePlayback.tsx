@@ -12,7 +12,7 @@ import { useToast } from '@lms/shared/ui/Toast'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
 import { HlsVideoPlayer } from '@lms/shared/video/HlsVideoPlayer'
 import clsx from 'clsx'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useModuleProgress } from '../dashboard/useEmployeeCourses'
 import { useViewportWidth } from '../dashboard/useViewportWidth'
 import {
@@ -22,6 +22,7 @@ import {
   isVideoWatched,
   moduleStatus,
   passedModuleCount,
+  isModuleComplete,
   type LocalProgress,
 } from './moduleRules'
 import { emptyQuizState, QuizSection, type QuizState } from './Quiz'
@@ -46,6 +47,17 @@ function quizStateFor(course: EmployeeCourse, index: number): QuizState {
   return { ...emptyQuizState(), selectedAnswers: { ...saved }, submitted: true }
 }
 
+// Progress/answer_correct updates do not change a quiz's identity. Republishing its
+// actual question/options or video does, even if the module number is reused.
+function moduleRevision(course: EmployeeCourse, module: PublishedCourseModule | undefined) {
+  return JSON.stringify([
+    course.courseId,
+    module?.moduleNumber,
+    module?.videoPath,
+    module?.quiz.map((question) => [question.questionId, question.question, question.options]),
+  ])
+}
+
 /**
  * Flutter `CoursePlaybackView`. The parent remounts it with `key={courseId}`, so a course change
  * resumes at the first incomplete module. Background updates preserve the current module.
@@ -59,7 +71,29 @@ export function CoursePlayback({
   initialCourse?: EmployeeCourse
   onBack: () => void
 }) {
-  const [activeIndex, setActiveIndex] = useState(() => resumeModuleIndex(initialCourse))
+  const [activeNumber, setActiveNumber] = useState(
+    () => initialCourse.publishedModules[resumeModuleIndex(initialCourse)]?.moduleNumber,
+  )
+  const modules = course.publishedModules
+  const matchingIndex = modules.findIndex((item) => item.moduleNumber === activeNumber)
+  const activeIndex = matchingIndex < 0 ? resumeModuleIndex(course) : matchingIndex
+  const module = modules[activeIndex]
+  const revision = moduleRevision(course, module)
+  const [shownRevision, setShownRevision] = useState(revision)
+  const revisions = Object.fromEntries(
+    modules.map((item) => [item.moduleNumber, moduleRevision(course, item)]),
+  )
+  const catalogue = JSON.stringify(
+    Object.entries(revisions).sort(([left], [right]) => left.localeCompare(right)),
+  )
+  const [knownModules, setKnownModules] = useState({ catalogue, revisions })
+  const [completedLanding, setCompletedLanding] = useState(
+    () =>
+      initialCourse.publishedModules.length > 0 &&
+      initialCourse.publishedModules.every((item) =>
+        isModuleComplete(initialCourse, item, { watched: new Set(), passed: new Set() }),
+      ),
+  )
   const [watched, setWatched] = useState<ReadonlySet<number>>(() => new Set())
   const [unsaved, setUnsaved] = useState<ReadonlySet<number>>(() => new Set())
   const [passed, setPassed] = useState<ReadonlySet<number>>(() => new Set())
@@ -70,14 +104,63 @@ export function CoursePlayback({
   const [result, setResult] = useState<QuizSubmissionResult | null>(null)
   const isMobile = useViewportWidth() < 900
   const quizRef = useRef<HTMLDivElement>(null)
-  const scrollToQuiz = useRef(false)
+  const scrollToQuiz = useRef(
+    initialCourse.moduleProgress[
+      String(initialCourse.publishedModules[resumeModuleIndex(initialCourse)]?.moduleNumber)
+    ]?.videoWatched === true,
+  )
   // True while a quiz is graded. The module stays fixed, so the grade applies to the quiz shown.
   const grading = useRef(false)
+  const session = useRef(0)
+  const alive = useRef(true)
+  const currentCourse = useRef(course)
   // The last video-completion save of each module. It resolves to true when the save succeeded.
-  const videoSaves = useRef(new Map<number, Promise<boolean>>())
+  const videoSaves = useRef(new Map<string, Promise<boolean>>())
   const showToast = useToast()
   const { markVideoWatched, submitQuiz } = useModuleProgress()
   const local: LocalProgress = { watched, passed, unsaved }
+  const allComplete =
+    modules.length > 0 && modules.every((item) => isModuleComplete(course, item, local))
+  if (completedLanding && !allComplete) {
+    setCompletedLanding(false)
+    setActiveNumber(modules[resumeModuleIndex(course)]?.moduleNumber)
+  }
+  // A republish can replace an inactive module too. Never let local completion
+  // for its previous content override reset server progress when returning to it.
+  if (knownModules.catalogue !== catalogue) {
+    const unchanged = (number: number) =>
+      revisions[number] !== undefined && revisions[number] === knownModules.revisions[number]
+    setKnownModules({ catalogue, revisions })
+    setWatched((current) => new Set([...current].filter(unchanged)))
+    setPassed((current) => new Set([...current].filter(unchanged)))
+    setUnsaved((current) => new Set([...current].filter(unchanged)))
+    setLocalScores((current) =>
+      Object.fromEntries(Object.entries(current).filter(([number]) => unchanged(Number(number)))),
+    )
+  }
+
+  // Reset render state before committing changed module content. Progress-only
+  // snapshots keep the same revision and preserve the learner's selections.
+  if (shownRevision !== revision) {
+    setShownRevision(revision)
+    setActiveNumber(module?.moduleNumber)
+    setQuiz(quizStateFor(course, activeIndex))
+    setResult(null)
+  }
+  useLayoutEffect(() => {
+    currentCourse.current = course
+  }, [course])
+  useLayoutEffect(() => {
+    session.current += 1
+    grading.current = false
+  }, [revision])
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      session.current += 1
+    }
+  }, [])
 
   // Flutter scrolls the quiz to 12% from the top after the frame that unlocks it.
   useEffect(() => {
@@ -93,8 +176,28 @@ export function CoursePlayback({
     scroller.scrollBy({ top: offset, behavior: 'smooth' })
   })
 
-  const modules = course.publishedModules
-  const module = modules[activeIndex]
+  if (completedLanding && modules.length > 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+        <Icon name="verified_rounded" size={48} color="var(--color-accent-green)" />
+        <h2 className="text-2xl font-bold">Course completed</h2>
+        <p>Your completed modules and quiz results are saved.</p>
+        <Button
+          onClick={() => {
+            setCompletedLanding(false)
+            setActiveNumber(modules[0]?.moduleNumber)
+            setQuiz(quizStateFor(course, 0))
+            setResult(null)
+          }}
+        >
+          Review course
+        </Button>
+        <Button variant="text" onClick={onBack}>
+          Back to courses
+        </Button>
+      </div>
+    )
+  }
   if (!module) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -109,8 +212,9 @@ export function CoursePlayback({
   }
 
   const changeModule = (index: number) => {
-    if (grading.current) return
-    setActiveIndex(index)
+    if (grading.current || !modules[index]) return
+    session.current += 1
+    setActiveNumber(modules[index].moduleNumber)
     setQuiz(quizStateFor(course, index))
     setResult(null)
   }
@@ -129,24 +233,39 @@ export function CoursePlayback({
 
   // Flutter swallows a failed save. The learner must know the completion was not saved.
   const saveVideo = (moduleNumber: number) => {
-    const save = markVideoWatched(course.courseId, moduleNumber).then(
+    const targetRevision = moduleRevision(
+      course,
+      modules.find((item) => item.moduleNumber === moduleNumber),
+    )
+    const isCurrent = () =>
+      alive.current &&
+      targetRevision ===
+        moduleRevision(
+          currentCourse.current,
+          currentCourse.current.publishedModules.find((item) => item.moduleNumber === moduleNumber),
+        )
+    const save = markVideoWatched(course.courseId, moduleNumber, isCurrent).then(
       () => {
+        if (!isCurrent()) return false
         setUnsaved((current) => without(current, moduleNumber))
         return true
       },
       (error: unknown) => {
+        if (!isCurrent()) return false
         setUnsaved((current) => new Set(current).add(moduleNumber))
         showToast(`Could not save video progress. ${errorMessage(error)}`, { tone: 'error' })
         return false
       },
     )
-    videoSaves.current.set(moduleNumber, save)
+    videoSaves.current.set(targetRevision, save)
     return save
   }
 
   const handleSubmit = async () => {
     if (grading.current) return
     const target = module
+    const entrySession = session.current
+    const isCurrent = () => alive.current && session.current === entrySession
     const answers = { ...quiz.selectedAnswers }
     grading.current = true
     setQuiz((current) => ({ ...current, submitted: true }))
@@ -154,21 +273,25 @@ export function CoursePlayback({
     try {
       // The backend grades only after it has the video completion. The cache shows a pending save
       // as done, so the submit waits for that save. A failed save is sent again here.
-      const videoSaved = await (videoSaves.current.get(target.moduleNumber) ??
+      const videoSaved = await (videoSaves.current.get(moduleRevision(course, target)) ??
         course.moduleProgress[String(target.moduleNumber)]?.videoWatched === true)
       if (!videoSaved) {
-        await markVideoWatched(course.courseId, target.moduleNumber)
-        videoSaves.current.set(target.moduleNumber, Promise.resolve(true))
+        await markVideoWatched(course.courseId, target.moduleNumber, isCurrent)
+        if (!isCurrent()) return
+        videoSaves.current.set(moduleRevision(course, target), Promise.resolve(true))
         setUnsaved((current) => without(current, target.moduleNumber))
       }
-      outcome = await submitQuiz(course.courseId, target.moduleNumber, answers)
+      if (!isCurrent()) return
+      outcome = await submitQuiz(course.courseId, target.moduleNumber, answers, isCurrent)
     } catch (error) {
+      if (!isCurrent()) return
       setQuiz((current) => ({ ...current, submitted: false }))
       showToast(errorMessage(error).replace(/^Exception: /, ''), { tone: 'error' })
       return
     } finally {
-      grading.current = false
+      if (isCurrent()) grading.current = false
     }
+    if (!isCurrent()) return
     setQuiz((current) => ({
       ...current,
       answerResults: { ...outcome.answerResults },
@@ -179,7 +302,7 @@ export function CoursePlayback({
       setLocalScores((current) => ({ ...current, [target.moduleNumber]: outcome.score }))
     } else {
       // The backend clears the video completion of a failed quiz.
-      videoSaves.current.delete(target.moduleNumber)
+      videoSaves.current.delete(moduleRevision(course, target))
       setWatched((current) => without(current, target.moduleNumber))
     }
     setResult(outcome)
