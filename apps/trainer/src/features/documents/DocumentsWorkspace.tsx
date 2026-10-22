@@ -117,6 +117,7 @@ export function DocumentsWorkspace() {
           ].map((item, index) => (
             <button
               key={item.label}
+              disabled={upload.state.status === 'uploading'}
               className={`flex items-center gap-4 rounded-xl border border-slate-200 p-5 text-left transition hover:border-blue-400 hover:shadow-sm ${index === 0 ? 'bg-blue-50' : 'bg-white'}`}
               onClick={item.action}
             >
@@ -198,20 +199,39 @@ export function DocumentsWorkspace() {
         <section className="card space-y-4 p-5">
           <header className="flex justify-between">
             <h2 className="font-semibold">Use existing content</h2>
-            <button onClick={() => setExisting(false)} aria-label="Close upload">
+            <button
+              onClick={() => {
+                upload.cancel()
+                setExisting(false)
+              }}
+              aria-label="Close upload"
+            >
               ×
             </button>
           </header>
-          <UploadCard upload={upload} />
+          <UploadCard
+            upload={{
+              ...upload,
+              upload: async (file) => {
+                const fileName = await upload.upload(file)
+                if (fileName) await generate(fileName)
+                return fileName
+              },
+            }}
+          />
           <p className="text-sm text-slate-500">
-            Upload your PDF, DOCX or PPTX, then choose Create course below. Your ready document goes
-            directly to Blueprint.
+            Upload your ready PDF, DOCX or PPTX to open Blueprint automatically. You can review the
+            course outline there before generating videos and quizzes.
           </p>
           <details>
             <summary className="cursor-pointer text-sm text-primary-blue">
               Or paste notes for editing
             </summary>
-            <button className={`${button} mt-3`} onClick={() => setMode('existing')}>
+            <button
+              disabled={upload.state.status === 'uploading'}
+              className={`${button} mt-3`}
+              onClick={() => setMode('existing')}
+            >
               Paste notes
             </button>
           </details>

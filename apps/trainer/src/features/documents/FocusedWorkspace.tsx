@@ -1,14 +1,16 @@
 import { apiUrl, authHeaders, errorMessage } from '@lms/shared/api/client'
 import { parseCourse } from '@lms/shared/models'
+import { useDraftPersistence } from './useDraftPersistence'
+import { WorkflowTools, SourceAnswer } from './WorkflowTools'
 import { useBlocker } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStoreCourse } from '../courses/courseQueries'
 import { useUpdateTrainerSearch } from '../../shell/search'
+import { TextBlockEditor, isEmptyModule, splitModule, mergeModules } from './editorParity'
 import {
   draftApi,
   postDraft,
   id,
-  initialContent,
   newModule,
   paragraph,
   selectionTarget,
@@ -16,6 +18,7 @@ import {
   type Content,
   type Draft,
   type Operation,
+  type DraftSource,
 } from './workflow'
 
 const input = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900'
@@ -31,12 +34,11 @@ type Props = {
 }
 
 export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated }: Props) {
-  const [draft, setDraft] = useState<Draft | null>(null)
-  const [content, setContent] = useState<Content>(() => initialContent(mode))
   const [stage, setStage] = useState<'setup' | 'outline' | 'editor'>(draftId ? 'editor' : 'setup')
   const [moduleIndex, setModuleIndex] = useState(0)
   const [busy, setBusy] = useState(Boolean(draftId))
-  const [dirty, setDirty] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [error, setError] = useState('')
   const [operation, setOperation] = useState<Operation | null>(null)
   const [instruction, setInstruction] = useState('')
@@ -48,9 +50,15 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
     text: string
   } | null>(null)
   const [pasted, setPasted] = useState('')
-  const [sources, setSources] = useState<{ id: string; issues: string[]; acknowledged: boolean }[]>(
-    [],
+  const [sources, setSources] = useState<DraftSource[]>([])
+  const [sourceError, setSourceError] = useState('')
+  const persistence = useDraftPersistence(
+    mode,
+    busy ||
+      loadFailed ||
+      (!!operation && ['queued', 'running', 'proposed'].includes(operation.status)),
   )
+  const { draft, content, dirty, saving, error: saveError } = persistence
   const controller = useRef<AbortController | null>(null)
   const allowConfirmedLeave = useRef(false)
   useBlocker({
@@ -61,15 +69,21 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
   const store = useStoreCourse()
   const navigate = useUpdateTrainerSearch()
   const module = content.modules[moduleIndex]
-  const load = (value: Draft) => {
-    setDraft(value)
-    setContent(value.content)
-    setDirty(false)
-    setSelection(null)
-  }
+  const loadDraft = persistence.load
+  const getSnapshot = persistence.getSnapshot
+  const load = useCallback(
+    (value: Draft) => {
+      loadDraft(value)
+      setSelection(null)
+    },
+    [loadDraft],
+  )
   useEffect(() => {
     const abort = new AbortController()
     controller.current = abort
+    // First autosave already owns this document; updating the URL must not reload
+    // its server echo over edits made while navigation settles.
+    if (draftId && getSnapshot().draft?.id === draftId) return () => abort.abort()
     if (draftId) {
       draftApi<Draft>(`/${draftId}`, { signal: abort.signal })
         .then((value) => {
@@ -77,15 +91,20 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
           setStage(value.content.modules.length ? 'editor' : 'setup')
         })
         .catch((e) => {
-          if (!abort.signal.aborted) setError(errorMessage(e))
+          if (!abort.signal.aborted) {
+            setError(errorMessage(e))
+            setLoadFailed(true)
+          }
         })
         .finally(() => {
           if (!abort.signal.aborted) setBusy(false)
         })
       draftApi<Operation[]>(`/${draftId}/operations`, { signal: abort.signal })
         .then((values) => {
-          const pending = values.find((v) =>
-            ['queued', 'running', 'proposed', 'failed'].includes(v.status),
+          const pending = values.find(
+            (v) =>
+              ['queued', 'running', 'proposed', 'failed'].includes(v.status) ||
+              (v.status === 'completed' && v.request.task === 'answer'),
           )
           if (pending) setOperation(pending)
         })
@@ -94,7 +113,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
     return () => {
       abort.abort()
     }
-  }, [draftId])
+  }, [draftId, load, getSnapshot, loadAttempt])
   useEffect(() => {
     if (!draft || !operation || !['queued', 'running'].includes(operation.status)) return
     const abort = new AbortController()
@@ -104,9 +123,9 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
           signal: abort.signal,
         })
         if (abort.signal.aborted) return
-        if (next.status === 'completed') {
+        if (next.status === 'completed' && next.request.task !== 'answer') {
           load(await draftApi<Draft>(`/${draft.id}`, { signal: abort.signal }))
-          setStage('editor')
+          if (!next.request.sourceImport?.referenceOnly) setStage('editor')
         }
         setOperation(next)
       } catch (e) {
@@ -119,13 +138,21 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
       clearTimeout(timer)
       abort.abort()
     }
-  }, [draft, operation])
+  }, [draft, operation, load])
   useEffect(() => {
     if (!draft) return
     const abort = new AbortController()
     draftApi<typeof sources>(`/${draft.id}/sources`, { signal: abort.signal })
-      .then(setSources)
-      .catch(() => {})
+      .then((value) => {
+        if (!abort.signal.aborted) {
+          setSources(value)
+          setSourceError('')
+        }
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted)
+          setSourceError(`Could not load attached sources: ${errorMessage(e)}`)
+      })
     return () => abort.abort()
   }, [draft])
   useEffect(() => {
@@ -143,8 +170,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
     if (draft && !draftId && !working && !dirty) onCreated(draft.id)
   }, [draft, draftId, working, dirty, onCreated])
   const mutate = (value: Content) => {
-    setContent(value)
-    setDirty(true)
+    persistence.edit(value)
     setSelection(null)
   }
   const changeBlock = (blockId: string, next: Block) =>
@@ -168,25 +194,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
       setBusy(false)
     }
   }
-  const save = async () => {
-    const savedContent = {
-      ...content,
-      metadata: {
-        ...content.metadata,
-        courseDescription:
-          content.metadata.courseDescription.trim() || content.metadata.courseObjective.trim(),
-      },
-    }
-    const value = draft
-      ? await draftApi<Draft>(`/${draft.id}`, {
-          method: 'PATCH',
-          json: { expectedRevision: draft.revision, content: savedContent },
-          signal: controller.current?.signal,
-        })
-      : await postDraft<Draft>('', savedContent, controller.current?.signal)
-    load(value)
-    return value
-  }
+  const save = persistence.save
   const start = async (task: string, extra: Record<string, unknown> = {}) => {
     const value = await save()
     setOperation(
@@ -221,17 +229,20 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
     load(next)
     return next
   }
+  const handoffCourse = async (value: Draft) => {
+    if (!value.approvedOutline)
+      throw new Error('Review and approve the current outline before creating a course.')
+    const course = parseCourse(
+      await postDraft(`/${value.id}/create-course`, { expectedRevision: value.revision }),
+    )
+    store(course)
+    navigate({ tab: 'blueprint', course: course.courseId, builder: undefined, draft: undefined })
+  }
   const createCourse = () =>
     run(async () => {
-      const value = await save()
-      if (!value.approvedOutline)
-        throw new Error('Review and approve the current outline before creating a course.')
-      const course = parseCourse(
-        await postDraft(`/${value.id}/create-course`, { expectedRevision: value.revision }),
-      )
-      store(course)
-      navigate({ tab: 'blueprint', course: course.courseId, builder: undefined, draft: undefined })
+      await handoffCourse(await save())
     })
+  const approveAndCreateCourse = () => run(async () => handoffCourse(await approve()))
   const preview = () =>
     run(async () => {
       const value = await save()
@@ -280,6 +291,30 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         }),
       )
     })
+  const attachReference = (source: { documentId?: string; text?: string }) =>
+    void run(async () => {
+      const value = await save()
+      setOperation(
+        await postDraft<Operation>(`/${value.id}/operations`, {
+          expectedRevision: value.revision,
+          task: 'import',
+          key: id(),
+          sourceImport: { expectedRevision: value.revision, referenceOnly: true, ...source },
+        }),
+      )
+    })
+  const restoreRevision = (revision: number) =>
+    void run(async () => {
+      const value = await save()
+      const restored = await postDraft<Draft>(`/${value.id}/restore`, {
+        expectedRevision: value.revision,
+        restoreRevision: revision,
+      })
+      load(restored)
+      setOperation(null)
+      setModuleIndex(0)
+      setStage(restored.content.modules.length ? 'editor' : 'setup')
+    })
   const addBlock = (block: Block) => {
     if (module)
       mutate({
@@ -290,6 +325,28 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
       })
   }
 
+  if (loadFailed)
+    return (
+      <section className="mx-auto max-w-3xl space-y-4 p-8" role="alert">
+        <h1 className="text-xl font-semibold">Could not open this draft</h1>
+        <p>{error}</p>
+        <p>Your existing draft has not been replaced. Retry loading it before editing.</p>
+        <button
+          className={button}
+          onClick={() => {
+            setLoadFailed(false)
+            setBusy(true)
+            setError('')
+            setLoadAttempt((value) => value + 1)
+          }}
+        >
+          Retry loading draft
+        </button>
+        <button className={`${button} ml-3`} onClick={onClose}>
+          Back to documents
+        </button>
+      </section>
+    )
   return (
     <section className="mx-auto max-w-[1440px] p-4 md:p-8">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -311,7 +368,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
               : 'Create a training document'}
           </h1>
           <p className="text-sm text-slate-500">
-            {busy
+            {busy || saving
               ? 'Saving…'
               : dirty
                 ? 'Unsaved changes'
@@ -361,13 +418,26 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
           </div>
         )}
       </header>
-      {error && (
+      {(error || saveError) && (
         <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-          {error}
+          {error || saveError}
           <p className="mt-1 text-sm">
             Your local edits are kept. If another session changed this draft, reopen it before
             trying again.
           </p>
+          {saveError && (
+            <button
+              className={`${button} mt-3`}
+              disabled={working}
+              onClick={() =>
+                void run(async () => {
+                  await save()
+                })
+              }
+            >
+              Retry save
+            </button>
+          )}
         </div>
       )}
       {operation && ['queued', 'running'].includes(operation.status) && (
@@ -397,6 +467,19 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
           </button>
         </div>
       )}
+      {operation && <SourceAnswer operation={operation} sources={sources} />}
+      {sourceError && (
+        <p role="alert" className="mb-4 rounded border border-red-200 p-3">
+          {sourceError}
+        </p>
+      )}
+      <WorkflowTools
+        draft={draft}
+        sources={sources}
+        disabled={working || operation?.status === 'proposed'}
+        onAttach={attachReference}
+        onRestore={restoreRevision}
+      />
       {operation?.status === 'proposed' && (
         <Proposal
           operation={operation}
@@ -659,7 +742,102 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                         })
                       }
                     />
-                    <p className="mt-2 text-sm">{m.objective}</p>
+                    <label className="mt-2 block text-sm">
+                      Learning goal
+                      <input
+                        className={input}
+                        value={m.objective}
+                        onChange={(e) =>
+                          mutate({
+                            ...content,
+                            modules: content.modules.map((v, n) =>
+                              n === i ? { ...v, objective: e.target.value } : v,
+                            ),
+                          })
+                        }
+                      />
+                    </label>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        className={button}
+                        disabled={i === 0}
+                        onClick={() => {
+                          const modules = [...content.modules]
+                          ;[modules[i - 1], modules[i]] = [modules[i]!, modules[i - 1]!]
+                          mutate({ ...content, modules })
+                          setModuleIndex(i - 1)
+                        }}
+                      >
+                        Move module up
+                      </button>
+                      <button
+                        className={button}
+                        disabled={i === content.modules.length - 1}
+                        onClick={() => {
+                          const modules = [...content.modules]
+                          ;[modules[i], modules[i + 1]] = [modules[i + 1]!, modules[i]!]
+                          mutate({ ...content, modules })
+                          setModuleIndex(i + 1)
+                        }}
+                      >
+                        Move module down
+                      </button>
+                      <button
+                        className={button}
+                        disabled={m.blocks.length < 2}
+                        onClick={() => {
+                          const answer = window.prompt(
+                            `Split after which block? Enter 1–${m.blocks.length - 1}.`,
+                            '1',
+                          )
+                          if (answer === null) return
+                          const boundary = Number(answer)
+                          if (
+                            !Number.isInteger(boundary) ||
+                            boundary < 1 ||
+                            boundary >= m.blocks.length
+                          ) {
+                            setError('Choose a valid block boundary to split this module.')
+                            return
+                          }
+                          const [left, right] = splitModule(m, boundary)
+                          mutate({
+                            ...content,
+                            modules: [
+                              ...content.modules.slice(0, i),
+                              left,
+                              right,
+                              ...content.modules.slice(i + 1),
+                            ],
+                          })
+                        }}
+                      >
+                        Split module
+                      </button>
+                      <button
+                        className={button}
+                        disabled={i === content.modules.length - 1}
+                        onClick={() => {
+                          const next = content.modules[i + 1]
+                          if (
+                            next &&
+                            window.confirm(
+                              'Merge this module with the next? Content and source references will be kept.',
+                            )
+                          )
+                            mutate({
+                              ...content,
+                              modules: [
+                                ...content.modules.slice(0, i),
+                                mergeModules(m, next),
+                                ...content.modules.slice(i + 2),
+                              ],
+                            })
+                        }}
+                      >
+                        Merge with next
+                      </button>
+                    </div>
                     <ul className="list-inside list-disc text-sm text-slate-500">
                       {m.sections.map((s, n) => (
                         <li key={n}>{s}</li>
@@ -668,6 +846,25 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-3">
+                  <button
+                    className={button}
+                    onClick={() =>
+                      mutate({ ...content, modules: [...content.modules, newModule()] })
+                    }
+                  >
+                    Add module
+                  </button>
+                  {content.entryMode === 'existing' && (
+                    <button
+                      className={primary}
+                      disabled={
+                        working || content.modules.filter((m) => m.included).some(isEmptyModule)
+                      }
+                      onClick={approveAndCreateCourse}
+                    >
+                      Approve and create course
+                    </button>
+                  )}
                   <button
                     className={primary}
                     disabled={working}
@@ -764,6 +961,23 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                           >
                             + Heading
                           </button>
+                          {[false, true].map((ordered) => (
+                            <button
+                              key={String(ordered)}
+                              className={button}
+                              onClick={() =>
+                                addBlock({
+                                  id: id(),
+                                  type: 'list',
+                                  items: ['First item'],
+                                  ordered,
+                                  sourceReferences: [],
+                                })
+                              }
+                            >
+                              {ordered ? '+ Numbered list' : '+ Bullet list'}
+                            </button>
+                          ))}
                           <button
                             className={button}
                             onClick={() =>
@@ -812,7 +1026,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                             />
                           </label>
                         </div>
-                        {module.blocks.length === 0 && (
+                        {isEmptyModule(module) && (
                           <div className="mb-4 rounded-lg bg-blue-50 p-4">
                             <p>This module is empty. Write content or ask AI to prepare a draft.</p>
                             <button
@@ -858,6 +1072,46 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                             >
                               Remove block
                             </button>
+                            <button
+                              className="ml-3 text-xs text-slate-500"
+                              aria-label={`Move block ${index + 1} up`}
+                              disabled={index === 0}
+                              onClick={() => {
+                                const blocks = [...module.blocks]
+                                ;[blocks[index - 1], blocks[index]] = [
+                                  blocks[index]!,
+                                  blocks[index - 1]!,
+                                ]
+                                mutate({
+                                  ...content,
+                                  modules: content.modules.map((m, i) =>
+                                    i === moduleIndex ? { ...m, blocks } : m,
+                                  ),
+                                })
+                              }}
+                            >
+                              Move up
+                            </button>
+                            <button
+                              className="ml-3 text-xs text-slate-500"
+                              aria-label={`Move block ${index + 1} down`}
+                              disabled={index === module.blocks.length - 1}
+                              onClick={() => {
+                                const blocks = [...module.blocks]
+                                ;[blocks[index], blocks[index + 1]] = [
+                                  blocks[index + 1]!,
+                                  blocks[index]!,
+                                ]
+                                mutate({
+                                  ...content,
+                                  modules: content.modules.map((m, i) =>
+                                    i === moduleIndex ? { ...m, blocks } : m,
+                                  ),
+                                })
+                              }}
+                            >
+                              Move down
+                            </button>
                           </div>
                         ))}
                       </>
@@ -868,6 +1122,13 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                 </main>
                 <aside className="card space-y-4 p-5">
                   <h2 className="text-lg font-semibold">AI assistant</h2>
+                  <button
+                    className={button}
+                    disabled={working || !sources.length || !instruction.trim()}
+                    onClick={() => void run(() => start('answer', { instruction }))}
+                  >
+                    Ask about source
+                  </button>
                   <p className="text-sm text-slate-500">
                     Describe the change. Review suggestions before applying them.
                   </p>
@@ -962,32 +1223,48 @@ function BlockEditor({
   onSelect: (start: number, end: number) => void
 }) {
   if ('text' in block)
-    return (
-      <textarea
-        aria-label={`${block.type} text`}
-        className={`${input} min-h-28 ${block.type === 'heading' ? '!text-lg !font-bold' : ''}`}
-        value={block.text}
-        onChange={(e) => onChange({ ...block, text: e.target.value, marks: [] })}
-        onSelect={(e) => onSelect(e.currentTarget.selectionStart, e.currentTarget.selectionEnd)}
-      />
-    )
+    return <TextBlockEditor block={block} onChange={onChange} onSelect={onSelect} />
   if (block.type === 'list')
     return (
-      <label>
-        List items (one per line)
+      <div>
+        <label className="mb-2 block">
+          <input
+            type="checkbox"
+            checked={block.ordered}
+            onChange={(e) => onChange({ ...block, ordered: e.target.checked })}
+          />{' '}
+          Numbered list
+        </label>
         <textarea
+          aria-label="List items (one per line)"
           className={input}
           value={block.items.join('\n')}
           onChange={(e) =>
             onChange({ ...block, items: e.target.value.split('\n').filter(Boolean) })
           }
         />
-      </label>
+        <button
+          type="button"
+          className={`${button} mt-2`}
+          disabled={block.items.length >= 100}
+          onClick={() => onChange({ ...block, items: [...block.items, 'New item'] })}
+        >
+          Add list item
+        </button>
+      </div>
     )
   if (block.type === 'image')
     return (
       <>
-        <DraftImage draftId={draftId} assetId={block.assetId} caption={block.caption} />
+        <div
+          style={{
+            width: `${block.width}%`,
+            marginLeft: block.align === 'left' ? 0 : 'auto',
+            marginRight: block.align === 'right' ? 0 : 'auto',
+          }}
+        >
+          <DraftImage draftId={draftId} assetId={block.assetId} caption={block.caption} />
+        </div>
         <label className="block text-sm">
           Caption
           <input
@@ -996,6 +1273,45 @@ function BlockEditor({
             onChange={(e) => onChange({ ...block, caption: e.target.value })}
           />
         </label>
+        <div className="mt-2 flex gap-3">
+          <label>
+            Image width
+            <select
+              className={input}
+              value={block.width}
+              onChange={(e) => onChange({ ...block, width: Number(e.target.value) })}
+            >
+              {[
+                25,
+                40,
+                60,
+                80,
+                100,
+                ...(![25, 40, 60, 80, 100].includes(block.width) ? [block.width] : []),
+              ]
+                .sort((a, b) => a - b)
+                .map((width) => (
+                  <option key={width} value={width}>
+                    {width}%
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Alignment
+            <select
+              className={input}
+              value={block.align}
+              onChange={(e) =>
+                onChange({ ...block, align: e.target.value as 'left' | 'center' | 'right' })
+              }
+            >
+              {['left', 'center', 'right'].map((align) => (
+                <option key={align}>{align}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </>
     )
   return (

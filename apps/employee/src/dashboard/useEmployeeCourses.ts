@@ -117,7 +117,7 @@ export function useModuleProgress() {
   const employeeId = person?.employeeId
 
   const markVideoWatched = useCallback(
-    async (courseId: string, moduleNumber: number) => {
+    async (courseId: string, moduleNumber: number, isCurrent: () => boolean = () => true) => {
       const key = employeeKeys.courses(employeeId)
       patchCourses(queryClient, key, courseId, moduleNumber, { videoWatched: true })
       try {
@@ -128,7 +128,8 @@ export function useModuleProgress() {
       } catch (error) {
         // Callers only save an unwatched video, so the cache goes back to unwatched. The quiz
         // submit then sends the save again.
-        patchCourses(queryClient, key, courseId, moduleNumber, { videoWatched: false })
+        if (isCurrent())
+          patchCourses(queryClient, key, courseId, moduleNumber, { videoWatched: false })
         throw error
       } finally {
         void queryClient.invalidateQueries({ queryKey: key })
@@ -142,6 +143,7 @@ export function useModuleProgress() {
       courseId: string,
       moduleNumber: number,
       selectedAnswers: Record<number, string>,
+      isCurrent: () => boolean = () => true,
     ): Promise<QuizSubmissionResult> => {
       const key = employeeKeys.courses(employeeId)
       const json = await apiRequest(modulePath(courseId, moduleNumber), {
@@ -154,12 +156,13 @@ export function useModuleProgress() {
       } catch {
         throw new Error('Failed to submit quiz')
       }
-      patchCourses(queryClient, key, courseId, moduleNumber, {
-        quizPassed: result.passed,
-        quizScore: result.score,
-        selectedAnswers: result.passed ? { ...selectedAnswers } : null,
-        ...(result.passed ? {} : { videoWatched: false }),
-      })
+      if (isCurrent())
+        patchCourses(queryClient, key, courseId, moduleNumber, {
+          quizPassed: result.passed,
+          quizScore: result.score,
+          selectedAnswers: result.passed ? { ...selectedAnswers } : null,
+          ...(result.passed ? {} : { videoWatched: false }),
+        })
       void queryClient.invalidateQueries({ queryKey: key })
       return result
     },

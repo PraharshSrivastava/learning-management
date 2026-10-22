@@ -29,7 +29,7 @@ let videoSave: unknown = {}
 
 beforeEach(() => {
   // jsdom has no scrolling.
-  Element.prototype.scrollBy = () => {}
+  Element.prototype.scrollBy = vi.fn()
   Element.prototype.scrollTo = () => {}
   grade = { passed: true }
   videoSave = {}
@@ -86,6 +86,233 @@ async function answer(user: ReturnType<typeof userEvent.setup>, quiz: HTMLElemen
 }
 
 describe('CoursePlayback', () => {
+  it('shows completed landing and starts explicit review at the first module', async () => {
+    const completed = courseJson({
+      ...course,
+      module_progress: {
+        '1': { video_watched: true, quiz_passed: true },
+        '2': { video_watched: true, quiz_passed: true },
+      },
+    })
+    fetchMock.mockImplementation(
+      async (input) =>
+        new Response(JSON.stringify(String(input).endsWith('/api/me/courses') ? [completed] : {})),
+    )
+    const user = userEvent.setup()
+    renderDashboard('/?view=course&course_id=c1')
+    expect(await screen.findByText('Course completed')).toBeInTheDocument()
+    expect(screen.queryByTestId('player')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to courses' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Review course' }))
+    expect(screen.getByRole('heading', { name: 'Module title 1', level: 2 })).toBeInTheDocument()
+  })
+  it('leaves completed landing when a republished course adds incomplete work', async () => {
+    const completed = courseJson({
+      ...course,
+      module_progress: {
+        '1': { video_watched: true, quiz_passed: true },
+        '2': { video_watched: true, quiz_passed: true },
+      },
+    })
+    fetchMock.mockImplementation(
+      async (input) =>
+        new Response(JSON.stringify(String(input).endsWith('/api/me/courses') ? [completed] : {})),
+    )
+    renderDashboard('/?view=course&course_id=c1')
+    await screen.findByText('Course completed')
+    await act(() =>
+      FakeSocket.instances[0]!.send([
+        { ...completed, modules: [...course.modules, moduleJson(3)] },
+      ]),
+    )
+    expect(await screen.findByTestId('player')).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Module title 3', level: 2 }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Course completed')).not.toBeInTheDocument()
+  })
+  it('preserves a video-only failed-save retry across ordinary module navigation', async () => {
+    const saved = courseJson({
+      ...course,
+      modules: [moduleJson(1), moduleJson(2, { quiz: [] }), moduleJson(3)],
+      module_progress: { '1': { video_watched: true, quiz_passed: true } },
+    })
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/api/me/courses')) return new Response(JSON.stringify([saved]))
+      if (init?.method === 'PUT')
+        return new Response(JSON.stringify({ detail: 'Save failed' }), { status: 500 })
+      return new Response('{}')
+    })
+    const user = userEvent.setup()
+    renderDashboard('/?view=course&course_id=c1')
+    await user.click(await screen.findByTestId('player'))
+    await screen.findByText('Video progress was not saved.')
+    const list = screen.getByRole('list', { name: 'Course modules' })
+    await user.click(within(list).getAllByRole('button')[0]!)
+    await user.click(within(list).getAllByRole('button')[1]!)
+    expect(screen.getByText('Video progress was not saved.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(within(list).getAllByRole('button')[2]).toBeDisabled()
+  })
+  it('does not display an old video-save error after its content is replaced', async () => {
+    let finish!: (response: Response) => void
+    videoSave = new Promise<Response>((resolve) => {
+      finish = resolve
+    })
+    const { quiz } = await openAndWatch()
+    expect(quiz).toBeInTheDocument()
+    const changed = { ...course, modules: [moduleJson(1), moduleJson(2)] }
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify([changed])))
+    await act(() => FakeSocket.instances[0]!.send([changed]))
+    await screen.findByText('Quiz locked')
+    await act(() =>
+      finish(new Response(JSON.stringify({ detail: 'Old save failed' }), { status: 500 })),
+    )
+    expect(screen.queryByText(/Old save failed/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Video progress was not saved.')).not.toBeInTheDocument()
+  })
+  it('scrolls directly to an unfinished quiz when resuming a watched module', async () => {
+    const pending = courseJson({ ...course, module_progress: { '1': { video_watched: true } } })
+    fetchMock.mockImplementation(
+      async (input) =>
+        new Response(JSON.stringify(String(input).endsWith('/api/me/courses') ? [pending] : {})),
+    )
+    renderDashboard('/?view=course&course_id=c1')
+    await screen.findByRole('region', { name: 'Module quiz' })
+    expect(Element.prototype.scrollBy).toHaveBeenCalled()
+  })
+  it('preserves module identity and answers when a live update reorders modules', async () => {
+    const { user, quiz } = await openAndWatch()
+    await user.click(within(quiz).getByRole('radio', { name: 'First first' }))
+    await act(() =>
+      FakeSocket.instances[0]!.send([{ ...course, modules: [...course.modules].reverse() }]),
+    )
+    expect(screen.getByRole('heading', { name: 'Module title 1', level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'First first' })).toBeChecked()
+  })
+  it('discards a late result when the active module is removed', async () => {
+    let finish!: (response: Response) => void
+    grade = new Promise<Response>((resolve) => {
+      finish = resolve
+    })
+    const { user, quiz } = await openAndWatch()
+    await answer(user, quiz)
+    const replacement = {
+      ...course,
+      modules: [moduleJson(2)],
+      module_progress: { '2': { video_watched: true } },
+    }
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify([replacement])))
+    await act(() => FakeSocket.instances[0]!.send([replacement]))
+    expect(
+      await screen.findByRole('heading', { name: 'Module title 2', level: 2 }),
+    ).toBeInTheDocument()
+    await act(() =>
+      finish(
+        new Response(
+          JSON.stringify({
+            quiz_passed: true,
+            quiz_score: 1,
+            correct_count: 2,
+            total_questions: 2,
+            pass_mark: 2 / 3,
+            answer_results: { '0': true, '1': true },
+          }),
+        ),
+      ),
+    )
+    expect(screen.queryByText('Quiz passed')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Q2 first' })).not.toBeChecked()
+  })
+  it('clears answers when the current quiz content changes under the same module number', async () => {
+    const { user, quiz } = await openAndWatch()
+    await user.click(within(quiz).getByRole('radio', { name: 'First first' }))
+    await act(() =>
+      FakeSocket.instances[0]!.send([
+        {
+          ...course,
+          modules: [moduleJson(1), moduleJson(2)],
+          module_progress: { '1': { video_watched: true } },
+        },
+      ]),
+    )
+    expect(await screen.findByRole('radio', { name: 'Q1 first' })).not.toBeChecked()
+    expect(screen.getByText('Answered 0 of 1')).toBeInTheDocument()
+  })
+  it('ignores a late grade when quiz content is replaced under the same module number', async () => {
+    let finish!: (response: Response) => void
+    grade = new Promise<Response>((resolve) => {
+      finish = resolve
+    })
+    const { user, quiz } = await openAndWatch()
+    await answer(user, quiz)
+    const changed = {
+      ...course,
+      modules: [moduleJson(1), moduleJson(2)],
+      module_progress: { '1': { video_watched: true } },
+    }
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify([changed])))
+    await act(() => FakeSocket.instances[0]!.send([changed]))
+    await screen.findByRole('radio', { name: 'Q1 first' })
+    await act(() =>
+      finish(
+        new Response(
+          JSON.stringify({
+            quiz_passed: true,
+            quiz_score: 1,
+            correct_count: 2,
+            total_questions: 2,
+            pass_mark: 2 / 3,
+            answer_results: { '0': true, '1': true },
+          }),
+        ),
+      ),
+    )
+    expect(screen.queryByText('Quiz passed')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Q1 first' })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: 'Submit Quiz' })).toBeDisabled()
+  })
+  it('does not surface a previous playback session submission error after leaving the course', async () => {
+    let finish!: (response: Response) => void
+    grade = new Promise<Response>((resolve) => {
+      finish = resolve
+    })
+    const { user, quiz } = await openAndWatch()
+    await answer(user, quiz)
+    await user.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+    await act(() =>
+      finish(new Response(JSON.stringify({ detail: 'Old submission failed' }), { status: 500 })),
+    )
+    expect(screen.queryByText('Old submission failed')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Module quiz' })).not.toBeInTheDocument()
+  })
+  it('invalidates inactive module completion when its content is republished', async () => {
+    const { user, quiz } = await openAndWatch()
+    await answer(user, quiz)
+    await screen.findByText('Quiz passed')
+    await user.click(screen.getByRole('button', { name: 'Continue to next module' }))
+    const republished = {
+      ...course,
+      modules: [{ ...course.modules[0]!, video_path: 'assets/videos/c/new-m1.mp4' }, moduleJson(2)],
+      module_progress: {},
+    }
+    fetchMock.mockImplementation(async (input, init) =>
+      String(input).endsWith('/api/me/courses')
+        ? new Response(JSON.stringify([republished]))
+        : init?.method === 'PUT'
+          ? new Response('{}')
+          : new Response('{}'),
+    )
+    await act(() => FakeSocket.instances[0]!.send([republished]))
+    const list = screen.getByRole('list', { name: 'Course modules' })
+    await user.click(within(list).getAllByRole('button')[0]!)
+    expect(await screen.findByText('Quiz locked')).toBeInTheDocument()
+    expect(screen.queryByText('Quiz already passed')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('player'))
+    await waitFor(() =>
+      expect(putBodies().filter(([, body]) => body.video_watched === true)).toHaveLength(2),
+    )
+  })
   it('fetches fresh progress before choosing the resumed module from a cached list', async () => {
     const stale = courseJson({
       course_id: 'c1',
@@ -161,6 +388,7 @@ describe('CoursePlayback', () => {
         new Response(JSON.stringify(String(input).endsWith('/api/me/courses') ? [saved] : {})),
     )
     renderDashboard('/?view=course&course_id=c1')
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Review course' }))
     expect(await screen.findByText('Saved score unavailable')).toBeInTheDocument()
     expect(screen.queryByText('0.0%')).not.toBeInTheDocument()
   })

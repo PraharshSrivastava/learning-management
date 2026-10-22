@@ -54,7 +54,7 @@ export function useUpload() {
       const form = new FormData()
       form.append('file', file, file.name)
       try {
-        await uploadWithProgress(
+        const result = await uploadWithProgress(
           '/api/upload',
           form,
           (fraction) =>
@@ -63,8 +63,20 @@ export function useUpload() {
             ),
           abort.signal,
         )
+        if (
+          !result ||
+          typeof result !== 'object' ||
+          !('file_name' in result) ||
+          typeof result.file_name !== 'string' ||
+          !result.file_name.trim()
+        ) {
+          throw new Error(
+            'The upload response did not identify the saved document. Refresh the document list before continuing.',
+          )
+        }
         setState({ status: 'success', message: 'Uploaded successfully!' })
         void queryClient.invalidateQueries({ queryKey: trainerKeys.files })
+        return result.file_name
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           setState({ status: 'idle' })
