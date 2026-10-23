@@ -147,6 +147,7 @@ def main():
             "llm_base_url": "LLM_BASE_URL",
             "llm_model_name": "LLM_MODEL_NAME",
             "llm_api_key": "LLM_API_KEY",
+            "llm_enable_thinking": "LLM_ENABLE_THINKING",
             "llm_context_window": "LLM_CONTEXT_WINDOW",
             "llm_max_input_tokens": "LLM_MAX_INPUT_TOKENS",
             "llm_max_output_tokens": "LLM_MAX_OUTPUT_TOKENS",
@@ -176,6 +177,7 @@ def main():
     report = {
         "model": config.document_builder_model or config.llm_model_name,
         "mode": config.document_builder_output_mode,
+        "enableThinking": config.llm_enable_thinking,
         "kind": "release-evaluation" if args.full else "capability-smoke",
         "humanReviewRequired": True,
         "results": [],

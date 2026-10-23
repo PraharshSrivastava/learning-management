@@ -358,6 +358,7 @@ def extract_modules_with_llm(body_lines: List[str], course_id: str = "blueprint"
         for m in modules:
             m["num_questions"] = 3
         _validate_start_lines(modules, total_lines)
+        _normalize_labelled_modules(modules, body_lines)
 
         if not modules:
             raise ValueError("LLM returned no modules")
@@ -386,6 +387,42 @@ def _validate_start_lines(modules: List[dict], total_lines: int):
     # Always force module 1 to start at line 1
     if modules:
         modules[0]["start_line"] = 1
+
+
+_MODULE_LABEL = re.compile(r"\b(?:module|chapter|unit|lesson)\s+\d+\b", re.IGNORECASE)
+# A leading title page, subtitle or audience line; anything longer is real teaching text.
+_MAX_PREAMBLE_CHARS = 600
+
+
+def _normalize_labelled_modules(modules: List[dict], body_lines: List[str]):
+    """
+    When the document labels its modules ("Module 1", "Chapter 2"), keep those labels as
+    the module boundaries: trim course-title prefixes the LLM glued onto a label and fold
+    a short unlabelled title-page preamble into the first labelled module.
+    """
+    if sum(1 for m in modules if _MODULE_LABEL.search(str(m.get("title", "")))) < 2:
+        return
+
+    for m in modules:
+        title = str(m.get("title", ""))
+        match = _MODULE_LABEL.search(title)
+        if match and match.start() > 0:
+            m["title"] = title[match.start():].strip()
+
+    while len(modules) > 1 and not _MODULE_LABEL.search(str(modules[0].get("title", ""))):
+        preamble = body_lines[modules[0]["start_line"] - 1 : modules[1]["start_line"] - 1]
+        if len(" ".join(preamble)) > _MAX_PREAMBLE_CHARS:
+            break
+        logger.info(
+            "blueprint_preamble_module_folded title=%s line_count=%s",
+            modules[0].get("title"),
+            len(preamble),
+        )
+        modules[1]["start_line"] = modules[0]["start_line"]
+        modules.pop(0)
+
+    for number, m in enumerate(modules, start=1):
+        m["module_number"] = number
 
 
 def _looks_like_caption_line(line: str) -> bool:
@@ -630,6 +667,11 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                 for b in next_blocks:
                     text_content = b[4].strip()
                     if not text_content:
+                        continue
+                    if not _looks_like_caption_line(text_content):
+                        # Only a labelled caption ("Figure 3: ...") can have wrapped onto the
+                        # next page; a heading or paragraph there is new content, and taking
+                        # it would misplace the image and strip that text from its module.
                         continue
 
                     tx0, ty0, tx1, ty1 = b[0], b[1], b[2], b[3]
@@ -894,13 +936,24 @@ def assign_images_to_modules(
                     )
                     break
 
-        # Fallback: estimate module by page number distribution
+        # Fallback: the module holding the image page's last text line, else estimate
+        # by page number distribution
         if not assigned and num_modules > 0:
             page = img.get("page", 1)
-            estimated_idx = min(
-                num_modules - 1, int(((page - 1) / max(1, total_pages)) * num_modules)
+            page_lines = [
+                number
+                for number, line_page in enumerate(line_pages or [], start=1)
+                if line_page == page
+            ]
+            module = next(
+                (m for m in modules if page_lines and m["start_line"] <= page_lines[-1] <= m["end_line"]),
+                None,
             )
-            module = modules[estimated_idx]
+            if module is None:
+                estimated_idx = min(
+                    num_modules - 1, int(((page - 1) / max(1, total_pages)) * num_modules)
+                )
+                module = modules[estimated_idx]
             if not any(existing["image_id"] == img["image_id"] for existing in module["images"]):
                 module["images"].append(img)
             logger.info(
