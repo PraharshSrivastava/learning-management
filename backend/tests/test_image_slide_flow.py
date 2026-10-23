@@ -71,7 +71,7 @@ def test_groups_three_vertical_images_on_one_image_slide() -> None:
     assert expanded[1]["image_ids"] == ["img_1", "img_2", "img_3"]
 
 
-def test_places_each_landscape_image_on_its_own_slide() -> None:
+def test_keeps_each_landscape_image_on_a_separate_slide() -> None:
     module = {
         "module_number": 1,
         "slides": [
@@ -91,7 +91,7 @@ def test_places_each_landscape_image_on_its_own_slide() -> None:
 
     expanded = _expand_mapped_image_slides(module)["slides"]
 
-    # Landscape images are wide; stacking them would shrink each below legibility.
+    # Production renders landscape screenshots individually for legibility.
     assert len(expanded) == 4
     assert [slide["image_layout"] for slide in expanded[1:]] == ["landscape"] * 3
     assert [slide["image_ids"] for slide in expanded[1:]] == [["img_1"], ["img_2"], ["img_3"]]
