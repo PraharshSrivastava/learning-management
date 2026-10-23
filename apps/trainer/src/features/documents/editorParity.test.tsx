@@ -79,10 +79,14 @@ it('preserves module-only evidence on both split segments when attribution is un
   expect(right.sourceReferences).toContainEqual(module.sourceReferences[0])
 })
 
-it('offers AI drafting for new placeholders and inserts editable bullet and numbered lists', async () => {
+it('preserves editable saved lists and tables without exposing insertion tools', async () => {
   stubBrowser()
   const content = initialContent('blank')
   content.metadata.courseName = 'Training'
+  content.modules[0]!.blocks = [
+    { id: 'bullet', type: 'list', items: ['Saved item'], ordered: false, sourceReferences: [] },
+    { id: 'table', type: 'table', rows: [['Saved cell']], sourceReferences: [] },
+  ]
   const record = {
     id: 'draft1',
     revision: 1,
@@ -99,14 +103,20 @@ it('offers AI drafting for new placeholders and inserts editable bullet and numb
         : [],
   )
   renderDocuments('/?tab=documents&builder=true&draft=draft1')
-  expect(await screen.findByRole('button', { name: 'Draft this module' })).toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: '+ Bullet list' }))
-  expect(screen.getByRole('textbox', { name: 'List items (one per line)' })).toHaveValue(
-    'First item',
+  expect(await screen.findByRole('textbox', { name: 'List items (one per line)' })).toHaveValue(
+    'Saved item',
   )
+  expect(screen.getByRole('textbox', { name: 'Row 1 column 1' })).toHaveValue('Saved cell')
+  expect(screen.queryByRole('button', { name: '+ Bullet list' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '+ Numbered list' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '+ Table' })).not.toBeInTheDocument()
   expect(screen.getByRole('checkbox', { name: 'Numbered list' })).not.toBeChecked()
-  fireEvent.click(screen.getByRole('button', { name: '+ Numbered list' }))
-  expect(screen.getAllByRole('checkbox', { name: 'Numbered list' })[1]).toBeChecked()
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Numbered list' }))
+  expect(screen.getByRole('checkbox', { name: 'Numbered list' })).toBeChecked()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Row 1 column 1' }), {
+    target: { value: 'Edited cell' },
+  })
+  expect(screen.getByRole('textbox', { name: 'Row 1 column 1' })).toHaveValue('Edited cell')
 })
 
 it('exposes image layout controls and keeps block content when moving it', async () => {

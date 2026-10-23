@@ -209,8 +209,8 @@ it('shows approved ordered entry choices and routes ready files directly to Blue
   expect(choices.map((b) => b.textContent)).toEqual([
     expect.stringContaining('Use existing content'),
     expect.stringContaining('Generate with AI'),
-    expect.stringContaining('Start blank'),
   ])
+  expect(screen.queryByRole('button', { name: /Start blank/ })).not.toBeInTheDocument()
   fireEvent.click(await screen.findByRole('button', { name: 'Create course' }))
   await waitFor(() =>
     expect(fetch.mock.calls.some(([url]) => String(url).includes('/api/courses/generate'))).toBe(

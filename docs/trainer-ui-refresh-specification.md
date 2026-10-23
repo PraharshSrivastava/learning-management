@@ -1,12 +1,14 @@
 # Trainer UI refresh — shared specification
 
-Last updated: 22 October 2026
+Last updated: 23 October 2026
 
 Dedicated branch: `codex/trainer-ui-refresh`
 
 Starting main release: `b5f8dbc` (PR #32, including the React workflow parity fixes)
 
-Current milestone: Documents design recorded; application implementation pending.
+Current milestone: Documents implemented and locally verified; awaiting review on
+big-coding before implementing Blueprint or Assign. Their approved designs remain
+recorded below; their application code is unchanged in this release.
 
 ## 1. Purpose and approval record
 
@@ -16,21 +18,45 @@ replace previously approved requirements with a different design by inference.
 
 The selected Documents design is **Focused desk**, including the subsequent user
 corrections: **Your uploaded documents**, no **Edit first** for uploaded files, and
-a complete multi-page document preview. The AI entry uses a Gemini-inspired
-four-point sparkle with a restrained blue/violet gradient. This is a visual mark;
-it does not change the configured AI provider, model, RunPod endpoint or credentials.
+a complete multi-page document preview. The approved icon treatment is the subsequent
+Smart document proposal: navy document outline, blue wand and restrained violet
+accent for Generate with AI; document/upload for existing content; red PDF file
+marks and navy document marks for drafts. This supersedes the earlier standalone
+Gemini-inspired sparkle. These are visual marks;
+they do not change the configured AI provider, model, RunPod endpoint or credentials.
 
-| Tab / area                                       | Design status                                               | Implementation status                      |
-| ------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------ |
-| Documents landing and uploaded-document preview  | Selected and specified here                                 | Pending                                    |
-| Document editor simplification and notifications | Specified here                                              | Pending                                    |
-| Blueprint                                        | Next design review; requirements not yet agreed             | Pending design                             |
-| Assign                                           | Reserved for later review                                   | Pending design                             |
-| Courses                                          | Reserved for later review                                   | Pending design                             |
-| Performance / Observer                           | Preserve current behavior; later visual review if requested | No change authorized by this specification |
+| Tab / area                                       | Design status                                                                                           | Implementation status                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Documents landing and uploaded-document preview  | Selected and specified here                                                                             | Implemented; VM acceptance pending         |
+| Document editor simplification and notifications | Specified here                                                                                          | Implemented; VM acceptance pending         |
+| Blueprint                                        | Refined desk interactive design approved                                                                | Pending implementation                     |
+| Assign                                           | Focused assignment with left course list and top actions approved; employee-picker correction specified | Pending implementation                     |
+| Courses                                          | Reserved for later review                                                                               | Pending design                             |
+| Performance / Observer                           | Preserve current behavior; later visual review if requested                                             | No change authorized by this specification |
 
-No application code, generation behavior, backend configuration or deployment is
-changed merely by adding this document and its design references.
+The current implementation milestone changes Documents React code and its bundled
+PDF renderer only. No backend/model configuration, Blueprint/Assign application
+code or deployment topology is changed. VM deployment/acceptance remains pending.
+
+### Documents implementation verification — 23 October 2026
+
+- Scoped Inter styling, two creation cards, bundled Smart document/upload/PDF/draft
+  icons, recent drafts, removal/Undo, uploaded-file search/five-row limit/View all,
+  inline full-PDF reader and simplified editor tools are implemented.
+- PDF.js worker, character maps, fonts and image-decoding assets are bundled under
+  `static/`; the renderer loads on demand and preserves protected media access.
+- Local validation: 443 React tests passed; workspace TypeScript and ESLint passed;
+  production Trainer build passed. Existing jsdom scroll/act diagnostic warnings
+  do not represent production browser failures.
+- Compiled-app browser acceptance used synthetic authenticated API data and a real
+  eight-page PDF. Verified default five rows, search beyond those rows, View all,
+  recent three drafts with Undo, actual worker/canvas rendering through page eight,
+  one PDF fetch, scoped Inter, and 390/320px layouts with no runtime errors.
+- This does not establish live RunPod/model health, DOCX/PPTX conversion health or
+  VM deployment correctness. Test real upload, AI outline/editor, PDF images and
+  Blueprint handoff on big-coding before approving the next tab's implementation.
+- Pause at this milestone for trainer review. Do not implement Blueprint/Assign
+  UI changes in the Documents release.
 
 ## 2. Authoritative visual references
 
@@ -38,7 +64,27 @@ changed merely by adding this document and its design references.
 - [Documents desktop reference](design/trainer-ui/documents-desktop.reference.png).
 - [Documents mobile reference](design/trainer-ui/documents-mobile.reference.png).
 - [Complete-document last-page reference](design/trainer-ui/documents-pdf-last-page.reference.png).
-- [AI sparkle vector reference](design/trainer-ui/ai-sparkle.reference.svg).
+- [Earlier AI sparkle vector reference — superseded](design/trainer-ui/ai-sparkle.reference.svg).
+
+Compiled Documents milestone references (23 October; synthetic API fixtures,
+actual React build and real eight-page PDF):
+
+- [Implemented desktop](design/trainer-ui/documents-implemented.desktop.png).
+- [Implemented mobile](design/trainer-ui/documents-implemented.mobile.png).
+- [Implemented last-page PDF preview](design/trainer-ui/documents-implemented.pdf-last-page.png).
+
+These supersede the earlier prototype icons. The production mark source is
+`apps/trainer/src/features/documents/DocumentsIcon.tsx`; Inter and scoped styling
+are in `DocumentsStyles.css`. Compare VM appearance to these compiled references,
+allowing real filenames/counts/content to vary. VM visual acceptance is still pending.
+
+The Smart document image proposal approved on 22 October supersedes icon shapes
+in the earlier HTML/screenshots only. Its reference is
+`design/trainer-ui/documents-smart-document.approved.png`. Preserve the agreed
+layout and workflow. The small comparison inset in that proposal is not part of
+the application. Recreate the approved icons as bundled crisp vectors, then update
+the executable reference and desktop/mobile screenshots before implementation
+acceptance; do not treat a generated bitmap as a production UI icon sheet.
 
 The HTML file is a design-only fragment with sample documents and simulated AI
 responses. Its host supplies icon rendering and presentation utilities. Do not
@@ -209,35 +255,36 @@ Use consistent vector icons with visible text labels and accessible names.
 | Card gap                       | 16 px; approximately 20–24 px between major sections |
 | Creation-card icon container   | 45 × 45 px, 12 px radius                             |
 | Normal action/file icons       | 17–22 px, consistent visual stroke                   |
-| AI sparkle mark                | 24 px, four points, blue → violet → soft purple      |
+| AI Smart document mark         | 24 px, navy document, blue wand, violet accent       |
 
 Dark-theme equivalents are defined in the committed reference. Preserve contrast,
 hierarchy and selected states; do not simply invert the light screenshot.
 
 ### Icon choices
 
-| Action / state                   | Reference mark                                       |
-| -------------------------------- | ---------------------------------------------------- |
-| Use existing content             | Cloud upload                                         |
-| Generate with AI / AI generation | Single four-point sparkle; Gemini-inspired treatment |
-| Uploaded PDF / document          | File text                                            |
-| DOCX                             | File with pen                                        |
-| PPTX                             | Presentation                                         |
-| Preview                          | Eye                                                  |
-| Create course                    | Open book                                            |
-| Open draft / draft content       | File with pen                                        |
-| Remove                           | Trash                                                |
-| Search                           | Magnifying glass                                     |
-| Warning / unavailable            | Warning triangle                                     |
-| Error                            | Circled exclamation                                  |
-| Success / saved                  | Circled check                                        |
-| Working                          | Loader with explanatory text                         |
+| Action / state                   | Reference mark                                           |
+| -------------------------------- | -------------------------------------------------------- |
+| Use existing content             | Navy document outline with upload arrow                  |
+| Generate with AI / AI generation | Smart document: document outline and wand, violet accent |
+| Uploaded PDF                     | Red outlined file with PDF label                         |
+| Other uploaded document          | Appropriate document-type mark                           |
+| DOCX                             | File with pen                                            |
+| PPTX                             | Presentation                                             |
+| Preview                          | Eye                                                      |
+| Create course                    | Open book                                                |
+| Open draft / draft content       | Navy document outline with short text lines              |
+| Remove                           | Trash                                                    |
+| Search                           | Magnifying glass                                         |
+| Warning / unavailable            | Warning triangle                                         |
+| Error                            | Circled exclamation                                      |
+| Success / saved                  | Circled check                                            |
+| Working                          | Loader with explanatory text                             |
 
-The prototype uses standard Lucide shapes. The AI reference vector is a locally
-saved mark, not a remotely loaded Google logo. Its gradient stops are `#4787ff`,
-`#8b5cf6`, `#c779df`; its icon-container gradient is `#edf4ff` → `#f0eaff` in light
-appearance. Keep the visible label **Generate with AI**; do not label the configured
-model Gemini. Preserve the existing PhillipCapital brand identity.
+The earlier prototype uses standard Lucide shapes; its standalone AI sparkle is
+superseded. Follow the approved Smart document image for the four entry/file icon
+families. Use pale blue backing for upload, pale lavender for AI, and restrained
+neutral backing for file/draft marks. Keep the visible label **Generate with AI**.
+Preserve the configured model and existing PhillipCapital brand identity.
 
 Production icons must be bundled and versioned in the frontend (through a shared
 component/local SVG or an approved pinned icon package), with applicable attribution.
@@ -323,7 +370,7 @@ model acceptance results.
 
 - [ ] React Documents landing matches the committed desktop/mobile references.
 - [ ] Local vector icons load without network fonts, emojis or missing glyphs.
-- [ ] AI sparkle shape/gradient matches the saved vector and is consistent in AI actions.
+- [ ] Approved Smart document, upload-document, red PDF and navy draft icons match the new proposal at actual UI size; updated executable references supersede the old sparkle.
 - [ ] Only two entry cards; existing authoring drafts still reopen correctly.
 - [ ] Uploaded section has the exact heading and no Edit first shortcut.
 - [ ] Five files initially; View all/Show recent and complete-library search work together.
@@ -350,30 +397,210 @@ unless a separately documented implementation requirement is approved.
 
 ## 12. Extending this file for the next tabs
 
-Next: **Blueprint**. Add its approved layout, actions, workflow boundaries, states,
-icons, responsive rules, references, feasibility notes and acceptance checks below.
-Then do the same for Assign and any remaining tabs.
+Next: **Assign**. Record its selected layout, workflow boundaries and acceptance
+checks below; Blueprint Refined desk has been approved. Continue with other tabs
+in this same specification.
 
 For each approved change, record the date, affected requirement, reference version
 and implementation status. Shared tokens/icons should stay consistent; a later tab
 must not silently change Documents wording or restore removed entry/actions.
 
-### Blueprint — pending design review
+### Blueprint — Refined desk approved
 
-No new Blueprint UI has been finalized. Preserve current course outline extraction,
-module review, save/reset behavior and explicit Generate Course step while its
-design is discussed. Do not implement a guessed redesign from this placeholder.
+The user approved Option A and its interactive Refined desk demo on 22 October.
+Implement the familiar course sidebar and expandable module workspace. Preserve
+current course outline extraction, module review, save/reset behavior and the
+explicit Generate Course step. Option B is not selected.
 
-### Assign — pending design review
+Requested changes recorded on 22 October:
 
-No new Assign UI has been finalized. Preserve current assignment, role, observer,
-deadline, lifecycle and notification behavior while reviewing presentation later.
+- Replace the generic Actions dropdown with the actual labeled action when exactly
+  one action is available. Current code permits Disable, Enable and Delete depending
+  on lifecycle/ownership; more than one may be available. Keep multiple choices
+  accessible, hide the control when none are available, and retain all ownership,
+  in-progress blocking, impact checks and confirmation behavior. Enable retains its
+  existing Assign handoff. Do not equate Enable with Generate course.
+- Improve corporate presentation, spacing, hierarchy, module review and loading/error
+  clarity consistently with Documents, following the approved Refined desk demo.
+- Demos compare A: Refined desk (familiar course sidebar and expandable module cards)
+  with B: Module workspace (course picker and module navigation beside one editor).
+  Refined desk is now selected; neither design permits removal of existing fields
+  or generation controls.
+- Preserve save validation and generation/resume semantics; never show fake progress
+  percentages or silently discard unsaved edits when switching courses/modules.
+
+Reference priority:
+
+- [Approved interactive Refined desk source](design/trainer-ui/blueprint-refined-desk.reference.html).
+- The source contains sample courses, local saves and simulated generation; port
+  layout and interaction placement into React, not its mock store or timers.
+- Retain title, difficulty, language, description, learning goals and audience.
+- Modules use expandable cards with persistent title, quiz question count and module
+  content. Preserve existing image references, video downloads and all supported
+  module configuration; do not replace module content with invented backend fields.
+- Provide Add module, reorder and confirmed removal; removed modules must not leave
+  invalid image references. Retain Reset to saved blueprint with discard confirmation.
+- Source images are a separate expandable section with image, caption and assigned
+  module. Unassigned images have an explicit label; current ownership and asset
+  access rules remain enforced.
+- Save and Generate remain visually separate. Reflect real saved/dirty state; protect
+  edits when switching courses. Match existing generation/save behavior, validation,
+  failure/resume and completed states rather than adopting the demo's simplified logic.
+- Use a white working surface, subtle borders, navy primary Generate action, quieter
+  Save/Reset controls and restrained red destructive controls. Use consistent bundled
+  vector icons and accessible action labels. Keep direct lifecycle actions conditional.
+- Reflow sidebar and fields on mobile; no hidden essential actions or page overflow.
+- Verify direct Delete/Disable/Enable, confirmation/cancellation, no-action/multiple-action
+  states, module editing/order/removal, image mapping, dirty/save/reset, course switching,
+  generation failures/resume and mobile/keyboard operation against the compiled app.
+
+Earlier illustrative references:
+
+- [A — Refined desk](design/trainer-ui/blueprint-a-refined-desk.proposal.png).
+- [B — Module workspace](design/trainer-ui/blueprint-b-module-workspace.proposal.png).
+
+These generated images communicate hierarchy and layout, not final data contracts.
+Before freezing the selected reference, map every existing Blueprint field and
+image-assignment control to its destination; labels such as Key learning points
+must not imply a new backend field. Preserve existing question-count and module
+configuration controls even if omitted in these illustrative images. Do not add
+module-only Reset semantics from proposal B without defining them. Preserve the
+existing PhillipCapital wordmark and navigation; incidental generated brand or
+navigation decoration is not approved. Saved indicators must reflect real state.
+
+### Assign — Focused assignment approved with corrections
+
+The selected Assign layout is Focused assignment with the course list on the left,
+distinct aligned panels and the top action toolbar. On 23 October the user rejected
+the bottom action-bar proposal and explicitly required the current individual
+employee-selection workflow. These corrections override conflicting demo details.
+Preserve current assignment, role, observer, deadline, lifecycle and notification
+behavior. Requirements:
+
+#### Approved layout and action placement
+
+- Keep all assignable courses in the left course panel, with the selected course
+  clearly highlighted and its lifecycle/module metadata readable. This is the
+  existing Assignable Courses collection, not an expansion of eligibility or access.
+- In the main workspace, show a course heading and **top** action toolbar containing
+  Save rule, Refresh, the state-appropriate assignment button and any independent
+  permitted lifecycle action. Keep the paper-plane icon on assignment publication.
+- Do not implement a bottom/sticky assignment bar or duplicate assignment controls
+  at the bottom. The user's final choice supersedes the earlier sticky-bar suggestion.
+- Use two aligned content columns on sufficiently wide screens: Target employees
+  above Assignment preview on the left; Completion deadline above Performance
+  observers on the right. Separate sections with white surfaces, consistent borders,
+  headings/icons and spacing. Use the shared restrained corporate tokens; avoid
+  unnecessary decorative colors. Stack panels and course navigation on narrow screens.
+- Keep the observers panel distinct and its Save/Apply actions local to that panel.
+
+#### Employee selection: preserve the current workflow
+
+- The Target employees action must be **Add employees**, opening the existing
+  searchable individual employee picker/multi-selection flow. It must not open a
+  department-only selector or require a group before an individual can be selected.
+- Show selected employees with clear names and remove controls. Preserve current
+  employee identity, deduplication, inclusion/exclusion and All active employees
+  semantics. Match counts must come from the existing preview API.
+- Retain supported attribute filters, saved groups and group logic where currently
+  available; these are supplementary capabilities, not a replacement for Add employees.
+  Reuse existing picker and rule mapping rather than introducing a parallel data model.
+- The sample Add group button and department-only dialog in earlier demos are not
+  approved for the Target employees entry. Map the new entry through the existing
+  EmployeePickerDialog and existing AssignmentGroup/employee-ID structures without
+  changing backend contracts. Internal grouping must not become an extra user step.
+- Preserve current individual-employee exclusion selection as well.
+
+#### Workflow, icons and state requirements
+
+- Use the shared direct lifecycle-action rule: one permitted action renders its own
+  label; no actions means no control; multiple permitted actions remain accessible.
+  Preserve lifecycle revision checks, ownership, confirmations and impact previews.
+- The assignment publish button already has a state-specific purpose: active courses
+  use Update Assignments, drafts use Publish & Assign, disabled courses use Enable.
+  Do not duplicate Enable in a second header action. In Assign, route that single
+  primary Enable through the existing preview/confirmation/publish callback.
+- Use a recognizable paper-plane/send vector for Update Assignments and Publish &
+  Assign. Use consistent save, refresh, users, user-plus, shield/eye, calendar, search,
+  remove and warning icons with visible labels or accessible names. Keep touch targets
+  usable; do not replace them with emoji or remotely loaded assets.
+- Match Documents/Blueprint with a readable course sidebar, white workspace, restrained
+  navy primary action, subtle borders and clear section hierarchy. Keep lifecycle
+  controls distinct from assignment publication and keep destructive controls quiet.
+- Keep Target employees, include groups, exclusions and supported saved-group/filter
+  semantics. Preview matching and assigned employees with search and pagination.
+- Keep both relative deadlines and fixed dates, validated through existing range rules;
+  fixed-date copy must retain Asia/Kolkata end-of-day semantics.
+- Save Rule stores configuration; publication/Update Assignments applies employee
+  access. Keep these meanings distinct. Refresh must not silently discard drafts.
+- Observers remain performance-only and are not enrolled as learners. Keep observer
+  scope selection, permission restrictions, Save Observers and Apply Observers separate
+  from employee assignment. Apply stays blocked when observer selections are dirty
+  or the course is not published/assigned. Do not merge save/apply APIs for visual simplicity.
+- The publish confirmation refreshes the employee preview and shows the actual matched
+  employee count, deadline, removal impact and progress-retention note. Stale previews
+  and learner/observer conflicts remain blocking. Never invent employee counts in production.
+- Keep loading/error/retry and revision-conflict reload behavior, preserve pending edits,
+  block duplicate publication and ignore stale replies after changing course/user.
+- Proposed reference: [Assign — Refined desk](design/trainer-ui/assign-refined-desk.proposal.png).
+  Earlier image proposal; the final sidebar/top-toolbar reference and corrections
+  above take precedence.
+
+Selected layout reference:
+
+- [Focused assignment with left course panel and top actions](design/trainer-ui/assign-focused-sidebar.reference.html).
+- This interactive reference contains simulated saves/publication, sample employee
+  data and a simplified department selector. Use it for layout; implement the Add
+  employees correction above using the real current workflow. Update the executable
+  reference and screenshots to include that picker before final visual acceptance.
+- The bottom-actions demo is rejected and must not be used as an implementation reference.
+
+Implementation acceptance:
+
+- Verify direct lifecycle controls across eligible course states; no duplicate Enable.
+- Verify Add employees can select/search/remove one or multiple individual employees
+  without creating a group first; exercise existing saved groups and attribute filters.
+- Verify inclusions, individual exclusions, All active employees, preview search,
+  pagination and matched counts continue to use existing rule semantics and APIs.
+- Verify top Save rule versus publication, confirmation counts/deadline/impact,
+  lifecycle revision conflicts, preserved progress and duplicate-request protection.
+- Verify independent observer selection, scope, permissions, save/apply and conflict
+  blocking; employee publication must not silently apply observer edits.
+- Verify relative/fixed deadlines, Asia/Kolkata date copy, loading/error/retry,
+  unsaved-edit protection, course/user switching and narrow-screen/keyboard access.
+- Compare compiled React screens against the selected layout and explicit corrections;
+  no application deployment is authorized merely by recording this specification.
+
+Further Assign alternatives for review (not selected):
+
+- [Comparison image](design/trainer-ui/assign-alternatives.proposal.png).
+- [Interactive comparison source](design/trainer-ui/assign-comparison.proposal.html).
+- **Focused assignment:** horizontal course picker, employee selection and preview
+  together, deadline beside them, observers in an expandable lower section.
+- **Review desk:** course sidebar, Employees/Deadline/Observers tabs and a compact
+  assignment review summary alongside the active section.
+- These previews use sample employees and locally computed counts. The source, not
+  incidental generated image details, defines the interactions being demonstrated.
+  Preserve the existing wordmark/nav; image-board brand changes are not approved.
+  All-active mode must hide/ignore inclusion groups while exclusions still apply.
+- Demo date and numeric limits are illustrative; production must retain its existing
+  server validation and date range. No proposal permits replacing supported group
+  criteria or observer scopes with only the sample department dropdowns.
+- Saving employee rules does not enroll learners; applying observer access does not
+  publish employee assignments. Review actual counts and deadline before publication.
+  Keep production conflict checks, observer permissions and duplicate-action guards.
 
 ### Change log
 
-| Date        | Decision                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------------------------- |
-| 22 Oct 2026 | Selected Focused desk over side-by-side and library-first alternatives                                         |
-| 22 Oct 2026 | Renamed uploaded library; removed uploaded-file Edit first; required full-document inline preview              |
-| 22 Oct 2026 | Confirmed uploaded-file Create course opens Blueprint; videos/quizzes start only on its Generate Course action |
-| 22 Oct 2026 | Created dedicated branch and continuing specification; added Gemini-inspired AI sparkle reference              |
+| Date        | Decision                                                                                                                                      |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 22 Oct 2026 | Selected Focused desk over side-by-side and library-first alternatives                                                                        |
+| 22 Oct 2026 | Renamed uploaded library; removed uploaded-file Edit first; required full-document inline preview                                             |
+| 22 Oct 2026 | Confirmed uploaded-file Create course opens Blueprint; videos/quizzes start only on its Generate Course action                                |
+| 22 Oct 2026 | Created dedicated branch and continuing specification; added Gemini-inspired AI sparkle reference                                             |
+| 22 Oct 2026 | Approved Smart document AI, upload-document, red PDF and navy draft icons from subsequent image proposal; old sparkle superseded              |
+| 22 Oct 2026 | Recorded Blueprint direct single-action requirement and requested corporate layout demos; layout selection pending                            |
+| 22 Oct 2026 | Approved Blueprint Option A Refined desk interactive demo; recorded workflow and visual acceptance requirements                               |
+| 22 Oct 2026 | Started Assign review: direct lifecycle actions, paper-plane assignment icon, corporate layout; existing employee/observer semantics retained |
+| 23 Oct 2026 | Selected Assign Focused assignment with left course list and distinct panels; retained top actions and rejected bottom action bar             |
+| 23 Oct 2026 | Required Add employees with existing individual selection workflow; department-only Add group demo is superseded                              |

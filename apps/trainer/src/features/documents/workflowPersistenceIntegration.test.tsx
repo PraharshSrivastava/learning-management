@@ -58,7 +58,8 @@ it('keeps edits after the first autosave updates the draft URL without fetching 
     return []
   })
   const view = renderDocuments('/?tab=documents')
-  fireEvent.click(await screen.findByText('Start blank', { selector: 'strong' }))
+  // New authoring starts through AI; existing blank drafts still reopen by ID.
+  fireEvent.click(await screen.findByRole('button', { name: /Generate with AI/ }))
   const topic = screen.getByRole('textbox', { name: 'Topic or title' })
   fireEvent.change(topic, { target: { value: 'Autosaved title' } })
   await waitFor(() => expect(view.search().draft).toBe('d1'), { timeout: 2500 })

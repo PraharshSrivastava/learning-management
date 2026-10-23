@@ -1,12 +1,19 @@
 import { apiUrl, authHeaders, errorMessage } from '@lms/shared/api/client'
 import { parseCourse } from '@lms/shared/models'
+import { Icon } from '@lms/shared/ui/icons/Icon'
 import { useDraftPersistence } from './useDraftPersistence'
 import { WorkflowTools, SourceAnswer } from './WorkflowTools'
 import { useBlocker } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStoreCourse } from '../courses/courseQueries'
 import { useUpdateTrainerSearch } from '../../shell/search'
-import { TextBlockEditor, isEmptyModule, splitModule, mergeModules } from './editorParity'
+import {
+  TextBlockEditor,
+  isEmptyModule,
+  splitModule,
+  mergeModules,
+  toggleMark,
+} from './editorParity'
 import {
   draftApi,
   postDraft,
@@ -25,6 +32,11 @@ const input = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text
 const button =
   'rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-primary-blue disabled:opacity-40'
 const primary = `${button} !bg-primary-blue !text-white`
+// Do not turn validation, permission or conversion failures into a provider warning.
+export const isModelUnavailable = (message: string) =>
+  /(?:model|provider|AI service|LLM|RunPod).{0,80}(?:unavailable|offline|unreachable|connection|timed? out)|(?:cannot|could not|couldn't|unable to) (?:reach|connect to).{0,40}(?:model|provider|AI service|LLM|RunPod)/i.test(
+    message,
+  )
 type Props = {
   draftId?: string
   mode: 'ai' | 'blank' | 'existing'
@@ -348,7 +360,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
       </section>
     )
   return (
-    <section className="mx-auto max-w-[1440px] p-4 md:p-8">
+    <section className="documents-desk mx-auto max-w-[1440px] p-4 font-inter md:p-8">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <button
@@ -367,14 +379,28 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
               ? content.metadata.courseName || 'Untitled document'
               : 'Create a training document'}
           </h1>
-          <p className="text-sm text-slate-500">
-            {busy || saving
-              ? 'Saving…'
-              : dirty
-                ? 'Unsaved changes'
-                : draft
-                  ? 'All changes saved'
-                  : 'Choose your content and review before creating a course.'}
+          <p
+            role="status"
+            className={`flex items-center gap-2 text-sm ${saveError ? 'text-[#a43441]' : saving || working ? 'text-[#153c83]' : draft && !dirty ? 'text-[#14694b]' : 'text-slate-500'}`}
+          >
+            <Icon
+              name={
+                saveError ? 'error_outline' : saving || working ? 'refresh' : 'check_circle_outline'
+              }
+              size={17}
+              className={saving || working ? 'motion-safe:animate-spin' : undefined}
+            />
+            {saveError
+              ? 'Changes could not be saved'
+              : saving
+                ? 'Saving…'
+                : working
+                  ? 'Processing your request…'
+                  : dirty
+                    ? 'Unsaved changes'
+                    : draft
+                      ? 'All changes saved'
+                      : 'Choose your content and review before creating a course.'}
           </p>
         </div>
         {draft && (
@@ -419,7 +445,11 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         )}
       </header>
       {(error || saveError) && (
-        <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-red-200 bg-[#fff1f2] p-4 text-[#a43441]"
+        >
+          <Icon name="error_outline" size={20} className="mb-2" />
           {error || saveError}
           <p className="mt-1 text-sm">
             Your local edits are kept. If another session changed this draft, reopen it before
@@ -441,11 +471,15 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         </div>
       )}
       {operation && ['queued', 'running'].includes(operation.status) && (
-        <div role="status" className="mb-4 flex justify-between rounded-xl bg-blue-50 p-4">
-          <span>AI is working. Completed content is saved on the server.</span>
-          <button className={button} onClick={() => void run(async () => {})} hidden>
-            Working
-          </button>
+        <div
+          role="status"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-[#153c83]"
+        >
+          <span className="flex items-center gap-2">
+            <Icon name="refresh" size={20} className="motion-safe:animate-spin" />
+            {operation.status === 'queued' ? 'AI request queued' : 'AI is preparing your content'}.
+            Your existing content is preserved.
+          </span>
           <button
             className={button}
             onClick={() => {
@@ -460,8 +494,45 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         </div>
       )}
       {operation?.status === 'failed' && (
-        <div role="alert" className="mb-4 rounded-lg bg-red-50 p-4">
-          {operation.error || 'Generation failed. Your saved content is unchanged.'}
+        <div
+          role="alert"
+          className={`mb-4 rounded-lg border p-4 ${isModelUnavailable(operation.error || '') ? 'border-amber-200 bg-[#fff7e9] text-[#865515]' : 'border-red-200 bg-[#fff1f2] text-[#a43441]'}`}
+        >
+          <Icon
+            name={
+              isModelUnavailable(operation.error || '') ? 'warning_amber_rounded' : 'error_outline'
+            }
+            size={20}
+            className="mb-2"
+          />
+          {isModelUnavailable(operation.error || '') ? (
+            <>
+              <p className="font-medium">Document model is unavailable</p>
+              <p>
+                We couldn't reach the AI service. Your work is safe. Try again or continue editing.
+              </p>
+            </>
+          ) : (
+            operation.error || 'Generation failed. Your saved content is unchanged.'
+          )}
+          <button
+            className={`${button} mt-3`}
+            disabled={working}
+            onClick={() =>
+              void run(async () => {
+                const value = await save()
+                setOperation(
+                  await postDraft<Operation>(`/${value.id}/operations`, {
+                    ...operation.request,
+                    expectedRevision: value.revision,
+                    key: id(),
+                  }),
+                )
+              })
+            }
+          >
+            Try again
+          </button>
           <button className={`${button} ml-3`} onClick={() => setOperation(null)}>
             Dismiss
           </button>
@@ -951,51 +1022,43 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                             })
                           }
                         />
-                        <div className="mb-5 flex flex-wrap gap-2">
-                          <button className={button} onClick={() => addBlock(paragraph())}>
-                            + Paragraph
-                          </button>
-                          <button
-                            className={button}
-                            onClick={() => addBlock({ ...paragraph('Heading'), type: 'heading' })}
-                          >
-                            + Heading
-                          </button>
-                          {[false, true].map((ordered) => (
+                        <div
+                          role="toolbar"
+                          aria-label="Module formatting and images"
+                          className="mb-5 flex flex-wrap gap-2"
+                        >
+                          {(['bold', 'italic'] as const).map((format) => (
                             <button
-                              key={String(ordered)}
+                              key={format}
                               className={button}
-                              onClick={() =>
-                                addBlock({
-                                  id: id(),
-                                  type: 'list',
-                                  items: ['First item'],
-                                  ordered,
-                                  sourceReferences: [],
-                                })
-                              }
+                              disabled={!selection || selection.start === selection.end}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                if (!selection) return
+                                const block = module.blocks.find((b) => b.id === selection.blockId)
+                                if (!block || !('text' in block)) return
+                                changeBlock(
+                                  block.id,
+                                  toggleMark(
+                                    block,
+                                    Array.from(block.text.slice(0, selection.start)).length,
+                                    Array.from(block.text.slice(0, selection.end)).length,
+                                    format,
+                                  ),
+                                )
+                              }}
                             >
-                              {ordered ? '+ Numbered list' : '+ Bullet list'}
+                              {format === 'bold' ? 'Bold' : 'Italic'}
                             </button>
                           ))}
                           <button
                             className={button}
-                            onClick={() =>
-                              addBlock({
-                                id: id(),
-                                type: 'table',
-                                rows: [
-                                  ['Column 1', 'Column 2'],
-                                  ['Value', 'Value'],
-                                ],
-                                sourceReferences: [],
-                              })
-                            }
+                            onClick={() => addBlock({ ...paragraph('Heading'), type: 'heading' })}
                           >
-                            + Table
+                            Heading
                           </button>
                           <label className={`${button} cursor-pointer`}>
-                            + Image
+                            Image
                             <input
                               className="sr-only"
                               type="file"
@@ -1114,6 +1177,9 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                             </button>
                           </div>
                         ))}
+                        <button className={button} onClick={() => addBlock(paragraph())}>
+                          Add paragraph
+                        </button>
                       </>
                     ) : (
                       <p>Select or add a module to begin.</p>
