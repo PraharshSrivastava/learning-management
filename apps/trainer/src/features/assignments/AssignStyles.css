@@ -1,0 +1,369 @@
+/* Assign only: Focused assignment desk, matching the Documents and Blueprint tokens. */
+.assign-desk {
+  --as-background: #f4f6fa;
+  --as-panel: #fff;
+  --as-text: #19273e;
+  --as-muted: #5b6980;
+  --as-border: #e0e7f0;
+  --as-primary: #153c83;
+  --as-soft: #edf3fc;
+  min-height: 100%;
+  background: var(--as-background);
+  color: var(--as-text);
+  font-family: var(--font-inter);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.assign-desk :is(button, input, textarea, select, span, label, p, h1, h2, h3, h4) {
+  font-family: inherit;
+  letter-spacing: normal;
+}
+.assign-desk :is(button, input, textarea, select):focus-visible {
+  outline: 2px solid var(--as-primary);
+  outline-offset: 2px;
+}
+.assign-desk .assign-layout {
+  display: grid;
+  grid-template-columns: clamp(272px, 22vw, 340px) minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 32px 32px;
+  align-items: start;
+}
+
+/* Course sidebar */
+.assign-desk .assign-sidebar {
+  position: sticky;
+  top: 24px;
+  min-width: 0;
+  height: calc(100dvh - 72px - 48px);
+  min-height: 360px;
+}
+.assign-desk .assign-course-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--as-panel);
+  border: 1px solid var(--as-border);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px #1d3d640a,
+    0 6px 18px #1d3d640d;
+}
+.assign-desk .assign-course-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 20px 20px 14px;
+}
+.assign-desk .assign-course-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.assign-desk .assign-count {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--as-soft);
+  color: var(--as-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+}
+.assign-desk .assign-course-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  margin: 0 20px 14px;
+  padding: 0 12px;
+  border: 1px solid var(--as-border);
+  border-radius: 10px;
+  background: var(--as-background);
+  color: var(--as-muted);
+}
+.assign-desk .assign-course-search:focus-within {
+  border-color: var(--as-primary);
+  background: var(--as-panel);
+}
+.assign-desk .assign-course-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--as-text);
+  font-size: 13px;
+}
+.assign-desk .assign-course-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--as-border);
+  padding: 10px 12px 12px;
+  scrollbar-width: thin;
+}
+.assign-desk .assign-course-scroll li + li {
+  margin-top: 4px;
+}
+.assign-desk .assign-course-row {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: left;
+  transition: background 0.15s;
+}
+.assign-desk .assign-course-row:hover {
+  background: var(--as-background);
+}
+.assign-desk .assign-course-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--as-background);
+  color: var(--as-muted);
+}
+.assign-desk .assign-course-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.assign-desk .assign-course-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--as-muted);
+  font-size: 11px;
+}
+.assign-desk .assign-course-selected,
+.assign-desk .assign-course-selected:hover {
+  background: var(--as-soft);
+  box-shadow: inset 3px 0 0 var(--as-primary);
+}
+.assign-desk .assign-course-selected .assign-course-icon {
+  background: var(--as-panel);
+  color: var(--as-primary);
+}
+.assign-desk .assign-course-selected .assign-course-title {
+  color: var(--as-primary);
+  font-weight: 600;
+}
+
+/* Workspace */
+.assign-desk .assign-empty {
+  display: grid;
+  place-content: center;
+  min-height: 320px;
+  padding: 32px;
+  text-align: center;
+  background: var(--as-panel);
+  border: 1px dashed var(--as-border);
+  border-radius: 14px;
+}
+.assign-desk .assign-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 24px;
+  margin-bottom: 20px;
+  padding: 22px 24px;
+  background: var(--as-panel);
+  border: 1px solid var(--as-border);
+  border-radius: 14px;
+}
+.assign-desk .assign-kicker {
+  color: var(--as-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+}
+.assign-desk .assign-title {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.assign-desk .assign-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--as-muted);
+  font-size: 12px;
+}
+.assign-desk .assign-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+/* Restrained corporate buttons in place of the Material pills used elsewhere. */
+.assign-desk .assign-button,
+.assign-desk .assign-actions > button,
+.assign-desk .assign-actions > span > button {
+  height: 38px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--as-border);
+  border-radius: 8px;
+  background: var(--as-panel);
+  color: var(--as-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.assign-desk .assign-button:hover:enabled {
+  background: var(--as-soft);
+}
+.assign-desk .assign-button.assign-primary {
+  border-color: var(--as-primary);
+  background: var(--as-primary);
+  color: #fff;
+}
+.assign-desk .assign-button.assign-primary:hover:enabled {
+  background: #0f2f69;
+}
+.assign-desk .assign-button:disabled {
+  opacity: 0.5;
+}
+.assign-desk .assign-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.assign-desk .assign-column {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.assign-desk .assign-panel {
+  min-width: 0;
+  padding: 20px;
+  background: var(--as-panel);
+  border: 1px solid var(--as-border);
+  border-radius: 14px;
+}
+.assign-desk .assign-panel.assign-preview {
+  border-top: 3px solid var(--as-primary);
+}
+.assign-desk .assign-panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.assign-desk .assign-panel-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--as-soft);
+  color: var(--as-primary);
+}
+.assign-desk .assign-panel-head h3 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.assign-desk .assign-panel-head p {
+  margin-top: 2px;
+  color: var(--as-muted);
+  font-size: 12px;
+}
+.assign-desk .assign-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--as-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.assign-desk .assign-subsection {
+  padding-top: 18px;
+  border-top: 1px solid var(--as-border);
+}
+.assign-desk .assign-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--as-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Two columns once the workspace has room: employees and preview, then deadline and observers. */
+@media (min-width: 1280px) {
+  .assign-desk .assign-grid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr);
+  }
+}
+@media (min-width: 1100px) {
+  .assign-desk .assign-heading {
+    flex-wrap: nowrap;
+  }
+  .assign-desk .assign-actions {
+    flex: 0 0 auto;
+  }
+}
+@media (max-width: 1024px) {
+  .assign-desk .assign-layout {
+    grid-template-columns: 248px minmax(0, 1fr);
+    padding: 20px;
+    gap: 16px;
+  }
+  .assign-desk .assign-sidebar {
+    height: calc(100dvh - 72px - 40px);
+  }
+}
+@media (max-width: 800px) {
+  .assign-desk .assign-layout {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+  .assign-desk .assign-sidebar {
+    position: static;
+    height: auto;
+    min-height: 0;
+    max-height: 360px;
+  }
+  .assign-desk .assign-course-list {
+    max-height: 360px;
+  }
+}
+@media (max-width: 480px) {
+  .assign-desk .assign-heading,
+  .assign-desk .assign-panel {
+    padding: 16px;
+  }
+  .assign-desk .assign-title {
+    font-size: 20px;
+  }
+  .assign-desk .assign-actions {
+    width: 100%;
+  }
+}

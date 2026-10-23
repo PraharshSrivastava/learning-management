@@ -86,48 +86,75 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('RuleView', () => {
-  it('the switch hides and shows the include groups', async () => {
+  it('the switch hides and shows individual employee selection', async () => {
     const user = userEvent.setup()
     const { workspace } = setup({ include_all: true, deadline_days: 7 })
     await workspace.loadForCourse('c1')
     const toggle = await screen.findByRole('switch', { name: 'All active employees' })
     expect(toggle.getAttribute('aria-checked')).toBe('true')
-    const target = screen.getByRole('region', { name: 'Target Employees' })
-    expect(within(target).queryByRole('button', { name: 'Add group' })).toBeNull()
+    const target = screen.getByRole('region', { name: 'Target employees' })
+    expect(within(target).queryByRole('button', { name: 'Add employees' })).toBeNull()
 
     await user.click(toggle)
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(workspace.getState().rule.includeAll).toBe(false)
     expect(workspace.getState().dirty).toBe(true)
-    expect(within(target).getByRole('button', { name: 'Add group' })).toBeTruthy()
+    expect(within(target).getByRole('button', { name: 'Add employees' })).toBeTruthy()
+    // No group has to be created before an individual employee can be chosen.
+    expect(within(target).queryByRole('button', { name: 'Add group' })).toBeNull()
   })
 
-  it('adds a group, picks an employee and removes the chip', async () => {
+  it('adds several employees at once without creating a group, then removes them', async () => {
     const user = userEvent.setup()
     const { workspace } = setup({ include_all: false, deadline_days: 7 })
     await workspace.loadForCourse('c1')
-    const target = await screen.findByRole('region', { name: 'Target Employees' })
-    await user.click(within(target).getByRole('button', { name: 'Add group' }))
-    const group = within(target).getByRole('region', { name: 'Include group 1' })
-    expect(
-      (within(group).getByRole('textbox', { name: 'Group name' }) as HTMLInputElement).value,
-    ).toBe('Group 1')
-
-    await user.click(within(group).getByRole('button', { name: 'Add employee' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Add employee' })
-    await user.click(within(dialog).getByRole('button', { name: /Meera Iyer/ }))
+    const target = await screen.findByRole('region', { name: 'Target employees' })
+    await user.click(within(target).getByRole('button', { name: 'Add employees' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add employees' })
+    await user.type(within(dialog).getByRole('searchbox'), 'a')
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Meera Iyer (e2)' }))
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Arjun Mehta (e3)' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Add 2 employees' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(workspace.getState().rule.includeGroups[0]?.employeeIds).toEqual(['e2'])
-    expect(within(group).getByText('Meera Iyer (e2)')).toBeTruthy()
-    // Specific employees hide the attribute filters.
-    expect(within(group).queryByText('Departments')).toBeNull()
+    expect(workspace.getState().rule.includeGroups).toEqual([
+      expect.objectContaining({ name: 'Selected employees', employeeIds: ['e2', 'e3'] }),
+    ])
+    expect(within(target).getByText('Meera Iyer (e2)')).toBeTruthy()
 
-    await user.click(within(group).getByRole('button', { name: /Remove Meera Iyer/ }))
-    expect(workspace.getState().rule.includeGroups[0]?.employeeIds).toEqual([])
+    await user.click(within(target).getByRole('button', { name: /Remove Meera Iyer/ }))
+    expect(workspace.getState().rule.includeGroups[0]?.employeeIds).toEqual(['e3'])
+    await user.click(within(target).getByRole('button', { name: /Remove Arjun Mehta/ }))
+    expect(workspace.getState().rule.includeGroups).toEqual([])
+  })
+
+  it('keeps department filters as a supplementary group beside picked employees', async () => {
+    const user = userEvent.setup()
+    const { workspace } = setup({ include_all: false, deadline_days: 7 })
+    await workspace.loadForCourse('c1')
+    const target = await screen.findByRole('region', { name: 'Target employees' })
+    await user.click(
+      within(target).getByRole('button', { name: 'Departments, mailing lists and saved groups' }),
+    )
+    await user.click(within(target).getByRole('button', { name: 'Add filter group' }))
+    const group = within(target).getByRole('region', { name: 'Include group 1' })
     expect(within(group).getByText('Departments')).toBeTruthy()
+    // Individual employees are chosen with Add employees, not inside a filter group.
+    expect(within(group).queryByRole('button', { name: 'Add employee' })).toBeNull()
+  })
 
-    await user.click(within(group).getByRole('button', { name: 'Remove group' }))
-    expect(within(target).queryByRole('region', { name: 'Include group 1' })).toBeNull()
+  it('excludes individual employees through the same picker', async () => {
+    const user = userEvent.setup()
+    const { workspace } = setup({ include_all: true, deadline_days: 7 })
+    await workspace.loadForCourse('c1')
+    const exclusions = await screen.findByRole('group', { name: 'Exclusions' })
+    await user.click(within(exclusions).getByRole('button', { name: 'Exclude employees' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Exclude employees' })
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Dev Patel (e1)' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Exclude 1 employee' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(workspace.getState().rule.excludeGroups).toEqual([
+      expect.objectContaining({ employeeIds: ['e1'] }),
+    ])
     expect(workspace.getState().rule.includeGroups).toEqual([])
   })
 
@@ -138,10 +165,10 @@ describe('RuleView', () => {
       include_groups: [{ group_id: 'g', name: 'Mixed order', employee_ids: ['gone', 'e3', 'e1'] }],
     })
     await workspace.loadForCourse('c1')
-    const group = await screen.findByRole('region', { name: 'Include group 1' })
-    const labels = within(group)
+    const target = await screen.findByRole('region', { name: 'Target employees' })
+    await within(target).findByText('Dev Patel (e1)')
+    const labels = within(target)
       .getAllByRole('button', { name: /^Remove / })
-      .filter((b) => b.getAttribute('aria-label') !== 'Remove group')
       .map((b) => b.getAttribute('aria-label'))
     expect(labels).toEqual([
       expect.stringContaining('Dev Patel (e1)'),
@@ -185,7 +212,7 @@ describe('RuleView', () => {
       deadline_days: 7,
     })
     await workspace.loadForCourse('c1')
-    const section = await screen.findByRole('region', { name: 'Completion Deadline' })
+    const section = await screen.findByRole('region', { name: 'Completion deadline' })
     const date = within(section).getByLabelText('Completion date') as HTMLInputElement
     expect(date.value).toBe('2099-10-31')
     expect(within(section).getByText('Due by the end of this date (Asia/Kolkata).')).toBeTruthy()

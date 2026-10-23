@@ -26,6 +26,11 @@ interface GroupListProps {
   savedGroups: SavedAssignmentGroup[]
   options: AssignmentOptions
   allowJoinedFilter?: boolean
+  /**
+   * False when individual employees are picked elsewhere (the Assign tab's Add employees): new
+   * groups offer filters only, and existing employee ids stay visible so they can be removed.
+   */
+  allowEmployees?: boolean
   /** Employee picker title: "Add employee" for include groups, "Exclude employee" for exclusions. */
   pickerTitle: string
   label: string
@@ -37,6 +42,7 @@ export function GroupList({
   savedGroups,
   options,
   allowJoinedFilter = true,
+  allowEmployees = true,
   pickerTitle,
   label,
   onChange,
@@ -52,6 +58,7 @@ export function GroupList({
             group={group}
             options={options}
             allowJoinedFilter={allowJoinedFilter}
+            allowEmployees={allowEmployees}
             pickerTitle={pickerTitle}
             onChange={(next) => onChange(groups.map((item, i) => (i === index ? next : item)))}
             onDelete={() => onChange(groups.filter((_, i) => i !== index))}
@@ -66,7 +73,7 @@ export function GroupList({
             onChange([...groups, emptyAssignmentGroup({ name: `Group ${groups.length + 1}` })])
           }
         >
-          Add group
+          {allowEmployees ? 'Add group' : 'Add filter group'}
         </ActionButton>
         {savedGroups.length > 0 && (
           <ActionButton icon="bookmark_add_outlined" onClick={() => setSavedOpen(true)}>
@@ -90,6 +97,7 @@ interface GroupCardProps {
   group: AssignmentGroup
   options: AssignmentOptions
   allowJoinedFilter: boolean
+  allowEmployees: boolean
   pickerTitle: string
   onChange: (group: AssignmentGroup) => void
   onDelete: () => void
@@ -101,12 +109,15 @@ function GroupCard({
   group,
   options,
   allowJoinedFilter,
+  allowEmployees,
   pickerTitle,
   onChange,
   onDelete,
 }: GroupCardProps) {
   const mixed = hasMixedSelection(group)
-  const showEmployees = !hasAttributeFilters(group) || mixed
+  const showEmployees = allowEmployees
+    ? !hasAttributeFilters(group) || mixed
+    : hasEmployeeSelection(group)
   const showAttributes = !hasEmployeeSelection(group) || mixed
   const displayName = group.name.trim() ? group.name : `Group ${index + 1}`
   return (

@@ -228,3 +228,95 @@ function SavedGroupPickerBody({ savedGroups, onPick, onOpenChange }: SavedGroupP
     </Body>
   )
 }
+
+interface EmployeeMultiPickerProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  /** Confirm button text for the number picked. */
+  actionLabel: (count: number) => string
+  employees: Employee[]
+  onPick: (employees: Employee[]) => void
+}
+
+/** Searchable multi-select of individual employees (the Assign tab's Add employees). */
+export function EmployeeMultiPickerDialog(props: EmployeeMultiPickerProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange} title={props.title} width={568}>
+      {props.open && <EmployeeMultiPickerBody {...props} />}
+    </Dialog>
+  )
+}
+
+function EmployeeMultiPickerBody({
+  employees,
+  actionLabel,
+  onPick,
+  onOpenChange,
+}: EmployeeMultiPickerProps) {
+  const [query, setQuery] = useState('')
+  const [picked, setPicked] = useState<string[]>([])
+  const needle = query.toLowerCase()
+  const filtered = employees.filter((e) =>
+    `${e.name} ${e.employeeId} ${e.department} ${e.jobTitle} ${e.mailingLists.join(' ')}`
+      .toLowerCase()
+      .includes(needle),
+  )
+  return (
+    <>
+      <Body height={440}>
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="Search by name, ID or department"
+        />
+        <p className="mt-2 px-1 text-xs text-[#5b6980]">
+          {filtered.length} of {employees.length} active employees
+          {picked.length > 0 && ` · ${picked.length} selected`}
+        </p>
+        <div className="mt-2 min-h-0 flex-1 overflow-auto">
+          {filtered.length === 0 && (
+            <p className="p-4 text-sm text-[#5b6980]">No employees match your search.</p>
+          )}
+          {filtered.map((employee) => (
+            <CheckboxRow
+              key={employee.employeeId}
+              dense
+              aria-label={`${employee.name} (${employee.employeeId})`}
+              checked={picked.includes(employee.employeeId)}
+              onChange={(checked) =>
+                setPicked((current) =>
+                  checked
+                    ? [...current, employee.employeeId]
+                    : current.filter((id) => id !== employee.employeeId),
+                )
+              }
+            >
+              <span className="block text-sm text-[#19273e]">{employee.name}</span>
+              <span className="block text-xs text-[#5b6980]">
+                {[employee.employeeId, employee.department, employee.jobTitle]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+            </CheckboxRow>
+          ))}
+        </div>
+      </Body>
+      <div className="mt-6 flex justify-end gap-2">
+        <ActionButton variant="text" onClick={() => onOpenChange(false)}>
+          Cancel
+        </ActionButton>
+        <ActionButton
+          variant="filled"
+          disabled={picked.length === 0}
+          onClick={() => {
+            onPick(employees.filter((e) => picked.includes(e.employeeId)))
+            onOpenChange(false)
+          }}
+        >
+          {actionLabel(picked.length)}
+        </ActionButton>
+      </div>
+    </>
+  )
+}

@@ -9,10 +9,10 @@ import { useBlockingOverlay } from '../../shell/overlay'
 import { trainerKeys } from '../../shell/queryKeys'
 import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
 import { fetchRequester, paths, type Requester } from './api'
-import { useMediaQuery } from './controls'
 import { RuleView } from './RuleView'
 import { Sidebar } from './Sidebar'
 import { AssignmentWorkspace } from './workspace'
+import './AssignStyles.css'
 
 const PUBLISH_MESSAGE = 'Publishing assignment...\nPublishing may take up to 2 minutes.'
 
@@ -32,7 +32,6 @@ export function AssignTab({ request = fetchRequester }: { request?: Requester })
   const { person, token } = useSession<Trainer>()
   const { course: selectedId } = useTrainerSearch()
   const updateSearch = useUpdateTrainerSearch()
-  const isMobile = useMediaQuery('(max-width: 899px)')
 
   const courses = useQuery({
     queryKey: trainerKeys.assignableCourses,
@@ -105,8 +104,11 @@ export function AssignTab({ request = fetchRequester }: { request?: Requester })
   )
   const rule =
     course == null ? (
-      <div className="flex h-full items-center justify-center text-[#667085]">
-        Select a course to configure assignment rules.
+      <div className="assign-empty">
+        <p className="font-medium text-[#19273e]">Select a course to assign</p>
+        <p className="mt-1 text-sm text-[#5b6980]">
+          Choose a course on the left to set its employees, deadline and observers.
+        </p>
       </div>
     ) : (
       <RuleView
@@ -118,19 +120,15 @@ export function AssignTab({ request = fetchRequester }: { request?: Requester })
       />
     )
 
-  if (isMobile) {
-    return (
-      <div>
-        <div className="h-[382px] p-4">{sidebar}</div>
-        <div className="px-4">{rule}</div>
-      </div>
-    )
-  }
   return (
-    <div className="flex h-full">
-      <div className="w-[380px] shrink-0 p-5">{sidebar}</div>
-      <div className="flex min-w-0 flex-1 flex-col pt-5 pr-6 pb-6 pl-6 [&>*]:min-h-0 [&>*]:flex-1">
-        {rule}
+    <div className="assign-desk">
+      <div className="assign-layout">
+        <aside className="assign-sidebar" aria-label="Assignable course navigation">
+          {sidebar}
+        </aside>
+        <main className="min-w-0" aria-label="Course assignment workspace">
+          {rule}
+        </main>
       </div>
     </div>
   )

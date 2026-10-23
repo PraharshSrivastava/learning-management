@@ -79,6 +79,8 @@ interface CourseActionsMenuProps {
   course: Course
   /** Blueprint presents a sole permitted action directly; other tabs retain their menu. */
   directSingle?: boolean
+  /** Actions another control already offers (Assign's publish button is its Enable). */
+  exclude?: CourseAction[]
   /** Text and icon color of the trigger. Default is the body text color. */
   foregroundColor?: string
   /** Replaces the default Enable step (open the Assign tab). The Assign tab asks to publish. */
@@ -97,6 +99,7 @@ export function CourseActionsMenu({
   onEnable,
   onChanged,
   directSingle = false,
+  exclude = [],
 }: CourseActionsMenuProps) {
   const { person, token } = useSession<Trainer>()
   const queryClient = useQueryClient()
@@ -119,7 +122,7 @@ export function CourseActionsMenu({
 
   if (!person || person.trainerId !== course.trainerId) return null
 
-  const actions = courseActions(course)
+  const actions = courseActions(course).filter((action) => !exclude.includes(action))
   if (directSingle && actions.length === 0) return null
   const enabled = !busy && actions.length > 0 && !isGenerationBusy(course)
 

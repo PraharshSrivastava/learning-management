@@ -35,6 +35,24 @@ const openMenu = async () => {
 }
 
 describe('CourseActionsMenu', () => {
+  describe('Assign excludes Enable, which its publish button already offers', () => {
+    it('shows nothing for a disabled course with no other action', async () => {
+      stubFetch(() => null)
+      renderCourses(
+        menuFor({ lifecycle_state: 'disabled' }, { directSingle: true, exclude: ['Enable'] }),
+      )
+      await screen.findByText('Mounted')
+      expect(screen.queryByRole('button', { name: 'Enable' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Course actions' })).not.toBeInTheDocument()
+    })
+    it('still offers Disable directly for an active course', async () => {
+      stubFetch(() => null)
+      renderCourses(
+        menuFor({ lifecycle_state: 'active' }, { directSingle: true, exclude: ['Enable'] }),
+      )
+      expect(await screen.findByRole('button', { name: 'Disable' })).toBeInTheDocument()
+    })
+  })
   describe('Blueprint direct single action', () => {
     it('shows Delete directly and keeps typed confirmation and cancellation intact', async () => {
       const fetchMock = stubFetch(() => null)
