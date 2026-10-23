@@ -24,6 +24,42 @@ def test_silence_is_not_included_in_cues():
     ]
 
 
+def test_zero_length_word_within_phrase_is_accepted():
+    # Observed from Qwen3-ForcedAligner on real narration: "to" snapped to one frame boundary.
+    words = [
+        {"text": "questions", "start": 10.88, "end": 11.44},
+        {"text": "to", "start": 11.44, "end": 11.44},
+        {"text": "dig", "start": 11.44, "end": 11.84},
+    ]
+    assert group_cues("questions to dig.", words, 12) == [
+        {"start": 10.88, "end": 11.84, "text": "questions to dig."}
+    ]
+
+
+def test_long_sentence_is_split_evenly_without_orphan_word():
+    # Real module 1 narration that previously left "solutions." as its own 0.9 s cue.
+    script = (
+        "By the end, you will know how to truly hear your customers before offering any solutions."
+    )
+    words = [
+        {"text": word, "start": i * 0.3, "end": (i + 1) * 0.3}
+        for i, word in enumerate(display_words(script)[0].rstrip(".").split())
+    ]
+    cues = group_cues(script, words, 6)
+    assert [cue["text"] for cue in cues] == [
+        "By the end, you will know how to truly hear",
+        "your customers before offering any solutions.",
+    ]
+    assert all(len(cue["text"]) <= 78 for cue in cues)
+
+
+def test_long_phrase_prefers_comma_and_respects_duration():
+    words = [{"text": f"w{i}", "start": i, "end": i + 0.9} for i in range(8)]
+    cues = group_cues("w0 w1 w2, w3 w4 w5 w6 w7.", words, 9)
+    assert [cue["text"] for cue in cues] == ["w0 w1 w2,", "w3 w4 w5 w6 w7."]
+    assert all(cue["end"] - cue["start"] <= 6 for cue in cues)
+
+
 def test_financial_normalization_preserves_readable_text():
     transcript, mapping = display_words("Revenue in FY 25-26 was INR 1,000 and rose 5%.")
     assert "financial year 25 26" in transcript
