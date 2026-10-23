@@ -318,6 +318,41 @@ it('starts AI outline once after creating a persistent draft and shows proposal 
   ).toHaveLength(1)
   expect(current.content.modules).toHaveLength(0)
 })
+it('does not show an old model failure that later operations superseded', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      modules: [
+        { id: 'm1', title: 'Listening', objective: '', included: true, sections: [], blocks: [] },
+      ],
+    },
+    approvedOutline: null,
+    createdAt: 'now',
+    updatedAt: 'now',
+  }
+  const failed = {
+    id: 'old',
+    status: 'failed',
+    error: 'Document model is unavailable; your draft is unchanged',
+    request: { task: 'outline' },
+  }
+  stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/operations'))
+      return [{ id: 'new', status: 'accepted', request: { task: 'edit' } }, failed]
+    if (url.pathname.endsWith('/sources')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  expect(await screen.findByDisplayValue('Listening')).toBeInTheDocument()
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  })
+  expect(screen.queryByText('Document model is unavailable')).not.toBeInTheDocument()
+})
 it('removes a draft with its revision and supports undo', async () => {
   const value = {
     draft_id: 'draft1',

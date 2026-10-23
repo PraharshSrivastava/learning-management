@@ -113,12 +113,15 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         })
       draftApi<Operation[]>(`/${draftId}/operations`, { signal: abort.signal })
         .then((values) => {
-          const pending = values.find(
-            (v) =>
-              ['queued', 'running', 'proposed', 'failed'].includes(v.status) ||
-              (v.status === 'completed' && v.request.task === 'answer'),
+          // Newest first. Only the latest operation is current: an old failure that later
+          // operations superseded must not reappear as an outage banner.
+          const latest = values[0]
+          if (
+            latest &&
+            (['queued', 'running', 'proposed', 'failed'].includes(latest.status) ||
+              (latest.status === 'completed' && latest.request.task === 'answer'))
           )
-          if (pending) setOperation(pending)
+            setOperation(latest)
         })
         .catch(() => {})
     }
