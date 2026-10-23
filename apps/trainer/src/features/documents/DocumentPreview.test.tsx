@@ -90,3 +90,16 @@ it('aborts obsolete requests when another file is selected', async () => {
   unmount()
   expect(requests[1]?.aborted).toBe(true)
 })
+it('reads any PDF source and shows its own failure message', async () => {
+  const { PdfReader } = await import('./DocumentPreview')
+  const load = vi.fn(async () => {
+    throw new Error('PDF preview failed. Check your document and try again.')
+  })
+  render(<PdfReader id="draft" title="Course.pdf" load={load} actions={null} />)
+  expect(screen.getByRole('region', { name: 'Preview of Course.pdf' })).toBeInTheDocument()
+  expect(
+    await screen.findByText(/PDF preview failed\. Check your document and try again\./),
+  ).toBeInTheDocument()
+  expect(load).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('button', { name: 'Open document' })).not.toBeInTheDocument()
+})

@@ -769,6 +769,20 @@ class CourseRepository:
         course = get_course(course_id)
         return self._validated(course) if course else None
 
+    def builder_course_id(self, trainer_id: str, draft_id: str) -> str | None:
+        """Newest live course this trainer created from a Document Builder draft."""
+        with get_connection() as connection:
+            row = connection.execute(
+                """
+                SELECT course_id FROM courses
+                WHERE trainer_id = ? AND status <> 'archived'
+                  AND metadata_json -> 'document_builder' ->> 'draft_id' = ?
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (trainer_id, draft_id),
+            ).fetchone()
+        return row["course_id"] if row else None
+
     def get_draft_for_trainer(self, course_id: str, trainer_id: str) -> dict | None:
         course = self.get_draft(course_id)
         if not course or course.get("trainer_id") != trainer_id:

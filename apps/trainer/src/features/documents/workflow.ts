@@ -63,6 +63,8 @@ export type Draft = {
   approvedOutline: string | null
   createdAt: string
   updatedAt: string
+  /** Course already created from this draft; Create course then opens it instead. */
+  courseId?: string | null
 }
 export type DraftSummary = {
   draft_id: string
@@ -137,7 +139,7 @@ export const initialContent = (entryMode: Content['entryMode']): Content => ({
     courseDescription: '',
     courseObjective: '',
     targetAudience: '',
-    courseDifficulty: 'Beginner',
+    courseDifficulty: 'Easy',
     language: 'English',
     courseType: 'Training guide',
   },

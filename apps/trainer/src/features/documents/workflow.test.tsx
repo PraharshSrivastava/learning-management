@@ -318,6 +318,83 @@ it('starts AI outline once after creating a persistent draft and shows proposal 
   ).toHaveLength(1)
   expect(current.content.modules).toHaveLength(0)
 })
+it('hands off to Blueprint without leaving editor params, and previews the PDF inline', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      metadata: { ...initialContent('ai').metadata, courseName: 'Complaints' },
+      modules: [
+        {
+          id: 'm1',
+          title: 'Listening',
+          objective: '',
+          included: true,
+          sections: [],
+          blocks: [{ id: 'b1', type: 'paragraph', text: 'Listen first.', marks: [] }],
+        },
+      ],
+    },
+    approvedOutline: 'approved',
+    createdAt: 'now',
+    updatedAt: 'now',
+    courseId: null as string | null,
+  }
+  const open = vi.fn()
+  vi.stubGlobal('open', open)
+  const fetch = stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/render-pdf')) return new Response(new Uint8Array([1]))
+    if (url.pathname.endsWith('/create-course'))
+      return { course_id: 'c9', trainer_id: 'owner', course_name: 'Complaints', status: 'draft' }
+    if (url.pathname.endsWith('/sources') || url.pathname.endsWith('/operations')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  const view = renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  await screen.findByDisplayValue('Listening')
+  fireEvent.click(screen.getByRole('button', { name: 'Preview PDF' }))
+  expect(
+    await screen.findByRole('region', { name: 'Preview of Complaints.pdf' }),
+  ).toBeInTheDocument()
+  expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/render-pdf'))).toBe(true)
+  expect(open).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Create course' }))
+  await waitFor(() => expect(view.search()).toMatchObject({ tab: 'blueprint', course: 'c9' }))
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  })
+  expect(view.search().builder).toBeUndefined()
+  expect(view.search().draft).toBeUndefined()
+})
+it('offers to open the existing course when the draft already has one', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      modules: [
+        { id: 'm1', title: 'Listening', objective: '', included: true, sections: [], blocks: [] },
+      ],
+    },
+    approvedOutline: 'approved',
+    createdAt: 'now',
+    updatedAt: 'now',
+    courseId: 'c9',
+  }
+  stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/sources') || url.pathname.endsWith('/operations')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  expect(
+    await screen.findByRole('button', { name: 'Open course in Blueprint' }),
+  ).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Create course' })).not.toBeInTheDocument()
+})
 it('does not show an old model failure that later operations superseded', async () => {
   const draft = {
     id: 'draft1',

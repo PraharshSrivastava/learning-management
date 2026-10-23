@@ -1,7 +1,7 @@
 import { authHeaders, previewFileUrl } from '@lms/shared/api/client'
 import { useHasMediaTicket } from '@lms/shared/api/useMediaTicket'
 import type { PdfFile } from '@lms/shared/models'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
@@ -9,16 +9,7 @@ const control =
   'rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-[#153c83] disabled:opacity-40'
 
 /** Loads the complete converted PDF once; routine ticket renewal never reloads its bytes. */
-export function DocumentPreview(props: {
-  file: PdfFile
-  onClose: () => void
-  onCreateCourse: () => void
-  busy?: boolean
-}) {
-  return <Preview key={props.file.fileName} {...props} />
-}
-
-function Preview({
+export function DocumentPreview({
   file,
   onClose,
   onCreateCourse,
@@ -30,6 +21,65 @@ function Preview({
   busy?: boolean
 }) {
   const hasTicket = useHasMediaTicket()
+  return (
+    <PdfReader
+      key={file.fileName}
+      id={file.documentId}
+      title={file.displayName}
+      ready={hasTicket}
+      waiting="Preparing secure preview…"
+      load={async (signal) => {
+        const response = await fetch(previewFileUrl(file.fileName), {
+          headers: authHeaders(),
+          credentials: 'include',
+          signal,
+        })
+        if (!response.ok)
+          throw new Error('Unable to open this document. Please retry or sign in again.')
+        return response.arrayBuffer()
+      }}
+      onOpenOriginal={() =>
+        window.open(previewFileUrl(file.fileName), '_blank', 'noopener,noreferrer')
+      }
+      actions={
+        <>
+          <button type="button" className={control} disabled={busy} onClick={onCreateCourse}>
+            Create course
+          </button>
+          <button type="button" className={control} onClick={onClose}>
+            Close preview
+          </button>
+        </>
+      }
+    />
+  )
+}
+
+/**
+ * Read-only reader for a complete PDF with app-owned page and zoom controls. `load` runs once per
+ * mount (and on Try again); remount with a new `key` to read a different document.
+ */
+export function PdfReader({
+  id,
+  title,
+  load,
+  actions,
+  ready = true,
+  waiting = 'Preparing preview…',
+  onOpenOriginal,
+}: {
+  id: string
+  title: string
+  load: (signal: AbortSignal) => Promise<ArrayBuffer>
+  actions: ReactNode
+  ready?: boolean
+  waiting?: string
+  onOpenOriginal?: () => void
+}) {
+  const loader = useRef(load)
+  useEffect(() => {
+    loader.current = load
+  })
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -39,7 +89,7 @@ function Preview({
   const [width, setWidth] = useState(600)
   const viewport = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!hasTicket) return
+    if (!ready) return
     const abort = new AbortController()
     let active = true
     let task: PDFDocumentLoadingTask | undefined
@@ -49,14 +99,7 @@ function Preview({
         if (!active) return
         setDocument(null)
         setError('')
-        const response = await fetch(previewFileUrl(file.fileName), {
-          headers: authHeaders(),
-          credentials: 'include',
-          signal: abort.signal,
-        })
-        if (!response.ok)
-          throw new Error('Unable to open this document. Please retry or sign in again.')
-        const bytes = await response.arrayBuffer()
+        const bytes = await loader.current(abort.signal)
         if (!active) return
         const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist')
         if (!active) return
@@ -78,7 +121,7 @@ function Preview({
       } catch (e) {
         if (active)
           setError(
-            e instanceof Error && e.message.includes('Unable to open')
+            e instanceof Error && /^(Unable to open|PDF preview failed)/.test(e.message)
               ? e.message
               : 'The PDF preview could not be loaded. Please try again.',
           )
@@ -89,7 +132,7 @@ function Preview({
       abort.abort()
       void task?.destroy()
     }
-  }, [file.fileName, hasTicket, attempt])
+  }, [ready, attempt])
   useEffect(() => {
     const node = viewport.current
     if (!node) return
@@ -122,23 +165,16 @@ function Preview({
   return (
     <section
       className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-      aria-label={`Preview of ${file.displayName}`}
+      aria-label={`Preview of ${title}`}
     >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white p-4">
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-medium">{file.displayName}</h3>
+          <h3 className="truncate text-sm font-medium">{title}</h3>
           <p className="mt-1 text-xs text-slate-500">
             {document ? `${document.numPages} pages` : 'Complete document'} · Read-only preview
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={control} disabled={busy} onClick={onCreateCourse}>
-            Create course
-          </button>
-          <button type="button" className={control} onClick={onClose}>
-            Close preview
-          </button>
-        </div>
+        <div className="flex flex-wrap gap-2">{actions}</div>
       </header>
       <div
         className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3"
@@ -159,9 +195,9 @@ function Preview({
             jump(Number(input))
           }}
         >
-          <label htmlFor={`page-${file.documentId}`}>Page</label>
+          <label htmlFor={`page-${id}`}>Page</label>
           <input
-            id={`page-${file.documentId}`}
+            id={`page-${id}`}
             aria-label="PDF page number"
             type="number"
             min="1"
@@ -243,19 +279,15 @@ function Preview({
             >
               Try again
             </button>
-            <button
-              type="button"
-              className={`${control} ml-2`}
-              onClick={() =>
-                window.open(previewFileUrl(file.fileName), '_blank', 'noopener,noreferrer')
-              }
-            >
-              Open document
-            </button>
+            {onOpenOriginal && (
+              <button type="button" className={`${control} ml-2`} onClick={onOpenOriginal}>
+                Open document
+              </button>
+            )}
           </div>
-        ) : !document || !hasTicket ? (
+        ) : !document || !ready ? (
           <p role="status" className="text-sm text-blue-800">
-            {hasTicket ? 'Loading complete document…' : 'Preparing secure preview…'}
+            {ready ? 'Loading complete document…' : waiting}
           </p>
         ) : (
           Array.from({ length: document.numPages }, (_, index) => (

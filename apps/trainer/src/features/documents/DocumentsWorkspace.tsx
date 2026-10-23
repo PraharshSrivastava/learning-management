@@ -73,6 +73,11 @@ export function DocumentsWorkspace() {
         draftId={search.draft}
         onClose={close}
         onCreated={(draft) => update({ builder: true, draft }, { replace: true })}
+        onHandedOff={() => {
+          // Hidden tabs stay mounted; without this the editor would still be open on return.
+          setMode(null)
+          void drafts.refetch()
+        }}
       />
     )
   const remove = async (value: DraftSummary) => {

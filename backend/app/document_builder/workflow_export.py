@@ -33,6 +33,16 @@ def owned_path(resource):
     return path
 
 
+def course_difficulty(value: str) -> str:
+    """Blueprint offers Easy, Medium and Hard; older drafts stored Beginner/Intermediate/Advanced."""
+    lowered = value.strip().lower()
+    if lowered in {"medium", "intermediate"}:
+        return "Medium"
+    if lowered in {"hard", "advanced"}:
+        return "Hard"
+    return "Easy"
+
+
 class WorkflowExport:
     def __init__(self, drafts, courses=None):
         self.drafts = drafts
@@ -180,6 +190,12 @@ class WorkflowExport:
         course_id = "course_" + uuid5(NAMESPACE_URL, f"builder:{owner}:{draft_id}:{expected}").hex
         with advisory_lock("builder-handoff:" + draft_id):
             draft = self.drafts.get(draft_id, owner)
+            # One course per draft: later edits must not create a second course.
+            linked = self.courses.builder_course_id(owner, draft_id)
+            if linked:
+                existing = self.courses.get_draft_for_trainer(linked, owner)
+                if existing:
+                    return existing
             if draft.revision != expected:
                 raise ConflictError("Draft changed; review before creating a course")
             existing = self.courses.get_draft_for_trainer(course_id, owner)
@@ -220,7 +236,7 @@ class WorkflowExport:
                 "course_name": metadata.courseName,
                 "course_description": metadata.courseDescription,
                 "course_objective": metadata.courseObjective,
-                "course_difficulty": metadata.courseDifficulty,
+                "course_difficulty": course_difficulty(metadata.courseDifficulty),
                 "language": metadata.language,
                 "target_audience": metadata.targetAudience,
                 "created_at": now_iso(),

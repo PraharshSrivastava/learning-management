@@ -1,6 +1,7 @@
-import { apiUrl, authHeaders, errorMessage } from '@lms/shared/api/client'
+﻿import { apiUrl, authHeaders, errorMessage } from '@lms/shared/api/client'
 import { parseCourse } from '@lms/shared/models'
 import { Icon } from '@lms/shared/ui/icons/Icon'
+import { PdfReader } from './DocumentPreview'
 import { useDraftPersistence } from './useDraftPersistence'
 import { WorkflowTools, SourceAnswer } from './WorkflowTools'
 import { useBlocker } from '@tanstack/react-router'
@@ -43,9 +44,18 @@ type Props = {
   documentId?: string
   onClose: () => void
   onCreated: (id: string) => void
+  /** The course opened in Blueprint; Documents returns to its landing page. */
+  onHandedOff?: () => void
 }
 
-export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated }: Props) {
+export function FocusedWorkspace({
+  draftId,
+  mode,
+  documentId,
+  onClose,
+  onCreated,
+  onHandedOff,
+}: Props) {
   const [stage, setStage] = useState<'setup' | 'outline' | 'editor'>(draftId ? 'editor' : 'setup')
   const [moduleIndex, setModuleIndex] = useState(0)
   const [busy, setBusy] = useState(Boolean(draftId))
@@ -181,8 +191,11 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
   const working = busy || (!!operation && ['queued', 'running'].includes(operation.status))
+  // Set when the draft hands off to Blueprint: the URL drops `draft` while this editor is still
+  // mounted, which must not read as a new draft that needs its id added back.
+  const leaving = useRef(false)
   useEffect(() => {
-    if (draft && !draftId && !working && !dirty) onCreated(draft.id)
+    if (draft && !draftId && !working && !dirty && !leaving.current) onCreated(draft.id)
   }, [draft, draftId, working, dirty, onCreated])
   const mutate = (value: Content) => {
     persistence.edit(value)
@@ -251,27 +264,38 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
       await postDraft(`/${value.id}/create-course`, { expectedRevision: value.revision }),
     )
     store(course)
+    leaving.current = true
     navigate({ tab: 'blueprint', course: course.courseId, builder: undefined, draft: undefined })
+    onHandedOff?.()
   }
   const createCourse = () =>
     run(async () => {
       await handoffCourse(await save())
     })
   const approveAndCreateCourse = () => run(async () => handoffCourse(await approve()))
+  // The rendered PDF opens inline: a new tab opened after the save and render is no longer a
+  // direct click, so browsers block it without telling the trainer.
+  const [pdfPreview, setPdfPreview] = useState<{ id: string; revision: number } | null>(null)
   const preview = () =>
     run(async () => {
       const value = await save()
-      const response = await fetch(apiUrl(`/api/document-builder/drafts/${value.id}/render-pdf`), {
+      setPdfPreview({ id: value.id, revision: value.revision })
+    })
+  const renderPdf = async (signal: AbortSignal) => {
+    if (!pdfPreview) throw new Error('PDF preview failed. Check your document and try again.')
+    const response = await fetch(
+      apiUrl(`/api/document-builder/drafts/${pdfPreview.id}/render-pdf`),
+      {
         method: 'POST',
         credentials: 'same-origin',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expectedRevision: value.revision }),
-      })
-      if (!response.ok) throw new Error('PDF preview failed. Check your document and try again.')
-      const url = URL.createObjectURL(await response.blob())
-      window.open(url, '_blank', 'noopener')
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
-    })
+        body: JSON.stringify({ expectedRevision: pdfPreview.revision }),
+        signal,
+      },
+    )
+    if (!response.ok) throw new Error('PDF preview failed. Check your document and try again.')
+    return response.arrayBuffer()
+  }
   const ask = () =>
     run(async () => {
       let extra: Record<string, unknown> = { scope, moduleId: module?.id, instruction }
@@ -375,7 +399,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
               }
             }}
           >
-            ← Documents
+            â† Documents
           </button>
           <h1 className="mt-2 text-2xl font-bold">
             {draft
@@ -396,9 +420,9 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
             {saveError
               ? 'Changes could not be saved'
               : saving
-                ? 'Saving…'
+                ? 'Savingâ€¦'
                 : working
-                  ? 'Processing your request…'
+                  ? 'Processing your requestâ€¦'
                   : dirty
                     ? 'Unsaved changes'
                     : draft
@@ -441,12 +465,32 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                   )
               }
               onClick={createCourse}
+              title={
+                draft?.courseId
+                  ? 'This draft already has a course. Later edits here do not change it.'
+                  : undefined
+              }
             >
-              Create course
+              {draft?.courseId ? 'Open course in Blueprint' : 'Create course'}
             </button>
           </div>
         )}
       </header>
+      {pdfPreview && (
+        <div className="mb-4">
+          <PdfReader
+            key={`${pdfPreview.id}:${pdfPreview.revision}`}
+            id={`draft-${pdfPreview.id}`}
+            title={`${content.metadata.courseName || 'Untitled document'}.pdf`}
+            load={renderPdf}
+            actions={
+              <button type="button" className={button} onClick={() => setPdfPreview(null)}>
+                Close preview
+              </button>
+            }
+          />
+        </div>
+      )}
       {(error || saveError) && (
         <div
           role="alert"
@@ -612,7 +656,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                 </label>
                 <details>
                   <summary className="cursor-pointer text-sm">
-                    Customize generation · optional
+                    Customize generation Â· optional
                   </summary>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <label>
@@ -629,7 +673,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                       >
                         {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                           <option key={n} value={n}>
-                            {n === 4 ? 'Default — 4 modules' : `${n} modules`}
+                            {n === 4 ? 'Default â€” 4 modules' : `${n} modules`}
                           </option>
                         ))}
                       </select>
@@ -861,7 +905,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                         disabled={m.blocks.length < 2}
                         onClick={() => {
                           const answer = window.prompt(
-                            `Split after which block? Enter 1–${m.blocks.length - 1}.`,
+                            `Split after which block? Enter 1â€“${m.blocks.length - 1}.`,
                             '1',
                           )
                           if (answer === null) return
@@ -1228,7 +1272,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                     value={instruction}
                     disabled={working}
                     onChange={(e) => setInstruction(e.target.value)}
-                    placeholder="Make this easier for a new employee to understand…"
+                    placeholder="Make this easier for a new employee to understandâ€¦"
                   />
                   <button
                     className={`${primary} w-full`}
@@ -1472,7 +1516,7 @@ function DraftImage({
   ) : url ? (
     <img className="mx-auto max-h-96 max-w-full object-contain" alt={caption} src={url} />
   ) : (
-    <p role="status">Loading image…</p>
+    <p role="status">Loading imageâ€¦</p>
   )
 }
 
@@ -1506,7 +1550,7 @@ function Proposal({
             <p>{module.objective}</p>
             <ul>
               {module.sections.map((s, j) => (
-                <li key={j}>• {s}</li>
+                <li key={j}>â€¢ {s}</li>
               ))}
             </ul>
           </article>

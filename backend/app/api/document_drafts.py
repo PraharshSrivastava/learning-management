@@ -145,7 +145,14 @@ def undo_remove_draft(
 
 @router.get("/{draft_id}", response_model=DraftRecord)
 def get_draft(draft_id: str, request: Request, authorization: str | None = Header(default=None)):
-    return repository.get(draft_id, _owner(request, authorization))
+    owner = _owner(request, authorization)
+    return _with_course(repository.get(draft_id, owner), owner)
+
+
+def _with_course(record: DraftRecord, owner: str) -> DraftRecord:
+    return record.model_copy(
+        update={"courseId": exports.courses.builder_course_id(owner, record.id)}
+    )
 
 
 @router.patch("/{draft_id}", response_model=DraftRecord)
@@ -158,7 +165,9 @@ def save_draft(
     owner = _owner(request, authorization)
     _manual_content(payload.content)
     repository.validate_resources(draft_id, owner, payload.content)
-    return repository.save(draft_id, owner, payload.expectedRevision, payload.content)
+    return _with_course(
+        repository.save(draft_id, owner, payload.expectedRevision, payload.content), owner
+    )
 
 
 @router.post("/{draft_id}/copy", response_model=DraftRecord, status_code=201)
