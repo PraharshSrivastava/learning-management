@@ -679,3 +679,4 @@ Further Assign alternatives for review (not selected):
 | 22 Oct 2026 | Started Assign review: direct lifecycle actions, paper-plane assignment icon, corporate layout; existing employee/observer semantics retained |
 | 23 Oct 2026 | Selected Assign Focused assignment with left course list and distinct panels; retained top actions and rejected bottom action bar             |
 | 23 Oct 2026 | Required Add employees with existing individual selection workflow; department-only Add group demo is superseded                              |
+| 23 Oct 2026 | Generate with AI uses the Magic wand mark (navy wand, blue-to-violet star tip, two sparkles); supersedes the Smart document AI mark |

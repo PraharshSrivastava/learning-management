@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 
 export type DocumentsIconName =
   | 'upload'
@@ -36,6 +36,8 @@ export function DocumentsIcon({
   size?: number
   className?: string
 }) {
+  // A gradient id per instance: two icons on one page must not share it.
+  const gradient = `ai-wand-${useId().replace(/:/g, '')}`
   const page = <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zm0 0v5h5" />
   const marks: Record<DocumentsIconName, ReactNode> = {
     upload: (
@@ -44,13 +46,36 @@ export function DocumentsIcon({
         <path d="M12 17v-6m-3 3 3-3 3 3" />
       </>
     ),
+    // Magic wand (approved 23 October): navy wand, gradient star tip and two small sparkles.
     ai: (
       <>
-        <path d="M12 21H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8l5 5v4M14 3v5h5M8 11h6m-6 4h4" />
-        <path d="m13 20 5-5 2 2-5 5h-2z" fill="currentColor" strokeWidth="1.3" />
+        <defs>
+          <linearGradient
+            id={gradient}
+            x1="10"
+            y1="2"
+            x2="22"
+            y2="14"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop stopColor="#2f6fe4" />
+            <stop offset="1" stopColor="#8057d9" />
+          </linearGradient>
+        </defs>
+        <path d="m3.5 20.5 10-10" strokeWidth="2.4" />
         <path
-          d="m20 10 .7 2.3L23 13l-2.3.7L20 16l-.7-2.3L17 13l2.3-.7z"
+          d="M16 3c.5 2.4 1.6 3.5 4 4-2.4.5-3.5 1.6-4 4-.5-2.4-1.6-3.5-4-4 2.4-.5 3.5-1.6 4-4Z"
+          fill={`url(#${gradient})`}
+          stroke="none"
+        />
+        <path
+          d="M7 3.5c.25 1.2.8 1.75 2 2-1.2.25-1.75.8-2 2-.25-1.2-.8-1.75-2-2 1.2-.25 1.75-.8 2-2Z"
           fill="#8057d9"
+          stroke="none"
+        />
+        <path
+          d="M19.5 14c.25 1.2.8 1.75 2 2-1.2.25-1.75.8-2 2-.25-1.2-.8-1.75-2-2 1.2-.25 1.75-.8 2-2Z"
+          fill="#2f6fe4"
           stroke="none"
         />
       </>
