@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--model", default="qwen3.6-35b")
     parser.add_argument("--thinking", choices=("true", "false", ""), default="false",
                         help="LLM_ENABLE_THINKING; empty sends no flag (provider default)")
+    parser.add_argument("--stub-tts", action="store_true",
+                        help="Serve local tone WAVs instead of calling TTS (when the TTS server is down)")
     args = parser.parse_args()
     source, output = args.source.resolve(), args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -159,10 +161,28 @@ def main():
     physical_calls = []
     original_post = requests.post
 
+    def stub_speech(text):
+        # Words at ~2.5/s; a quiet tone keeps duration/silence checks meaningful.
+        import io, math, struct, wave
+        rate, seconds = 24000, max(1.0, len(text.split()) / 2.5)
+        frames = b"".join(struct.pack("<h", int(3000 * math.sin(2 * math.pi * 220 * i / rate)))
+                          for i in range(int(rate * seconds)))
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as wav:
+            wav.setnchannels(1); wav.setsampwidth(2); wav.setframerate(rate); wav.writeframes(frames)
+        response = requests.Response()
+        response.status_code, response._content = 200, buffer.getvalue()
+        return response
+
     def observed_post(url, **kwargs):
         payload = kwargs.get("json", {})
         started = time.monotonic()
         row = {"endpoint": url, "model": payload.get("model")}
+        if args.stub_tts and "audio/speech" in url:
+            row.update(stub=True, http_status=200, seconds=0)
+            with lock:
+                physical_calls.append(row)
+            return stub_speech(payload.get("input", ""))
         if "chat/completions" in url:
             row.update(thinking=payload.get("chat_template_kwargs", {}).get("enable_thinking"), max_tokens=payload.get("max_tokens"))
             assert row["thinking"] == settings.llm_enable_thinking
@@ -203,7 +223,7 @@ def main():
     report = {
         "model": settings.llm_model_name, "thinking": settings.llm_enable_thinking,
         "source": str(source), "source_kind": "synthetic", "database": "isolated-json-adapter",
-        "deployment_changed": False, "physical_calls": physical_calls,
+        "deployment_changed": False, "physical_calls": physical_calls, "stub_tts": args.stub_tts,
         "not_tested": ["PostgreSQL persistence", "HTTP upload/authentication", "trainer approval UI", "assignment", "employee player UI"],
     }
     started = time.monotonic()

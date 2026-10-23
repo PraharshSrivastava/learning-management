@@ -175,12 +175,23 @@ def _build_script_prompt(
         else:
             lines.extend(
                 [
-                    f"    [SCREEN {index}] CONTENT",
+                    f"    [SCREEN {index}] CONTENT: {slide.get('slide_title') or slide.get('title') or ''}",
                     json.dumps(_slide_display_content(slide), indent=6, ensure_ascii=True),
                 ]
             )
 
-    lines.append("")
+    lines.extend(
+        [
+            "",
+            "=== SCRIPT ANCHORING ===",
+            "For every item return slide_number (the N of its [SLIDE N] or [SCREEN N] label), "
+            "slide_title (that screen's title) and script.",
+            "Each script narrates only its own screen. When a screen lists several items, "
+            "cover all of them in that screen's script; never continue them into the next screen's script.",
+            "========================",
+            "",
+        ]
+    )
     if total_batches > 1:
         lines.append(
             f"Output JSON with exactly {len(module.get('slides', []))} items in `slides`, matching only this batch."
@@ -378,6 +389,12 @@ def generate_scripts_for_module(
                 )
             if any(not item.script.strip() for item in parsed.slides):
                 raise ValueError(f"LLM returned an empty slide script in batch {batch_number}")
+            expected_numbers = list(range(batch_start + 1, batch_start + len(batch_slides) + 1))
+            if [item.slide_number for item in parsed.slides] != expected_numbers:
+                raise ValueError(
+                    f"Slide scripts in batch {batch_number} are not anchored to slides "
+                    f"{expected_numbers[0]}-{expected_numbers[-1]}"
+                )
             return parsed
 
         parsed = retry(
