@@ -294,6 +294,7 @@ describe('course (trainer)', () => {
       canDelete: false,
       courseId: '',
       trainerId: '',
+      documentId: null,
       canManage: false,
       creatorName: null,
       courseName: '',

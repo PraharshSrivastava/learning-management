@@ -115,9 +115,20 @@ export function TextBlockEditor({
       setError(e instanceof Error ? e.message : 'Invalid format')
     }
   }
+  const kind = { scenario: 'Workplace scenario', takeaway: 'Key takeaways' }[block.type as string]
   return (
     <>
-      <div role="toolbar" aria-label="Text formatting" className="mb-2 flex flex-wrap gap-2">
+      {kind && (
+        <p className="mb-1 text-[11px] font-semibold tracking-wide text-[#5b6980] uppercase">
+          {kind}
+        </p>
+      )}
+      {/* Shown only for the block being edited, so the page reads as one document. */}
+      <div
+        role="toolbar"
+        aria-label="Text formatting"
+        className="mb-2 hidden flex-wrap gap-2 group-focus-within:flex"
+      >
         <button
           type="button"
           className={button}
@@ -160,7 +171,8 @@ export function TextBlockEditor({
       </div>
       <textarea
         aria-label={`${block.type} text`}
-        className={`${input} min-h-28 ${block.type === 'heading' ? '!text-lg !font-bold' : ''}`}
+        // Grows with its text instead of scrolling inside a small box.
+        className={`${input} resize-none [field-sizing:content] ${block.type === 'heading' ? 'min-h-0 !text-lg !font-bold' : 'min-h-16 leading-relaxed'}`}
         value={block.text}
         onChange={(e) => onChange(replaceTextPreservingMarks(block, e.target.value))}
         onSelect={(e) => {

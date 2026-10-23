@@ -1,5 +1,6 @@
 """PDF, PPTX, and DOCX upload, retrieval, and preview endpoints."""
 
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
@@ -12,6 +13,9 @@ from app.schemas.files import StoredFileResponse, UploadResponse
 from app.services.auth import current_trainer_from_request
 from app.services.media_access import authorize_document, media_principal
 from app.services.uploads import UploadService
+
+# File name Document Builder gives the PDF it saves for each course (workflow_export).
+BUILDER_EXPORT = re.compile(r"^builder-[0-9a-f]{32}-r\d+-source\.pdf$")
 
 router = APIRouter(prefix="/api", tags=["uploads"])
 service = UploadService(settings.upload_dir)
@@ -44,7 +48,13 @@ def list_files(
 ) -> list[StoredFileResponse]:
     try:
         trainer = current_trainer_from_request(request, authorization)
-        return service.list_documents(trainer["trainer_id"])
+        # Document Builder saves each handed-off draft as an internal PDF for its course.
+        # Those copies are not files the trainer uploaded.
+        return [
+            file
+            for file in service.list_documents(trainer["trainer_id"])
+            if not BUILDER_EXPORT.match(file.display_name)
+        ]
     except OSError as exc:
         raise HTTPException(status_code=500, detail="Failed to list files") from exc
 

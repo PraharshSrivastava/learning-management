@@ -35,6 +35,95 @@ const openMenu = async () => {
 }
 
 describe('CourseActionsMenu', () => {
+  describe('Assign excludes Enable, which its publish button already offers', () => {
+    it('shows nothing for a disabled course with no other action', async () => {
+      stubFetch(() => null)
+      renderCourses(
+        menuFor({ lifecycle_state: 'disabled' }, { directSingle: true, exclude: ['Enable'] }),
+      )
+      await screen.findByText('Mounted')
+      expect(screen.queryByRole('button', { name: 'Enable' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Course actions' })).not.toBeInTheDocument()
+    })
+    it('still offers Disable directly for an active course', async () => {
+      stubFetch(() => null)
+      renderCourses(
+        menuFor({ lifecycle_state: 'active' }, { directSingle: true, exclude: ['Enable'] }),
+      )
+      expect(await screen.findByRole('button', { name: 'Disable' })).toBeInTheDocument()
+    })
+  })
+  describe('Blueprint direct single action', () => {
+    it('shows Delete directly and keeps typed confirmation and cancellation intact', async () => {
+      const fetchMock = stubFetch(() => null)
+      renderCourses(menuFor({ lifecycle_state: 'draft', can_delete: true }, { directSingle: true }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+      expect(screen.queryByRole('button', { name: 'Course actions' })).not.toBeInTheDocument()
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeDisabled()
+      await userEvent.type(within(dialog).getByLabelText('Type DELETE'), 'DELETE')
+      expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeEnabled()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
+    })
+    it('shows Disable directly with its current assignment impact', async () => {
+      stubFetch((url) =>
+        url.pathname.endsWith('/assignment')
+          ? { lifecycle_revision: 3, total_assigned_count: 9 }
+          : { observers: [] },
+      )
+      renderCourses(
+        menuFor({ lifecycle_state: 'active', can_delete: false }, { directSingle: true }),
+      )
+      await userEvent.click(await screen.findByRole('button', { name: 'Disable' }))
+      expect(await screen.findByText(/9 current employee assignments/)).toBeInTheDocument()
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+    it('shows Enable directly and retains Assign navigation', async () => {
+      stubFetch(() => null)
+      const { search } = renderCourses(
+        menuFor({ lifecycle_state: 'disabled', can_delete: false }, { directSingle: true }),
+      )
+      await userEvent.click(await screen.findByRole('button', { name: 'Enable' }))
+      await waitFor(() => expect(search()).toMatchObject({ tab: 'assign', course: 'c1' }))
+    })
+    it('hides the control when no action is permitted', async () => {
+      stubFetch(() => null)
+      renderCourses(
+        menuFor({ lifecycle_state: 'draft', can_delete: false }, { directSingle: true }),
+      )
+      await screen.findByText('Mounted')
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    })
+    it('retains the menu for multiple permitted actions', async () => {
+      stubFetch(() => null)
+      renderCourses(
+        menuFor({ lifecycle_state: 'active', can_delete: true }, { directSingle: true }),
+      )
+      const menu = await openMenu()
+      expect(within(menu).getByRole('menuitem', { name: 'Disable' })).toBeInTheDocument()
+      expect(within(menu).getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+    })
+    it('hides direct controls from another trainer', async () => {
+      stubFetch(() => null)
+      renderCourses(menuFor({ lifecycle_state: 'active' }, { directSingle: true }), {
+        person: { ...owner, trainerId: 'other' },
+      })
+      await screen.findByText('Mounted')
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    })
+    it('blocks the direct action while generation runs', async () => {
+      stubFetch(() => null)
+      renderCourses(
+        menuFor(
+          { lifecycle_state: 'active', generation: { status: 'running' } },
+          { directSingle: true },
+        ),
+      )
+      expect(await screen.findByRole('button', { name: 'Disable' })).toBeDisabled()
+    })
+  })
   const cases = {
     active: ['Disable'],
     disabled: ['Enable'],

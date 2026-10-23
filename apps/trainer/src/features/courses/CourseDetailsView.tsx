@@ -6,7 +6,10 @@ import { Spinner } from '@lms/shared/ui/Spinner'
 import { useToast } from '@lms/shared/ui/Toast'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
 import clsx from 'clsx'
+import { useBlocker } from '@tanstack/react-router'
 import {
+  useEffect,
+  useLayoutEffect,
   useId,
   useRef,
   useState,
@@ -22,7 +25,6 @@ import {
   DIFFICULTIES,
   blueprintDraft,
   blueprintPayload,
-  editorSignature,
   generateButtonState,
   moduleNumberForImage,
   moveItem,
@@ -40,12 +42,22 @@ interface CourseDetailsViewProps {
   detailError?: string | null
 }
 
+const editableSignature = (draft: BlueprintDraft) =>
+  JSON.stringify({
+    ...draft,
+    modules: draft.modules.map((module) => ({
+      title: module.title,
+      sourceText: module.sourceText,
+      numQuestions: module.numQuestions,
+    })),
+  })
+
 /** Blueprint tab detail pane: archived notice, loading state, or the blueprint editor. */
 export function CourseDetailsView({ course, detailError = null }: CourseDetailsViewProps) {
   if (course.lifecycleState === 'archived') return <ArchivedCourseView course={course} />
   if (isDetailPending(course)) return <CourseDetailPending detailError={detailError} />
   // A new course or a changed server copy resets the form, as didUpdateWidget did.
-  return <BlueprintEditor key={editorSignature(course)} course={course} />
+  return <BlueprintEditor key={course.courseId} course={course} />
 }
 
 /** The sidebar summary has modules, but the course details have not loaded yet. */
@@ -98,16 +110,47 @@ function ArchivedCourseView({ course }: { course: Course }) {
 
 function BlueprintEditor({ course }: { course: Course }) {
   const [draft, setDraft] = useState<BlueprintDraft>(() => blueprintDraft(course))
+  const [savedDraft, setSavedDraft] = useState(() => draft)
+  const dirty = editableSignature(draft) !== editableSignature(savedDraft)
+  const dirtyRef = useRef(dirty)
+  useLayoutEffect(() => {
+    dirtyRef.current = dirty
+  }, [dirty])
+  const serverSignature = editableSignature(blueprintDraft(course))
+  const previousServer = useRef(serverSignature)
+  useBlocker({
+    shouldBlockFn: () =>
+      dirtyRef.current && !window.confirm('Leave with unsaved blueprint changes?'),
+    enableBeforeUnload: () => dirtyRef.current,
+  })
+  useEffect(() => {
+    if (previousServer.current === serverSignature) return
+    previousServer.current = serverSignature
+    let active = true
+    void Promise.resolve().then(() => {
+      if (!active || dirtyRef.current) return
+      const next = blueprintDraft(course)
+      setDraft(next)
+      setSavedDraft(next)
+    })
+    return () => {
+      active = false
+    }
+  }, [course, serverSignature])
   const [nameInvalid, setNameInvalid] = useState(false)
   const update = useUpdateCourse()
   const generation = useFullCourseGeneration()
   const toast = useToast()
   const generate = generateButtonState(course, draft.modules.length, generation.running)
 
-  const patch = (fields: Partial<BlueprintDraft>) =>
+  const patch = (fields: Partial<BlueprintDraft>) => {
+    dirtyRef.current = true
     setDraft((current) => ({ ...current, ...fields }))
-  const setModules = (change: (modules: ModuleDraft[]) => ModuleDraft[]) =>
+  }
+  const setModules = (change: (modules: ModuleDraft[]) => ModuleDraft[]) => {
+    dirtyRef.current = true
     setDraft((current) => ({ ...current, modules: change(current.modules) }))
+  }
 
   const save = async (showSuccessMessage: boolean): Promise<boolean> => {
     // Flutter validated only the name, without a trim.
@@ -118,6 +161,7 @@ function BlueprintEditor({ course }: { course: Course }) {
     setNameInvalid(false)
     try {
       await update.mutateAsync({ courseId: course.courseId, payload: blueprintPayload(draft) })
+      setSavedDraft(draft)
     } catch (error) {
       toast(updateErrorMessage(error), { tone: 'error' })
       return false
@@ -138,8 +182,8 @@ function BlueprintEditor({ course }: { course: Course }) {
   const generateButton = (
     <PillButton
       icon={generate.icon}
-      background={generate.complete ? '#616161' : 'var(--color-accent-orange)'}
-      disabled={!generate.enabled}
+      background={generate.complete ? '#616161' : '#153c83'}
+      disabled={!generate.enabled || update.isPending}
       onClick={() => void startGeneration()}
     >
       {generate.label}
@@ -149,40 +193,58 @@ function BlueprintEditor({ course }: { course: Course }) {
   return (
     <form
       noValidate
-      className="card flex h-full flex-col overflow-hidden"
+      className="blueprint-editor card flex h-full flex-col overflow-hidden"
       onSubmit={(event) => {
         event.preventDefault()
         void save(true)
       }}
     >
-      <div className="shrink-0 primary-gradient p-6">
+      <div className="blueprint-header shrink-0 border-b border-slate-200 bg-white p-6">
         <div className="flex items-start">
-          <span className="font-barlow text-[11px] leading-[16.5px] font-bold tracking-[2px] text-white/70">
-            COURSE BLUEPRINT
-          </span>
-          <div className="ml-4 flex min-w-0 flex-1 flex-wrap items-start justify-end gap-2">
-            <CourseActionsMenu course={course} foregroundColor="white" />
+          <div>
+            <h2 className="text-xl font-medium">Course blueprint</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Review your outline before generating videos and quizzes.
+            </p>
+          </div>
+          <div className="blueprint-toolbar ml-4 flex min-w-0 flex-1 flex-wrap items-start justify-end gap-2">
+            <CourseActionsMenu course={course} directSingle />
             <button
               type="button"
               onClick={() => {
-                setDraft(blueprintDraft(course))
+                if (dirty && !window.confirm('Discard unsaved changes and reset this blueprint?'))
+                  return
+                setDraft(savedDraft)
                 setNameInvalid(false)
               }}
-              className="inline-flex h-9 min-w-11 items-center justify-center rounded-full px-3 font-dm text-sm font-bold tracking-[0.1px] text-white hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-white"
+              disabled={update.isPending}
+              className="blueprint-secondary blueprint-reset inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 text-sm text-primary-blue"
             >
+              <Icon name="refresh" size={16} />
               Reset
+            </button>
+            <button
+              className="blueprint-secondary blueprint-save inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-primary-blue"
+              type="submit"
+              disabled={update.isPending}
+            >
+              <Icon name="save" size={16} />
+              {update.isPending ? 'Saving…' : 'Save Changes'}
             </button>
             {generate.tooltip ? (
               <Tooltip content={generate.tooltip}>{generateButton}</Tooltip>
             ) : (
               generateButton
             )}
-            <PillButton icon="save" background="var(--color-accent-green)" type="submit">
-              Save Changes
-            </PillButton>
           </div>
         </div>
         <NameField value={draft.name} invalid={nameInvalid} onChange={(name) => patch({ name })} />
+        <p
+          role="status"
+          className={`mt-2 text-xs ${dirty ? 'text-amber-700' : 'text-emerald-700'}`}
+        >
+          {update.isPending ? 'Saving blueprint…' : dirty ? 'Unsaved changes' : 'Saved blueprint'}
+        </p>
         <div className="mt-4 flex gap-6">
           <HeaderField label="Difficulty">
             {(id) => (
@@ -191,7 +253,7 @@ function BlueprintEditor({ course }: { course: Course }) {
                   id={id}
                   value={draft.difficulty}
                   onChange={(event) => patch({ difficulty: event.target.value as Difficulty })}
-                  className="block h-6 w-full cursor-pointer appearance-none border-b border-white/38 bg-transparent pr-6 font-barlow text-sm leading-[23px] font-bold tracking-normal text-white outline-none focus:border-white [&>option]:bg-primary-blue"
+                  className="block h-10 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-6 text-sm text-slate-900 outline-none focus:border-primary-blue"
                 >
                   {DIFFICULTIES.map((difficulty) => (
                     <option key={difficulty} value={difficulty}>
@@ -203,7 +265,7 @@ function BlueprintEditor({ course }: { course: Course }) {
                   name="arrow_drop_down"
                   size={24}
                   color="#616161"
-                  className="pointer-events-none absolute top-0 right-0"
+                  className="pointer-events-none absolute top-2 right-1"
                 />
               </div>
             )}
@@ -214,42 +276,49 @@ function BlueprintEditor({ course }: { course: Course }) {
                 id={id}
                 value={draft.language}
                 onChange={(event) => patch({ language: event.target.value })}
-                className="block h-[21px] w-full border-b border-white/38 bg-transparent font-barlow text-sm leading-5 font-bold tracking-[0.5px] text-white caret-white outline-none selection:bg-white/30 focus:border-white"
+                className="block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-primary-blue"
               />
             )}
           </HeaderField>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-6 [scrollbar-width:none]">
-        <SectionHeader icon="description">Course Description</SectionHeader>
-        <BodyTextArea
-          label="Course Description"
-          rows={4}
-          value={draft.description}
-          placeholder="Enter course description..."
-          onChange={(description) => patch({ description })}
-        />
-        <SectionHeader icon="track_changes" className="mt-6">
-          Course Objective
-        </SectionHeader>
-        <BodyTextArea
-          label="Course Objective"
-          rows={4}
-          value={draft.objective}
-          placeholder="Enter course objective..."
-          onChange={(objective) => patch({ objective })}
-        />
-        <SectionHeader icon="group" className="mt-6">
-          Target Audience
-        </SectionHeader>
-        <BodyTextArea
-          label="Target Audience"
-          rows={2}
-          value={draft.audience}
-          placeholder="Enter target audience..."
-          onChange={(audience) => patch({ audience })}
-        />
+      <div className="blueprint-body min-h-0 flex-1 overflow-y-auto p-6">
+        <details className="blueprint-details" open>
+          <summary className="mb-4 cursor-pointer text-base font-medium">Course details</summary>
+          <div className="blueprint-details-grid grid gap-4 xl:grid-cols-3">
+            <div>
+              <SectionHeader icon="description">Course Description</SectionHeader>
+              <BodyTextArea
+                label="Course Description"
+                rows={4}
+                value={draft.description}
+                placeholder="Enter course description..."
+                onChange={(description) => patch({ description })}
+              />
+            </div>
+            <div>
+              <SectionHeader icon="track_changes">Course Objective</SectionHeader>
+              <BodyTextArea
+                label="Course Objective"
+                rows={4}
+                value={draft.objective}
+                placeholder="Enter course objective..."
+                onChange={(objective) => patch({ objective })}
+              />
+            </div>
+            <div>
+              <SectionHeader icon="group">Target Audience</SectionHeader>
+              <BodyTextArea
+                label="Target Audience"
+                rows={4}
+                value={draft.audience}
+                placeholder="Enter target audience..."
+                onChange={(audience) => patch({ audience })}
+              />
+            </div>
+          </div>
+        </details>
 
         <SectionHeader icon="format_list_numbered" className="mt-6">
           Modules Curriculum Outline
@@ -264,27 +333,34 @@ function BlueprintEditor({ course }: { course: Course }) {
           Add Module
         </button>
 
-        <SectionHeader icon="image_search_rounded" className="mt-8">
-          Extracted PDF Images &amp; Captions Verification
-        </SectionHeader>
-        <div className="mt-3">
-          {course.images.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-lg border border-light-gray bg-light-gray/50 p-4">
-              <Icon name="info_outline" size={24} className="text-gray" />
-              <span className="font-barlow text-gray">No images were extracted from this PDF.</span>
-            </div>
-          ) : (
-            <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0">
-              {course.images.map((image) => (
-                <ImageCard
-                  key={image.imageId}
-                  image={image}
-                  moduleNumber={moduleNumberForImage(draft.modules, image.imageId)}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
+        <details className="blueprint-images mt-8">
+          <summary className="cursor-pointer text-base font-medium">
+            Source images <span className="text-xs text-slate-500">({course.images.length})</span>
+          </summary>
+          <SectionHeader icon="image_search_rounded" className="mt-4">
+            Extracted PDF Images &amp; Captions Verification
+          </SectionHeader>
+          <div className="mt-3">
+            {course.images.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-lg border border-light-gray bg-light-gray/50 p-4">
+                <Icon name="info_outline" size={24} className="text-gray" />
+                <span className="font-barlow text-gray">
+                  No images were extracted from this PDF.
+                </span>
+              </div>
+            ) : (
+              <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0">
+                {course.images.map((image) => (
+                  <ImageCard
+                    key={image.imageId}
+                    image={image}
+                    moduleNumber={moduleNumberForImage(draft.modules, image.imageId)}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </details>
       </div>
     </form>
   )
@@ -313,7 +389,7 @@ function PillButton({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-9 items-center gap-2 rounded-full bg-(--pill-bg) px-4 font-dm text-sm font-bold whitespace-nowrap tracking-[0.1px] text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#1a1b20]/12 disabled:text-[#1a1b20]/38 disabled:hover:brightness-100"
+      className="inline-flex h-9 items-center gap-2 rounded-lg bg-(--pill-bg) px-4 text-sm font-medium whitespace-nowrap text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-blue disabled:cursor-not-allowed disabled:bg-[#1a1b20]/12 disabled:text-[#1a1b20]/38 disabled:hover:brightness-100"
       style={{ '--pill-bg': background } as CSSProperties}
     >
       <Icon name={icon} size={14} />
@@ -334,7 +410,7 @@ function NameField({
   const id = useId()
   return (
     <div className="mt-4">
-      <label htmlFor={id} className="block text-xs leading-[18px] font-bold text-white/70">
+      <label htmlFor={id} className="block text-xs leading-[18px] text-slate-500">
         Course Name
       </label>
       <input
@@ -345,8 +421,8 @@ function NameField({
         aria-describedby={invalid ? `${id}-error` : undefined}
         onChange={(event) => onChange(event.target.value)}
         className={clsx(
-          'mt-1 block h-[41px] w-full border-b bg-transparent font-inter text-[22px] leading-[26px] font-bold tracking-[0.5px] text-white caret-white outline-none selection:bg-white/30',
-          invalid ? 'border-accent-red' : 'border-white/38 focus:border-white',
+          'blueprint-name mt-1 block h-[44px] w-full rounded-lg border bg-white px-3 font-inter text-[22px] font-medium text-slate-900 outline-none',
+          invalid ? 'border-accent-red' : 'border-slate-200 focus:border-primary-blue',
         )}
       />
       {invalid && (
@@ -361,8 +437,8 @@ function NameField({
 function HeaderField({ label, children }: { label: string; children: (id: string) => ReactNode }) {
   const id = useId()
   return (
-    <div className="min-w-0 flex-1">
-      <label htmlFor={id} className="mb-1 block text-xs leading-[18px] text-white/70">
+    <div className="blueprint-header-field min-w-0 flex-1">
+      <label htmlFor={id} className="mb-1 block text-xs leading-[18px] text-slate-500">
         {label}
       </label>
       {children(id)}
@@ -436,7 +512,7 @@ function ModuleList({ course, modules, setModules }: ModuleListProps) {
   }
 
   return (
-    <ul className="m-0 mt-2 list-none p-0" aria-label="Modules">
+    <ul className="blueprint-modules m-0 mt-2 list-none p-0" aria-label="Modules">
       {modules.map((module, index) => (
         <li
           key={module.key}
@@ -466,9 +542,14 @@ function ModuleList({ course, modules, setModules }: ModuleListProps) {
                 current.map((item) => (item.key === module.key ? { ...item, ...fields } : item)),
               )
             }
-            onDelete={() =>
-              setModules((current) => current.filter((item) => item.key !== module.key))
-            }
+            onDelete={() => {
+              if (
+                window.confirm(
+                  `Remove module ${index + 1}: ${module.title || 'Untitled module'}? Save Changes will apply the removal.`,
+                )
+              )
+                setModules((current) => current.filter((item) => item.key !== module.key))
+            }}
           />
           <button
             type="button"
@@ -489,7 +570,7 @@ function ModuleList({ course, modules, setModules }: ModuleListProps) {
                 move(index, index + (event.key === 'ArrowUp' ? -1 : 1))
               }
             }}
-            className="absolute top-1/2 right-2 flex -translate-y-1/2 cursor-grab text-black/87 focus-visible:outline-2 focus-visible:outline-brand-blue-light"
+            className="absolute top-5 right-2 flex cursor-grab text-slate-500 focus-visible:outline-2 focus-visible:outline-brand-blue-light"
           >
             <Icon name="drag_handle" size={24} />
           </button>
@@ -512,10 +593,21 @@ function ModuleCard({ course, module, index, onChange, onDelete }: ModuleCardPro
   const quizId = useId()
   const original = module.original
   const number = index + 1
+  const [expanded, setExpanded] = useState(index === 0)
+  const contentId = useId()
   return (
-    <div className="rounded-lg border border-light-gray p-3">
-      <div className="flex items-center">
-        <Icon name="drag_indicator" size={20} className="text-gray" />
+    <div className="blueprint-module-card rounded-xl border border-light-gray bg-white p-4 pr-10">
+      <div className="blueprint-module-heading flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} module ${number}`}
+          onClick={() => setExpanded(!expanded)}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200"
+        >
+          <Icon name="expand_more" className={expanded ? 'rotate-180' : undefined} size={20} />
+        </button>
         <span className="ml-2 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-blue font-barlow text-xs font-bold text-white">
           {number}
         </span>
@@ -537,50 +629,59 @@ function ModuleCard({ course, module, index, onChange, onDelete }: ModuleCardPro
           </button>
         </Tooltip>
       </div>
-      {original?.videoPath && (
-        <div className="mt-2.5 flex justify-end">
-          <button
-            type="button"
-            onClick={() =>
-              void download(
-                videoAssetUrl(original.videoPath ?? ''),
-                videoDownloadFilename(course.courseId, original.moduleNumber, original.title),
-              )
-            }
-            className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-primary-blue px-[14px] font-dm text-sm font-bold tracking-[0.1px] text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light"
-          >
-            <Icon name="download_rounded" size={16} />
-            Download Video
-          </button>
+      {/* The expanded card shows the editable quiz count, so the summary is for collapsed cards. */}
+      {!expanded && (
+        <div className="blueprint-module-summary mt-2 pl-10 text-xs text-slate-500">
+          {module.numQuestions || '0'} quiz questions
+          {original?.images.length ? ` · ${original.images.length} source images` : ''}
         </div>
       )}
-      <div className="mt-2.5 flex items-center">
-        <Icon name="quiz_outlined" size={16} className="text-primary-blue" />
-        <label
-          htmlFor={quizId}
-          className="ml-1.5 font-barlow text-[13px] leading-[19.5px] font-medium text-primary-blue"
-        >
-          Quiz questions:
-        </label>
-        <input
-          id={quizId}
-          inputMode="numeric"
-          value={module.numQuestions}
-          onChange={(event) => onChange({ numQuestions: event.target.value })}
-          className="ml-2 h-6 w-[70px] rounded-lg border border-input-border bg-white px-3 font-barlow text-[13px] leading-[19.5px] font-bold text-text-black focus:border-brand-blue-light focus:ring-[0.4px] focus:ring-brand-blue-light focus:outline-none"
+      <div id={contentId} className="blueprint-module-body" hidden={!expanded}>
+        {original?.videoPath && (
+          <div className="mt-2.5 flex justify-end">
+            <button
+              type="button"
+              onClick={() =>
+                void download(
+                  videoAssetUrl(original.videoPath ?? ''),
+                  videoDownloadFilename(course.courseId, original.moduleNumber, original.title),
+                )
+              }
+              className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-primary-blue px-[14px] font-dm text-sm font-bold tracking-[0.1px] text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light"
+            >
+              <Icon name="download_rounded" size={16} />
+              Download Video
+            </button>
+          </div>
+        )}
+        <div className="mt-2.5 flex items-center">
+          <Icon name="quiz_outlined" size={16} className="text-primary-blue" />
+          <label
+            htmlFor={quizId}
+            className="ml-1.5 font-barlow text-[13px] leading-[19.5px] font-medium text-primary-blue"
+          >
+            Quiz questions:
+          </label>
+          <input
+            id={quizId}
+            inputMode="numeric"
+            value={module.numQuestions}
+            onChange={(event) => onChange({ numQuestions: event.target.value })}
+            className="ml-2 h-6 w-[70px] rounded-lg border border-input-border bg-white px-3 font-barlow text-[13px] leading-[19.5px] font-bold text-text-black focus:border-brand-blue-light focus:ring-[0.4px] focus:ring-brand-blue-light focus:outline-none"
+          />
+          <span className="ml-2 font-barlow text-xs leading-[18px] text-gray">
+            questions (0 to disable)
+          </span>
+        </div>
+        <textarea
+          aria-label={`Module ${number} content`}
+          value={module.sourceText}
+          placeholder="Module content will appear here after generation..."
+          onChange={(event) => onChange({ sourceText: event.target.value })}
+          // Grows with the content up to about twenty lines, then it scrolls.
+          className="mt-2.5 block max-h-[420px] min-h-[120px] w-full resize-none rounded-lg border border-input-border bg-light-gray/50 px-3.5 py-1.5 font-barlow text-[13px] leading-[19.5px] text-text-black field-sizing-content placeholder:text-gray focus:border-brand-blue-light focus:ring-[0.4px] focus:ring-brand-blue-light focus:outline-none"
         />
-        <span className="ml-2 font-barlow text-xs leading-[18px] text-gray">
-          questions (0 to disable)
-        </span>
       </div>
-      <textarea
-        aria-label={`Module ${number} content`}
-        value={module.sourceText}
-        placeholder="Module content will appear here after generation..."
-        onChange={(event) => onChange({ sourceText: event.target.value })}
-        // Three to six lines, then it scrolls (minLines 3, maxLines 6).
-        className="mt-2.5 block max-h-[131px] min-h-[72px] w-full resize-none rounded-lg border border-input-border bg-light-gray/50 px-3.5 py-1.5 font-barlow text-[13px] leading-[19.5px] text-text-black field-sizing-content placeholder:text-gray focus:border-brand-blue-light focus:ring-[0.4px] focus:ring-brand-blue-light focus:outline-none"
-      />
     </div>
   )
 }

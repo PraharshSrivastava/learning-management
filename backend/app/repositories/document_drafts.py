@@ -468,7 +468,11 @@ class DocumentDraftRepository:
                 """
                 SELECT draft_id, revision, content_json->'metadata'->>'courseName' AS title,
                        content_json->>'entryMode' AS entry_mode,
-                       jsonb_array_length(content_json->'modules') AS module_count, updated_at
+                       jsonb_array_length(content_json->'modules') AS module_count, updated_at,
+                       (SELECT s.body_json->>'documentId' FROM document_builder_resources s
+                        WHERE s.draft_id = document_builder_drafts.draft_id AND s.kind = 'source'
+                        AND s.body_json->>'documentId' IS NOT NULL
+                        ORDER BY s.resource_id LIMIT 1) AS source_document_id
                 FROM document_builder_drafts WHERE trainer_id = ?
                 AND NOT EXISTS (SELECT 1 FROM document_builder_removed_drafts r
                                 WHERE r.draft_id = document_builder_drafts.draft_id)

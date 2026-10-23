@@ -12,6 +12,7 @@ import { useFullCourseGenerationOverlay } from '../features/courses/useFullCours
 import { DocumentsTab } from '../features/documents/DocumentsTab'
 import { PerformanceTab } from '../features/performance/PerformanceTab'
 import { CoursesTab } from '../features/training/CoursesTab'
+import './desk.css'
 import { trainerKeys } from './queryKeys'
 import { TRAINER_TABS, useTrainerSearch, useUpdateTrainerSearch, type TrainerTab } from './search'
 
@@ -107,7 +108,7 @@ export function TrainerShell() {
           return (
             <section
               key={id === 'performance' ? `${id}:${performanceKey}` : id}
-              className="absolute inset-0 overflow-auto"
+              className="trainer-desk absolute inset-0 overflow-auto"
               hidden={id !== activeTab}
               aria-label={TRAINER_TABS.find((tab) => tab.id === id)?.label}
             >

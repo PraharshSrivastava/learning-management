@@ -26,7 +26,13 @@ export function DocumentsTab() {
         Loading document workspace…
       </div>
     )
-  return capability.data?.workflowEnabled ? <DocumentsWorkspace /> : <OldDocumentsTab />
+  return capability.data?.workflowEnabled ? (
+    <div className="documents-frame">
+      <DocumentsWorkspace />
+    </div>
+  ) : (
+    <OldDocumentsTab />
+  )
 }
 
 function OldDocumentsTab() {

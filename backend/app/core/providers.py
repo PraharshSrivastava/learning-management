@@ -103,6 +103,7 @@ class LLMClient:
         self.max_input_tokens = max_input_tokens
         self.max_output_tokens = max_output_tokens
         self.timeout_seconds = timeout_seconds
+        # None keeps the provider default; Qwen reasons first unless this is False.
         self.enable_thinking = enable_thinking
 
     def complete(

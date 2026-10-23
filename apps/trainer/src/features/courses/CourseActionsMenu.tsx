@@ -77,6 +77,10 @@ async function runAction(action: ConfirmAction, course: Course): Promise<void> {
 
 interface CourseActionsMenuProps {
   course: Course
+  /** Blueprint presents a sole permitted action directly; other tabs retain their menu. */
+  directSingle?: boolean
+  /** Actions another control already offers (Assign's publish button is its Enable). */
+  exclude?: CourseAction[]
   /** Text and icon color of the trigger. Default is the body text color. */
   foregroundColor?: string
   /** Replaces the default Enable step (open the Assign tab). The Assign tab asks to publish. */
@@ -94,6 +98,8 @@ export function CourseActionsMenu({
   foregroundColor,
   onEnable,
   onChanged,
+  directSingle = false,
+  exclude = [],
 }: CourseActionsMenuProps) {
   const { person, token } = useSession<Trainer>()
   const queryClient = useQueryClient()
@@ -116,7 +122,8 @@ export function CourseActionsMenu({
 
   if (!person || person.trainerId !== course.trainerId) return null
 
-  const actions = courseActions(course)
+  const actions = courseActions(course).filter((action) => !exclude.includes(action))
+  if (directSingle && actions.length === 0) return null
   const enabled = !busy && actions.length > 0 && !isGenerationBusy(course)
 
   const select = async (action: CourseAction) => {
@@ -195,19 +202,45 @@ export function CourseActionsMenu({
 
   return (
     <>
-      <Tooltip content="Course actions">
-        <span className="inline-flex">
-          <Menu
-            align="start"
-            trigger={trigger}
-            items={actions.map((action) => ({
-              key: action,
-              label: action,
-              onSelect: () => void select(action),
-            }))}
+      {directSingle && actions.length === 1 ? (
+        <button
+          type="button"
+          disabled={!enabled}
+          aria-label={actions[0]}
+          onClick={() => void select(actions[0]!)}
+          className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-current/20 px-3 py-2 text-sm font-medium enabled:hover:bg-black/4 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{
+            color:
+              foregroundColor ?? (actions[0] === 'Delete' ? '#b52939' : 'var(--color-text-black)'),
+          }}
+        >
+          <Icon
+            name={
+              actions[0] === 'Delete'
+                ? 'delete_outline'
+                : actions[0] === 'Disable'
+                  ? 'pause_circle_outline'
+                  : 'check_circle_outline'
+            }
+            size={18}
           />
-        </span>
-      </Tooltip>
+          <span>{busy ? 'Working…' : actions[0]}</span>
+        </button>
+      ) : (
+        <Tooltip content="Course actions">
+          <span className="inline-flex">
+            <Menu
+              align="start"
+              trigger={trigger}
+              items={actions.map((action) => ({
+                key: action,
+                label: action,
+                onSelect: () => void select(action),
+              }))}
+            />
+          </span>
+        </Tooltip>
+      )}
       {confirm && (
         <ConfirmationDialog
           action={confirm.action}

@@ -63,6 +63,8 @@ export type Draft = {
   approvedOutline: string | null
   createdAt: string
   updatedAt: string
+  /** Course already created from this draft; Create course then opens it instead. */
+  courseId?: string | null
 }
 export type DraftSummary = {
   draft_id: string
@@ -70,6 +72,9 @@ export type DraftSummary = {
   title: string
   module_count: number
   updated_at: string
+  entry_mode?: string | null
+  /** Uploaded document an imported draft came from; such drafts open in Blueprint. */
+  source_document_id?: string | null
 }
 export type Change = {
   moduleId: string
@@ -134,7 +139,7 @@ export const initialContent = (entryMode: Content['entryMode']): Content => ({
     courseDescription: '',
     courseObjective: '',
     targetAudience: '',
-    courseDifficulty: 'Beginner',
+    courseDifficulty: 'Easy',
     language: 'English',
     courseType: 'Training guide',
   },

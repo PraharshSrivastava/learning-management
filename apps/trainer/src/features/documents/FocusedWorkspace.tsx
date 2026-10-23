@@ -1,12 +1,20 @@
 import { apiUrl, authHeaders, errorMessage } from '@lms/shared/api/client'
 import { parseCourse } from '@lms/shared/models'
+import { Icon } from '@lms/shared/ui/icons/Icon'
+import { PdfReader } from './DocumentPreview'
 import { useDraftPersistence } from './useDraftPersistence'
 import { WorkflowTools, SourceAnswer } from './WorkflowTools'
 import { useBlocker } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStoreCourse } from '../courses/courseQueries'
 import { useUpdateTrainerSearch } from '../../shell/search'
-import { TextBlockEditor, isEmptyModule, splitModule, mergeModules } from './editorParity'
+import {
+  TextBlockEditor,
+  isEmptyModule,
+  splitModule,
+  mergeModules,
+  toggleMark,
+} from './editorParity'
 import {
   draftApi,
   postDraft,
@@ -25,15 +33,29 @@ const input = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text
 const button =
   'rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-primary-blue disabled:opacity-40'
 const primary = `${button} !bg-primary-blue !text-white`
+// Do not turn validation, permission or conversion failures into a provider warning.
+export const isModelUnavailable = (message: string) =>
+  /(?:model|provider|AI service|LLM|RunPod).{0,80}(?:unavailable|offline|unreachable|connection|timed? out)|(?:cannot|could not|couldn't|unable to) (?:reach|connect to).{0,40}(?:model|provider|AI service|LLM|RunPod)/i.test(
+    message,
+  )
 type Props = {
   draftId?: string
   mode: 'ai' | 'blank' | 'existing'
   documentId?: string
   onClose: () => void
   onCreated: (id: string) => void
+  /** The course opened in Blueprint; Documents returns to its landing page. */
+  onHandedOff?: () => void
 }
 
-export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated }: Props) {
+export function FocusedWorkspace({
+  draftId,
+  mode,
+  documentId,
+  onClose,
+  onCreated,
+  onHandedOff,
+}: Props) {
   const [stage, setStage] = useState<'setup' | 'outline' | 'editor'>(draftId ? 'editor' : 'setup')
   const [moduleIndex, setModuleIndex] = useState(0)
   const [busy, setBusy] = useState(Boolean(draftId))
@@ -101,12 +123,15 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         })
       draftApi<Operation[]>(`/${draftId}/operations`, { signal: abort.signal })
         .then((values) => {
-          const pending = values.find(
-            (v) =>
-              ['queued', 'running', 'proposed', 'failed'].includes(v.status) ||
-              (v.status === 'completed' && v.request.task === 'answer'),
+          // Newest first. Only the latest operation is current: an old failure that later
+          // operations superseded must not reappear as an outage banner.
+          const latest = values[0]
+          if (
+            latest &&
+            (['queued', 'running', 'proposed', 'failed'].includes(latest.status) ||
+              (latest.status === 'completed' && latest.request.task === 'answer'))
           )
-          if (pending) setOperation(pending)
+            setOperation(latest)
         })
         .catch(() => {})
     }
@@ -166,8 +191,11 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
   const working = busy || (!!operation && ['queued', 'running'].includes(operation.status))
+  // Set when the draft hands off to Blueprint: the URL drops `draft` while this editor is still
+  // mounted, which must not read as a new draft that needs its id added back.
+  const leaving = useRef(false)
   useEffect(() => {
-    if (draft && !draftId && !working && !dirty) onCreated(draft.id)
+    if (draft && !draftId && !working && !dirty && !leaving.current) onCreated(draft.id)
   }, [draft, draftId, working, dirty, onCreated])
   const mutate = (value: Content) => {
     persistence.edit(value)
@@ -236,27 +264,38 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
       await postDraft(`/${value.id}/create-course`, { expectedRevision: value.revision }),
     )
     store(course)
+    leaving.current = true
     navigate({ tab: 'blueprint', course: course.courseId, builder: undefined, draft: undefined })
+    onHandedOff?.()
   }
   const createCourse = () =>
     run(async () => {
       await handoffCourse(await save())
     })
   const approveAndCreateCourse = () => run(async () => handoffCourse(await approve()))
+  // The rendered PDF opens inline: a new tab opened after the save and render is no longer a
+  // direct click, so browsers block it without telling the trainer.
+  const [pdfPreview, setPdfPreview] = useState<{ id: string; revision: number } | null>(null)
   const preview = () =>
     run(async () => {
       const value = await save()
-      const response = await fetch(apiUrl(`/api/document-builder/drafts/${value.id}/render-pdf`), {
+      setPdfPreview({ id: value.id, revision: value.revision })
+    })
+  const renderPdf = async (signal: AbortSignal) => {
+    if (!pdfPreview) throw new Error('PDF preview failed. Check your document and try again.')
+    const response = await fetch(
+      apiUrl(`/api/document-builder/drafts/${pdfPreview.id}/render-pdf`),
+      {
         method: 'POST',
         credentials: 'same-origin',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expectedRevision: value.revision }),
-      })
-      if (!response.ok) throw new Error('PDF preview failed. Check your document and try again.')
-      const url = URL.createObjectURL(await response.blob())
-      window.open(url, '_blank', 'noopener')
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
-    })
+        body: JSON.stringify({ expectedRevision: pdfPreview.revision }),
+        signal,
+      },
+    )
+    if (!response.ok) throw new Error('PDF preview failed. Check your document and try again.')
+    return response.arrayBuffer()
+  }
   const ask = () =>
     run(async () => {
       let extra: Record<string, unknown> = { scope, moduleId: module?.id, instruction }
@@ -348,7 +387,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
       </section>
     )
   return (
-    <section className="mx-auto max-w-[1440px] p-4 md:p-8">
+    <section className="documents-desk docs-editor">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <button
@@ -367,14 +406,28 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
               ? content.metadata.courseName || 'Untitled document'
               : 'Create a training document'}
           </h1>
-          <p className="text-sm text-slate-500">
-            {busy || saving
-              ? 'Saving…'
-              : dirty
-                ? 'Unsaved changes'
-                : draft
-                  ? 'All changes saved'
-                  : 'Choose your content and review before creating a course.'}
+          <p
+            role="status"
+            className={`flex items-center gap-2 text-sm ${saveError ? 'text-[#a43441]' : saving || working ? 'text-[#153c83]' : draft && !dirty ? 'text-[#14694b]' : 'text-slate-500'}`}
+          >
+            <Icon
+              name={
+                saveError ? 'error_outline' : saving || working ? 'refresh' : 'check_circle_outline'
+              }
+              size={17}
+              className={saving || working ? 'motion-safe:animate-spin' : undefined}
+            />
+            {saveError
+              ? 'Changes could not be saved'
+              : saving
+                ? 'Saving…'
+                : working
+                  ? 'Processing your request…'
+                  : dirty
+                    ? 'Unsaved changes'
+                    : draft
+                      ? 'All changes saved'
+                      : 'Choose your content and review before creating a course.'}
           </p>
         </div>
         {draft && (
@@ -412,14 +465,38 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                   )
               }
               onClick={createCourse}
+              title={
+                draft?.courseId
+                  ? 'This draft already has a course. Later edits here do not change it.'
+                  : undefined
+              }
             >
-              Create course
+              {draft?.courseId ? 'Open course in Blueprint' : 'Create course'}
             </button>
           </div>
         )}
       </header>
+      {pdfPreview && (
+        <div className="mb-4">
+          <PdfReader
+            key={`${pdfPreview.id}:${pdfPreview.revision}`}
+            id={`draft-${pdfPreview.id}`}
+            title={`${content.metadata.courseName || 'Untitled document'}.pdf`}
+            load={renderPdf}
+            actions={
+              <button type="button" className={button} onClick={() => setPdfPreview(null)}>
+                Close preview
+              </button>
+            }
+          />
+        </div>
+      )}
       {(error || saveError) && (
-        <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-red-200 bg-[#fff1f2] p-4 text-[#a43441]"
+        >
+          <Icon name="error_outline" size={20} className="mb-2" />
           {error || saveError}
           <p className="mt-1 text-sm">
             Your local edits are kept. If another session changed this draft, reopen it before
@@ -441,11 +518,15 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         </div>
       )}
       {operation && ['queued', 'running'].includes(operation.status) && (
-        <div role="status" className="mb-4 flex justify-between rounded-xl bg-blue-50 p-4">
-          <span>AI is working. Completed content is saved on the server.</span>
-          <button className={button} onClick={() => void run(async () => {})} hidden>
-            Working
-          </button>
+        <div
+          role="status"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-[#153c83]"
+        >
+          <span className="flex items-center gap-2">
+            <Icon name="refresh" size={20} className="motion-safe:animate-spin" />
+            {operation.status === 'queued' ? 'AI request queued' : 'AI is preparing your content'}.
+            Your existing content is preserved.
+          </span>
           <button
             className={button}
             onClick={() => {
@@ -460,8 +541,45 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
         </div>
       )}
       {operation?.status === 'failed' && (
-        <div role="alert" className="mb-4 rounded-lg bg-red-50 p-4">
-          {operation.error || 'Generation failed. Your saved content is unchanged.'}
+        <div
+          role="alert"
+          className={`mb-4 rounded-lg border p-4 ${isModelUnavailable(operation.error || '') ? 'border-amber-200 bg-[#fff7e9] text-[#865515]' : 'border-red-200 bg-[#fff1f2] text-[#a43441]'}`}
+        >
+          <Icon
+            name={
+              isModelUnavailable(operation.error || '') ? 'warning_amber_rounded' : 'error_outline'
+            }
+            size={20}
+            className="mb-2"
+          />
+          {isModelUnavailable(operation.error || '') ? (
+            <>
+              <p className="font-medium">Document model is unavailable</p>
+              <p>
+                We couldn't reach the AI service. Your work is safe. Try again or continue editing.
+              </p>
+            </>
+          ) : (
+            operation.error || 'Generation failed. Your saved content is unchanged.'
+          )}
+          <button
+            className={`${button} mt-3`}
+            disabled={working}
+            onClick={() =>
+              void run(async () => {
+                const value = await save()
+                setOperation(
+                  await postDraft<Operation>(`/${value.id}/operations`, {
+                    ...operation.request,
+                    expectedRevision: value.revision,
+                    key: id(),
+                  }),
+                )
+              })
+            }
+          >
+            Try again
+          </button>
           <button className={`${button} ml-3`} onClick={() => setOperation(null)}>
             Dismiss
           </button>
@@ -544,6 +662,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                     <label>
                       Modules
                       <select
+                        aria-label="Number of modules"
                         className={input}
                         value={content.settings.moduleCount}
                         onChange={(e) =>
@@ -563,6 +682,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                     <label>
                       Document length
                       <select
+                        aria-label="Document length"
                         className={input}
                         value={content.settings.detailLevel}
                         onChange={(e) =>
@@ -575,8 +695,10 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                           })
                         }
                       >
-                        {['short', 'standard', 'detailed'].map((v) => (
-                          <option key={v}>{v}</option>
+                        {(['short', 'standard', 'detailed'] as const).map((v) => (
+                          <option key={v} value={v}>
+                            {{ short: 'Short', standard: 'Standard', detailed: 'Detailed' }[v]}
+                          </option>
                         ))}
                       </select>
                     </label>
@@ -607,6 +729,10 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                 >
                   Generate outline
                 </button>
+                <WorkingNote
+                  working={working}
+                  text="Generating your outline. This usually takes under a minute."
+                />
               </>
             )}
             {mode === 'blank' && (
@@ -785,6 +911,11 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                       <button
                         className={button}
                         disabled={m.blocks.length < 2}
+                        title={
+                          m.blocks.length < 2
+                            ? 'A module needs at least two blocks of content to split.'
+                            : undefined
+                        }
                         onClick={() => {
                           const answer = window.prompt(
                             `Split after which block? Enter 1–${m.blocks.length - 1}.`,
@@ -882,7 +1013,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                       })
                     }
                   >
-                    Approve and draft empty modules
+                    Approve and write all modules
                   </button>
                   <button
                     className={button}
@@ -894,12 +1025,16 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                       })
                     }
                   >
-                    Approve outline and review in editor
+                    Approve and write myself
                   </button>
                 </div>
+                <WorkingNote
+                  working={working}
+                  text="Writing the module content. This can take a minute or two."
+                />
                 <p className="text-xs text-slate-500">
-                  Create course becomes available when the included modules contain training
-                  content.
+                  AI writes content only for modules that are still empty. Create course becomes
+                  available when the included modules contain training content.
                 </p>
               </div>
             ) : (
@@ -951,51 +1086,43 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                             })
                           }
                         />
-                        <div className="mb-5 flex flex-wrap gap-2">
-                          <button className={button} onClick={() => addBlock(paragraph())}>
-                            + Paragraph
-                          </button>
-                          <button
-                            className={button}
-                            onClick={() => addBlock({ ...paragraph('Heading'), type: 'heading' })}
-                          >
-                            + Heading
-                          </button>
-                          {[false, true].map((ordered) => (
+                        <div
+                          role="toolbar"
+                          aria-label="Module formatting and images"
+                          className="mb-5 flex flex-wrap gap-2"
+                        >
+                          {(['bold', 'italic'] as const).map((format) => (
                             <button
-                              key={String(ordered)}
+                              key={format}
                               className={button}
-                              onClick={() =>
-                                addBlock({
-                                  id: id(),
-                                  type: 'list',
-                                  items: ['First item'],
-                                  ordered,
-                                  sourceReferences: [],
-                                })
-                              }
+                              disabled={!selection || selection.start === selection.end}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                if (!selection) return
+                                const block = module.blocks.find((b) => b.id === selection.blockId)
+                                if (!block || !('text' in block)) return
+                                changeBlock(
+                                  block.id,
+                                  toggleMark(
+                                    block,
+                                    Array.from(block.text.slice(0, selection.start)).length,
+                                    Array.from(block.text.slice(0, selection.end)).length,
+                                    format,
+                                  ),
+                                )
+                              }}
                             >
-                              {ordered ? '+ Numbered list' : '+ Bullet list'}
+                              {format === 'bold' ? 'Bold' : 'Italic'}
                             </button>
                           ))}
                           <button
                             className={button}
-                            onClick={() =>
-                              addBlock({
-                                id: id(),
-                                type: 'table',
-                                rows: [
-                                  ['Column 1', 'Column 2'],
-                                  ['Value', 'Value'],
-                                ],
-                                sourceReferences: [],
-                              })
-                            }
+                            onClick={() => addBlock({ ...paragraph('Heading'), type: 'heading' })}
                           >
-                            + Table
+                            Heading
                           </button>
                           <label className={`${button} cursor-pointer`}>
-                            + Image
+                            Image
                             <input
                               className="sr-only"
                               type="file"
@@ -1044,7 +1171,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                         )}
                         {module.blocks.map((block, index) => (
                           <div
-                            className="group mb-5 rounded-lg border border-slate-100 p-3"
+                            className="group mb-3 rounded-lg border border-transparent p-3 hover:border-slate-100 focus-within:border-slate-200 focus-within:bg-slate-50/50"
                             key={block.id}
                           >
                             <BlockEditor
@@ -1057,7 +1184,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                               }}
                             />
                             <button
-                              className="mt-2 text-xs text-slate-500"
+                              className="mt-2 text-xs text-slate-500 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
                               aria-label={`Remove block ${index + 1}`}
                               onClick={() =>
                                 mutate({
@@ -1073,7 +1200,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                               Remove block
                             </button>
                             <button
-                              className="ml-3 text-xs text-slate-500"
+                              className="ml-3 text-xs text-slate-500 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
                               aria-label={`Move block ${index + 1} up`}
                               disabled={index === 0}
                               onClick={() => {
@@ -1093,7 +1220,7 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                               Move up
                             </button>
                             <button
-                              className="ml-3 text-xs text-slate-500"
+                              className="ml-3 text-xs text-slate-500 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
                               aria-label={`Move block ${index + 1} down`}
                               disabled={index === module.blocks.length - 1}
                               onClick={() => {
@@ -1114,6 +1241,9 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                             </button>
                           </div>
                         ))}
+                        <button className={button} onClick={() => addBlock(paragraph())}>
+                          Add paragraph
+                        </button>
                       </>
                     ) : (
                       <p>Select or add a module to begin.</p>
@@ -1125,6 +1255,13 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                   <button
                     className={button}
                     disabled={working || !sources.length || !instruction.trim()}
+                    title={
+                      !sources.length
+                        ? 'Attach a reference source to ask questions about it.'
+                        : !instruction.trim()
+                          ? 'Type your question below first.'
+                          : undefined
+                    }
                     onClick={() => void run(() => start('answer', { instruction }))}
                   >
                     Ask about source
@@ -1168,6 +1305,15 @@ export function FocusedWorkspace({ draftId, mode, documentId, onClose, onCreated
                   >
                     Suggest changes
                   </button>
+                  <WorkingNote
+                    working={working}
+                    text={
+                      operation?.request.task === 'draft' ||
+                      operation?.request.task === 'draft_module'
+                        ? 'Writing the module content. This can take a minute or two.'
+                        : 'Preparing a suggestion. It will open for review when ready.'
+                    }
+                  />
                   <div className="flex flex-wrap gap-2">
                     <button
                       className={button}
@@ -1407,6 +1553,53 @@ function DraftImage({
   )
 }
 
+/** Progress beside the button that started it; the page header may be scrolled out of view. */
+function WorkingNote({ working, text }: { working: boolean; text: string }) {
+  if (!working) return null
+  return (
+    <p role="status" className="flex items-center gap-2 text-sm text-[#153c83]">
+      <Icon name="refresh" size={16} className="motion-safe:animate-spin" />
+      {text}
+    </p>
+  )
+}
+
+/** Words of `suggested` that are not in `original`, by longest common subsequence. */
+function addedWords(original: string, suggested: string): { text: string; added: boolean }[] {
+  // Punctuation is its own token, so "customer." still matches "customer by name."
+  const tokens = (text: string) => text.split(/(\s+|[.,;:!?()"'])/).filter(Boolean)
+  const a = tokens(original)
+  const b = tokens(suggested)
+  // Long passages fall back to plain text instead of an expensive table.
+  if (a.length * b.length > 400_000) return [{ text: suggested, added: false }]
+  const table = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0))
+  for (let i = a.length - 1; i >= 0; i--)
+    for (let j = b.length - 1; j >= 0; j--)
+      table[i]![j] =
+        a[i] === b[j] ? table[i + 1]![j + 1]! + 1 : Math.max(table[i + 1]![j]!, table[i]![j + 1]!)
+  const parts: { text: string; added: boolean }[] = []
+  const push = (text: string, added: boolean) => {
+    const last = parts[parts.length - 1]
+    // Spaces join the run before them, so an added phrase is one highlight.
+    if (last && (last.added === added || /^\s+$/.test(text))) last.text += text
+    else parts.push({ text, added })
+  }
+  let i = 0
+  let j = 0
+  while (j < b.length) {
+    if (i < a.length && a[i] === b[j]) {
+      push(b[j]!, false)
+      i++
+      j++
+    } else if (i < a.length && table[i + 1]![j]! >= table[i]![j + 1]!) i++
+    else {
+      push(b[j]!, true)
+      j++
+    }
+  }
+  return parts
+}
+
 function Proposal({
   operation,
   disabled,
@@ -1419,10 +1612,32 @@ function Proposal({
   dismiss: () => void
 }) {
   const result = operation.result
+  const outline = operation.request.task === 'outline'
+  const allChanges =
+    result?.changes ||
+    (result?.replacementText
+      ? [
+          {
+            originalText: result.originalText || 'New content',
+            replacementText: result.replacementText,
+          },
+        ]
+      : [])
+  // Only paragraphs the suggestion actually changes are worth reviewing.
+  const changes = allChanges.filter(
+    (change) => change.originalText.trim() !== change.replacementText.trim(),
+  )
+  const unchanged = allChanges.length - changes.length
+  const panel = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const smooth = !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    panel.current?.scrollIntoView?.({ block: 'start', behavior: smooth ? 'smooth' : 'auto' })
+  }, [operation.id])
   return (
     <section
+      ref={panel}
       aria-label="Review AI suggestion"
-      className="card mb-6 overflow-hidden border border-blue-200"
+      className="card mb-6 scroll-mt-24 overflow-hidden border border-blue-200"
     >
       <header className="bg-blue-50 p-4">
         <h2 className="font-semibold">Review AI suggestion</h2>
@@ -1454,17 +1669,7 @@ function Proposal({
             ))}
           </div>
         )}
-        {(
-          result?.changes ||
-          (result?.replacementText
-            ? [
-                {
-                  originalText: result.originalText || 'New content',
-                  replacementText: result.replacementText,
-                },
-              ]
-            : [])
-        ).map((change, i) => (
+        {changes.map((change, i) => (
           <div key={i} className="grid gap-3 md:grid-cols-2">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Original</h3>
@@ -1472,10 +1677,32 @@ function Proposal({
             </div>
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
               <h3 className="mb-2 text-xs font-bold uppercase text-primary-blue">Suggested</h3>
-              <p className="whitespace-pre-wrap">{change.replacementText}</p>
+              <p className="whitespace-pre-wrap">
+                {addedWords(change.originalText, change.replacementText).map((part, j) =>
+                  part.added ? (
+                    <mark key={j} className="rounded bg-emerald-100 px-0.5 text-emerald-900">
+                      {part.text}
+                    </mark>
+                  ) : (
+                    <span key={j}>{part.text}</span>
+                  ),
+                )}
+              </p>
             </div>
           </div>
         ))}
+        {allChanges.length > 0 && changes.length === 0 && (
+          <p className="text-sm text-slate-600">
+            The suggestion makes no changes to this content. Dismiss it or try a different
+            instruction.
+          </p>
+        )}
+        {unchanged > 0 && changes.length > 0 && (
+          <p className="text-xs text-slate-500">
+            {unchanged} unchanged {unchanged === 1 ? 'paragraph is' : 'paragraphs are'} not shown.
+            Added wording is highlighted.
+          </p>
+        )}
       </div>
       <footer className="border-t border-slate-200 bg-slate-50 p-4">
         <p className="mb-3 text-sm text-slate-600">
@@ -1484,10 +1711,10 @@ function Proposal({
         </p>
         <div className="flex gap-3">
           <button className={primary} disabled={disabled} onClick={accept}>
-            Accept changes
+            {outline ? 'Use this outline' : 'Accept changes'}
           </button>
           <button className={button} disabled={disabled} onClick={dismiss}>
-            Dismiss suggestion
+            {outline ? 'Discard outline' : 'Dismiss suggestion'}
           </button>
         </div>
       </footer>

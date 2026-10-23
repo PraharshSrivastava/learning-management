@@ -170,15 +170,15 @@ export function WorkflowTools({
           </button>
         </p>
       )}
-      {draft && (
-        <button
-          className={button}
-          disabled={disabled || loading}
-          onClick={() => void showHistory()}
-        >
-          {loading ? 'Loading history…' : 'Version history'}
-        </button>
-      )}
+      {/* Always present, so the page does not shift when the first autosave creates the draft. */}
+      <button
+        className={button}
+        disabled={!draft || disabled || loading}
+        title={draft ? undefined : 'Available after your first change is saved.'}
+        onClick={() => void showHistory()}
+      >
+        {loading ? 'Loading history…' : 'Version history'}
+      </button>
       {error && <p role="alert">{error}</p>}
       {history && (
         <section className="rounded-xl border bg-white p-4" aria-label="Version history">

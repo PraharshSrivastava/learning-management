@@ -216,3 +216,13 @@ def test_cancelled_operation_is_never_claimed_or_written(repo):
         draft.id, "owner", operation["id"]
     )
     assert repo.get(draft.id, "owner").revision == 1
+
+
+def test_drafted_module_drops_a_heading_that_repeats_its_title():
+    from app.document_builder.workflow_jobs import without_title_heading
+
+    heading = {"type": "heading", "text": " Active  Listening "}
+    body = {"type": "paragraph", "text": "Listen first."}
+    assert without_title_heading([heading, body], "Active listening") == [body]
+    assert without_title_heading([heading, body], "Following up") == [heading, body]
+    assert without_title_heading([heading], "Active listening") == [heading]

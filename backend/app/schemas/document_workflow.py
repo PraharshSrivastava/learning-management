@@ -26,7 +26,7 @@ class DraftMetadata(StrictModel):
     courseName: str = Field(default="", max_length=240)
     courseDescription: str = Field(default="", max_length=4000)
     courseObjective: str = Field(default="", max_length=4000)
-    courseDifficulty: str = Field(default="Beginner", max_length=80)
+    courseDifficulty: str = Field(default="Easy", max_length=80)
     language: str = Field(default="English", max_length=80)
     targetAudience: str = Field(default="", max_length=1000)
     courseType: str = Field(default="Training guide", max_length=120)
@@ -227,6 +227,8 @@ class DraftRecord(StrictModel):
     approvedOutline: str | None = None
     createdAt: str
     updatedAt: str
+    # Set on reads and saves: the course already created from this draft, if any.
+    courseId: str | None = None
 
 
 class SaveDraft(StrictModel):

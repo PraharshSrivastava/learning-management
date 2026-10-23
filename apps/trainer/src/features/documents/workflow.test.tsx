@@ -209,8 +209,8 @@ it('shows approved ordered entry choices and routes ready files directly to Blue
   expect(choices.map((b) => b.textContent)).toEqual([
     expect.stringContaining('Use existing content'),
     expect.stringContaining('Generate with AI'),
-    expect.stringContaining('Start blank'),
   ])
+  expect(screen.queryByRole('button', { name: /Start blank/ })).not.toBeInTheDocument()
   fireEvent.click(await screen.findByRole('button', { name: 'Create course' }))
   await waitFor(() =>
     expect(fetch.mock.calls.some(([url]) => String(url).includes('/api/courses/generate'))).toBe(
@@ -218,6 +218,47 @@ it('shows approved ordered entry choices and routes ready files directly to Blue
     ),
   )
   expect(fetch.mock.calls.some(([url]) => String(url).includes('/operations'))).toBe(false)
+})
+it('opens drafts imported from an uploaded document in Blueprint, not the editor', async () => {
+  const draft = (id: string, overrides: Record<string, unknown> = {}) => ({
+    draft_id: id,
+    revision: 1,
+    title: id,
+    module_count: 2,
+    updated_at: '2026-10-16T10:00:00Z',
+    ...overrides,
+  })
+  const fetch = stubFetch((url) =>
+    url.pathname.endsWith('/capabilities')
+      ? { workflowEnabled: true }
+      : url.pathname.endsWith('/drafts')
+        ? [
+            draft('Imported', { entry_mode: 'existing', source_document_id: 'doc-Ready.pdf' }),
+            draft('Uncoursed', { entry_mode: 'existing', source_document_id: 'doc-Other.pdf' }),
+          ]
+        : url.pathname === '/api/files'
+          ? [fileJson('Ready.pdf'), fileJson('Other.pdf')]
+          : url.pathname === '/api/courses'
+            ? [{ course_id: 'c1', trainer_id: 't', document_id: 'doc-Ready.pdf', status: 'draft' }]
+            : new Promise(() => {}),
+  )
+  const view = renderDocuments()
+  await screen.findByText('Imported')
+  await waitFor(() =>
+    expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/api/courses'))).toBe(true),
+  )
+  fireEvent.click(screen.getAllByRole('button', { name: 'Open' })[0]!)
+  await waitFor(() => expect(view.search()).toMatchObject({ tab: 'blueprint', course: 'c1' }))
+  expect(view.search().draft).toBeUndefined()
+  void view.router.navigate({ to: '/', search: { tab: 'documents' } })
+  await screen.findByText('Uncoursed')
+  fireEvent.click(screen.getAllByRole('button', { name: 'Open' })[1]!)
+  await waitFor(() =>
+    expect(fetch.mock.calls.some(([url]) => String(url).includes('/api/courses/generate'))).toBe(
+      true,
+    ),
+  )
+  expect(view.search().draft).toBeUndefined()
 })
 it('starts AI outline once after creating a persistent draft and shows proposal without changing it', async () => {
   let current = {
@@ -276,6 +317,161 @@ it('starts AI outline once after creating a persistent draft and shows proposal 
     ),
   ).toHaveLength(1)
   expect(current.content.modules).toHaveLength(0)
+})
+it('hands off to Blueprint without leaving editor params, and previews the PDF inline', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      metadata: { ...initialContent('ai').metadata, courseName: 'Complaints' },
+      modules: [
+        {
+          id: 'm1',
+          title: 'Listening',
+          objective: '',
+          included: true,
+          sections: [],
+          blocks: [{ id: 'b1', type: 'paragraph', text: 'Listen first.', marks: [] }],
+        },
+      ],
+    },
+    approvedOutline: 'approved',
+    createdAt: 'now',
+    updatedAt: 'now',
+    courseId: null as string | null,
+  }
+  const open = vi.fn()
+  vi.stubGlobal('open', open)
+  const fetch = stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/render-pdf')) return new Response(new Uint8Array([1]))
+    if (url.pathname.endsWith('/create-course'))
+      return { course_id: 'c9', trainer_id: 'owner', course_name: 'Complaints', status: 'draft' }
+    if (url.pathname.endsWith('/sources') || url.pathname.endsWith('/operations')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  const view = renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  await screen.findByDisplayValue('Listening')
+  fireEvent.click(screen.getByRole('button', { name: 'Preview PDF' }))
+  expect(
+    await screen.findByRole('region', { name: 'Preview of Complaints.pdf' }),
+  ).toBeInTheDocument()
+  expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/render-pdf'))).toBe(true)
+  expect(open).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Create course' }))
+  await waitFor(() => expect(view.search()).toMatchObject({ tab: 'blueprint', course: 'c9' }))
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  })
+  expect(view.search().builder).toBeUndefined()
+  expect(view.search().draft).toBeUndefined()
+})
+it('offers to open the existing course when the draft already has one', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      modules: [
+        { id: 'm1', title: 'Listening', objective: '', included: true, sections: [], blocks: [] },
+      ],
+    },
+    approvedOutline: 'approved',
+    createdAt: 'now',
+    updatedAt: 'now',
+    courseId: 'c9',
+  }
+  stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/sources') || url.pathname.endsWith('/operations')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  expect(
+    await screen.findByRole('button', { name: 'Open course in Blueprint' }),
+  ).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Create course' })).not.toBeInTheDocument()
+})
+it('reviews only changed paragraphs and highlights the added wording', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      modules: [
+        { id: 'm1', title: 'Listening', objective: '', included: true, sections: [], blocks: [] },
+      ],
+    },
+    approvedOutline: null,
+    createdAt: 'now',
+    updatedAt: 'now',
+  }
+  const proposal = {
+    id: 'op',
+    status: 'proposed',
+    request: { task: 'revise' },
+    result: {
+      changes: [
+        { moduleId: 'm1', blockId: 'a', originalText: 'Stay calm.', replacementText: 'Stay calm.' },
+        {
+          moduleId: 'm1',
+          blockId: 'b',
+          originalText: 'Acknowledge the customer.',
+          replacementText: 'Acknowledge the customer by name.',
+        },
+      ],
+    },
+  }
+  stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/operations')) return [proposal]
+    if (url.pathname.endsWith('/sources')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  const review = await screen.findByRole('region', { name: 'Review AI suggestion' })
+  expect(review).toHaveTextContent('1 unchanged paragraph is not shown')
+  expect(review.querySelector('mark')?.textContent?.trim()).toBe('by name')
+  expect(review).not.toHaveTextContent('Stay calm.')
+})
+it('does not show an old model failure that later operations superseded', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      modules: [
+        { id: 'm1', title: 'Listening', objective: '', included: true, sections: [], blocks: [] },
+      ],
+    },
+    approvedOutline: null,
+    createdAt: 'now',
+    updatedAt: 'now',
+  }
+  const failed = {
+    id: 'old',
+    status: 'failed',
+    error: 'Document model is unavailable; your draft is unchanged',
+    request: { task: 'outline' },
+  }
+  stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/operations'))
+      return [{ id: 'new', status: 'accepted', request: { task: 'edit' } }, failed]
+    if (url.pathname.endsWith('/sources')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  expect(await screen.findByDisplayValue('Listening')).toBeInTheDocument()
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  })
+  expect(screen.queryByText('Document model is unavailable')).not.toBeInTheDocument()
 })
 it('removes a draft with its revision and supports undo', async () => {
   const value = {

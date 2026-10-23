@@ -218,9 +218,9 @@ export function moduleNumberForImage(
   modules: readonly ModuleDraft[],
   imageId: string,
 ): number | null {
-  for (const module of modules) {
+  for (const [index, module] of modules.entries()) {
     if (module.original?.images.some((image) => image.imageId === imageId)) {
-      return module.original.moduleNumber
+      return index + 1
     }
   }
   return null
