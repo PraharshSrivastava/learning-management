@@ -66,6 +66,18 @@ is changed. VM deployment/acceptance remains pending.
 - [Compiled Blueprint desktop](design/trainer-ui/blueprint-implemented.desktop.png).
 - [Compiled Blueprint mobile](design/trainer-ui/blueprint-implemented.mobile.png).
 
+### Uniform trainer frame — 23 October 2026
+
+User direction: the same layout and fonts on every tab. `apps/trainer/src/shell/desk.css`
+now gives Documents, Blueprint, Courses, Assign and Performance one frame: Inter only,
+`#f4f6fa` background, 24/32 px page padding and one course-sidebar width
+(`clamp(272px, 22vw, 360px)`). Page titles are 28 px and section and sidebar titles are
+17 px, all medium weight. Intentional deviations from earlier sections: Documents is
+full width instead of a centered 1240 px column; Courses uses the Blueprint desk and course
+list; the shared Performance report sits in the trainer frame with Inter (its content and
+the employee app are unchanged). Verified on big-coding at 1600 px: all tabs start at the
+same position, use only Inter, and the three course sidebars are 352 px wide.
+
 ### Assign implementation verification — 23 October 2026
 
 - Focused assignment layout: Blueprint-style course sidebar with search; header card with
