@@ -75,7 +75,9 @@ class WorkflowModel:
             timeout_seconds=config.document_builder_model_timeout_seconds,
         )
         if hasattr(self.client, "enable_thinking"):
-            self.client.enable_thinking = config.document_builder_enable_thinking
+            # Its own setting when set, otherwise the LMS-wide one (false for Qwen on main).
+            own = config.document_builder_enable_thinking
+            self.client.enable_thinking = own if own is not None else config.llm_enable_thinking
 
     def complete(
         self,

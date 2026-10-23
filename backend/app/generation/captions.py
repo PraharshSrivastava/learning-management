@@ -193,7 +193,8 @@ def group_cues(script: str, words: list[dict], duration: float, offset: float = 
         if (
             not all(math.isfinite(t) for t in (start, end))
             or start < previous
-            or end <= start
+            # Aligner frames are ~80 ms, so short function words can be zero-length.
+            or end < start
             or end > duration + 0.05
         ):
             raise CaptionsUnavailable("Invalid word timing")
@@ -209,31 +210,43 @@ def group_cues(script: str, words: list[dict], duration: float, offset: float = 
             }
         )
         index += count
-    cues, batch = [], []
-
-    def flush():
-        if batch:
-            cues.append(
-                {
-                    "start": round(offset + batch[0]["start"], 3),
-                    "end": round(offset + batch[-1]["end"], 3),
-                    "text": " ".join(word["text"] for word in batch),
-                }
-            )
-            batch.clear()
-
+    # Phrases end at sentence punctuation or audible pauses; long phrases are then balanced.
+    phrases, batch = [], []
     for word in readable:
-        if batch and (
-            len(" ".join(item["text"] for item in batch)) + len(word["text"]) > 78
-            or word["end"] - batch[0]["start"] > 6
-            or word["start"] - batch[-1]["end"] > 0.4
-        ):
-            flush()
+        if batch and word["start"] - batch[-1]["end"] > 0.4:
+            phrases.append(batch)
+            batch = []
         batch.append(word)
         if word["text"].endswith((".", "!", "?", ";")):
-            flush()
-    flush()
-    return cues
+            phrases.append(batch)
+            batch = []
+    if batch:
+        phrases.append(batch)
+    return [
+        {
+            "start": round(offset + piece[0]["start"], 3),
+            "end": round(offset + piece[-1]["end"], 3),
+            "text": " ".join(word["text"] for word in piece),
+        }
+        for phrase in phrases
+        for piece in _balanced_pieces(phrase)
+    ]
+
+
+def _balanced_pieces(words: list[dict]) -> list[list[dict]]:
+    """Halve an over-long phrase at its most even word boundary, so no word is left alone."""
+    text = " ".join(word["text"] for word in words)
+    if len(words) < 2 or (len(text) <= 78 and words[-1]["end"] - words[0]["start"] <= 6):
+        return [words]
+
+    def cost(split: int) -> float:
+        left = len(" ".join(word["text"] for word in words[:split]))
+        balance = max(left, len(text) - left - 1)
+        # Prefer a natural break after a comma or colon when it is nearly as even.
+        return balance - (10 if words[split - 1]["text"].endswith((",", ":")) else 0)
+
+    split = min(range(1, len(words)), key=cost)
+    return _balanced_pieces(words[:split]) + _balanced_pieces(words[split:])
 
 
 def timestamp(seconds: float) -> str:

@@ -342,6 +342,7 @@ _default_llm_client = LLMClient(
     context_window=CHAT_MODEL_CONTEXT_WINDOW,
     max_input_tokens=settings.llm_max_input_tokens,
     max_output_tokens=settings.llm_max_output_tokens,
+    enable_thinking=settings.llm_enable_thinking,
 )
 
 
@@ -371,6 +372,7 @@ def safe_chat_completion(
             context_window=settings.llm_context_window,
             max_input_tokens=settings.llm_max_input_tokens,
             max_output_tokens=settings.llm_max_output_tokens,
+            enable_thinking=settings.llm_enable_thinking,
         )
     return client.complete(
         messages,
