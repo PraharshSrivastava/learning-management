@@ -18,6 +18,10 @@
 .trainer-desk :is(.font-extrabold, .font-black) {
   font-weight: 600;
 }
+/* Headings stay medium or semibold, as in Documents and Blueprint. */
+.trainer-desk :is(h1, h2, h3, h4):is(.font-bold, .font-extrabold, .font-black) {
+  font-weight: 600;
+}
 @media (max-width: 1024px) {
   .trainer-desk {
     --desk-sidebar: 248px;
@@ -37,7 +41,7 @@
   padding: var(--desk-padding);
   background: transparent;
 }
-.trainer-performance :is(h1, h2, h3) {
+.trainer-desk .trainer-performance :is(h1, h2, h3) {
   font-weight: 500;
 }
 .trainer-performance > div:first-child > div:first-child h2 {
