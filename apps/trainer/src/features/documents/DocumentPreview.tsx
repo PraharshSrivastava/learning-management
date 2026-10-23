@@ -60,7 +60,9 @@ function Preview({
         if (!active) return
         const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist')
         if (!active) return
-        GlobalWorkerOptions.workerSrc = workerUrl
+        // Browsers cached this worker for a year while nginx served it with the wrong type;
+        // the query makes them fetch the corrected copy.
+        GlobalWorkerOptions.workerSrc = `${workerUrl}?type=js`
         task = getDocument({
           data: new Uint8Array(bytes),
           cMapUrl: new URL('./static/pdf-support/cmaps/', globalThis.document.baseURI).href,
