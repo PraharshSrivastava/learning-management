@@ -25,5 +25,10 @@ export function PerformanceTab() {
     if (next) setLinked(next)
   }, [tab])
 
-  return <LazyPerformanceReport app="trainer" linkedReport={linked} />
+  // The wrapper lets the trainer frame (shell/desk.css) align the shared report with other tabs.
+  return (
+    <div className="trainer-performance">
+      <LazyPerformanceReport app="trainer" linkedReport={linked} />
+    </div>
+  )
 }

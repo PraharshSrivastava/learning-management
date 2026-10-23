@@ -81,10 +81,9 @@
   background: #eaf7f0;
   color: #247451;
 }
+/* Same full-width frame as the other trainer tabs (shell/desk.css). */
 .documents-desk.docs-landing {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 30px;
+  padding: var(--desk-padding);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -318,4 +317,9 @@
   .documents-desk button {
     min-height: 44px;
   }
+}
+
+/* The editor uses the shared trainer frame too. */
+.documents-desk.docs-editor {
+  padding: var(--desk-padding);
 }

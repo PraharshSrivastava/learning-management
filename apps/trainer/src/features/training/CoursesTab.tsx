@@ -3,25 +3,31 @@ import { CourseLibraryAccess } from '../courses/CourseLibraryAccess'
 import { CoursesSidebar } from '../courses/CoursesSidebar'
 import { EmptyCourseView } from '../courses/EmptyCourseView'
 import { useSelectedCourse } from '../courses/courseQueries'
+import '../courses/BlueprintStyles.css'
 import { TrainingView } from './TrainingView'
 
-/** Courses tab: own course list and the training view of the selected course. */
+/**
+ * Courses tab: own course list and the training view of the selected course. It shares the
+ * Blueprint desk, so the course list, frame and fonts match between the two tabs.
+ */
 export function CoursesTab() {
   const { course, detailError } = useSelectedCourse()
   return (
     <CourseLibraryAccess>
-      <div className="flex h-full">
-        <div className="w-[380px] shrink-0 p-5">
-          <CoursesSidebar selectedId={course?.courseId ?? null} />
-        </div>
-        <div className="min-w-0 flex-1 pt-5 pr-6 pb-6 pl-6">
-          {!course ? (
-            <EmptyCourseView />
-          ) : isDetailPending(course) ? (
-            <CourseDetailPending detailError={detailError} />
-          ) : (
-            <TrainingView course={course} />
-          )}
+      <div className="blueprint-desk">
+        <div className="bp-layout">
+          <aside className="bp-sidebar" aria-label="Course navigation">
+            <CoursesSidebar selectedId={course?.courseId ?? null} searchable />
+          </aside>
+          <main className="bp-main" aria-label="Course training view">
+            {!course ? (
+              <EmptyCourseView />
+            ) : isDetailPending(course) ? (
+              <CourseDetailPending detailError={detailError} />
+            ) : (
+              <TrainingView course={course} />
+            )}
+          </main>
         </div>
       </div>
     </CourseLibraryAccess>

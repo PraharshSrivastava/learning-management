@@ -1,0 +1,46 @@
+/*
+ * One frame for every trainer tab: the same typeface, background, page padding and course
+ * sidebar width, so Documents, Blueprint, Courses, Assign and Performance line up.
+ */
+.trainer-desk {
+  --desk-sidebar: clamp(272px, 22vw, 360px);
+  --desk-gap: 24px;
+  --desk-padding: 24px 32px 32px;
+  min-height: 100%;
+  background: #f4f6fa;
+  color: #19273e;
+}
+/* Unlayered, so it wins over the older per-component DM Sans, Barlow and Manrope utilities. */
+.trainer-desk,
+.trainer-desk * {
+  font-family: var(--font-inter);
+}
+.trainer-desk :is(.font-extrabold, .font-black) {
+  font-weight: 600;
+}
+@media (max-width: 1024px) {
+  .trainer-desk {
+    --desk-sidebar: 248px;
+    --desk-gap: 16px;
+    --desk-padding: 20px;
+  }
+}
+@media (max-width: 800px) {
+  .trainer-desk {
+    --desk-padding: 16px;
+  }
+}
+
+/* Performance is a shared report; only the trainer frame is adjusted here. */
+.trainer-performance > div:first-child {
+  min-height: 100%;
+  padding: var(--desk-padding);
+  background: transparent;
+}
+.trainer-performance :is(h1, h2, h3) {
+  font-weight: 500;
+}
+.trainer-performance > div:first-child > div:first-child h2 {
+  font-size: 28px;
+  line-height: 1.3;
+}

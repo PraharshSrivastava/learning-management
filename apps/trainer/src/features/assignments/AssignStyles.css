@@ -24,9 +24,9 @@
 }
 .assign-desk .assign-layout {
   display: grid;
-  grid-template-columns: clamp(272px, 22vw, 340px) minmax(0, 1fr);
-  gap: 24px;
-  padding: 24px 32px 32px;
+  grid-template-columns: var(--desk-sidebar) minmax(0, 1fr);
+  gap: var(--desk-gap);
+  padding: var(--desk-padding);
   align-items: start;
 }
 
@@ -60,7 +60,7 @@
 .assign-desk .assign-course-head h2 {
   margin: 0;
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.3;
 }
 .assign-desk .assign-count {
@@ -285,8 +285,8 @@
   color: var(--as-primary);
 }
 .assign-desk .assign-panel-head h3 {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 500;
   line-height: 1.4;
 }
 .assign-desk .assign-panel-head p {
@@ -332,8 +332,8 @@
 }
 @media (max-width: 1024px) {
   .assign-desk .assign-layout {
-    grid-template-columns: 248px minmax(0, 1fr);
-    padding: 20px;
+    grid-template-columns: var(--desk-sidebar) minmax(0, 1fr);
+    padding: var(--desk-padding);
     gap: 16px;
   }
   .assign-desk .assign-sidebar {

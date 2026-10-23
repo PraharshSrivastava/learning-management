@@ -387,7 +387,7 @@ export function FocusedWorkspace({
       </section>
     )
   return (
-    <section className="documents-desk mx-auto max-w-[1440px] p-4 font-inter md:p-8">
+    <section className="documents-desk docs-editor">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <button
