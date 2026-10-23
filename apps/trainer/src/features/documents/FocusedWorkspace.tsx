@@ -1,4 +1,4 @@
-﻿import { apiUrl, authHeaders, errorMessage } from '@lms/shared/api/client'
+import { apiUrl, authHeaders, errorMessage } from '@lms/shared/api/client'
 import { parseCourse } from '@lms/shared/models'
 import { Icon } from '@lms/shared/ui/icons/Icon'
 import { PdfReader } from './DocumentPreview'
@@ -399,7 +399,7 @@ export function FocusedWorkspace({
               }
             }}
           >
-            â† Documents
+            ← Documents
           </button>
           <h1 className="mt-2 text-2xl font-bold">
             {draft
@@ -420,9 +420,9 @@ export function FocusedWorkspace({
             {saveError
               ? 'Changes could not be saved'
               : saving
-                ? 'Savingâ€¦'
+                ? 'Saving…'
                 : working
-                  ? 'Processing your requestâ€¦'
+                  ? 'Processing your request…'
                   : dirty
                     ? 'Unsaved changes'
                     : draft
@@ -656,7 +656,7 @@ export function FocusedWorkspace({
                 </label>
                 <details>
                   <summary className="cursor-pointer text-sm">
-                    Customize generation Â· optional
+                    Customize generation · optional
                   </summary>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <label>
@@ -673,7 +673,7 @@ export function FocusedWorkspace({
                       >
                         {[2, 3, 4, 5, 6, 7, 8].map((n) => (
                           <option key={n} value={n}>
-                            {n === 4 ? 'Default â€” 4 modules' : `${n} modules`}
+                            {n === 4 ? 'Default — 4 modules' : `${n} modules`}
                           </option>
                         ))}
                       </select>
@@ -905,7 +905,7 @@ export function FocusedWorkspace({
                         disabled={m.blocks.length < 2}
                         onClick={() => {
                           const answer = window.prompt(
-                            `Split after which block? Enter 1â€“${m.blocks.length - 1}.`,
+                            `Split after which block? Enter 1–${m.blocks.length - 1}.`,
                             '1',
                           )
                           if (answer === null) return
@@ -1272,7 +1272,7 @@ export function FocusedWorkspace({
                     value={instruction}
                     disabled={working}
                     onChange={(e) => setInstruction(e.target.value)}
-                    placeholder="Make this easier for a new employee to understandâ€¦"
+                    placeholder="Make this easier for a new employee to understand…"
                   />
                   <button
                     className={`${primary} w-full`}
@@ -1516,7 +1516,7 @@ function DraftImage({
   ) : url ? (
     <img className="mx-auto max-h-96 max-w-full object-contain" alt={caption} src={url} />
   ) : (
-    <p role="status">Loading imageâ€¦</p>
+    <p role="status">Loading image…</p>
   )
 }
 
@@ -1550,7 +1550,7 @@ function Proposal({
             <p>{module.objective}</p>
             <ul>
               {module.sections.map((s, j) => (
-                <li key={j}>â€¢ {s}</li>
+                <li key={j}>• {s}</li>
               ))}
             </ul>
           </article>
