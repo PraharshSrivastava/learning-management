@@ -104,7 +104,7 @@
 .blueprint-desk .bp-course-search input {
   width: 100%;
   min-width: 0;
-  font-size: 13px;
+  font-size: 14px;
   border: 0;
   outline: none;
   color: var(--bp-text);
@@ -122,7 +122,7 @@
 }
 .blueprint-desk .bp-course-filter > span:first-child {
   padding: 0 36px 0 12px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--bp-text);
 }
@@ -174,7 +174,7 @@
   overflow: hidden;
   white-space: normal;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
   font-weight: 500;
   color: var(--bp-text);
@@ -186,7 +186,7 @@
   flex-wrap: wrap;
 }
 .blueprint-desk .bp-course-meta > span {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 .blueprint-desk .bp-course-difficulty {

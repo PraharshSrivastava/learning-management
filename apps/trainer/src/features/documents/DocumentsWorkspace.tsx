@@ -46,6 +46,11 @@ export function DocumentsWorkspace() {
   })
   const [mode, setMode] = useState<'ai' | 'blank' | 'existing' | null>(null)
   const [existing, setExisting] = useState(false)
+  // The upload panel opens below the creation cards; bring it into view on small screens too.
+  const uploadPanel = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (existing) uploadPanel.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+  }, [existing])
   const [all, setAll] = useState(false)
   const [allFiles, setAllFiles] = useState(Boolean(search.file))
   const previewButtons = useRef(new Map<string, HTMLButtonElement>())
@@ -194,6 +199,52 @@ export function DocumentsWorkspace() {
           ))}
         </div>
       </section>
+      {existing && (
+        <section
+          ref={uploadPanel}
+          className="docs-panel space-y-4"
+          aria-label="Upload ready document"
+        >
+          <header className="flex justify-between">
+            <h2 className="font-semibold">Use existing content</h2>
+            <button
+              onClick={() => {
+                upload.cancel()
+                setExisting(false)
+              }}
+              aria-label="Close upload"
+            >
+              <DocumentsIcon name="close" />
+            </button>
+          </header>
+          <UploadCard
+            upload={{
+              ...upload,
+              upload: async (file) => {
+                const fileName = await upload.upload(file)
+                if (fileName) await createCourse(fileName)
+                return fileName
+              },
+            }}
+          />
+          <p className="text-sm text-slate-500">
+            Upload your ready PDF, DOCX or PPTX to open Blueprint automatically. You can review the
+            course outline there before generating videos and quizzes.
+          </p>
+          <details>
+            <summary className="cursor-pointer text-sm text-primary-blue">
+              Or paste notes for editing
+            </summary>
+            <button
+              disabled={upload.state.status === 'uploading'}
+              className={`${button} mt-3`}
+              onClick={() => setMode('existing')}
+            >
+              Paste notes
+            </button>
+          </details>
+        </section>
+      )}
       {error && (
         <div role="alert" className="docs-notice docs-notice-error">
           <DocumentsIcon name="error" />
@@ -263,48 +314,6 @@ export function DocumentsWorkspace() {
             ))
         )}
       </section>
-      {existing && (
-        <section className="docs-panel space-y-4" aria-label="Upload ready document">
-          <header className="flex justify-between">
-            <h2 className="font-semibold">Use existing content</h2>
-            <button
-              onClick={() => {
-                upload.cancel()
-                setExisting(false)
-              }}
-              aria-label="Close upload"
-            >
-              <DocumentsIcon name="close" />
-            </button>
-          </header>
-          <UploadCard
-            upload={{
-              ...upload,
-              upload: async (file) => {
-                const fileName = await upload.upload(file)
-                if (fileName) await createCourse(fileName)
-                return fileName
-              },
-            }}
-          />
-          <p className="text-sm text-slate-500">
-            Upload your ready PDF, DOCX or PPTX to open Blueprint automatically. You can review the
-            course outline there before generating videos and quizzes.
-          </p>
-          <details>
-            <summary className="cursor-pointer text-sm text-primary-blue">
-              Or paste notes for editing
-            </summary>
-            <button
-              disabled={upload.state.status === 'uploading'}
-              className={`${button} mt-3`}
-              onClick={() => setMode('existing')}
-            >
-              Paste notes
-            </button>
-          </details>
-        </section>
-      )}
       <section className="docs-panel docs-library" aria-label="Your uploaded documents">
         <header className="docs-library-header">
           <h2>
