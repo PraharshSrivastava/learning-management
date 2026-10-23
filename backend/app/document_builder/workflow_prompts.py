@@ -1,6 +1,6 @@
 """Task-specific prompts; imported text is evidence, never instructions."""
 
-PROMPT_VERSION = "document-workflow-v3"
+PROMPT_VERSION = "document-workflow-v4"
 
 SYSTEM = """You help corporate trainers prepare training documents.
 Follow the TASK and OUTPUT_SCHEMA supplied by the application. Return one valid
@@ -25,7 +25,8 @@ Return a concise summary. Do not emit block IDs or unrelated content.""",
     "insert": """Draft one new illustrative workplace scenario for the supplied module.
 Label it 'Illustrative scenario' and avoid inventing company rules or deadlines.
 Return its text as replacementText plus a concise summary and supporting
-sourceReferences if any. Do not rewrite existing content.""",
+sourceReferences if any. Do not rewrite existing content.
+Write plain prose sentences: no markdown headings, bold markers or lists.""",
     "outline": """Propose an outline, not document content. Return exactly the
 requested moduleCount, with distinct relevant titles, observable objectives,
 and planned sections. Cover the course objective without repetitive modules.""",

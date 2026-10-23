@@ -73,7 +73,8 @@ class Settings(BaseModel):
 
     llm_base_url: str = "http://35.238.33.238:4000/v1"
     llm_api_key: str | None = None
-    llm_model_name: str = "gemma-4-e4b"
+    llm_model_name: str = "qwen3.6-35b"
+    llm_enable_thinking: bool | None = None
     llm_context_window: int = Field(default=100000, ge=256)
     llm_max_input_tokens: int = Field(default=87000, ge=256)
     llm_max_output_tokens: int = Field(default=12000, ge=256)
@@ -342,7 +343,8 @@ class Settings(BaseModel):
                 ),
                 "llm_base_url": values.get("LLM_BASE_URL", "http://35.238.33.238:4000/v1"),
                 "llm_api_key": values.get("LLM_API_KEY") or values.get("LITELLM_API_KEY") or None,
-                "llm_model_name": values.get("LLM_MODEL_NAME", "gemma-4-e4b"),
+                "llm_model_name": values.get("LLM_MODEL_NAME", "qwen3.6-35b"),
+                "llm_enable_thinking": values.get("LLM_ENABLE_THINKING") or None,
                 "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "100000"),
                 "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "87000"),
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),

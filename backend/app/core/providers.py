@@ -94,6 +94,7 @@ class LLMClient:
         max_input_tokens: int,
         max_output_tokens: int,
         timeout_seconds: float = 600,
+        enable_thinking: bool | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -102,6 +103,7 @@ class LLMClient:
         self.max_input_tokens = max_input_tokens
         self.max_output_tokens = max_output_tokens
         self.timeout_seconds = timeout_seconds
+        self.enable_thinking = enable_thinking
 
     def complete(
         self,
@@ -238,6 +240,11 @@ class LLMClient:
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
+            chat_template_kwargs=(
+                {"enable_thinking": self.enable_thinking}
+                if self.enable_thinking is not None
+                else None
+            ),
         ).model_dump(exclude_none=True)
         try:
             response = requests.post(
@@ -334,6 +341,7 @@ _default_llm_client = LLMClient(
     context_window=CHAT_MODEL_CONTEXT_WINDOW,
     max_input_tokens=settings.llm_max_input_tokens,
     max_output_tokens=settings.llm_max_output_tokens,
+    enable_thinking=settings.llm_enable_thinking,
 )
 
 
@@ -363,6 +371,7 @@ def safe_chat_completion(
             context_window=settings.llm_context_window,
             max_input_tokens=settings.llm_max_input_tokens,
             max_output_tokens=settings.llm_max_output_tokens,
+            enable_thinking=settings.llm_enable_thinking,
         )
     return client.complete(
         messages,
