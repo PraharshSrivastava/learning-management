@@ -30,7 +30,7 @@ they do not change the configured AI provider, model, RunPod endpoint or credent
 | Documents landing and uploaded-document preview  | Selected and specified here                                                                             | Implemented; VM acceptance pending         |
 | Document editor simplification and notifications | Specified here                                                                                          | Implemented; VM acceptance pending         |
 | Blueprint                                        | Refined desk interactive design approved                                                                | Implemented; VM acceptance pending         |
-| Assign                                           | Focused assignment with left course list and top actions approved; employee-picker correction specified | Pending implementation                     |
+| Assign                                           | Focused assignment with left course list and top actions approved; employee-picker correction specified | Implemented; VM acceptance pending         |
 | Courses                                          | Reserved for later review                                                                               | Pending design                             |
 | Performance / Observer                           | Preserve current behavior; later visual review if requested                                             | No change authorized by this specification |
 
@@ -65,6 +65,26 @@ is changed. VM deployment/acceptance remains pending.
   require acceptance on big-coding.
 - [Compiled Blueprint desktop](design/trainer-ui/blueprint-implemented.desktop.png).
 - [Compiled Blueprint mobile](design/trainer-ui/blueprint-implemented.mobile.png).
+
+### Assign implementation verification — 23 October 2026
+
+- Focused assignment layout: Blueprint-style course sidebar with search; header card with
+  the top toolbar (Save Rule, Refresh, direct lifecycle action, paper-plane publish button).
+  No bottom action bar. Two columns from 1280 px: Target employees above Assignment
+  preview; Completion deadline above Performance observers. Single column below.
+- Add employees opens a searchable multi-select picker with no group step. Picks are kept
+  in the first plain employee-id include group (never a saved group), so the rule format and
+  backend contract are unchanged. Exclusions use the same picker. Department, mailing list,
+  joined-days and saved groups remain under a collapsible filter section; filter groups no
+  longer offer their own employee picker, and existing employee ids in them stay removable.
+- Lifecycle control shows Disable/Delete directly and never a second Enable: the publish
+  button is Enable for disabled courses and keeps its preview/confirmation flow.
+- Save Rule, publish confirmation, observer Save/Apply, deadlines, conflict reload and
+  inert-while-busy behavior are unchanged. 468 React tests passed; types and lint clean.
+- Checked on big-coding (`trainer-ui-7e71952`) with real courses, read-only: layout at
+  1440/1080/375 px with no horizontal overflow, picker search/selection/cancel, existing
+  department rule loaded intact, single Enable on a disabled course. Publishing was not
+  exercised. The design reference still shows the superseded department selector.
 
 ### VM review fixes — 23 October 2026
 
