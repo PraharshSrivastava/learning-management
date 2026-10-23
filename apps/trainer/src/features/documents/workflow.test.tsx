@@ -395,6 +395,49 @@ it('offers to open the existing course when the draft already has one', async ()
   ).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Create course' })).not.toBeInTheDocument()
 })
+it('reviews only changed paragraphs and highlights the added wording', async () => {
+  const draft = {
+    id: 'draft1',
+    revision: 4,
+    content: {
+      ...initialContent('ai'),
+      modules: [
+        { id: 'm1', title: 'Listening', objective: '', included: true, sections: [], blocks: [] },
+      ],
+    },
+    approvedOutline: null,
+    createdAt: 'now',
+    updatedAt: 'now',
+  }
+  const proposal = {
+    id: 'op',
+    status: 'proposed',
+    request: { task: 'revise' },
+    result: {
+      changes: [
+        { moduleId: 'm1', blockId: 'a', originalText: 'Stay calm.', replacementText: 'Stay calm.' },
+        {
+          moduleId: 'm1',
+          blockId: 'b',
+          originalText: 'Acknowledge the customer.',
+          replacementText: 'Acknowledge the customer by name.',
+        },
+      ],
+    },
+  }
+  stubFetch((url) => {
+    if (url.pathname.endsWith('/capabilities')) return { workflowEnabled: true }
+    if (url.pathname.endsWith('/operations')) return [proposal]
+    if (url.pathname.endsWith('/sources')) return []
+    if (url.pathname.endsWith('/draft1')) return draft
+    return []
+  })
+  renderDocuments('/?tab=documents&builder=true&draft=draft1')
+  const review = await screen.findByRole('region', { name: 'Review AI suggestion' })
+  expect(review).toHaveTextContent('1 unchanged paragraph is not shown')
+  expect(review.querySelector('mark')?.textContent?.trim()).toBe('by name')
+  expect(review).not.toHaveTextContent('Stay calm.')
+})
 it('does not show an old model failure that later operations superseded', async () => {
   const draft = {
     id: 'draft1',

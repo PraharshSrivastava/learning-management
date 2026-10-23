@@ -92,3 +92,23 @@ def test_png_reaches_pdf_blueprint_and_video_slide_with_canonical_path(repo, mon
     assert f'src="{record["file_path"].replace("assets/", "../../")}"' in html
     assert 'src=""' not in html
     assert record["caption"] in html
+
+
+def test_missing_description_is_summarized_from_audience_and_modules():
+    content = DraftContent(
+        entryMode="ai",
+        metadata=DraftMetadata(courseName="Complaints", targetAudience="New branch staff"),
+        modules=[
+            DraftModule(id="a", title="Listening"),
+            DraftModule(id="b", title="Escalation"),
+            DraftModule(id="c", title="Skipped", included=False),
+        ],
+    )
+    assert (
+        workflow_export.with_description(content).metadata.courseDescription
+        == "Complaints for new branch staff, in 2 modules: Listening and Escalation."
+    )
+    written = content.model_copy(
+        update={"metadata": content.metadata.model_copy(update={"courseDescription": "Mine"})}
+    )
+    assert workflow_export.with_description(written).metadata.courseDescription == "Mine"

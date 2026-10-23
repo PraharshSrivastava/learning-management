@@ -267,6 +267,16 @@
   flex: 1 1 300px;
   margin-left: 0;
 }
+/* Wide enough for one row: the title column gives way and the actions stay together. */
+@media (min-width: 1100px) {
+  .blueprint-desk .blueprint-header > div:first-child {
+    flex-wrap: nowrap;
+  }
+  .blueprint-desk .blueprint-toolbar {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+}
 .blueprint-desk .blueprint-header :is(label, button, input, select),
 .blueprint-desk .blueprint-header-field {
   color: var(--bp-text);
@@ -378,21 +388,31 @@
   }
 }
 .blueprint-desk .blueprint-module-card {
-  margin-bottom: 14px;
+  margin-bottom: 0;
+  padding: 0;
   border: 1px solid var(--bp-border);
   border-radius: 10px;
   background: var(--bp-panel);
   overflow: hidden;
 }
+/* Full-width heading bar; its right padding holds the reorder handle inside the card. */
 .blueprint-desk .blueprint-module-heading {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 16px;
+  padding: 14px 52px 14px 16px;
   background: var(--bp-soft);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+}
+.blueprint-desk .blueprint-modules li > button[aria-label^='Reorder'] {
+  top: 21px;
+  right: 14px;
+}
+.blueprint-desk .blueprint-module-summary {
+  margin: 0;
+  padding: 10px 16px 12px 58px;
 }
 .blueprint-desk .blueprint-module-body {
   padding: 18px;

@@ -629,10 +629,13 @@ function ModuleCard({ course, module, index, onChange, onDelete }: ModuleCardPro
           </button>
         </Tooltip>
       </div>
-      <div className="mt-2 pl-10 text-xs text-slate-500">
-        {module.numQuestions || '0'} quiz questions
-        {original?.images.length ? ` · ${original.images.length} source images` : ''}
-      </div>
+      {/* The expanded card shows the editable quiz count, so the summary is for collapsed cards. */}
+      {!expanded && (
+        <div className="blueprint-module-summary mt-2 pl-10 text-xs text-slate-500">
+          {module.numQuestions || '0'} quiz questions
+          {original?.images.length ? ` · ${original.images.length} source images` : ''}
+        </div>
+      )}
       <div id={contentId} className="blueprint-module-body" hidden={!expanded}>
         {original?.videoPath && (
           <div className="mt-2.5 flex justify-end">
@@ -675,8 +678,8 @@ function ModuleCard({ course, module, index, onChange, onDelete }: ModuleCardPro
           value={module.sourceText}
           placeholder="Module content will appear here after generation..."
           onChange={(event) => onChange({ sourceText: event.target.value })}
-          // Three to six lines, then it scrolls (minLines 3, maxLines 6).
-          className="mt-2.5 block max-h-[131px] min-h-[72px] w-full resize-none rounded-lg border border-input-border bg-light-gray/50 px-3.5 py-1.5 font-barlow text-[13px] leading-[19.5px] text-text-black field-sizing-content placeholder:text-gray focus:border-brand-blue-light focus:ring-[0.4px] focus:ring-brand-blue-light focus:outline-none"
+          // Grows with the content up to about twenty lines, then it scrolls.
+          className="mt-2.5 block max-h-[420px] min-h-[120px] w-full resize-none rounded-lg border border-input-border bg-light-gray/50 px-3.5 py-1.5 font-barlow text-[13px] leading-[19.5px] text-text-black field-sizing-content placeholder:text-gray focus:border-brand-blue-light focus:ring-[0.4px] focus:ring-brand-blue-light focus:outline-none"
         />
       </div>
     </div>

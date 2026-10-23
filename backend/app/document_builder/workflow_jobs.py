@@ -24,6 +24,18 @@ executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="document-workfl
 stopping = Event()
 
 
+def without_title_heading(blocks: list[dict], title: str) -> list[dict]:
+    """The module title is shown already; a model heading repeating it would appear twice."""
+    first = blocks[0] if blocks else None
+    if (
+        len(blocks) > 1
+        and first["type"] == "heading"
+        and " ".join(first["text"].split()).casefold() == " ".join(title.split()).casefold()
+    ):
+        return blocks[1:]
+    return blocks
+
+
 class WorkflowJobs:
     def __init__(self, repository, model_factory=lambda: WorkflowModel(settings)):
         self.repository = repository
@@ -226,7 +238,8 @@ class WorkflowJobs:
                         return
                     updated = current.content.model_copy(deep=True)
                     updated.modules[index].blocks = [
-                        TextBlock(id=uuid4().hex, **block) for block in result["blocks"]
+                        TextBlock(id=uuid4().hex, **block)
+                        for block in without_title_heading(result["blocks"], module.title)
                     ]
                     updated.modules[index].status = "ready"
                     updated.modules[index].sourceReferences = [
@@ -371,7 +384,12 @@ class WorkflowJobs:
             if any(not isinstance(b, TextBlock) or b.text.strip() for b in module.blocks):
                 raise ConflictError("Drafting cannot overwrite populated content")
             result = ModuleResponse.model_validate(operation["result"])
-            module.blocks = [TextBlock(id=uuid4().hex, **b.model_dump()) for b in result.blocks]
+            module.blocks = [
+                TextBlock(id=uuid4().hex, **block)
+                for block in without_title_heading(
+                    [b.model_dump() for b in result.blocks], module.title
+                )
+            ]
             module.sourceReferences = result.sourceReferences
             module.status = "ready"
         elif request.task == "edit":

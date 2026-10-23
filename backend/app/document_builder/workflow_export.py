@@ -13,6 +13,7 @@ from app.generation.runtime import complete_generation, mark_stage, now_iso
 from app.repositories.courses import CourseRepository
 from app.repositories.database import advisory_lock
 from app.schemas.document_workflow import (
+    DraftContent,
     ImageBlock,
     ListBlock,
     TextBlock,
@@ -43,6 +44,26 @@ def course_difficulty(value: str) -> str:
     return "Easy"
 
 
+def with_description(content: DraftContent) -> DraftContent:
+    """Fill a missing description from the audience and module titles (as the editor does)."""
+    metadata = content.metadata
+    titles = [m.title.strip() for m in content.modules if m.included and m.title.strip()]
+    if metadata.courseDescription.strip() or not titles:
+        return content
+    audience = metadata.targetAudience.strip()
+    if len(audience) > 1 and audience[0].isupper() and audience[1].islower():
+        audience = audience[0].lower() + audience[1:]
+    listed = titles[0] if len(titles) == 1 else ", ".join(titles[:-1]) + " and " + titles[-1]
+    summary = (
+        f"{metadata.courseName.strip() or 'This course'}"
+        f"{f' for {audience}' if audience else ''}, in {len(titles)} "
+        f"module{'' if len(titles) == 1 else 's'}: {listed}."
+    )
+    return content.model_copy(
+        update={"metadata": metadata.model_copy(update={"courseDescription": summary[:4000]})}
+    )
+
+
 class WorkflowExport:
     def __init__(self, drafts, courses=None):
         self.drafts = drafts
@@ -50,6 +71,7 @@ class WorkflowExport:
 
     def pdf(self, draft_id, owner, expected):
         draft = self.drafts.get(draft_id, owner)
+        draft = draft.model_copy(update={"content": with_description(draft.content)})
         if draft.revision != expected:
             raise ConflictError("Save the latest document before preview")
         if not draft.content.metadata.courseName.strip():
@@ -204,6 +226,7 @@ class WorkflowExport:
             content = draft.content
             if draft.approvedOutline != outline_fingerprint(content):
                 raise ConflictError("Approve the current outline before creating a course")
+            content = with_description(content)
             included = [module for module in content.modules if module.included]
             if (
                 content.metadata.missing_fields()
