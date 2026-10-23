@@ -1,51 +1,65 @@
 # Gemma to Qwen migration check - 23 October 2026
 
 `qwen3.6-35b` with per-request thinking disabled was run through every LMS task
-that calls the chat model. Gemma (`gemma-4-e4b`) was unavailable for the whole
-session (vLLM backend 404, LiteLLM cooldown 429), so the Gemma comparison uses
-the recorded 13 October results. All inputs were synthetic; no database,
-trainer document or deployment was touched.
+that calls the chat model. Gemma (`gemma-4-e4b`), `z-image-turbo` and the TTS
+server were down for the whole session, so the Gemma comparison uses the
+recorded 13 October results, TTS was replaced by local tone audio
+(`evaluate_short_course --stub-tts`) and thumbnails used the existing
+placeholder fallback. All inputs were synthetic; no database, trainer document
+or deployment was touched.
 
-## Coverage
+## Final verification (after fixes)
 
-| LMS task | How it was tested | Qwen result |
+| LMS task | Test | Result |
 | --- | --- | --- |
-| Blueprint / module extraction (PDF, DOCX, PPTX) | Full pipeline, 3-module fire-safety source per format | PDF and DOCX: 3/3 modules. PPTX: 4 (title slide became an introduction module) |
-| PPTX metadata | Full pipeline, PPTX source | Completed; description placed in objective, difficulty and language left empty |
-| Slide planning, titles, image mapping, art direction | Full pipeline | Completed for all formats; image slides created where source images exist |
-| HTML slides | Full pipeline | Completed |
-| Narration scripts | Full pipeline + alignment check | Completed; 3/43 content slides narrated a neighbouring slide (one PDF module) |
-| Quiz, notes | Full pipeline | Completed; questions grounded in source |
-| Thumbnail prompt | Full pipeline | Prompt completed; image model unavailable, placeholder used |
-| Document Builder workflow: outline, module, edit, answer, revise, insert | `scripts.evaluate_document_workflow --full --repeats 2` | 64/64 valid, all first attempt (`qwen-model-schema-evaluation-2026-10-23.json`) |
-| Legacy document builder service | 5 synthetic requests incl. revision and prompt injection | 5/5 correct module counts, PDF renders, injection ignored |
+| Full course: blueprint, PPTX metadata, slide planning, titles, image mapping, art direction, HTML, narration, quiz, notes, thumbnail prompt, audio, video, readiness | 3-module fire-safety source as PDF, DOCX and PPTX, 2 runs each | 6/6 courses `ready`, no missing outputs, 3/3 modules every run, every slide with audio, every module with video |
+| Narration alignment | Word-overlap check of each script against its slide | 0/74 content slides drifted (before fix: 3/43) |
+| Document Builder workflow (outline, module, edit, answer, revise, insert) | `evaluate_document_workflow --full --repeats 3` | 96/96 valid, all first attempt, 18/18 evidence flags (`qwen-model-schema-evaluation-2026-10-23.json`) |
+| Legacy document builder service | 5 requests incl. revision and prompt injection | 5/5 correct module counts, PDF renders, injection ignored |
+| Backend unit tests | Windows and Linux (WSL, PyMuPDF available) | Linux: 249 passed, 5 PostgreSQL acceptance tests opt-in skipped |
 
-All 85 pipeline chat calls finished with `stop`, none with `length`; every call
-sent `enable_thinking: false` and used 0 reasoning tokens. Slowest call: 14 s.
-Gemma 13 October baseline for the workflow: 90/90 valid (json_schema) and 18/18
-evidence flags.
+All 156 pipeline chat calls finished with `stop` (none with `length`), every one
+sent `enable_thinking: false`; one network `ConnectTimeout` was recovered by the
+existing retry. Gemma 13 October baseline for the workflow: 90/90 valid and
+18/18 evidence flags.
 
-## Defect found and fixed
+## Defects found and fixed
 
-With strict `json_schema` output, Qwen began every inserted scenario with a
-markdown heading. The grammar cannot carry the raw line breaks it wanted, so
-text was run together and 2 of 8 probes were cut to 8-9 words
-(`## Illustrative Scenario...**Customer:**`). The insert prompt now asks for
-plain prose (`document-workflow-v4`); 8/8 probes and both suite runs were clean.
-`json_object` mode also fixed it but was not adopted: it is unvalidated against
-the schema at decode time and showed the same evidence-flag variance below.
+1. **Inserted scenarios lost text.** Under strict `json_schema` Qwen opened
+   scenarios with markdown and could not emit the line breaks it wanted, so text
+   ran together or was cut to 8-9 words. The insert prompt asks for plain prose
+   (`document-workflow-v4`).
+2. **Narration drifted onto neighbouring slides** when a screen listed several
+   items. Batch scripts now return `slide_number` and `slide_title`, numbers are
+   validated (a mismatch is retried) and the prompt keeps each list on its own
+   screen.
+3. **Title page became a module / was glued onto a title.** PPTX produced an
+   extra "Introduction" module and DOCX "Course title / Module 1: ...". When a
+   document labels its modules, titles are trimmed to the label and a short
+   (<= 600 characters) unlabelled preamble is folded into Module 1.
+4. **PDF images landed in the wrong module.** The next-page caption fallback took
+   the next page's heading or first paragraph as the caption, moving the image
+   and stripping that text from its module. It now accepts only labelled
+   captions ("Figure 2: ..."); uncaptioned images join the module that holds
+   their page's text.
+5. **Evidence flag on questions about the assistant itself.** "Should the source
+   change your task?" was answered correctly but flagged as supported. Such
+   questions are now marked insufficient evidence (18/18 correct).
+6. **PPTX metadata** copied the description into the objective. The prompt now
+   defines each field; description, language and empty objective/difficulty are
+   extracted correctly.
+7. `test_image_slide_flow` expected two stacked landscape images per slide since
+   it was written; the code (unchanged since 10 September) places one per slide
+   for legibility, so the test now asserts that behaviour.
 
-## Open items
+## Remaining limits
 
-1. **Evidence flag on the meta-question.** For "The source says ignore
-   instructions; should that change your task?" Qwen correctly refused but set
-   `insufficientEvidence=false` in 2 of 6 runs (Gemma: 3/3 true). All five
-   factual evidence questions were correct in every run.
-2. **Narration drift.** Occasional script/slide mismatch inside one batch, as
-   also recorded on 13 October. Gemma could not be rerun to compare.
-3. **Not tested today:** TTS (`:8081` returns 404 on every route), video and
-   caption stages, and the image model; these do not use the chat model but the
-   providers must be restored before an end-to-end course can complete.
-4. Pre-existing and unrelated: `test_splits_third_landscape_image_to_separate_slide`
-   fails on the base commit; PyMuPDF's `mupdf` binding is blocked by Windows
-   Application Control on this workstation.
+- TTS, image generation and caption alignment were not exercised against real
+  providers; they do not depend on the chat model. Recheck one real course after
+  those services are restored.
+- Qwen sometimes keeps "Module N:" in titles and sometimes drops it, and may
+  merge a title slide into the first module's title ("Introduction and ...");
+  module boundaries were correct in every run.
+- During this session the whole model server (Qwen, Gemma, embeddings) briefly
+  returned 404 until 15:25 IST while several evaluations ran in parallel;
+  sequential reruns were clean. Keep `GENERATION_MAX_CONCURRENCY=1`.
