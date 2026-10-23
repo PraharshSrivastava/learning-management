@@ -1,4 +1,5 @@
 import { setMediaTicket } from '@lms/shared/api/client'
+import { parseCourse } from '@lms/shared/models'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +17,7 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   setMediaTicket(null)
 })
 
@@ -87,6 +89,50 @@ describe('My Courses sidebar', () => {
 })
 
 describe('Blueprint editor', () => {
+  it('expands modules without losing their quiz and content fields', async () => {
+    api()
+    renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    expect(await screen.findByRole('textbox', { name: 'Module 1 content' })).toHaveValue(
+      'Basics text',
+    )
+    expect(screen.queryByRole('textbox', { name: 'Module 2 content' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Expand module 2' }))
+    expect(screen.getByRole('textbox', { name: 'Module 2 content' })).toHaveValue('Reporting text')
+    expect(screen.getAllByLabelText('Quiz questions:')[1]).toHaveValue('3')
+    expect(screen.getByText('Saved blueprint')).toBeInTheDocument()
+  })
+
+  it('preserves dirty edits across server refresh and cancelled navigation or reset', async () => {
+    api()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { client, search } = renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    const name = await screen.findByLabelText('Course Name')
+    fireEvent.change(name, { target: { value: 'My pending edit' } })
+    await act(async () =>
+      client.setQueryData(
+        trainerKeys.course('c1'),
+        parseCourse(courseJson({ course_name: 'Other session edit' })),
+      ),
+    )
+    expect(name).toHaveValue('My pending edit')
+    await userEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    expect(name).toHaveValue('My pending edit')
+    await userEvent.click(within(sidebar()).getByText('Risk Management'))
+    expect(confirm).toHaveBeenCalledWith('Leave with unsaved blueprint changes?')
+    expect(search().course).toBe('c1')
+    expect(name).toHaveValue('My pending edit')
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+  })
+
+  it('keeps a module when its removal confirmation is cancelled', async () => {
+    api()
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    await screen.findByLabelText('Module 2 title')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Delete module' })[0]!)
+    expect(screen.getByLabelText('Module 1 title')).toHaveValue('Basics')
+    expect(screen.getByLabelText('Module 2 title')).toHaveValue('Reporting')
+  })
   it('loads the selected course into the form', async () => {
     api()
     renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
@@ -137,6 +183,7 @@ describe('Blueprint editor', () => {
   })
 
   it('deletes a module and Reset brings it back', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     api()
     renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
     await screen.findByLabelText('Module 2 title')

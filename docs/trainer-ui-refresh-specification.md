@@ -6,9 +6,9 @@ Dedicated branch: `codex/trainer-ui-refresh`
 
 Starting main release: `b5f8dbc` (PR #32, including the React workflow parity fixes)
 
-Current milestone: Documents implemented and locally verified; awaiting review on
-big-coding before implementing Blueprint or Assign. Their approved designs remain
-recorded below; their application code is unchanged in this release.
+Current milestone: Documents and Blueprint implemented and locally verified;
+awaiting review on big-coding. Assign remains planned and its application interface
+is unchanged in this release.
 
 ## 1. Purpose and approval record
 
@@ -29,14 +29,45 @@ they do not change the configured AI provider, model, RunPod endpoint or credent
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
 | Documents landing and uploaded-document preview  | Selected and specified here                                                                             | Implemented; VM acceptance pending         |
 | Document editor simplification and notifications | Specified here                                                                                          | Implemented; VM acceptance pending         |
-| Blueprint                                        | Refined desk interactive design approved                                                                | Pending implementation                     |
+| Blueprint                                        | Refined desk interactive design approved                                                                | Implemented; VM acceptance pending         |
 | Assign                                           | Focused assignment with left course list and top actions approved; employee-picker correction specified | Pending implementation                     |
 | Courses                                          | Reserved for later review                                                                               | Pending design                             |
 | Performance / Observer                           | Preserve current behavior; later visual review if requested                                             | No change authorized by this specification |
 
-The current implementation milestone changes Documents React code and its bundled
-PDF renderer only. No backend/model configuration, Blueprint/Assign application
-code or deployment topology is changed. VM deployment/acceptance remains pending.
+The current implementation milestone changes Documents and Blueprint React code,
+including the bundled PDF reader and Blueprint-only lifecycle-action presentation.
+No backend/model configuration, Assign application interface or deployment topology
+is changed. VM deployment/acceptance remains pending.
+
+### Blueprint implementation verification — 23 October 2026
+
+- Refined desk implemented with scoped Inter, white working surfaces, highlighted
+  course sidebar, existing availability and My Courses/All Courses controls. Title
+  search is available within the owned Blueprint course list; eligibility is unchanged.
+- Single permitted lifecycle actions show directly; zero actions hide and multiple
+  actions retain their menu. Default behavior in Assign/other callers is unchanged.
+  Ownership, impact/revision checks, typed DELETE confirmation and Enable handoff remain.
+- Course details, module cards and source-image review expand/collapse. Existing module
+  fields, quiz counts, content, keyboard/drag reorder and video download are retained.
+- Source-image captions and mappings remain read-only, matching the current API.
+  The demo's editable image-assignment fields are not implemented as unsupported
+  server writes. Mapping badges now show current module positions after reordering.
+- Saved/unsaved status reflects actual editor state. Course changes, reset and module
+  removal protect pending work; server refresh cannot silently overwrite dirty edits.
+- Existing save-before-new-generation, checkpoint resume and failure handling are
+  preserved. No model/provider or generation endpoint is replaced by a UI simulation.
+- Combined validation: 455 React tests passed, workspace TypeScript and ESLint passed,
+  production Trainer build passed. Compiled browser fixtures verified Blueprint save
+  payloads, dirty navigation, authenticated image loading, typed-delete cancellation,
+  save-before-generation/failure and 390/320px layouts without runtime errors.
+- Rechecked Documents against the combined build, including full eight-page PDF
+  rendering and navigation. Live model/video generation and VM asset delivery still
+  require acceptance on big-coding.
+- [Compiled Blueprint desktop](design/trainer-ui/blueprint-implemented.desktop.png).
+- [Compiled Blueprint mobile](design/trainer-ui/blueprint-implemented.mobile.png).
+
+User steering after the Documents milestone authorized Blueprint implementation
+before the combined VM review. Stop before implementing Assign.
 
 ### Documents implementation verification — 23 October 2026
 
@@ -55,8 +86,9 @@ code or deployment topology is changed. VM deployment/acceptance remains pending
 - This does not establish live RunPod/model health, DOCX/PPTX conversion health or
   VM deployment correctness. Test real upload, AI outline/editor, PDF images and
   Blueprint handoff on big-coding before approving the next tab's implementation.
-- Pause at this milestone for trainer review. Do not implement Blueprint/Assign
-  UI changes in the Documents release.
+- The initial Documents milestone paused for review. The user's subsequent
+  instruction authorized Blueprint in the same branch before VM testing; Assign
+  remains outside the implemented release.
 
 ## 2. Authoritative visual references
 
@@ -309,11 +341,10 @@ preview. This design does not require a new server, model or deployment topology
 | Existing vector support              | `packages/shared/src/ui/icons/Icon.tsx`, `iconData.ts`       | Replace text glyphs with consistent bundled vectors; add/reuse a dedicated AI mark, keeping accessibility                                                                                                                                |
 | Notifications                        | Documents error/state rendering and shared `Toast.tsx`       | Add typed, readable status presentation without changing error semantics or leaking backend details                                                                                                                                      |
 
-The PDF toolbar is the integration item requiring the most care. Feasibility is
-established by existing full-PDF access plus a controlled frontend renderer, but
-exact real-PDF rendering/worker integration has **not** been implemented or tested
-by saving this specification. Do not claim the HTML sample is a working production
-PDF.js integration or promise browser-native controls will be pixel-identical.
+The PDF toolbar required controlled worker and asset integration. Real-PDF
+rendering/worker integration is now implemented and locally browser-verified in
+React. The earlier HTML sample remains a design reference, not the production
+PDF.js reader. Validate the compiled worker and fonts again on the VM.
 
 ## 9. Notifications and loading
 

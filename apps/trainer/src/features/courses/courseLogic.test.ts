@@ -9,6 +9,7 @@ import {
   generateButtonState,
   lifecycleBadge,
   moveItem,
+  moduleNumberForImage,
   newModuleDraft,
 } from './courseLogic'
 import { courseJson } from './test/renderCourses'
@@ -22,6 +23,18 @@ const builtModule = (n: number) => ({
 })
 
 describe('courseLogic', () => {
+  it('keeps source image badges aligned with the current module order and marks removed mappings unassigned', () => {
+    const course = parseCourse(
+      courseJson({
+        images: [{ image_id: 'img1', file_path: 'assets/chart.png', caption: 'Chart' }],
+      }),
+    )
+    course.modules[0]!.images = [course.images[0]!]
+    const modules = blueprintDraft(course).modules
+    expect(moduleNumberForImage(modules, 'img1')).toBe(1)
+    expect(moduleNumberForImage(moveItem(modules, 0, 1), 'img1')).toBe(2)
+    expect(moduleNumberForImage(modules.slice(1), 'img1')).toBeNull()
+  })
   it('filters by lifecycle state', () => {
     const courses = ['active', 'disabled', 'draft'].map((state, i) =>
       parseCourse(courseJson({ course_id: `c${i}`, lifecycle_state: state })),
