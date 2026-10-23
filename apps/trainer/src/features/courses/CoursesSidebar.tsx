@@ -40,11 +40,13 @@ export function CoursesSidebar({
 
   return (
     <div className="bp-course-list card flex h-full flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-4">
+      <div className="bp-course-list-head flex items-center justify-between p-4">
         <h2 className="m-0 font-manrope text-lg leading-[24.3px] font-bold tracking-normal text-primary-blue">
           My Courses
         </h2>
-        <span className="text-xs leading-[16.8px] text-gray">{courses.length} courses</span>
+        <span className="bp-course-count text-xs leading-[16.8px] text-gray">
+          {courses.length} courses
+        </span>
       </div>
       {searchable && (
         <label className="bp-course-search">
@@ -64,10 +66,10 @@ export function CoursesSidebar({
         options={FILTER_OPTIONS}
         onChange={setCourseFilter}
         expanded
-        className="mx-4"
+        className="bp-course-filter mx-4"
       />
-      <div className="h-px shrink-0 bg-light-gray" />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="bp-course-rule h-px shrink-0 bg-light-gray" />
+      <div className="bp-course-scroll min-h-0 flex-1 overflow-y-auto">
         {list.isPending && courses.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <Spinner label="Loading courses" />
@@ -103,7 +105,7 @@ export function CoursesSidebar({
               const isSelected = course.courseId === selectedId
               return (
                 <li key={course.courseId}>
-                  {index > 0 && <div className="h-px bg-light-gray" />}
+                  {index > 0 && <div className="bp-course-divider h-px bg-light-gray" />}
                   <button
                     type="button"
                     aria-current={isSelected || undefined}
@@ -116,15 +118,17 @@ export function CoursesSidebar({
                       'hover:bg-[#1a1b20]/8',
                     )}
                   >
-                    <Icon
-                      name="menu_book"
-                      size={24}
-                      className={isSelected ? 'text-primary-blue' : 'text-gray'}
-                    />
-                    <span className="min-w-0 flex-1">
+                    <span className="bp-course-icon">
+                      <Icon
+                        name="menu_book"
+                        size={24}
+                        className={isSelected ? 'text-primary-blue' : 'text-gray'}
+                      />
+                    </span>
+                    <span className="bp-course-text min-w-0 flex-1">
                       <span
                         className={clsx(
-                          'block truncate font-barlow text-[15px] leading-[22.5px]',
+                          'bp-course-title block truncate font-barlow text-[15px] leading-[22.5px]',
                           isSelected
                             ? 'font-bold text-primary-blue'
                             : 'font-medium text-text-black',
@@ -132,9 +136,9 @@ export function CoursesSidebar({
                       >
                         {course.courseName}
                       </span>
-                      <span className="flex items-center justify-between">
+                      <span className="bp-course-meta flex items-center justify-between">
                         <span
-                          className="text-xs leading-[16.8px] font-bold"
+                          className="bp-course-difficulty text-xs leading-[16.8px] font-bold"
                           style={{ color: difficultyColor(course.courseDifficulty) }}
                         >
                           {course.courseDifficulty}
@@ -143,7 +147,7 @@ export function CoursesSidebar({
                         {list.isFetching ? (
                           <Spinner size={12} strokeWidth={2} label="Refreshing courses" />
                         ) : (
-                          <span className="text-xs leading-[16.8px] text-gray">
+                          <span className="bp-course-modules text-xs leading-[16.8px] text-gray">
                             {course.moduleCount} module{course.moduleCount === 1 ? '' : 's'}
                           </span>
                         )}
