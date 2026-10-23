@@ -216,3 +216,11 @@ def test_remove_rejects_active_generation(repo):
     with pytest.raises(ConflictError, match="generation"):
         repo.remove(draft.id, "owner", 1)
     assert repo.get(draft.id, "owner") == draft
+
+
+def test_list_reports_the_uploaded_document_an_import_came_from(repo):
+    imported = repo.create("owner", content())
+    repo.put_resource(imported.id, "owner", "src1", "source", {"documentId": "doc-1", "spans": []})
+    plain = repo.create("owner", content())
+    listed = {row["draft_id"]: row["source_document_id"] for row in repo.list("owner")}
+    assert listed == {imported.id: "doc-1", plain.id: None}

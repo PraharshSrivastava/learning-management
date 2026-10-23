@@ -75,7 +75,7 @@ class WorkflowModel:
             timeout_seconds=config.document_builder_model_timeout_seconds,
         )
         if hasattr(self.client, "enable_thinking"):
-            self.client.enable_thinking = getattr(config, "llm_enable_thinking", None)
+            self.client.enable_thinking = config.document_builder_enable_thinking
 
     def complete(
         self,

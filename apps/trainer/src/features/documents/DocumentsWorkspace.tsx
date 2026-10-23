@@ -3,6 +3,7 @@ import { formattedSize, type PdfFile } from '@lms/shared/models'
 import { useQuery } from '@tanstack/react-query'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
+import { useCourseList } from '../courses/courseQueries'
 import { FocusedWorkspace } from './FocusedWorkspace'
 import { DocumentPreview } from './DocumentPreview'
 import { DocumentsIcon } from './DocumentsIcon'
@@ -37,6 +38,7 @@ export function DocumentsWorkspace() {
   const files = useFiles()
   const upload = useUpload()
   const generate = useGenerateCourse()
+  const courses = useCourseList()
   const drafts = useQuery({
     queryKey: ['document-workflow-drafts'],
     queryFn: () => draftApi<DraftSummary[]>(),
@@ -118,6 +120,27 @@ export function DocumentsWorkspace() {
       generating.current = false
       setBusy(false)
     }
+  }
+  // A draft imported from an uploaded document belongs to that document's course, so it opens
+  // in Blueprint. Only AI-generated and pasted-notes drafts open the document editor.
+  const openDraft = async (value: DraftSummary) => {
+    const documentId = value.source_document_id
+    if (value.entry_mode === 'existing' && documentId) {
+      const course = (courses.data || [])
+        .filter((item) => item.documentId === documentId && item.status !== 'archived')
+        .toSorted((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0))[0]
+      if (course) {
+        update({ tab: 'blueprint', course: course.courseId, builder: undefined, draft: undefined })
+        return
+      }
+      const file = files.data?.find((item) => item.documentId === documentId)
+      if (file) {
+        await createCourse(file.fileName)
+        return
+      }
+    }
+    setMode(null)
+    update({ builder: true, draft: value.draft_id })
   }
   const closePreview = () => {
     update({ file: undefined })
@@ -218,10 +241,8 @@ export function DocumentsWorkspace() {
                 </div>
                 <button
                   className={button}
-                  onClick={() => {
-                    setMode(null)
-                    update({ builder: true, draft: value.draft_id })
-                  }}
+                  disabled={busy && Boolean(value.source_document_id)}
+                  onClick={() => void openDraft(value)}
                 >
                   Open
                 </button>

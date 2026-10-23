@@ -219,6 +219,47 @@ it('shows approved ordered entry choices and routes ready files directly to Blue
   )
   expect(fetch.mock.calls.some(([url]) => String(url).includes('/operations'))).toBe(false)
 })
+it('opens drafts imported from an uploaded document in Blueprint, not the editor', async () => {
+  const draft = (id: string, overrides: Record<string, unknown> = {}) => ({
+    draft_id: id,
+    revision: 1,
+    title: id,
+    module_count: 2,
+    updated_at: '2026-10-16T10:00:00Z',
+    ...overrides,
+  })
+  const fetch = stubFetch((url) =>
+    url.pathname.endsWith('/capabilities')
+      ? { workflowEnabled: true }
+      : url.pathname.endsWith('/drafts')
+        ? [
+            draft('Imported', { entry_mode: 'existing', source_document_id: 'doc-Ready.pdf' }),
+            draft('Uncoursed', { entry_mode: 'existing', source_document_id: 'doc-Other.pdf' }),
+          ]
+        : url.pathname === '/api/files'
+          ? [fileJson('Ready.pdf'), fileJson('Other.pdf')]
+          : url.pathname === '/api/courses'
+            ? [{ course_id: 'c1', trainer_id: 't', document_id: 'doc-Ready.pdf', status: 'draft' }]
+            : new Promise(() => {}),
+  )
+  const view = renderDocuments()
+  await screen.findByText('Imported')
+  await waitFor(() =>
+    expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/api/courses'))).toBe(true),
+  )
+  fireEvent.click(screen.getAllByRole('button', { name: 'Open' })[0]!)
+  await waitFor(() => expect(view.search()).toMatchObject({ tab: 'blueprint', course: 'c1' }))
+  expect(view.search().draft).toBeUndefined()
+  void view.router.navigate({ to: '/', search: { tab: 'documents' } })
+  await screen.findByText('Uncoursed')
+  fireEvent.click(screen.getAllByRole('button', { name: 'Open' })[1]!)
+  await waitFor(() =>
+    expect(fetch.mock.calls.some(([url]) => String(url).includes('/api/courses/generate'))).toBe(
+      true,
+    ),
+  )
+  expect(view.search().draft).toBeUndefined()
+})
 it('starts AI outline once after creating a persistent draft and shows proposal without changing it', async () => {
   let current = {
     id: 'draft1',

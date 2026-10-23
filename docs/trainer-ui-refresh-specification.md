@@ -66,6 +66,18 @@ is changed. VM deployment/acceptance remains pending.
 - [Compiled Blueprint desktop](design/trainer-ui/blueprint-implemented.desktop.png).
 - [Compiled Blueprint mobile](design/trainer-ui/blueprint-implemented.mobile.png).
 
+### VM review fixes — 23 October 2026
+
+- Recent drafts imported from an uploaded document (entry mode `existing` with a source
+  document) open that document's course in Blueprint, or create it through Create course
+  when none exists. Only AI-generated and pasted-notes drafts open the document editor.
+- PDF preview failed on the VM for every file: nginx served the PDF.js module worker
+  (`.mjs`) as `application/octet-stream`, which browsers refuse to run. The trainer nginx
+  now serves `.mjs` as JavaScript.
+- The Document Builder AI (outline, modules and assistant) uses `DOCUMENT_BUILDER_MODEL`
+  `qwen3.6-35b` through LiteLLM with `DOCUMENT_BUILDER_ENABLE_THINKING=false`; otherwise
+  Qwen returns reasoning only. Course/video/quiz generation keeps `LLM_MODEL_NAME`.
+
 User steering after the Documents milestone authorized Blueprint implementation
 before the combined VM review. Stop before implementing Assign.
 

@@ -81,6 +81,8 @@ class Settings(BaseModel):
     # New workflow stays disabled until model/editor/handoff acceptance gates pass.
     document_builder_workflow_enabled: bool = False
     document_builder_model: str | None = None
+    # Document Builder only. Qwen needs False so the reply is the JSON answer, not reasoning.
+    document_builder_enable_thinking: bool | None = None
     document_builder_output_mode: Literal["prompt", "json_object", "json_schema"] = "json_schema"
     document_builder_model_timeout_seconds: float = Field(default=90, gt=0, le=600)
     document_builder_operation_deadline_seconds: float = Field(default=240, gt=0, le=1200)
@@ -349,6 +351,7 @@ class Settings(BaseModel):
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),
                 "document_builder_workflow_enabled": values.get("DOCUMENT_BUILDER_WORKFLOW_ENABLED", "false"),
                 "document_builder_model": values.get("DOCUMENT_BUILDER_MODEL") or None,
+                "document_builder_enable_thinking": values.get("DOCUMENT_BUILDER_ENABLE_THINKING") or None,
                 "document_builder_output_mode": values.get("DOCUMENT_BUILDER_OUTPUT_MODE", "json_schema"),
                 "document_builder_model_timeout_seconds": values.get("DOCUMENT_BUILDER_MODEL_TIMEOUT_SECONDS", "90"),
                 "document_builder_operation_deadline_seconds": values.get("DOCUMENT_BUILDER_OPERATION_DEADLINE_SECONDS", "240"),

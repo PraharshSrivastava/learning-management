@@ -70,6 +70,9 @@ export type DraftSummary = {
   title: string
   module_count: number
   updated_at: string
+  entry_mode?: string | null
+  /** Uploaded document an imported draft came from; such drafts open in Blueprint. */
+  source_document_id?: string | null
 }
 export type Change = {
   moduleId: string

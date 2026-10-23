@@ -94,6 +94,7 @@ class LLMClient:
         max_input_tokens: int,
         max_output_tokens: int,
         timeout_seconds: float = 600,
+        enable_thinking: bool | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -102,6 +103,8 @@ class LLMClient:
         self.max_input_tokens = max_input_tokens
         self.max_output_tokens = max_output_tokens
         self.timeout_seconds = timeout_seconds
+        # None keeps the provider default; Qwen reasons first unless this is False.
+        self.enable_thinking = enable_thinking
 
     def complete(
         self,
@@ -238,6 +241,11 @@ class LLMClient:
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
+            chat_template_kwargs=(
+                {"enable_thinking": self.enable_thinking}
+                if self.enable_thinking is not None
+                else None
+            ),
         ).model_dump(exclude_none=True)
         try:
             response = requests.post(
