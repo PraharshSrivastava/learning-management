@@ -400,7 +400,12 @@ def _normalize_labelled_modules(modules: List[dict], body_lines: List[str]):
     the module boundaries: trim course-title prefixes the LLM glued onto a label and fold
     a short unlabelled title-page preamble into the first labelled module.
     """
-    if sum(1 for m in modules if _MODULE_LABEL.search(str(m.get("title", "")))) < 2:
+    # The document's own label lines are authoritative; the LLM may drop labels from titles.
+    label_lines = [
+        number for number, line in enumerate(body_lines, start=1) if _MODULE_LABEL.match(line.strip())
+    ]
+    labelled_titles = sum(1 for m in modules if _MODULE_LABEL.search(str(m.get("title", ""))))
+    if len(label_lines) < 2 and labelled_titles < 2:
         return
 
     for m in modules:
@@ -409,17 +414,31 @@ def _normalize_labelled_modules(modules: List[dict], body_lines: List[str]):
         if match and match.start() > 0:
             m["title"] = title[match.start():].strip()
 
-    while len(modules) > 1 and not _MODULE_LABEL.search(str(modules[0].get("title", ""))):
-        preamble = body_lines[modules[0]["start_line"] - 1 : modules[1]["start_line"] - 1]
-        if len(" ".join(preamble)) > _MAX_PREAMBLE_CHARS:
-            break
-        logger.info(
-            "blueprint_preamble_module_folded title=%s line_count=%s",
-            modules[0].get("title"),
-            len(preamble),
-        )
-        modules[1]["start_line"] = modules[0]["start_line"]
-        modules.pop(0)
+    first_label = label_lines[0] if label_lines else None
+    if len(modules) > 1 and not _MODULE_LABEL.search(str(modules[0].get("title", ""))):
+        if first_label is None:
+            # Labels only in titles: the unlabelled leading module is the preamble.
+            preamble = body_lines[modules[0]["start_line"] - 1 : modules[1]["start_line"] - 1]
+            foldable = True
+        else:
+            # Fold only a module holding the text before "Module 1" plus, at most, that
+            # label and a heading repeating it; anything more is real teaching content.
+            preamble = body_lines[modules[0]["start_line"] - 1 : first_label - 1]
+            beyond_label = [
+                line.strip() for line in body_lines[first_label - 1 : modules[1]["start_line"] - 1]
+            ]
+            label_text = body_lines[first_label - 1].strip().lower()
+            foldable = modules[0]["start_line"] <= first_label and all(
+                index == 0 or line.lower() in label_text for index, line in enumerate(beyond_label)
+            )
+        if foldable and len(" ".join(preamble)) <= _MAX_PREAMBLE_CHARS:
+            logger.info(
+                "blueprint_preamble_module_folded title=%s line_count=%s",
+                modules[0].get("title"),
+                len(preamble),
+            )
+            modules[1]["start_line"] = modules[0]["start_line"]
+            modules.pop(0)
 
     for number, m in enumerate(modules, start=1):
         m["module_number"] = number

@@ -169,7 +169,7 @@ export function DocumentBuilder({ mobile }: { mobile: boolean }) {
     setMessages((current) => [...current, { user: true, text: message }])
     setPrompt('')
     setBusy(true)
-    setLlmStatus('Gemma writing')
+    setLlmStatus('AI writing')
     const abort = new AbortController()
     buildAbort.current = abort
     try {
@@ -183,7 +183,7 @@ export function DocumentBuilder({ mobile }: { mobile: boolean }) {
         abort.signal,
       )
       editor.setText(result.document, { preserveImages: true })
-      setLlmStatus(`${result.model ?? 'Gemma'} done`)
+      setLlmStatus(`${result.model ?? 'AI'} done`)
       bot(result.reply ?? builderText.buildDefault)
     } catch (error) {
       // The builder closed while the request ran. Nothing to show.

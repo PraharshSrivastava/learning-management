@@ -130,7 +130,7 @@ describe('DocumentBuilder', () => {
 
     await user.type(screen.getByLabelText('Message to the AI editor'), 'Write 3 modules')
     await user.click(button('Send to AI'))
-    expect(screen.getByText('Gemma writing')).toBeInTheDocument()
+    expect(screen.getByText('AI writing')).toBeInTheDocument()
     expect(button('Writing...')).toBeDisabled()
     expect(screen.getByLabelText('Message to the AI editor')).toHaveValue('')
     expect(requestBody(fetchMock, '/build-document')).toEqual({
@@ -147,10 +147,10 @@ describe('DocumentBuilder', () => {
       resolve({
         document: 'Intro\n\nModule 1: Exits\n\nModule 2: Drills',
         reply: 'Done!',
-        model: 'gemma3',
+        model: 'qwen3.6-35b',
       }),
     )
-    expect(await screen.findByText('gemma3 done')).toBeInTheDocument()
+    expect(await screen.findByText('qwen3.6-35b done')).toBeInTheDocument()
     expect(within(chat()).getByText('Done!')).toBeInTheDocument()
     const children = Array.from(editorRoot().children).map((node) => node.localName)
     expect(children).toEqual(['p', 'p', 'figure'])

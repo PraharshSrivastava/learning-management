@@ -51,6 +51,7 @@ if not target.exists():
         'LMS_STORAGE_DIR': '/app/storage',
         'CORS_ALLOWED_ORIGINS': 'http://localhost:16969,http://127.0.0.1:16969',
         'DOCUMENT_BUILDER_WORKFLOW_ENABLED': 'true',
+        'LLM_MODEL_NAME': 'qwen3.6-35b', 'LLM_ENABLE_THINKING': 'false',
         'DOCUMENT_BUILDER_MODEL': '', 'DOCUMENT_BUILDER_OUTPUT_MODE': 'json_schema',
         'DOCUMENT_BUILDER_MODEL_TIMEOUT_SECONDS': '90',
         'DOCUMENT_BUILDER_OPERATION_DEADLINE_SECONDS': '240',
