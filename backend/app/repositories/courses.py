@@ -729,6 +729,17 @@ def delete_course_for_trainer(course_id: str, trainer_id: str, expected_revision
         ).fetchone():
             from app.core.exceptions import ConflictError
             raise ConflictError("Courses with publication or assignment history cannot be deleted. Use Archive instead.")
+        journey = connection.execute(
+            """SELECT j.title FROM learning_journey_steps s
+            JOIN learning_journeys j ON j.journey_id = s.journey_id
+            WHERE s.course_id = ? ORDER BY lower(j.title) LIMIT 1""",
+            (course_id,),
+        ).fetchone()
+        if journey:
+            from app.core.exceptions import ConflictError
+            raise ConflictError(
+                f"This course is part of the learning journey \"{journey['title']}\". Remove it from the journey before deleting it."
+            )
         employee_rows = connection.execute(
             "SELECT employee_id FROM course_assignments WHERE course_id = ?",
             (course_id,),

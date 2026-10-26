@@ -7,6 +7,8 @@ export const TRAINER_TABS = [
   // Labels match Flutter: "Blueprint" opens course details and "Courses" opens the training view.
   { id: 'blueprint', label: 'Blueprint' },
   { id: 'courses', label: 'Courses' },
+  // Shown only when the backend reports Learning Journeys as enabled.
+  { id: 'journeys', label: 'Journeys' },
   { id: 'assign', label: 'Assign' },
   { id: 'performance', label: 'Performance' },
 ] as const
@@ -40,6 +42,8 @@ export const trainerSearchSchema = z.object({
   library: z.literal(true).optional().catch(undefined),
   /** Course open in the All Courses library. */
   libraryCourse: optionalText,
+  /** Selected learning journey on the Journeys tab. */
+  journey: optionalText,
   /** 1-based position of the module open on the Courses tab. It is absent for the first module. */
   module: z.coerce.number().int().min(2).optional().catch(undefined),
 })

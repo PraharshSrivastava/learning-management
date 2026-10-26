@@ -1,24 +1,26 @@
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
 import clsx from 'clsx'
+import type { Destination } from './search'
 
-interface Destination {
+interface DestinationItem {
   icon: IconName
   label: string
 }
 
-export const DESTINATIONS: Destination[] = [
-  { icon: 'dashboard_outlined', label: 'Dashboard' },
-  { icon: 'menu_book_outlined', label: 'My Courses' },
-  { icon: 'notifications_outlined', label: 'Notifications' },
-]
-export const PERFORMANCE: Destination = { icon: 'analytics_outlined', label: 'Performance' }
+export const DESTINATIONS: Record<Destination, DestinationItem> = {
+  dashboard: { icon: 'dashboard_outlined', label: 'Dashboard' },
+  courses: { icon: 'menu_book_outlined', label: 'My Courses' },
+  journeys: { icon: 'track_changes', label: 'Learning Journeys' },
+  notifications: { icon: 'notifications_outlined', label: 'Notifications' },
+  performance: { icon: 'analytics_outlined', label: 'Performance' },
+}
 
 interface SidebarProps {
   expanded: boolean
-  canReport: boolean
-  selectedIndex: number
-  onSelect: (index: number) => void
+  destinations: Destination[]
+  selected: Destination
+  onSelect: (destination: Destination) => void
   onToggle: () => void
   className?: string
 }
@@ -26,13 +28,12 @@ interface SidebarProps {
 /** Flutter `_LmsNavigation`: gradient rail, 262 px expanded and 76 px collapsed. */
 export function Sidebar({
   expanded,
-  canReport,
-  selectedIndex,
+  destinations,
+  selected,
   onSelect,
   onToggle,
   className,
 }: SidebarProps) {
-  const destinations = canReport ? [...DESTINATIONS, PERFORMANCE] : DESTINATIONS
   return (
     <nav
       aria-label="Main navigation"
@@ -74,13 +75,13 @@ export function Sidebar({
       <div className="h-px shrink-0 bg-white/30" />
       <div className="h-3.5 shrink-0" />
       <ul className="m-0 list-none p-0">
-        {destinations.map((destination, index) => (
-          <li key={destination.label}>
+        {destinations.map((destination) => (
+          <li key={destination}>
             <NavigationItem
-              {...destination}
+              {...DESTINATIONS[destination]}
               expanded={expanded}
-              selected={selectedIndex === index}
-              onClick={() => onSelect(index)}
+              selected={selected === destination}
+              onClick={() => onSelect(destination)}
             />
           </li>
         ))}
@@ -130,7 +131,7 @@ function NavigationItem({
   expanded,
   selected,
   onClick,
-}: Destination & { expanded: boolean; selected: boolean; onClick: () => void }) {
+}: DestinationItem & { expanded: boolean; selected: boolean; onClick: () => void }) {
   const item = (
     <button
       type="button"

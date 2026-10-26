@@ -6,6 +6,14 @@ from app.repositories.database import get_connection
 from app.repositories.document_drafts import create_draft_tables
 
 TABLES = (
+    "learning_journey_observer_departments",
+    "learning_journey_observer_employees",
+    "learning_journey_observers",
+    "learning_journey_assignments",
+    "learning_journey_rules",
+    "learning_journey_steps",
+    "learning_journey_stages",
+    "learning_journeys",
     "document_builder_removed_drafts",
     "document_builder_operations",
     "document_builder_resources",
@@ -495,6 +503,8 @@ def _create_tables(cursor) -> None:
 
     from app.repositories.course_lifecycle_migrations import apply_course_lifecycle_migration
     apply_course_lifecycle_migration(cursor)
+    from app.repositories.journeys import create_journey_tables
+    create_journey_tables(cursor)
 
 
 def _create_indexes(cursor) -> None:

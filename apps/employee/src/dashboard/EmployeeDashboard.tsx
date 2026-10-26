@@ -4,6 +4,8 @@ import { isNewAssignment, orderedAssigned, type EmployeeCourse } from '@lms/shar
 import { LazyPerformanceReport } from '@lms/shared/performance/LazyPerformanceReport'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Employee } from '../auth/employee'
+import { JourneyBar, JourneyStrip, LearningJourneysPage } from '../journeys/JourneyViews'
+import { useLearnerJourneys } from '../journeys/useLearnerJourneys'
 import { CoursePlayback } from '../learning/CoursePlayback'
 import { AppBar } from './AppBar'
 import { CourseGrid } from './CourseCard'
@@ -11,11 +13,13 @@ import { DashboardBody, type CourseFilter } from './DashboardBody'
 import { NotificationsDialog, NotificationsView } from './Notifications'
 import { PageFrame } from './PageFrame'
 import {
-  navigationIndex,
+  destinationForView,
+  destinationsFor,
   openCourseId,
   useEmployeeSearch,
   useSetEmployeeSearch,
-  viewForIndex,
+  viewForDestination,
+  type Destination,
 } from './search'
 import { Sidebar } from './Sidebar'
 import { useEmployeeCourses } from './useEmployeeCourses'
@@ -27,6 +31,7 @@ export function EmployeeDashboard() {
   const { access } = useLmsAccess()
   const canReport = (access?.performance_views.length ?? 0) > 0
   const { courses, isLoading, error, refetch } = useEmployeeCourses()
+  const learnerJourneys = useLearnerJourneys(courses)
   const search = useEmployeeSearch()
   const setSearch = useSetEmployeeSearch()
   const isCompact = useViewportWidth() < 840
@@ -38,8 +43,13 @@ export function EmployeeDashboard() {
   const [dialogCourses, setDialogCourses] = useState<EmployeeCourse[] | null>(null)
 
   // Without report access the Performance views fall back to Dashboard, as in Flutter.
-  const requestedIndex = navigationIndex(search.view)
-  const activeIndex = requestedIndex === 3 && !canReport ? 0 : requestedIndex
+  // Learning Journeys appear only when the backend reports the feature as enabled.
+  const destinations = destinationsFor({
+    journeys: learnerJourneys.enabled,
+    performance: canReport,
+  })
+  const requested = destinationForView(search.view)
+  const active: Destination = destinations.includes(requested) ? requested : 'dashboard'
   const courseId = openCourseId(search)
   const openCourse =
     courseId == null ? null : (courses.find((c) => c.courseId === courseId) ?? null)
@@ -48,17 +58,26 @@ export function EmployeeDashboard() {
   // A deep link to a course that is not assigned falls back to the list.
   const listView = search.view === 'course' ? undefined : search.view
   useEffect(() => {
-    if (courseMissing) setSearch({ view: listView }, { replace: true })
-  }, [courseMissing, listView, setSearch])
+    if (courseMissing)
+      setSearch({ view: listView, journey_id: search.journey_id }, { replace: true })
+  }, [courseMissing, listView, search.journey_id, setSearch])
 
   const unreadCourses = courses.filter(
     (course) => isNewAssignment(course) && !seenNotifications.has(course.courseId),
   )
 
-  const handleNavigation = (index: number) => {
-    setSearch({ view: viewForIndex(index) })
+  const handleNavigation = (destination: Destination) => {
+    setSearch({ view: viewForDestination(destination) })
     setDrawerOpen(false)
     void refetch()
+  }
+
+  const openJourney = (journeyId: string | null) =>
+    setSearch({ view: 'journeys', journey_id: journeyId ?? undefined })
+
+  const openCourseById = (id: string) => {
+    const course = courses.find((item) => item.courseId === id)
+    if (course) openCourseView(course)
   }
 
   const showNotifications = (list: EmployeeCourse[]) => {
@@ -69,14 +88,14 @@ export function EmployeeDashboard() {
   }
 
   const openCourseView = (course: EmployeeCourse) =>
-    setSearch({ view: search.view, course_id: course.courseId })
+    setSearch({ view: search.view, course_id: course.courseId, journey_id: search.journey_id })
 
   const closeCourse = () => {
-    setSearch({ view: listView })
+    setSearch({ view: listView, journey_id: search.journey_id })
     void refetch()
   }
 
-  const showPerformance = activeIndex === 3
+  const showPerformance = active === 'performance'
   // A new link object opens the link again, so keep one object per URL link.
   const linkedReport = useMemo(
     () =>
@@ -96,7 +115,7 @@ export function EmployeeDashboard() {
       />
     )
   } else if (openCourse) {
-    content = (
+    const playback = (
       <FreshCoursePlayback
         key={openCourse.courseId}
         course={openCourse}
@@ -104,7 +123,31 @@ export function EmployeeDashboard() {
         onBack={closeCourse}
       />
     )
-  } else if (activeIndex === 1) {
+    content =
+      learnerJourneys.enabled && openCourse.journeys.length > 0 ? (
+        <div className="flex h-full flex-col">
+          <JourneyBar
+            course={openCourse}
+            journeys={learnerJourneys.journeys}
+            onOpenJourney={openJourney}
+          />
+          <div className="min-h-0 flex-1">{playback}</div>
+        </div>
+      ) : (
+        playback
+      )
+  } else if (active === 'journeys') {
+    content = (
+      <LearningJourneysPage
+        journeys={learnerJourneys.journeys}
+        isLoading={learnerJourneys.isLoading}
+        error={learnerJourneys.error}
+        openJourneyId={search.journey_id ?? null}
+        onOpenJourney={openJourney}
+        onOpenCourse={openCourseById}
+      />
+    )
+  } else if (active === 'courses') {
     content = (
       <PageFrame
         title="My courses"
@@ -113,7 +156,7 @@ export function EmployeeDashboard() {
         <CourseGrid courses={orderedAssigned(courses)} onOpen={openCourseView} />
       </PageFrame>
     )
-  } else if (activeIndex === 2) {
+  } else if (active === 'notifications') {
     const notifications = courses.filter((course) => isNewAssignment(course))
     content = (
       <NotificationsView
@@ -130,6 +173,16 @@ export function EmployeeDashboard() {
         filter={filter}
         onFilterChange={setFilter}
         onOpenCourse={openCourseView}
+        journeys={
+          learnerJourneys.enabled ? (
+            <JourneyStrip
+              journeys={learnerJourneys.journeys}
+              onOpenJourney={openJourney}
+              onOpenCourse={openCourseById}
+              onSeeAll={() => openJourney(null)}
+            />
+          ) : null
+        }
       />
     )
   }
@@ -139,8 +192,8 @@ export function EmployeeDashboard() {
       {!isCompact && (
         <Sidebar
           expanded={navigationExpanded}
-          canReport={canReport}
-          selectedIndex={activeIndex}
+          destinations={destinations}
+          selected={active}
           onSelect={handleNavigation}
           onToggle={() => setNavigationExpanded((value) => !value)}
         />
@@ -148,7 +201,7 @@ export function EmployeeDashboard() {
       <div className="flex min-w-0 flex-1 flex-col">
         <AppBar
           isCompact={isCompact}
-          activeIndex={activeIndex}
+          active={active}
           unreadCount={unreadCourses.length}
           employee={person}
           onMenu={() => setDrawerOpen(true)}
@@ -160,8 +213,8 @@ export function EmployeeDashboard() {
         <NavigationDrawer onClose={() => setDrawerOpen(false)}>
           <Sidebar
             expanded
-            canReport={canReport}
-            selectedIndex={activeIndex}
+            destinations={destinations}
+            selected={active}
             onSelect={handleNavigation}
             onToggle={() => setDrawerOpen(false)}
             className="h-[calc(100%-24px)]"

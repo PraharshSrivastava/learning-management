@@ -9,6 +9,7 @@ import { z } from 'zod'
  */
 export const EMPLOYEE_VIEWS = [
   'courses',
+  'journeys',
   'notifications',
   'performance',
   'course',
@@ -28,6 +29,8 @@ export const employeeSearchSchema = z.object({
   view: z.enum(EMPLOYEE_VIEWS).optional().catch(undefined),
   course_id: optionalText,
   status: optionalText,
+  /** Learning journey open on the journeys page. */
+  journey_id: optionalText,
 })
 
 export type EmployeeSearch = z.output<typeof employeeSearchSchema>
@@ -46,23 +49,39 @@ export function useSetEmployeeSearch() {
   )
 }
 
-/** Sidebar index for a view. `view=course` is the Flutter deep link and opens from Dashboard. */
-export function navigationIndex(view: EmployeeView | undefined): number {
+/** Sidebar entries, in order. Learning Journeys and Performance appear only when available. */
+export type Destination = 'dashboard' | 'courses' | 'journeys' | 'notifications' | 'performance'
+
+export function destinationsFor(options: {
+  journeys: boolean
+  performance: boolean
+}): Destination[] {
+  return [
+    'dashboard',
+    'courses',
+    ...(options.journeys ? (['journeys'] as const) : []),
+    'notifications',
+    ...(options.performance ? (['performance'] as const) : []),
+  ]
+}
+
+/** Sidebar entry for a view. `view=course` is the Flutter deep link and opens from Dashboard. */
+export function destinationForView(view: EmployeeView | undefined): Destination {
   switch (view) {
     case 'courses':
-      return 1
+    case 'journeys':
     case 'notifications':
-      return 2
     case 'performance':
+      return view
     case 'team-performance':
-      return 3
+      return 'performance'
     default:
-      return 0
+      return 'dashboard'
   }
 }
 
-export const viewForIndex = (index: number): EmployeeView | undefined =>
-  index === 1 ? 'courses' : index === 2 ? 'notifications' : index === 3 ? 'performance' : undefined
+export const viewForDestination = (destination: Destination): EmployeeView | undefined =>
+  destination === 'dashboard' ? undefined : destination
 
 /** The open course. On the performance views `course_id` is the report course instead. */
 export function openCourseId(search: EmployeeSearch): string | null {

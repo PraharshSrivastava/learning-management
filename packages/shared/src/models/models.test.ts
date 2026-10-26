@@ -989,10 +989,16 @@ describe('employee course', () => {
       completedAt: null,
       publishedModules: [],
       moduleProgress: {},
+      journeys: [],
     })
     expect(
       parseEmployeeCourse({ module_progress: 'x', quiz_attempts: 5, deadline: 12 }).deadline,
     ).toBeNull()
+    expect(
+      parseEmployeeCourse({
+        journeys: [{ journey_id: 'j1', title: 'Foundation', step: 2, step_count: 6 }, 'bad'],
+      }).journeys,
+    ).toEqual([{ journeyId: 'j1', title: 'Foundation', step: 2, stepCount: 6 }])
   })
 
   const NOW = new Date('2026-01-10T12:00:00Z')

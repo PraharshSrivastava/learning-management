@@ -37,7 +37,26 @@ def report_roles(employee):
                 OR EXISTS(SELECT 1 FROM course_observer_departments s
                     WHERE s.course_id = g.course_id AND s.observer_employee_id = g.observer_employee_id AND s.phase = 'active'))) AS observer
             """, (employee["employee_id"], identity_key(employee), employee["employee_id"], identity_key(employee))).fetchone()
-    return {key for key in ("hod", "observer") if row[key]}
+        roles = {key for key in ("hod", "observer") if row[key]}
+        if "observer" not in roles and _journeys_enabled():
+            # A journey Observer reports through the same Observed view as a course Observer.
+            journey = db.execute("""SELECT EXISTS(SELECT 1 FROM learning_journey_observers jo
+                JOIN learning_journeys j USING(journey_id)
+                WHERE jo.observer_employee_id = ? AND jo.identity_key = ? AND j.status = 'published'
+                AND (EXISTS(SELECT 1 FROM learning_journey_observer_employees x
+                    WHERE x.journey_id = jo.journey_id AND x.observer_employee_id = jo.observer_employee_id)
+                OR EXISTS(SELECT 1 FROM learning_journey_observer_departments x
+                    WHERE x.journey_id = jo.journey_id AND x.observer_employee_id = jo.observer_employee_id))) AS observer
+                """, (employee["employee_id"], identity_key(employee))).fetchone()
+            if journey["observer"]:
+                roles.add("observer")
+    return roles
+
+
+def _journeys_enabled() -> bool:
+    from app.core.settings import settings
+
+    return bool(settings.learning_journeys_enabled)
 
 
 def report_scope_version():

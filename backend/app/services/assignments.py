@@ -104,6 +104,11 @@ def _revoked_progress(progress: dict, now: datetime, reason: str) -> dict:
 
 
 def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False) -> dict[str, int]:
+    from app.services.journeys import (
+        journey_held_courses,
+        journey_wanted_courses,
+        journeys_enabled,
+    )
     from app.services.notifications import schedule_employee_broadcast
 
     employee = _employees.get(employee_id)
@@ -112,6 +117,18 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
     assigned = 0
     removed = 0
     reactivated = 0
+    # Courses unlocked by the employee's Learning Journeys, with the journey deadline.
+    journey_courses = journey_wanted_courses(employee_id, employee, existing, now)
+    # With the feature switched off nothing new is unlocked, but courses a journey already gave
+    # the employee are kept rather than revoked. Looked up only when a revocation is considered.
+    kept_cache: list[set[str]] = []
+
+    def journey_keeps(course_id: str) -> bool:
+        if journeys_enabled():
+            return course_id in journey_courses
+        if not kept_cache:
+            kept_cache.append(journey_held_courses(employee_id))
+        return course_id in kept_cache[0]
     for course_id, course_progress in list(existing.items()):
         with course_transaction(course_id):
             course_progress = _progress.get_for_employee(employee_id).get(course_id)
@@ -135,7 +152,9 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
                     or not rule.get("is_active", True)
                     or not _assignments.matches_employee(employee, rule, now)
                 ):
-                    reason = "assignment_rule_no_longer_matches"
+                    disabled = bool(rule.get("published_at")) and not rule.get("is_active", True)
+                    if disabled or not journey_keeps(course_id):
+                        reason = "assignment_rule_no_longer_matches"
             if reason:
                 _save_progress(
                     employee_id,
@@ -189,6 +208,39 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
                 course_id,
                 {
                     **_new_progress(now, rule["deadline_days"], rule),
+                    "assigned_department": employee.get("department"),
+                },
+            )
+            assigned += 1
+            if notify:
+                schedule_employee_broadcast(employee_id)
+
+    for course_id, deadline in journey_courses.items():
+        with course_transaction(course_id):
+            if not _courses.is_published(course_id) or employee_id in observer_ids(course_id):
+                continue
+            current_progress = _progress.get_for_employee(employee_id).get(course_id)
+            if current_progress is not None:
+                if current_progress.get("revoked_at") or current_progress.get("status") == "revoked":
+                    next_progress = _reactivated_progress(current_progress, employee, now, 1)
+                    if next_progress.get("status") != "completed":
+                        next_progress["deadline"] = deadline
+                        next_progress["status"] = _status_for_reactivation(next_progress, now)
+                    _save_progress(employee_id, course_id, next_progress)
+                    reactivated += 1
+                    if notify:
+                        schedule_employee_broadcast(employee_id)
+                continue
+            _save_progress(
+                employee_id,
+                course_id,
+                {
+                    "status": "pending",
+                    "assigned_at": now.isoformat(),
+                    "deadline": deadline,
+                    "modules": {},
+                    "attempts": {},
+                    "last_activity_at": now.isoformat(),
                     "assigned_department": employee.get("department"),
                 },
             )
@@ -249,8 +301,13 @@ def assign_published_course_to_matching_employees(
     reactivated = 0
     deadline_updates = 0
 
+    from app.services.journeys import journeys_hold_course
+
     for employee_id, course_progress in list(existing_progress.items()):
         if employee_id not in matched_by_id and not course_progress.get("revoked_at") and course_progress.get("status") != "revoked":
+            # A Learning Journey still gives this employee the course; reconcile decides later.
+            if journeys_hold_course(employee_id, course_id):
+                continue
             _save_progress(
                 employee_id,
                 course_id,

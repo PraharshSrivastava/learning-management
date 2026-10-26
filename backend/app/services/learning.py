@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 
 from fastapi import Request
@@ -17,8 +18,16 @@ from app.schemas.progress import (
     CourseStatusUpdateResponse,
     ModuleProgressUpdateRequest,
 )
-from app.services.assignments import ensure_assignments_for_employee
+from app.services.assignments import (
+    ensure_assignments_for_employee,
+    reconcile_assignments_for_employee,
+)
 from app.services.auth import current_employee_from_request
+from app.services.journeys import (
+    journey_held_courses,
+    journeys_enabled,
+    learner_course_journeys,
+)
 from app.services.notifications import (
     broadcast_employee_courses,
     websocket_endpoint,
@@ -148,15 +157,13 @@ def get_enriched_employee_courses(employee_id: str) -> list[dict]:
     progress_by_course = _progress.get_for_employee(employee_id)
     now = datetime.now()
     employee_courses = []
+    course_journeys = learner_course_journeys(employee_id)
+    journey_courses = _held_courses_lookup(employee_id)
 
     for course in _courses.list("published"):
         course_id = course["course_id"]
         rule = _assignments.get_applied(course_id)
-        if (
-            not rule.get("published_at")
-            or not rule.get("is_active", True)
-            or not _assignments.matches_employee(employee, rule, now)
-        ):
+        if not _rule_or_journey_grants(employee, course_id, rule, now, journey_courses):
             continue
         course_progress = progress_by_course.get(course_id)
         if not course_progress or course_progress.get("revoked_at") or course_progress.get("status") == "revoked":
@@ -191,10 +198,39 @@ def get_enriched_employee_courses(employee_id: str) -> list[dict]:
                 "completed_at": course_progress.get("completed_at"),
                 "module_progress": course_progress.get("modules", {}),
                 "quiz_attempts": course_progress.get("attempts", {}),
+                "journeys": course_journeys.get(course_id, []),
             }
         )
         employee_courses.append(enriched)
     return employee_courses
+
+
+def _held_courses_lookup(employee_id: str) -> Callable[[], set[str]]:
+    """Courses a journey already gave the employee, read once and only when needed."""
+    cache: list[set[str]] = []
+
+    def held() -> set[str]:
+        if not cache:
+            cache.append(journey_held_courses(employee_id))
+        return cache[0]
+
+    return held
+
+
+def _rule_or_journey_grants(
+    employee: dict,
+    course_id: str,
+    rule: dict,
+    now: datetime,
+    journey_courses: Callable[[], set[str]],
+) -> bool:
+    """A course reaches a learner through its own published rule or an active Learning Journey.
+    A Disabled course (published rule switched off) is unavailable either way."""
+    if rule.get("published_at") and not rule.get("is_active", True):
+        return False
+    if rule.get("published_at") and _assignments.matches_employee(employee, rule, now):
+        return True
+    return course_id in journey_courses()
 
 
 def my_courses(request: Request | None, authorization: str | None):
@@ -213,10 +249,8 @@ def _assigned_progress_for_employee(employee: dict, course_id: str, now: datetim
     if course_progress.get("revoked_at") or course_progress.get("status") == "revoked":
         raise NotFoundError("Course not assigned to employee")
     rule = _assignments.get_applied(course_id)
-    if (
-        not rule.get("published_at")
-        or not rule.get("is_active", True)
-        or not _assignments.matches_employee(employee, rule, now)
+    if not _rule_or_journey_grants(
+        employee, course_id, rule, now, _held_courses_lookup(employee["employee_id"])
     ):
         raise NotFoundError("Course not assigned to employee")
     return course_progress
@@ -235,6 +269,7 @@ async def update_course_status(
     with course_transaction(course_id):
         now = datetime.now().isoformat()
         course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
+        was_completed = course_progress.get("status") == "completed"
         if course_progress.get("status") == "completed" and payload.status != "completed":
             raise DomainValidationError("A completed course cannot be reset through this endpoint")
         if payload.status == "completed":
@@ -259,8 +294,19 @@ async def update_course_status(
         if payload.status == "completed":
             course_progress["completed_at"] = now
         _progress.save(employee_id, course_id, course_progress)
+    if payload.status == "completed" and not was_completed:
+        _unlock_next_journey_steps(employee_id)
     await broadcast_employee_courses(employee_id)
     return CourseStatusUpdateResponse(message="Status updated", status=payload.status)
+
+
+def _unlock_next_journey_steps(employee_id: str) -> None:
+    """Assign the next Learning Journey course as soon as a course is completed.
+
+    Runs after the course transaction commits, so the completion is visible to the journey rules.
+    """
+    if journeys_enabled():
+        reconcile_assignments_for_employee(employee_id)
 
 
 def _module_is_complete(module: dict, module_progress: dict) -> bool:
@@ -284,6 +330,7 @@ async def update_module_progress(
     with course_transaction(course_id):
         now = datetime.now().isoformat()
         course_progress = _assigned_progress_for_employee(employee, course_id, datetime.now())
+        was_completed = course_progress.get("status") == "completed"
         course_progress.setdefault("modules", {})
         course_progress.setdefault("attempts", {})
         course_progress["last_activity_at"] = now
@@ -361,6 +408,8 @@ async def update_module_progress(
                 course_progress["completed_at"] = now
 
         _progress.save(employee_id, course_id, course_progress)
+    if course_progress.get("status") == "completed" and not was_completed:
+        _unlock_next_journey_steps(employee_id)
     await broadcast_employee_courses(employee_id)
     response = {"message": "Module progress updated"}
     if grading_result is not None:

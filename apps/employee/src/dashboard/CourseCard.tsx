@@ -90,7 +90,15 @@ function CourseCard({ course, onOpen }: { course: EmployeeCourse; onOpen: () => 
       onClick={onOpen}
       className="flex min-h-0 cursor-pointer flex-col overflow-hidden rounded-2xl border border-light-gray bg-white transition-colors hover:bg-[#fafbfc]"
     >
-      <Thumbnail course={course} />
+      <div className="relative shrink-0">
+        <Thumbnail course={course} />
+        {course.journeys[0] && (
+          <span className="absolute top-2.5 left-2.5 max-w-[calc(100%-20px)] truncate rounded-full bg-white/92 px-2 py-[3px] text-[11px] font-bold text-primary-blue">
+            {course.journeys[0].title} · Step {course.journeys[0].step} of{' '}
+            {course.journeys[0].stepCount}
+          </span>
+        )}
+      </div>
       <div className="flex min-h-0 flex-1 flex-col px-4 py-3.5">
         <span
           className="inline-flex items-center gap-1 self-start rounded-2xl px-2 py-[5px]"
