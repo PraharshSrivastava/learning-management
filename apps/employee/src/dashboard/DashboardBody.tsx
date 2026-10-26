@@ -69,6 +69,8 @@ interface DashboardBodyProps {
   filter: CourseFilter
   onFilterChange: (filter: CourseFilter) => void
   onOpenCourse: (course: EmployeeCourse) => void
+  /** Learning Journeys section, shown above the metric tiles when the learner has journeys. */
+  journeys?: ReactNode
 }
 
 /** Flutter `_DashboardBody`. */
@@ -79,6 +81,7 @@ export function DashboardBody({
   filter,
   onFilterChange,
   onOpenCourse,
+  journeys,
 }: DashboardBodyProps) {
   const metrics = learningMetrics(courses)
   return (
@@ -92,6 +95,7 @@ export function DashboardBody({
               : 'Your learning activity is up to date.'
           }
         />
+        {journeys}
         <MetricsGrid metrics={metrics} selected={filter} onSelect={onFilterChange} />
         <div className="h-8" />
         {error != null && courses.length > 0 && (

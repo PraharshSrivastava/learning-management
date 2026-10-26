@@ -3,6 +3,7 @@ from datetime import datetime
 
 from app.repositories.assignments import employee_matches_assignment_rule
 from app.services import assignments as assignment_service
+from app.services import journeys as journey_service
 
 
 def _employee(**overrides):
@@ -180,6 +181,8 @@ def test_reconcile_revokes_started_assignment_when_mailing_list_is_removed(monke
         }
     }
     monkeypatch.setattr(assignment_service, "course_transaction", lambda _: nullcontext())
+    # No Learning Journey holds these courses.
+    monkeypatch.setattr(journey_service, "journey_held_courses", lambda _: set())
     monkeypatch.setattr(assignment_service, "observer_ids", lambda _: set())
     monkeypatch.setattr(assignment_service, "datetime", _FixedDatetime)
     monkeypatch.setattr(
@@ -226,6 +229,8 @@ def test_reconcile_reactivates_revoked_assignment_with_remaining_deadline(monkey
         }
     }
     monkeypatch.setattr(assignment_service, "course_transaction", lambda _: nullcontext())
+    # No Learning Journey holds these courses.
+    monkeypatch.setattr(journey_service, "journey_held_courses", lambda _: set())
     monkeypatch.setattr(assignment_service, "observer_ids", lambda _: set())
     monkeypatch.setattr(assignment_service, "datetime", _FixedDatetime)
     monkeypatch.setattr(assignment_service, "_employees", _FakeEmployees({employee_id: _employee()}))

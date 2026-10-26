@@ -13,6 +13,7 @@ from app.api.document_drafts import router as document_drafts_router
 from app.api.employees import router as employee_router
 from app.api.generation import router as generation_router
 from app.api.hub import router as hub_router
+from app.api.journeys import router as journey_router
 from app.api.learning import router as learning_router
 from app.api.lms_access import router as lms_access_router
 from app.api.media import router as media_router
@@ -33,6 +34,7 @@ api_router.include_router(generation_router)
 api_router.include_router(employee_router)
 api_router.include_router(assignment_router)
 api_router.include_router(learning_router)
+api_router.include_router(journey_router)
 api_router.include_router(analytics_router)
 api_router.include_router(static_router)
 

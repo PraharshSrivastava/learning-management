@@ -31,6 +31,30 @@ class EmployeePerformanceScope:
 TrainerReportScope = str | TrainerPerformanceScope | EmployeePerformanceScope
 
 
+def _journeys_enabled() -> bool:
+    from app.core.settings import settings
+
+    return bool(settings.learning_journeys_enabled)
+
+
+_JOURNEY_OBSERVER = """EXISTS(SELECT 1 FROM learning_journey_observers jo
+            JOIN employees jop ON jop.employee_id = jo.observer_employee_id AND jop.status = 'active' AND jop.directory_status = 'active'
+                AND jo.identity_key = CASE WHEN jop.directory_uuid IS NOT NULL THEN 'directory:' || jop.directory_uuid ELSE 'hub:' || jop.hub_user_id::text END
+            JOIN learning_journeys jj ON jj.journey_id = jo.journey_id AND jj.status = 'published'
+            JOIN learning_journey_steps js ON js.journey_id = jo.journey_id AND js.course_id = c.course_id
+            JOIN learning_journey_assignments ja ON ja.journey_id = jo.journey_id
+                AND ja.employee_id = e.employee_id AND ja.revoked_at IS NULL
+            WHERE jo.observer_employee_id = ? AND jo.identity_key = ?
+            AND (EXISTS(SELECT 1 FROM learning_journey_observer_employees jx
+                WHERE jx.journey_id = jo.journey_id AND jx.observer_employee_id = jo.observer_employee_id
+                AND jx.employee_id = e.employee_id
+                AND jx.identity_key = CASE WHEN e.directory_uuid IS NOT NULL THEN 'directory:' || e.directory_uuid
+                    ELSE 'hub:' || e.hub_user_id::text END)
+            OR EXISTS(SELECT 1 FROM learning_journey_observer_departments jd JOIN lms_departments d USING(department_id)
+                WHERE jd.journey_id = jo.journey_id AND jd.observer_employee_id = jo.observer_employee_id
+                AND d.active AND d.name = e.department)))"""
+
+
 def owner_filter(scope: TrainerReportScope) -> tuple[str, tuple[str, ...]]:
     if isinstance(scope, EmployeePerformanceScope):
         hod = """EXISTS(SELECT 1 FROM hod_department_access h JOIN lms_departments d USING(department_id)
@@ -51,11 +75,17 @@ def owner_filter(scope: TrainerReportScope) -> tuple[str, tuple[str, ...]]:
                 WHERE os.course_id = og.course_id AND os.observer_employee_id = og.observer_employee_id
                 AND os.phase = 'active' AND d.active AND d.name = e.department)))"""
         key = (scope.employee_id, scope.identity_key)
+        observer_key: tuple[str, ...] = key
+        if _journeys_enabled():
+            # A journey Observer sees every course of the journey for the journey's learners
+            # they watch, while the journey is published.
+            observer = "(" + observer + " OR " + _JOURNEY_OBSERVER + ")"
+            observer_key = (*key, *key)
         if scope.view == "my_departments":
             return hod + " AND ", key
         if scope.view == "observed":
-            return observer + " AND ", key
-        return "(" + hod + " OR " + observer + ") AND ", (*key, *key)
+            return observer + " AND ", observer_key
+        return "(" + hod + " OR " + observer + ") AND ", (*key, *observer_key)
     if isinstance(scope, TrainerPerformanceScope):
         if scope.all_courses:
             return "", ()

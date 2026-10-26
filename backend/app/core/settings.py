@@ -79,6 +79,9 @@ class Settings(BaseModel):
     llm_max_input_tokens: int = Field(default=87000, ge=256)
     llm_max_output_tokens: int = Field(default=12000, ge=256)
 
+    # Learning Journeys stay hidden and inert until the Phase 1 content is ready.
+    learning_journeys_enabled: bool = False
+
     # New workflow stays disabled until model/editor/handoff acceptance gates pass.
     document_builder_workflow_enabled: bool = False
     document_builder_model: str | None = None
@@ -351,6 +354,7 @@ class Settings(BaseModel):
                 "llm_context_window": values.get("LLM_CONTEXT_WINDOW", "100000"),
                 "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "87000"),
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),
+                "learning_journeys_enabled": values.get("LEARNING_JOURNEYS_ENABLED", "false"),
                 "document_builder_workflow_enabled": values.get("DOCUMENT_BUILDER_WORKFLOW_ENABLED", "false"),
                 "document_builder_model": values.get("DOCUMENT_BUILDER_MODEL") or None,
                 "document_builder_enable_thinking": values.get("DOCUMENT_BUILDER_ENABLE_THINKING") or None,

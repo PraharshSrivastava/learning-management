@@ -2,11 +2,12 @@ import { Icon } from '@lms/shared/ui/icons/Icon'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
 import clsx from 'clsx'
 import type { Employee } from '../auth/employee'
-import { DESTINATIONS, PERFORMANCE } from './Sidebar'
+import type { Destination } from './search'
+import { DESTINATIONS } from './Sidebar'
 
 interface AppBarProps {
   isCompact: boolean
-  activeIndex: number
+  active: Destination
   unreadCount: number
   employee: Employee | null
   onMenu: () => void
@@ -27,7 +28,7 @@ export function employeeInitials(name: string | undefined): string {
 /** Flutter `_DashboardAppBar`. */
 export function AppBar({
   isCompact,
-  activeIndex,
+  active,
   unreadCount,
   employee,
   onMenu,
@@ -59,10 +60,7 @@ export function AppBar({
       )}
       <div className="min-w-0 flex-1">
         <p className="m-0 text-[18px] font-bold">Learning Management System</p>
-        {/* Flutter has no label for Performance (its label list ends at Notifications). */}
-        <p className="m-0 mt-0.5 text-[13px] text-[#667085]">
-          {[...DESTINATIONS, PERFORMANCE][activeIndex]?.label ?? DESTINATIONS[0]!.label}
-        </p>
+        <p className="m-0 mt-0.5 text-[13px] text-[#667085]">{DESTINATIONS[active].label}</p>
       </div>
       <Tooltip content={notificationsLabel}>
         <button

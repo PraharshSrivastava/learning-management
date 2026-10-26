@@ -77,6 +77,24 @@ export const emptyModuleProgress = (): EmployeeModuleProgress => ({
   attemptCount: 0,
 })
 
+/** Where a course sits in one of the learner's Learning Journeys. */
+export interface CourseJourneyStep {
+  journeyId: string
+  title: string
+  step: number
+  stepCount: number
+}
+
+function courseJourneySteps(value: unknown): CourseJourneyStep[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(isRecord).map((item) => ({
+    journeyId: typeof item.journey_id === 'string' ? item.journey_id : '',
+    title: typeof item.title === 'string' ? item.title : '',
+    step: typeof item.step === 'number' ? item.step : 0,
+    stepCount: typeof item.step_count === 'number' ? item.step_count : 0,
+  }))
+}
+
 export const employeeCourseSchema = z
   .object({
     course_id: onlyStr(),
@@ -93,6 +111,8 @@ export const employeeCourseSchema = z
     modules: list(publishedCourseModuleSchema),
     module_progress: raw(),
     quiz_attempts: raw(),
+    // Learning Journeys this course belongs to, with its step number. Absent before the feature.
+    journeys: raw(),
   })
   .transform((j, ctx) => {
     const progress = isRecord(j.module_progress) ? j.module_progress : {}
@@ -119,6 +139,7 @@ export const employeeCourseSchema = z
       completedAt: j.completed_at,
       publishedModules: j.modules,
       moduleProgress,
+      journeys: courseJourneySteps(j.journeys),
     }
   })
 export type EmployeeCourse = z.output<typeof employeeCourseSchema>

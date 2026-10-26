@@ -1,7 +1,7 @@
 import { useLmsAccess } from '@lms/shared/auth/lmsAccess'
 import { useSession } from '@lms/shared/auth/session'
 import { IconButton } from '@lms/shared/ui/Button'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { useState, type ComponentType } from 'react'
 import type { Trainer } from '../auth/trainer'
@@ -10,6 +10,8 @@ import { BlueprintTab } from '../features/courses/BlueprintTab'
 import { useCourseSaveOverlay } from '../features/courses/courseQueries'
 import { useFullCourseGenerationOverlay } from '../features/courses/useFullCourseGeneration'
 import { DocumentsTab } from '../features/documents/DocumentsTab'
+import { fetchJourneys } from '../features/journeys/api'
+import { JourneysTab } from '../features/journeys/JourneysTab'
 import { PerformanceTab } from '../features/performance/PerformanceTab'
 import { CoursesTab } from '../features/training/CoursesTab'
 import './desk.css'
@@ -20,6 +22,7 @@ const tabPanels: Record<TrainerTab, ComponentType> = {
   documents: DocumentsTab,
   blueprint: BlueprintTab,
   courses: CoursesTab,
+  journeys: JourneysTab,
   assign: AssignTab,
   performance: PerformanceTab,
 }
@@ -29,6 +32,7 @@ const tabQueries: Record<TrainerTab, readonly (readonly string[])[]> = {
   documents: [trainerKeys.files],
   blueprint: [trainerKeys.courses],
   courses: [trainerKeys.courses],
+  journeys: [trainerKeys.journeys],
   assign: [trainerKeys.assignableCourses],
   performance: [trainerKeys.performance],
 }
@@ -39,7 +43,16 @@ export function TrainerShell() {
   const queryClient = useQueryClient()
   const search = useTrainerSearch()
   const updateSearch = useUpdateTrainerSearch()
-  const activeTab = search.tab ?? 'documents'
+  // The Journeys tab appears only once the backend reports Learning Journeys as enabled.
+  const journeys = useQuery({
+    queryKey: trainerKeys.journeys,
+    queryFn: fetchJourneys,
+    enabled: person != null,
+  })
+  const journeysEnabled = journeys.data?.enabled === true
+  const tabs = TRAINER_TABS.filter((tab) => tab.id !== 'journeys' || journeysEnabled)
+  const requestedTab = search.tab ?? 'documents'
+  const activeTab = requestedTab === 'journeys' && !journeysEnabled ? 'documents' : requestedTab
   // Visited tabs stay mounted, like Flutter's IndexedStack, so their state survives a tab switch.
   const [visited, setVisited] = useState<ReadonlySet<TrainerTab>>(() => new Set([activeTab]))
   if (!visited.has(activeTab)) setVisited(new Set(visited).add(activeTab))
@@ -58,6 +71,7 @@ export function TrainerShell() {
       trainerKeys.files,
       trainerKeys.courses,
       trainerKeys.assignableCourses,
+      trainerKeys.journeys,
       trainerKeys.performance,
     ]) {
       void queryClient.invalidateQueries({ queryKey })
@@ -75,7 +89,7 @@ export function TrainerShell() {
         </span>
         <span className="mr-3 ml-2 h-6 w-px bg-light-gray" aria-hidden />
         <nav className="flex min-w-0 flex-1 gap-2 overflow-x-auto" aria-label="Trainer sections">
-          {TRAINER_TABS.map((tab) => {
+          {tabs.map((tab) => {
             const active = tab.id === activeTab
             return (
               <button
@@ -102,7 +116,7 @@ export function TrainerShell() {
         <IconButton icon="refresh" label="Refresh All Data" onClick={refreshAll} />
       </header>
       <div className="relative min-h-0 flex-1">
-        {TRAINER_TABS.map(({ id }) => {
+        {tabs.map(({ id }) => {
           if (!visited.has(id)) return null
           const Panel = tabPanels[id]
           return (
