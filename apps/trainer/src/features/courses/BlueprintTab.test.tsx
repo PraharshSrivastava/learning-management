@@ -301,9 +301,39 @@ describe('Full course generation', () => {
     expect(calls(fetchMock)).not.toContain('POST /api/courses/c1/generation-jobs')
   })
 
-  it('resumes from the checkpoint without a save', async () => {
+  it('resumes a later checkpoint as a background job without a save', async () => {
     const failed = courseJson({
-      generation: { status: 'failed', failed_checkpoint: 'wave_1', error: 'Timed out' },
+      generation: { status: 'failed', failed_checkpoint: 'video', error: 'Timed out' },
+    })
+    let done = false
+    const fetchMock = api({
+      'GET /api/courses': () => (done ? [generated] : [failed]),
+      'GET /api/courses/c1': () => (done ? generated : failed),
+      'POST /api/courses/c1/generation-jobs/continue': {
+        id: 'j2',
+        course_id: 'c1',
+        status: 'queued',
+      },
+      'GET /api/generation-jobs/j2': () => {
+        done = true
+        return { id: 'j2', course_id: 'c1', status: 'completed' }
+      },
+    })
+    const { search } = renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    fireEvent.click(await screen.findByRole('button', { name: /Continue from video/ }))
+    await waitFor(() =>
+      expect(calls(fetchMock)).toContain('POST /api/courses/c1/generation-jobs/continue'),
+    )
+    await act(() => vi.advanceTimersByTimeAsync(4000))
+    await waitFor(() => expect(search().tab).toBe('courses'))
+    expect(calls(fetchMock)).not.toContain('POST /api/courses/c1/continue-generation')
+    expect(calls(fetchMock)).not.toContain('PUT /api/courses/c1')
+  })
+
+  it('resumes a blueprint checkpoint in one request', async () => {
+    const failed = courseJson({
+      generation: { status: 'failed', failed_checkpoint: 'blueprint', error: 'Timed out' },
     })
     const fetchMock = api({
       'GET /api/courses': [failed],
@@ -311,9 +341,10 @@ describe('Full course generation', () => {
       'POST /api/courses/c1/continue-generation': generated,
     })
     const { search } = renderCourses(BlueprintTab, { url: '/?tab=blueprint&course=c1' })
-    await userEvent.click(await screen.findByRole('button', { name: /Continue generation/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Continue from blueprint/ }))
     await waitFor(() => expect(search().tab).toBe('courses'))
     expect(calls(fetchMock)).toContain('POST /api/courses/c1/continue-generation')
+    expect(calls(fetchMock)).not.toContain('POST /api/courses/c1/generation-jobs/continue')
     expect(calls(fetchMock)).not.toContain('PUT /api/courses/c1')
   })
 })

@@ -23,6 +23,7 @@ MODULE_METADATA_FIELDS = {
     "images",
     "pass_mark",
     "quiz_generation_error",
+    "video_service",
 }
 
 

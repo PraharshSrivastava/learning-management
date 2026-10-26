@@ -5,7 +5,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response
 from app.core.settings import settings
 from app.generation.runtime import PipelineStageError
 from app.schemas.course import CourseResponse
-from app.schemas.generation import GenerationJobResponse
+from app.schemas.generation import GenerationConfigResponse, GenerationJobResponse
 from app.services.auth import current_trainer_from_request
 from app.services.course_authorization import course_owner_for_read, require_course_creator
 from app.services.generation import build_generation_service
@@ -51,6 +51,27 @@ def generate_video(
     return service.generate_video(course_id, module_number, trainer["trainer_id"])
 
 
+@router.post(
+    "/courses/{course_id}/modules/{module_number}/video-jobs",
+    response_model=GenerationJobResponse,
+    status_code=202,
+)
+def create_module_video_job(
+    course_id: str,
+    module_number: int,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
+    return service.start_module_video_job(course_id, module_number, trainer["trainer_id"])
+
+
+@router.get("/generation/config", response_model=GenerationConfigResponse)
+def get_generation_config(request: Request, authorization: str | None = Header(default=None)):
+    current_trainer_from_request(request, authorization)
+    return GenerationConfigResponse(video_generation_mode=settings.video_generation_mode)
+
+
 @router.post("/courses/{course_id}/generate-full-course", response_model=CourseResponse)
 def generate_full_course(
     course_id: str,
@@ -81,6 +102,20 @@ def create_generation_job(
     trainer = current_trainer_from_request(request, authorization)
     require_course_creator(course_id, trainer)
     return service.start_full_course_job(course_id, trainer["trainer_id"])
+
+
+@router.post(
+    "/courses/{course_id}/generation-jobs/continue",
+    response_model=GenerationJobResponse,
+    status_code=202,
+)
+def create_continue_generation_job(
+    course_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    trainer = current_trainer_from_request(request, authorization)
+    return service.start_continue_job(course_id, trainer["trainer_id"])
 
 
 @router.get("/generation-jobs/{job_id}", response_model=GenerationJobResponse)

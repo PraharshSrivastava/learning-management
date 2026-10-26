@@ -6,11 +6,13 @@ import {
   emptyAssignmentGroup,
   formattedDate,
   formattedSize,
+  hasVideoServiceFailed,
   hasMixedSelection,
   indexedMap,
   isDocx,
   isDueSoon,
   isGenerationComplete,
+  isVideoServiceActive,
   isGroupEmpty,
   isNewAssignment,
   isPptx,
@@ -41,6 +43,7 @@ import {
   parseQuizSubmissionResult,
   parseSavedAssignmentGroup,
   parseTrainer,
+  parseVideoGenerationMode,
   formatPercent,
   formatScore,
   progressFor,
@@ -285,7 +288,40 @@ describe('course (trainer)', () => {
       videoPath: '/v.mp4',
       notes: 'n',
       captions: [{ t: 1 }],
+      videoService: null,
     })
+  })
+  it('parses the module video service progress leniently', () => {
+    const module = (video_service: unknown) =>
+      parseCourse({ modules: [{ module_number: 1, video_service }] }).modules[0]!.videoService
+    expect(
+      module({ status: 'processing', stage: 'audio', progress: 68, error: null, run_id: 'r1' }),
+    ).toEqual({ status: 'processing', stage: 'audio', progress: 68, error: null })
+    expect(module({ status: 'failed', progress: 'x', error: 'TTS down' })).toEqual({
+      status: 'failed',
+      stage: null,
+      progress: null,
+      error: 'TTS down',
+    })
+    expect(module({ status: '' })).toBeNull()
+    expect(module('processing')).toBeNull()
+    expect(module(undefined)).toBeNull()
+  })
+  it('classifies video service states', () => {
+    const service = (status: string) => ({ status, stage: null, progress: null, error: null })
+    expect(
+      ['submitting', 'queued', 'processing'].map((s) => isVideoServiceActive(service(s))),
+    ).toEqual([true, true, true])
+    expect(isVideoServiceActive(service('stored'))).toBe(false)
+    expect(isVideoServiceActive(null)).toBe(false)
+    expect(hasVideoServiceFailed(service('needs_attention'))).toBe(true)
+    expect(hasVideoServiceFailed(service('failed'))).toBe(true)
+    expect(hasVideoServiceFailed(service('stored'))).toBe(false)
+  })
+  it('reads the video generation mode', () => {
+    expect(parseVideoGenerationMode({ video_generation_mode: 'external' })).toBe('external')
+    expect(parseVideoGenerationMode({ video_generation_mode: 'local' })).toBe('local')
+    expect(parseVideoGenerationMode(null)).toBe('local')
   })
   it('defaults every missing field', () => {
     expect(parseCourse({})).toEqual({

@@ -117,6 +117,15 @@ class Settings(BaseModel):
     thumbnail_read_timeout: float = Field(default=500, gt=0)
     thumbnails_enabled: bool = True
     generation_max_concurrency: int = Field(default=1, ge=1, le=8)
+    # "external" hands module video production to the Video Generator service.
+    video_generation_mode: Literal["local", "external"] = "local"
+    video_service_base_url: str | None = None
+    video_service_hmac_secret: str | None = None
+    video_service_max_concurrency: int = Field(default=2, ge=1, le=8)
+    video_service_poll_interval_seconds: float = Field(default=20, ge=1, le=300)
+    video_service_module_timeout_seconds: float = Field(default=3600, gt=0)
+    video_service_request_timeout_seconds: float = Field(default=60, gt=0)
+    video_service_max_remote_retries: int = Field(default=2, ge=0, le=5)
     hub_launch_secret: str | None = None
     hub_trainer_app_key: str = "lms-trainer"
     hub_employee_app_key: str = "lms-employee"
@@ -188,6 +197,28 @@ class Settings(BaseModel):
         if not isinstance(value, (list, tuple)) or any(not isinstance(arg, str) or not arg for arg in value):
             raise ValueError("CAPTION_ALIGN_COMMAND must be a JSON list of nonempty command arguments")
         return tuple(value)
+
+    @field_validator("video_service_base_url")
+    @classmethod
+    def validate_video_service_base_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from urllib.parse import urlsplit
+
+        value = value.strip().rstrip("/")
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+            or parsed.path
+            or parsed.query
+        ):
+            raise ValueError(
+                "VIDEO_SERVICE_BASE_URL must be an HTTP(S) origin without path or credentials"
+            )
+        return value
 
     @field_validator("lms_hub_login_url")
     @classmethod
@@ -275,6 +306,17 @@ class Settings(BaseModel):
         if email_errors:
             raise ValueError("Invalid email configuration: " + ", ".join(email_errors))
 
+        if self.video_generation_mode == "external":
+            video_errors = []
+            if not self.video_service_base_url:
+                video_errors.append("VIDEO_SERVICE_BASE_URL is required in external mode")
+            if len(self.video_service_hmac_secret or "") < 32:
+                video_errors.append(
+                    "VIDEO_SERVICE_HMAC_SECRET of at least 32 characters is required in external mode"
+                )
+            if video_errors:
+                raise ValueError("Invalid video service configuration: " + ", ".join(video_errors))
+
         if self.app_env.lower() != "production":
             return self
         missing = []
@@ -286,7 +328,7 @@ class Settings(BaseModel):
             missing.append("CORS_ALLOWED_ORIGINS (explicit origins required)")
         if not self.llm_base_url:
             missing.append("LLM_BASE_URL")
-        if not self.tts_endpoint:
+        if self.video_generation_mode == "local" and not self.tts_endpoint:
             missing.append("TTS_ENDPOINT")
         if not self.hub_launch_dev_mode:
             if not self.hub_launch_secret:
@@ -408,6 +450,22 @@ class Settings(BaseModel):
                 ),
                 "thumbnails_enabled": values.get("COURSE_THUMBNAILS_ENABLED", "true"),
                 "generation_max_concurrency": values.get("GENERATION_MAX_CONCURRENCY", "1"),
+                "video_generation_mode": values.get("VIDEO_GENERATION_MODE", "local"),
+                "video_service_base_url": values.get("VIDEO_SERVICE_BASE_URL") or None,
+                "video_service_hmac_secret": values.get("VIDEO_SERVICE_HMAC_SECRET") or None,
+                "video_service_max_concurrency": values.get("VIDEO_SERVICE_MAX_CONCURRENCY", "2"),
+                "video_service_poll_interval_seconds": values.get(
+                    "VIDEO_SERVICE_POLL_INTERVAL_SECONDS", "20"
+                ),
+                "video_service_module_timeout_seconds": values.get(
+                    "VIDEO_SERVICE_MODULE_TIMEOUT_SECONDS", "3600"
+                ),
+                "video_service_request_timeout_seconds": values.get(
+                    "VIDEO_SERVICE_REQUEST_TIMEOUT_SECONDS", "60"
+                ),
+                "video_service_max_remote_retries": values.get(
+                    "VIDEO_SERVICE_MAX_REMOTE_RETRIES", "2"
+                ),
                 "hub_launch_secret": values.get("HUB_LAUNCH_SECRET") or None,
                 "hub_trainer_app_key": values.get("HUB_TRAINER_APP_KEY", "lms-trainer"),
                 "hub_employee_app_key": values.get("HUB_EMPLOYEE_APP_KEY", "lms-employee"),

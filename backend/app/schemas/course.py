@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from app.schemas.common import ApiSchema, RequestSchema
-from app.schemas.generation import GenerationState
+from app.schemas.generation import GenerationState, ModuleVideoServiceState
 from app.schemas.quiz import Quiz
 
 CourseStatus = Literal["draft", "ready", "published", "archived"]
@@ -82,6 +82,7 @@ class ModuleResponse(ApiSchema):
     slides: list[SlideRecord] = Field(default_factory=list)
     notes: str = ""
     video_path: str | None = None
+    video_service: ModuleVideoServiceState | None = None
 
 
 class CourseResponse(ApiSchema):

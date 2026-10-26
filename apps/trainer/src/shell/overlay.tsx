@@ -4,6 +4,7 @@ import { createContext, use, useEffect, useId, useState, type ReactNode } from '
 interface OverlayEntry {
   id: string
   message: string
+  detail?: string | null
 }
 
 type Register = (entry: OverlayEntry | { id: string; message: null }) => void
@@ -20,7 +21,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     () => (entry: OverlayEntry | { id: string; message: null }) =>
       setEntries((current) => {
         const rest = current.filter((item) => item.id !== entry.id)
-        return entry.message === null ? rest : [...rest, { id: entry.id, message: entry.message }]
+        return entry.message === null ? rest : [...rest, entry]
       }),
   )
   const top = entries.at(-1)
@@ -29,18 +30,25 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
       <div inert={top != null} className="contents">
         {children}
       </div>
-      {top && <LoadingOverlay message={top.message} />}
+      {top && <LoadingOverlay message={top.message} detail={top.detail} />}
     </OverlayContext>
   )
 }
 
-/** Blocks the app with the progress overlay while `active` is true. */
-export function useBlockingOverlay(active: boolean, message: string): void {
+/**
+ * Blocks the app with the progress overlay while `active` is true. `detail` is live progress text
+ * shown under the time expectation.
+ */
+export function useBlockingOverlay(
+  active: boolean,
+  message: string,
+  detail: string | null = null,
+): void {
   const register = use(OverlayContext)
   if (!register) throw new Error('useBlockingOverlay must be used inside OverlayProvider')
   const id = useId()
   useEffect(() => {
-    register({ id, message: active ? message : null })
-    return () => register({ id, message: null })
-  }, [register, id, active, message])
+    register(active ? { id, message, detail } : { id, message: null })
+  }, [register, id, active, message, detail])
+  useEffect(() => () => register({ id, message: null }), [register, id])
 }
