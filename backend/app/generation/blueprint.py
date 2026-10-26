@@ -440,6 +440,14 @@ def _normalize_labelled_modules(modules: List[dict], body_lines: List[str]):
             modules[1]["start_line"] = modules[0]["start_line"]
             modules.pop(0)
 
+    # A module holding exactly one label line is that labelled module, whatever the LLM
+    # titled it (it may reuse the course title for Module 1).
+    for index, m in enumerate(modules):
+        end = modules[index + 1]["start_line"] - 1 if index + 1 < len(modules) else len(body_lines)
+        own_labels = [number for number in label_lines if m["start_line"] <= number <= end]
+        if len(own_labels) == 1 and not _MODULE_LABEL.search(str(m.get("title", ""))):
+            m["title"] = body_lines[own_labels[0] - 1].strip()
+
     for number, m in enumerate(modules, start=1):
         m["module_number"] = number
 
