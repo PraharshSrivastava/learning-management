@@ -96,8 +96,8 @@ def test_folds_preamble_when_llm_drops_labels_from_titles() -> None:
     _normalize_labelled_modules(modules, LINES)
 
     assert [(m["title"], m["start_line"]) for m in modules] == [
-        ("Recognising Fire Hazards", 1),
-        ("Using a Fire Extinguisher", 6),
+        ("Module 1: Recognising Fire Hazards", 1),
+        ("Module 2: Using a Fire Extinguisher", 6),
     ]
 
 
@@ -107,3 +107,12 @@ def test_keeps_opening_module_that_holds_labelled_content() -> None:
     _normalize_labelled_modules(modules, LINES)
 
     assert [m["start_line"] for m in modules] == [1, 6]
+
+
+def test_retitles_module_named_after_the_course_with_its_label() -> None:
+    lines = ["Fire Safety Course", "Module 1: Hazards", "Check sockets.", "Module 2: Extinguishers", "Pull the pin."]
+    modules = [_module(1, "Fire Safety Course", 1), _module(2, "Extinguishers", 4)]
+
+    _normalize_labelled_modules(modules, lines)
+
+    assert [m["title"] for m in modules] == ["Module 1: Hazards", "Module 2: Extinguishers"]
