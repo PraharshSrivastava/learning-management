@@ -151,6 +151,7 @@ function GroupCard({
           employees={options.employees}
           selectedIds={group.employeeIds}
           onChange={(employeeIds) => onChange({ ...group, employeeIds })}
+          canAdd={allowEmployees}
         />
       )}
       {showAttributes && (
@@ -236,6 +237,8 @@ interface EmployeeSelectorProps {
   employees: Employee[]
   selectedIds: string[]
   onChange: (ids: string[]) => void
+  /** False where Add employees elsewhere picks individuals; existing ids stay removable. */
+  canAdd?: boolean
 }
 
 function EmployeeSelector({
@@ -245,6 +248,7 @@ function EmployeeSelector({
   employees,
   selectedIds,
   onChange,
+  canAdd = true,
 }: EmployeeSelectorProps) {
   const [open, setOpen] = useState(false)
   // Chips follow the directory order, as in Flutter. Unknown ids come last so they can be removed.
@@ -265,9 +269,11 @@ function EmployeeSelector({
         {unknown.map((id) => (
           <InputChip key={id} label={`Unavailable employee (${id})`} onRemove={() => remove(id)} />
         ))}
-        <ChoiceChip icon="person_add_alt_1" onClick={() => setOpen(true)}>
-          {actionLabel}
-        </ChoiceChip>
+        {canAdd && (
+          <ChoiceChip icon="person_add_alt_1" onClick={() => setOpen(true)}>
+            {actionLabel}
+          </ChoiceChip>
+        )}
       </div>
       <EmployeePickerDialog
         open={open}

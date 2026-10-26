@@ -244,6 +244,48 @@ describe('RuleView', () => {
     expect(within(section).queryByText('Due by the end of this date (Asia/Kolkata).')).toBeNull()
   })
 
+  it('saves picked employees in the course rule without creating a shared saved group', async () => {
+    const user = userEvent.setup()
+    const { workspace, calls } = setup({ include_all: false, deadline_days: 7 })
+    await workspace.loadForCourse('c1')
+    const target = await screen.findByRole('region', { name: 'Target employees' })
+    await user.click(within(target).getByRole('button', { name: 'Add employees' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add employees' })
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Meera Iyer (e2)' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Add 1 employee' }))
+    await user.click(screen.getByRole('button', { name: 'Save Rule' }))
+    await waitFor(() => expect(mutations(calls)).toHaveLength(1))
+    const put = mutations(calls)[0]!
+    expect(put.path).toMatch(/\/assignment$/)
+    expect(put.init.method).toBe('PUT')
+    const groups = (put.init.json as { include_groups: Record<string, unknown>[] }).include_groups
+    expect(groups).toEqual([expect.objectContaining({ employee_ids: ['e2'] })])
+    expect(groups[0]).not.toHaveProperty('saved_group_id')
+    expect(calls.some((c) => c.path.includes('saved-groups') && c.init.method === 'POST')).toBe(
+      false,
+    )
+  })
+
+  it('shows picked employees that an earlier build saved under the reserved name', async () => {
+    const { workspace } = setup({
+      include_all: false,
+      deadline_days: 7,
+      include_groups: [
+        { saved_group_id: 'sg1', name: 'Selected employees', employee_ids: ['e1'] },
+        { saved_group_id: 'sg2', name: 'Krish only', employee_ids: ['e3'] },
+      ],
+    })
+    await workspace.loadForCourse('c1')
+    const target = await screen.findByRole('region', { name: 'Target employees' })
+    // The legacy group shows as picked employees, not as a filter group.
+    const chip = await within(target).findByText('Dev Patel (e1)')
+    expect(chip.closest('section[aria-label^="Include group"]')).toBeNull()
+    // A user's own saved group stays under filters, without its own Add employee action.
+    const saved = within(target).getByRole('region', { name: 'Include group 1' })
+    expect(within(saved).getByText('Arjun Mehta (e3)')).toBeTruthy()
+    expect(within(saved).queryByRole('button', { name: 'Add employee' })).toBeNull()
+  })
+
   it('Save Rule sends the edited rule once the preview is fresh', async () => {
     const user = userEvent.setup()
     const { workspace, calls } = setup({ include_all: true, deadline_days: 7 })

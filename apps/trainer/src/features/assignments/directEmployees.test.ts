@@ -32,3 +32,18 @@ describe('direct employee selection', () => {
     expect(withOtherGroups([filters], [saved])).toEqual([saved])
   })
 })
+
+describe('picked employees saved by earlier builds', () => {
+  it('still treats a reserved-name saved group as the picked group, but never a user one', () => {
+    const legacy = emptyAssignmentGroup({
+      name: 'Selected employees',
+      savedGroupId: 's2',
+      employeeIds: ['e1'],
+    })
+    expect(directGroupIndex([saved, legacy])).toBe(1)
+    expect(withDirectIds([saved, legacy], ['e1', 'e2'], 'x')[1]).toMatchObject({
+      employeeIds: ['e1', 'e2'],
+      savedGroupId: null,
+    })
+  })
+})
