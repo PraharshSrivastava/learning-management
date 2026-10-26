@@ -254,7 +254,7 @@ RUN apt-get update \
 WORKDIR /src
 ENV CFLAGS='-O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3 -fPIC' \
     LDFLAGS='-Wl,-z,relro,-z,now'
-RUN curl --fail --location --retry 2 -o expat.tar.gz https://deb.debian.org/debian/pool/main/e/expat/expat_2.8.5.orig.tar.gz \
+RUN curl --fail --location --retry 2 -o expat.tar.gz https://github.com/libexpat/libexpat/archive/refs/tags/R_2_8_5.tar.gz \
     && echo 'fd022c541a189bd5bee042a22188351b31e39b9389c2525fa98c28bd05c9ef21  expat.tar.gz' | sha256sum -c - \
     && tar -xf expat.tar.gz && mv libexpat-R_2_8_5 expat-2.8.5 && cd expat-2.8.5/expat \
     && autoreconf -fi \
