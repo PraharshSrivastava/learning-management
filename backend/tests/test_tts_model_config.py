@@ -35,8 +35,23 @@ def test_tts_request_uses_configured_model_without_streaming(monkeypatch, tmp_pa
 
     monkeypatch.setattr(tts, "TTS_MODEL_NAME", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
     monkeypatch.setattr(tts.requests, "post", post)
-    monkeypatch.setattr(tts, "_apply_tts_speed", lambda _: True)
+    monkeypatch.setattr(tts, "_apply_tts_speed", lambda *_: True)
     assert tts.synthesize_speech_for_slide("Hello", str(tmp_path / "audio.wav"))
     assert captured["json"]["model"] == "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
     assert captured["json"]["response_format"] == "wav"
     assert not captured["json"].get("stream", False)
+
+
+def test_narration_speed_slows_only_rushed_slides(monkeypatch):
+    from app.generation import tts
+
+    monkeypatch.setattr(tts, "TTS_SPEED", 0.9)
+    monkeypatch.setattr(tts, "TTS_MAX_WORDS_PER_MINUTE", 150)
+    # 130 wpm stays at the configured speed.
+    assert tts.narration_speed(60, 130) == 0.9
+    # 200 wpm is slowed so the final pace is 150 wpm.
+    assert tts.narration_speed(60, 200) == pytest.approx(0.75)
+    # atempo cannot go below half speed.
+    assert tts.narration_speed(60, 1000) == 0.5
+    monkeypatch.setattr(tts, "TTS_MAX_WORDS_PER_MINUTE", 0)
+    assert tts.narration_speed(60, 200) == 0.9
