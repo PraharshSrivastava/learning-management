@@ -6,14 +6,20 @@ import {
   type AssignmentGroup,
 } from '@lms/shared/models'
 
+/** Names of the groups that hold individually picked employees. */
+export const DIRECT_GROUP_NAMES = ['Selected employees', 'Excluded employees']
+
 /**
- * The group that holds individually picked employees: the first one with employee ids only. A
- * saved group is a reference to shared criteria, so it is never edited through the picker.
+ * The group that holds individually picked employees: the first one with employee ids only that
+ * is not a user's saved group. A saved group is shared criteria, so the picker never edits it.
+ * Earlier builds saved the picked group under its reserved name, so that name still counts.
  */
 export function directGroupIndex(groups: AssignmentGroup[]): number {
   return groups.findIndex(
     (group) =>
-      group.savedGroupId == null && hasEmployeeSelection(group) && !hasAttributeFilters(group),
+      (group.savedGroupId == null || DIRECT_GROUP_NAMES.includes(group.name.trim())) &&
+      hasEmployeeSelection(group) &&
+      !hasAttributeFilters(group),
   )
 }
 
@@ -42,7 +48,9 @@ export function withDirectIds(
   if (index < 0)
     return ids.length ? [emptyAssignmentGroup({ name, employeeIds: ids }), ...groups] : groups
   if (!ids.length) return groups.filter((_, i) => i !== index)
-  return groups.map((group, i) => (i === index ? { ...group, employeeIds: ids } : group))
+  return groups.map((group, i) =>
+    i === index ? { ...group, employeeIds: ids, savedGroupId: null } : group,
+  )
 }
 
 /** Groups after the supplementary (non-direct) groups change. */

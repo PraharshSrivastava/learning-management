@@ -25,6 +25,7 @@ import {
   type AssignmentReply,
   type Requester,
 } from './api'
+import { directGroupIndex } from './directEmployees'
 
 export type PreviewView = 'matching' | 'assigned'
 
@@ -523,11 +524,20 @@ export class AssignmentWorkspace {
     }
   }
 
-  /** Saves each non-empty group as a reusable saved group, in order. */
+  /**
+   * Saves each non-empty group as a reusable saved group, in order. Individually picked employees
+   * (Add employees) stay in the course rule only: saved groups are keyed by name, so one shared
+   * "Selected employees" group would be overwritten by every course.
+   */
   private async persistReusableGroups(rule: AssignmentRule): Promise<AssignmentRule> {
     const courseId = this.state.loadedCourseId
     const operationRequest = this.request
+    const directInclude = directGroupIndex(rule.includeGroups)
+    const directExclude = directGroupIndex(rule.excludeGroups)
     const persist = async (group: AssignmentGroup, type: SavedGroupType, index: number) => {
+      if (index === (type === 'include' ? directInclude : directExclude)) {
+        return { ...group, savedGroupId: null }
+      }
       if (
         group.employeeIds.length === 0 &&
         group.departments.length === 0 &&
