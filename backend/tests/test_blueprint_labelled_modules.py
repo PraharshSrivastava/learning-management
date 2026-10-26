@@ -57,7 +57,7 @@ def test_keeps_substantial_unlabelled_opening_module() -> None:
 def test_leaves_documents_without_module_labels_unchanged() -> None:
     modules = [_module(1, "Getting started", 1), _module(2, "Daily checks", 4)]
 
-    _normalize_labelled_modules(modules, LINES)
+    _normalize_labelled_modules(modules, ["Welcome", "Why checks matter", "Short intro", "Daily checks", "Walk the floor"])
 
     assert [m["title"] for m in modules] == ["Getting started", "Daily checks"]
 
@@ -84,3 +84,26 @@ def test_uncaptioned_pdf_image_joins_module_holding_its_page() -> None:
     assign_images_to_modules([image], lines, modules, total_pages=2, line_pages=[1, 1, 2, 2, 2, 2])
 
     assert [m["images"] for m in modules] == [[image], [], []]
+
+
+def test_folds_preamble_when_llm_drops_labels_from_titles() -> None:
+    modules = [
+        _module(1, "Introduction to Fire Safety", 1),
+        _module(2, "Recognising Fire Hazards", 4),
+        _module(3, "Using a Fire Extinguisher", 6),
+    ]
+
+    _normalize_labelled_modules(modules, LINES)
+
+    assert [(m["title"], m["start_line"]) for m in modules] == [
+        ("Recognising Fire Hazards", 1),
+        ("Using a Fire Extinguisher", 6),
+    ]
+
+
+def test_keeps_opening_module_that_holds_labelled_content() -> None:
+    modules = [_module(1, "Introduction and hazards", 1), _module(2, "Using a Fire Extinguisher", 6)]
+
+    _normalize_labelled_modules(modules, LINES)
+
+    assert [m["start_line"] for m in modules] == [1, 6]
