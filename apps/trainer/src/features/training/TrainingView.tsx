@@ -1,7 +1,15 @@
 import { hlsVideoAssetUrl, videoAssetUrl } from '@lms/shared/api/client'
 import { useHasMediaTicket } from '@lms/shared/api/useMediaTicket'
-import type { Course, CourseModule } from '@lms/shared/models'
+import {
+  hasVideoServiceFailed,
+  isVideoServiceActive,
+  type Course,
+  type CourseModule,
+  type VideoGenerationMode,
+} from '@lms/shared/models'
+import { Dialog } from '@lms/shared/ui/Dialog'
 import { Icon } from '@lms/shared/ui/icons/Icon'
+import { ProgressBar } from '@lms/shared/ui/ProgressBar'
 import { HlsVideoPlayer } from '@lms/shared/video/HlsVideoPlayer'
 import clsx from 'clsx'
 import { useState } from 'react'
@@ -19,8 +27,9 @@ import {
 import { useDownloadVideo } from './useDownloadVideo'
 import { useMediaQuery } from './useMediaQuery'
 import { useModuleGeneration } from './useModuleGeneration'
+import { useVideoGenerationMode } from './videoMode'
 
-const EMPTY_NOTES = 'Generate narration scripts to create learner notes for this module.'
+const EMPTY_NOTES = 'Learner notes appear here after course generation.'
 
 interface TrainingViewProps {
   course: Course
@@ -75,27 +84,46 @@ interface TrainingBodyProps {
 function TrainingBody({ course, readOnly, activeIndex, onSelect }: TrainingBodyProps) {
   const isMobile = useMediaQuery('(max-width: 899.98px)')
   const [answers, setAnswers] = useState<QuizAnswers>({ selected: {}, submitted: {} })
-  const generation = useModuleGeneration(course.courseId)
+  const mode = useVideoGenerationMode()
+  const generation = useModuleGeneration(course.courseId, {
+    videoActive: course.modules.some((item) => isVideoServiceActive(item.videoService)),
+  })
 
   const module = course.modules[Math.min(activeIndex, course.modules.length - 1)]
   if (!module) return <EmptyCourse />
   const moduleIndex = course.modules.indexOf(module)
 
   const generationDisabled = readOnly || generation.busy
+  const videoDisabled = generationDisabled || generation.videoBusy
+  const status = videoStatus(module, generation.videoModules.includes(module.moduleNumber))
+  const compile = () => generation.compileVideo(module.moduleNumber)
 
   const content = (
     <>
-      <HeaderSection course={course} module={module} />
+      <HeaderSection
+        course={course}
+        module={module}
+        status={status}
+        regenerateDisabled={videoDisabled}
+        onRegenerate={compile}
+      />
       <div className={isMobile ? 'h-4' : 'h-5'} />
       <VideoSection
         module={module}
-        disabled={generationDisabled}
-        onCompile={() => generation.compileVideo(module.moduleNumber)}
+        mode={mode}
+        status={status}
+        disabled={videoDisabled}
+        onCompile={compile}
       />
       <div className="h-4" />
       <NotesSection module={module} />
-      <div className="h-4" />
-      <TranscriptSection module={module} />
+      {/* Service videos have burned-in subtitles and no slide scripts to show. */}
+      {(mode === 'local' || transcriptSlides(module).length > 0) && (
+        <>
+          <div className="h-4" />
+          <TranscriptSection module={module} />
+        </>
+      )}
       <div className={isMobile ? 'h-6' : 'h-8'} />
       <hr className="m-0 h-px border-0 bg-light-gray" />
       <div className={isMobile ? 'h-5' : 'h-7'} />
@@ -172,8 +200,80 @@ function EmptyCourse() {
   )
 }
 
-function HeaderSection({ course, module }: { course: Course; module: CourseModule }) {
+/** What the module's current or last video run shows to the trainer. */
+interface VideoStatus {
+  text: string
+  failed: boolean
+  /** 0 to 1, or null for an indeterminate bar. */
+  progress: number | null
+  running: boolean
+}
+
+function videoStatus(module: CourseModule, startedHere: boolean): VideoStatus | null {
+  const service = module.videoService
+  if (service && isVideoServiceActive(service)) {
+    const percent = service.progress == null ? '' : ` (${Math.round(service.progress)}%)`
+    return {
+      text: `Video Generator: ${service.stage ?? service.status}${percent}`,
+      failed: false,
+      progress: service.progress == null ? null : service.progress / 100,
+      running: true,
+    }
+  }
+  if (startedHere) {
+    return { text: 'Starting video generation…', failed: false, progress: null, running: true }
+  }
+  if (service && hasVideoServiceFailed(service)) {
+    return {
+      text: `Last video run failed: ${service.error ?? service.status}`,
+      failed: true,
+      progress: null,
+      running: false,
+    }
+  }
+  return null
+}
+
+function VideoStatusLine({ status }: { status: VideoStatus }) {
+  return (
+    <div className="flex w-full flex-col gap-2" role="status">
+      <p
+        className={clsx(
+          'm-0 text-center font-barlow text-sm font-semibold',
+          status.failed ? 'text-[#b42318]' : 'text-gray',
+        )}
+      >
+        {status.text}
+      </p>
+      {status.running && (
+        <ProgressBar
+          value={status.progress}
+          color="var(--color-accent-orange)"
+          radius={2}
+          label="Video generation progress"
+        />
+      )}
+    </div>
+  )
+}
+
+interface HeaderSectionProps {
+  course: Course
+  module: CourseModule
+  status: VideoStatus | null
+  regenerateDisabled: boolean
+  onRegenerate: () => void
+}
+
+function HeaderSection({
+  course,
+  module,
+  status,
+  regenerateDisabled,
+  onRegenerate,
+}: HeaderSectionProps) {
   const download = useDownloadVideo()
+  const [confirming, setConfirming] = useState(false)
   return (
     <header>
       <div className="flex items-center justify-between">
@@ -181,24 +281,74 @@ function HeaderSection({ course, module }: { course: Course; module: CourseModul
           MODULE {module.moduleNumber}
         </span>
         {hasVideo(module) && (
-          <ActionButton
-            icon="download_rounded"
-            iconSize={16}
-            padding="10px 14px"
-            onClick={() =>
-              download(
-                videoAssetUrl(module.videoPath ?? ''),
-                videoDownloadFilename(course.courseId, module.moduleNumber, module.title),
-              )
-            }
-          >
-            Download Video
-          </ActionButton>
+          <div className="flex items-center gap-2">
+            <ActionButton
+              icon="refresh_rounded"
+              iconSize={16}
+              padding="10px 14px"
+              outlined
+              className="border border-primary-blue text-primary-blue disabled:border-light-gray disabled:text-gray"
+              disabled={regenerateDisabled}
+              onClick={() => setConfirming(true)}
+            >
+              {status?.running ? 'Regenerating…' : 'Regenerate Video'}
+            </ActionButton>
+            <ActionButton
+              icon="download_rounded"
+              iconSize={16}
+              padding="10px 14px"
+              onClick={() =>
+                download(
+                  videoAssetUrl(module.videoPath ?? ''),
+                  videoDownloadFilename(course.courseId, module.moduleNumber, module.title),
+                )
+              }
+            >
+              Download Video
+            </ActionButton>
+          </div>
         )}
       </div>
+      {hasVideo(module) && status && (
+        <div className="mt-2.5">
+          <VideoStatusLine status={status} />
+        </div>
+      )}
       <h2 className="mt-2.5 mb-0 font-inter text-[22px] font-bold text-text-black">
         {module.title}
       </h2>
+      <Dialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Regenerate module video?"
+        width={420}
+        actions={
+          <>
+            <ActionButton
+              iconSize={16}
+              padding="0 16px"
+              outlined
+              className="text-primary-blue"
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </ActionButton>
+            <ActionButton
+              iconSize={16}
+              padding="0 16px"
+              onClick={() => {
+                setConfirming(false)
+                onRegenerate()
+              }}
+            >
+              Regenerate
+            </ActionButton>
+          </>
+        }
+      >
+        A new video for Module {module.moduleNumber} replaces the current one when it is ready. The
+        current video stays available until then.
+      </Dialog>
     </header>
   )
 }
@@ -207,25 +357,46 @@ interface GenerateProps {
   disabled: boolean
 }
 
-function VideoSection({
-  module,
-  disabled,
-  onCompile,
-}: GenerateProps & { module: CourseModule; onCompile: () => void }) {
+interface VideoSectionProps extends GenerateProps {
+  module: CourseModule
+  mode: VideoGenerationMode
+  status: VideoStatus | null
+  onCompile: () => void
+}
+
+function VideoSection({ module, mode, status, disabled, onCompile }: VideoSectionProps) {
   const hasTicket = useHasMediaTicket()
   const videoPath = module.videoPath
   if (!videoPath) {
+    const external = mode === 'external'
+    const label = !external
+      ? 'Compile Module Video'
+      : status?.failed
+        ? 'Retry Module Video'
+        : 'Generate Module Video'
     return (
-      <div className="flex h-[400px] flex-col items-center justify-center rounded-2xl border border-light-gray bg-[#fafafa]">
+      <div className="flex h-[400px] flex-col items-center justify-center rounded-2xl border border-light-gray bg-[#fafafa] px-8">
         <Icon name="video_library_outlined" size={56} color="var(--color-gray)" />
         <div className="h-4" />
         <h3 className="m-0 font-inter text-base font-bold text-primary-blue">
-          No Video Compiled Yet
+          {status?.running
+            ? 'Generating Module Video'
+            : external
+              ? 'No Video Yet'
+              : 'No Video Compiled Yet'}
         </h3>
         <div className="h-2" />
-        <p className="m-0 font-barlow text-sm text-gray">
-          Generate the slides and video compilation first to watch.
-        </p>
+        {status ? (
+          <div className="w-full max-w-[420px]">
+            <VideoStatusLine status={status} />
+          </div>
+        ) : (
+          <p className="m-0 text-center font-barlow text-sm text-gray">
+            {external
+              ? 'The Video Generator creates this module video from the approved module content.'
+              : 'Generate the slides and video compilation first to watch.'}
+          </p>
+        )}
         <div className="h-6" />
         <ActionButton
           icon="bolt"
@@ -235,7 +406,7 @@ function VideoSection({
           disabled={disabled}
           onClick={onCompile}
         >
-          Compile Module Video
+          {label}
         </ActionButton>
       </div>
     )

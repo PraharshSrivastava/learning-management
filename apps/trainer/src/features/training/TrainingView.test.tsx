@@ -157,7 +157,7 @@ describe('TrainingView content', () => {
     expect(screen.queryByTestId('player')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Download Video' })).not.toBeInTheDocument()
     expect(
-      screen.getByText(/Generate narration scripts to create learner notes/),
+      screen.getByText(/Learner notes appear here after course generation/),
     ).toBeInTheDocument()
     expect(screen.getByText(/No slide narration script/)).toBeInTheDocument()
     expect(screen.getByText('No Quiz Available for this Module')).toBeInTheDocument()
@@ -329,36 +329,113 @@ describe('TrainingView read-only mode', () => {
 })
 
 describe('TrainingView generation', () => {
-  function stubFetch(handler: (url: string) => Promise<Response>) {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => handler(String(input)))
-    vi.stubGlobal('fetch', fetchMock)
-    return fetchMock
-  }
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
-  it('compiles a module video with the module number, shows the overlay, and refreshes courses', async () => {
-    const user = userEvent.setup()
-    let finish: (response: Response) => void = () => {}
-    const fetchMock = stubFetch(() => new Promise((resolve) => (finish = resolve)))
+  /** Routes `METHOD /path` to a handler. The generation config answers with `mode`. */
+  function stubApi(
+    routes: Record<string, () => Response | Promise<Response>>,
+    mode: 'local' | 'external' = 'local',
+  ) {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), 'http://localhost')
+      const key = `${init?.method ?? 'GET'} ${url.pathname.replace(/^\/lms\/trainer/, '')}`
+      if (key.endsWith(' /api/generation/config')) {
+        return Promise.resolve(json({ video_generation_mode: mode }))
+      }
+      const route = routes[key]
+      return Promise.resolve(route ? route() : json(null))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+  const requested = (fetchMock: ReturnType<typeof stubApi>, fragment: string) =>
+    fetchMock.mock.calls.filter(([input]) => String(input).includes(fragment)).length
+
+  const job = (status: string) => () => json({ id: 'j1', course_id: 'c1', status })
+
+  it('runs the module video as a background job without blocking the page', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let polls = 0
+    const fetchMock = stubApi({
+      'POST /api/courses/c1/modules/2/video-jobs': job('pending'),
+      'GET /api/generation-jobs/j1': () => {
+        polls += 1
+        return job(polls >= 2 ? 'completed' : 'running')()
+      },
+    })
     const { invalidate } = await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
-    expect(await screen.findByText('Generating video')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0]![0]).toContain('/api/courses/c1/modules/2/generate-video')
+
+    expect(await screen.findByText('Starting video generation…')).toBeInTheDocument()
+    // No blocking overlay: the rest of the page stays usable while the job runs.
+    expect(screen.queryByText('Generating video')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Compile Module Video' })).toBeDisabled()
-    await act(async () => finish(json(courseJson())))
-    await waitFor(() => expect(screen.queryByText('Generating video')).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Generate Quiz Now' })).toBeEnabled()
+    expect(requested(fetchMock, '/modules/2/video-jobs')).toBe(1)
+    expect(requested(fetchMock, '/generate-video')).toBe(0)
+
+    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await act(() => vi.advanceTimersByTimeAsync(5000))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Compile Module Video' })).toBeEnabled(),
+    )
+    expect(polls).toBe(2)
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['courses'] })
+    vi.useRealTimers()
+  })
+
+  it('shows the module failure cause when the video job fails', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    stubApi({
+      'POST /api/courses/c1/modules/2/video-jobs': job('pending'),
+      'GET /api/generation-jobs/j1': () =>
+        json({ id: 'j1', course_id: 'c1', status: 'failed', error: 'Pipeline exited with 1' }),
+    })
+    const failed = course({
+      modules: [
+        courseJson().modules[0],
+        {
+          module_number: 2,
+          title: 'Reporting',
+          video_service: { status: 'failed', error: 'TTS down' },
+        },
+      ],
+    })
+    const { client } = await renderView(<TrainingView course={course()} />)
+    client.setQueryData(['courses', 'detail', 'c1'], failed)
+    await user.click(screen.getByRole('button', { name: /Reporting/ }))
+    await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
+    await act(() => vi.advanceTimersByTimeAsync(5000))
+    expect(await screen.findByText('TTS down')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('shows the server error when the job cannot start', async () => {
+    const user = userEvent.setup()
+    stubApi({
+      'POST /api/courses/c1/modules/2/video-jobs': () =>
+        json({ detail: 'Not enough slides.' }, 400),
+    })
+    await renderView(<TrainingView course={course()} />)
+    await user.click(screen.getByRole('button', { name: /Reporting/ }))
+    await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
+    expect(await screen.findByText('Not enough slides.')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Compile Module Video' })).toBeEnabled(),
+    )
   })
 
   it('stores the generated course even when the reload fails', async () => {
     const user = userEvent.setup()
     const generated = courseJson({ course_name: 'Compliance v2' })
-    stubFetch(async (url) =>
-      url.includes('/generate-quiz') ? json(generated) : json({ detail: 'down' }, 500),
-    )
+    stubApi({
+      'POST /api/courses/c1/generate-quiz': () => json(generated),
+      'GET /api/courses': () => json({ detail: 'down' }, 500),
+    })
     const { client } = await renderView(<TrainingView course={course()} />)
     client.setQueryData(['courses'], [course()])
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
@@ -372,44 +449,114 @@ describe('TrainingView generation', () => {
 
   it('sends one request only when the quiz button is clicked twice', async () => {
     const user = userEvent.setup()
-    stubFetch(() => new Promise(() => {}))
+    const fetchMock = stubApi({ 'POST /api/courses/c1/generate-quiz': () => new Promise(() => {}) })
     await renderView(<TrainingView course={course()} />)
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
     const button = screen.getByRole('button', { name: 'Generate Quiz Now' })
     await user.click(button)
     await user.click(button)
     expect(await screen.findByText('Generating quizzes')).toBeInTheDocument()
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(fetch).mock.calls[0]![0]).toContain('/api/courses/c1/generate-quiz')
+    expect(requested(fetchMock, '/generate-quiz')).toBe(1)
   })
 
-  it('shows the server error in a toast and removes the overlay', async () => {
+  it('regenerates an existing video after confirmation', async () => {
     const user = userEvent.setup()
-    stubFetch(() => Promise.resolve(json({ detail: 'Not enough slides.' }, 400)))
+    const fetchMock = stubApi({
+      'POST /api/courses/c1/modules/1/video-jobs': () => new Promise(() => {}),
+    })
     await renderView(<TrainingView course={course()} />)
-    await user.click(screen.getByRole('button', { name: /Reporting/ }))
-    await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
-    expect(await screen.findByText('Not enough slides.')).toBeInTheDocument()
-    expect(screen.queryByText('Generating video')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Compile Module Video' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Regenerate Video' }))
+    expect(screen.getByRole('heading', { name: 'Regenerate module video?' })).toBeInTheDocument()
+    expect(requested(fetchMock, '/video-jobs')).toBe(0)
+    await user.click(screen.getByRole('button', { name: 'Regenerate' }))
+    await waitFor(() => expect(requested(fetchMock, '/modules/1/video-jobs')).toBe(1))
+    expect(await screen.findByRole('button', { name: 'Regenerating…' })).toBeDisabled()
+    // The current video keeps playing until the new one replaces it.
+    expect(screen.getByTestId('player')).toBeInTheDocument()
+  })
+})
+
+describe('TrainingView with the external Video Generator', () => {
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(
+          json(
+            String(input).includes('/api/generation/config')
+              ? { video_generation_mode: 'external' }
+              : null,
+          ),
+        ),
+      ),
+    )
   })
 
-  it('removes the overlay when the view unmounts during a request', async () => {
+  const externalCourse = (videoService: Record<string, unknown> | null) =>
+    course({
+      modules: [
+        courseJson().modules[0],
+        {
+          module_number: 2,
+          title: 'Reporting',
+          notes: '',
+          slides: [],
+          video_service: videoService,
+        },
+      ],
+    })
+
+  it('shows live service progress and blocks a second start', async () => {
     const user = userEvent.setup()
-    stubFetch(() => new Promise(() => {}))
-    const { unmount } = await renderView(<TrainingView course={course()} />)
+    await renderView(
+      <TrainingView
+        course={externalCourse({ status: 'processing', stage: 'audio', progress: 68 })}
+      />,
+    )
     await user.click(screen.getByRole('button', { name: /Reporting/ }))
-    await user.click(screen.getByRole('button', { name: 'Compile Module Video' }))
-    expect(await screen.findByText('Generating video')).toBeInTheDocument()
-    unmount()
-    expect(screen.queryByText('Generating video')).not.toBeInTheDocument()
+    expect(await screen.findByText('Video Generator: audio (68%)')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Video generation progress' })).toHaveAttribute(
+      'aria-valuenow',
+      '68',
+    )
+    expect(screen.getByText('Generating Module Video')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generate Module Video' })).toBeDisabled()
+    // Service videos have burned-in subtitles and no slide script.
+    expect(screen.queryByText('Slide Script / Transcript')).not.toBeInTheDocument()
+  })
+
+  it('offers a retry with the failure cause', async () => {
+    const user = userEvent.setup()
+    await renderView(
+      <TrainingView course={externalCourse({ status: 'failed', error: 'TTS endpoint down' })} />,
+    )
+    await user.click(screen.getByRole('button', { name: /Reporting/ }))
+    expect(await screen.findByText('Last video run failed: TTS endpoint down')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry Module Video' })).toBeEnabled()
+  })
+
+  it('explains where the video comes from before the first run', async () => {
+    const user = userEvent.setup()
+    await renderView(<TrainingView course={externalCourse(null)} />)
+    await user.click(screen.getByRole('button', { name: /Reporting/ }))
+    expect(
+      await screen.findByText(/The Video Generator creates this module video/),
+    ).toBeInTheDocument()
+    expect(screen.getByText('No Video Yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generate Module Video' })).toBeEnabled()
   })
 })
 
 describe('TrainingView download', () => {
   it('downloads the video as a named file', async () => {
     const user = userEvent.setup()
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('mp4', { status: 200 })))
+    // A fresh body for each call: the generation config request reads one too.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response('mp4', { status: 200 }))),
+    )
     URL.createObjectURL = vi.fn(() => 'blob:video')
     URL.revokeObjectURL = vi.fn()
     const clicked: HTMLAnchorElement[] = []

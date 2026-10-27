@@ -8,5 +8,15 @@ export const generationJobSchema = z
 export type GenerationJob = z.output<typeof generationJobSchema>
 export const parseGenerationJob = (json: unknown): GenerationJob => generationJobSchema.parse(json)
 
+/** "local" renders slides with narration; "external" uses the Video Generator service. */
+export type VideoGenerationMode = 'local' | 'external'
+
+export const parseVideoGenerationMode = (json: unknown): VideoGenerationMode =>
+  typeof json === 'object' &&
+  json !== null &&
+  (json as Record<string, unknown>).video_generation_mode === 'external'
+    ? 'external'
+    : 'local'
+
 export const isGenerationComplete = (job: GenerationJob) =>
   job.status === 'completed' || job.status === 'failed'

@@ -20,6 +20,16 @@ export function overlayContent(rawMessage: string): OverlayContent {
       expectation: 'Publishing may take up to 2 minutes.',
     }
   }
+  if (lower.includes('module videos')) {
+    return {
+      icon: 'school_outlined',
+      title: 'Generating course content',
+      message:
+        'We are preparing quizzes and notes while the Video Generator produces each module video.',
+      expectation:
+        'Each module video takes several minutes; a large course may take up to 60 minutes.',
+    }
+  }
   if (lower.includes('course content') || lower.includes('entire course')) {
     return {
       icon: 'school_outlined',
@@ -89,7 +99,7 @@ export function overlayContent(rawMessage: string): OverlayContent {
 }
 
 /** Blocking progress card shown over the whole app while a long backend job runs. */
-export function LoadingOverlay({ message }: { message: string }) {
+export function LoadingOverlay({ message, detail }: { message: string; detail?: string | null }) {
   const content = overlayContent(message)
   return (
     <div
@@ -130,6 +140,14 @@ export function LoadingOverlay({ message }: { message: string }) {
             {content.expectation}
           </span>
         </div>
+        {detail && (
+          <p
+            className="mt-3 mb-0 text-center font-dm text-[13px] font-semibold leading-normal whitespace-pre-line text-[#475467]"
+            aria-live="polite"
+          >
+            {detail}
+          </p>
+        )}
       </div>
     </div>
   )

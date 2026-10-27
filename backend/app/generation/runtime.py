@@ -340,17 +340,30 @@ def _html_output_complete(course: dict) -> bool:
     )
 
 
+def uses_external_video_service() -> bool:
+    return settings.video_generation_mode == "external"
+
+
 def missing_generation_outputs(course: dict) -> list[str]:
-    checks = (
-        ("thumbnail", _thumbnail_output_complete),
-        ("quiz", _quiz_output_complete),
-        ("notes", _notes_output_complete),
-        ("slides", _slides_output_complete),
-        ("html", _html_output_complete),
-        ("scripts", _scripts_output_complete),
-        ("tts", _tts_output_complete),
-        ("video", _video_output_complete),
-    )
+    if uses_external_video_service():
+        # The service produces finished videos; slide, script and audio stages never run.
+        checks = (
+            ("thumbnail", _thumbnail_output_complete),
+            ("quiz", _quiz_output_complete),
+            ("notes", _notes_output_complete),
+            ("video", _video_output_complete),
+        )
+    else:
+        checks = (
+            ("thumbnail", _thumbnail_output_complete),
+            ("quiz", _quiz_output_complete),
+            ("notes", _notes_output_complete),
+            ("slides", _slides_output_complete),
+            ("html", _html_output_complete),
+            ("scripts", _scripts_output_complete),
+            ("tts", _tts_output_complete),
+            ("video", _video_output_complete),
+        )
     return [stage for stage, check in checks if not check(course)]
 
 
@@ -438,6 +451,18 @@ def recover_interrupted_generations() -> None:
         logger.exception("Could not recover interrupted course generations")
 
 
+def run_module_video_generation(course_id: str, module_number: int) -> str:
+    """Regenerate one module's video with the configured video mode."""
+    if uses_external_video_service():
+        from app.generation.video_service import generate_video_for_module_via_service
+
+        # A trainer-requested regeneration always asks the service for a new video.
+        return generate_video_for_module_via_service(course_id, module_number, force=True)
+    from app.generation.video import generate_video_for_module
+
+    return generate_video_for_module(course_id, module_number)
+
+
 def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) -> dict:
     """Run the course pipeline with a barrier and recovery queue for Wave 1."""
     from app.generation.html import compile_slides_for_course
@@ -448,11 +473,15 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
     from app.generation.thumbnails import course_thumbnail_signature, generate_course_thumbnail
     from app.generation.tts import generate_tts_for_course
     from app.generation.video import generate_videos_for_course
+    from app.generation.video_service import generate_videos_via_service
     from app.services.courses import CourseService
 
     pipeline_start = time.perf_counter()
     repository = CourseRepository()
-    wave_stage_order = ("thumbnail", "quiz", "notes", "slides")
+    external_video = uses_external_video_service()
+    wave_stage_order = (
+        ("thumbnail", "quiz", "notes") if external_video else ("thumbnail", "quiz", "notes", "slides")
+    )
 
     def load_course() -> dict:
         course = get_course(course_id)
@@ -711,6 +740,35 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         logger.info("Generation | %s completed | %.1fs", stage, time.perf_counter() - started)
         return result
 
+    def validate_and_publish() -> None:
+        course = load_course()
+        missing_outputs = missing_generation_outputs(course)
+        if missing_outputs:
+            raise PipelineStageError(
+                "publish",
+                "Course validation failed; missing output: " + ", ".join(missing_outputs),
+            )
+        sync_clean_database(course_id)
+
+    def finish() -> dict:
+        run_stage("publish", validate_and_publish, attempts=3)
+        course = get_course(course_id)
+        if course is None:
+            raise ValueError(f"Course ID '{course_id}' not found after generation.")
+        complete_generation(course, time.perf_counter() - pipeline_start)
+        save_course(course, course.get("status", "draft"))
+        logger.info("Generation | Course completed | %.1fs", time.perf_counter() - pipeline_start)
+        return course
+
+    if external_video:
+        # The service retries internally and resumes runs, so one stage attempt suffices.
+        run_stage(
+            "video",
+            lambda: generate_videos_via_service(course_id),
+            output_is_valid=_video_output_complete,
+        )
+        return finish()
+
     run_stage(
         "html",
         lambda: compile_slides_for_course(course_id),
@@ -753,22 +811,4 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         attempts=3,
         output_is_valid=_video_output_complete,
     )
-
-    def validate_and_publish() -> None:
-        course = load_course()
-        missing_outputs = missing_generation_outputs(course)
-        if missing_outputs:
-            raise PipelineStageError(
-                "publish",
-                "Course validation failed; missing output: " + ", ".join(missing_outputs),
-            )
-        sync_clean_database(course_id)
-
-    run_stage("publish", validate_and_publish, attempts=3)
-    course = get_course(course_id)
-    if course is None:
-        raise ValueError(f"Course ID '{course_id}' not found after generation.")
-    complete_generation(course, time.perf_counter() - pipeline_start)
-    save_course(course, course.get("status", "draft"))
-    logger.info("Generation | Course completed | %.1fs", time.perf_counter() - pipeline_start)
-    return course
+    return finish()

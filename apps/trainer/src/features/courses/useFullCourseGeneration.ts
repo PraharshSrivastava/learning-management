@@ -1,13 +1,14 @@
 import { apiRequest } from '@lms/shared/api/client'
-import { parseCourse, parseGenerationJob } from '@lms/shared/models'
+import { parseCourse, parseGenerationJob, type Course } from '@lms/shared/models'
 import { useToast } from '@lms/shared/ui/Toast'
-import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIsMutating, useMutation, useMutationState, useQueryClient } from '@tanstack/react-query'
 import { useBlockingOverlay } from '../../shell/overlay'
 import { trainerKeys } from '../../shell/queryKeys'
 import { useUpdateTrainerSearch, type TrainerTab } from '../../shell/search'
 import { generationErrorMessage } from '../training/trainingData'
+import { moduleVideoProgress, useVideoGenerationMode } from '../training/videoMode'
 import { isCourseFullyGenerated } from './courseLogic'
-import { useStoreCourse } from './courseQueries'
+import { useCourseDetail, useStoreCourse } from './courseQueries'
 
 const FULL_GENERATION_KEY = ['full-course-generation'] as const
 const POLL_INTERVAL_MS = 4000
@@ -26,8 +27,10 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Full course generation (FullCourseGenerationNotifier). A new run starts a backend job and polls
- * it every 4 s. A resume continues from the failed checkpoint in one request. The overlay stays
- * up while either runs, also when the user opens another tab; see useFullCourseGenerationOverlay.
+ * it every 4 s. A resume from a later checkpoint does the same, so a long video stage never holds
+ * one HTTP request open; a blueprint checkpoint resumes in one request, because it re-extracts the
+ * document. The overlay stays up while either runs, also when the user opens another tab; see
+ * useFullCourseGenerationOverlay.
  */
 export function useFullCourseGeneration() {
   const queryClient = useQueryClient()
@@ -43,19 +46,23 @@ export function useFullCourseGeneration() {
     return queryClient.getQueryState(trainerKeys.course(courseId))?.status === 'success'
   }
 
-  const runJob = async (courseId: string): Promise<TrainerTab> => {
+  const runJob = async (courseId: string, resuming = false): Promise<TrainerTab> => {
     let jobId: string
     try {
       const job = parseGenerationJob(
-        await apiRequest(`/api/courses/${encodeURIComponent(courseId)}/generation-jobs`, {
-          method: 'POST',
-        }),
+        await apiRequest(
+          `/api/courses/${encodeURIComponent(courseId)}/generation-jobs${resuming ? '/continue' : ''}`,
+          { method: 'POST' },
+        ),
       )
       jobId = job.id
     } catch (error) {
       const found = await refreshCourse(courseId)
       throw new GenerationFailure(
-        generationErrorMessage(error, 'Full course generation failed.'),
+        generationErrorMessage(
+          error,
+          resuming ? 'Could not continue generation.' : 'Full course generation failed.',
+        ),
         found ? 'blueprint' : null,
       )
     }
@@ -81,7 +88,18 @@ export function useFullCourseGeneration() {
     }
   }
 
+  const checkpointOf = (courseId: string): string => {
+    const course =
+      queryClient.getQueryData<Course>(trainerKeys.course(courseId)) ??
+      queryClient
+        .getQueryData<Course[]>(trainerKeys.courses)
+        ?.find((item) => item.courseId === courseId)
+    return course?.failedCheckpoint || course?.currentCheckpoint || ''
+  }
+
   const resume = async (courseId: string): Promise<TrainerTab> => {
+    const checkpoint = checkpointOf(courseId)
+    if (checkpoint && checkpoint !== 'blueprint') return runJob(courseId, true)
     try {
       const course = parseCourse(
         await apiRequest(`/api/courses/${encodeURIComponent(courseId)}/continue-generation`, {
@@ -135,5 +153,16 @@ export function useFullCourseGeneration() {
  */
 export function useFullCourseGenerationOverlay(): void {
   const running = useIsMutating({ mutationKey: FULL_GENERATION_KEY }) > 0
-  useBlockingOverlay(running, 'Generating course content')
+  const external = useVideoGenerationMode() === 'external'
+  const courseId = useMutationState({
+    filters: { mutationKey: FULL_GENERATION_KEY, status: 'pending' },
+    select: (mutation) => (mutation.state.variables as { courseId: string } | undefined)?.courseId,
+  }).at(-1)
+  // The job polling reloads this course, so module video progress updates under the overlay.
+  const course = useCourseDetail(external && running ? courseId : undefined).data
+  useBlockingOverlay(
+    running,
+    external ? 'Generating course content with module videos' : 'Generating course content',
+    external ? moduleVideoProgress(course) : null,
+  )
 }

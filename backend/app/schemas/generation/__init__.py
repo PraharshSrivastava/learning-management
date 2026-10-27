@@ -28,6 +28,21 @@ class GenerationState(ApiSchema):
     stages: dict[str, GenerationStage] = Field(default_factory=dict)
 
 
+class GenerationConfigResponse(ApiSchema):
+    video_generation_mode: Literal["local", "external"]
+
+
+class ModuleVideoServiceState(ApiSchema):
+    """Trainer-visible progress of one module's Video Generator run."""
+
+    status: str | None = None
+    stage: str | None = None
+    progress: int | float | None = None
+    error: str | None = None
+    run_id: str | None = None
+    updated_at: str | None = None
+
+
 class GenerationJobResponse(ApiSchema):
     id: str
     course_id: str

@@ -90,12 +90,12 @@ class GenerationService:
     def generate_video(
         self, course_id: str, module_number: int, trainer_id: str | None = None
     ) -> dict:
-        from app.generation.video import generate_video_for_module
+        from app.generation.runtime import run_module_video_generation
 
         self.draft(course_id, trainer_id)
         with self._trace_operation("video", course_id, trainer_id):
             with generation_queue.run(course_id=course_id, operation=f"video:{module_number}"):
-                generate_video_for_module(course_id, module_number)
+                run_module_video_generation(course_id, module_number)
                 return self.draft(course_id, trainer_id)
 
     def generate_full_course(self, course_id: str, trainer_id: str | None = None) -> dict:
@@ -111,6 +111,43 @@ class GenerationService:
                 course_id,
                 backend_dir=self.config.backend_dir,
                 restart_from_blueprint=True,
+            )
+        except ValueError as exc:
+            raise ConflictError(str(exc)) from exc
+
+    def start_module_video_job(
+        self, course_id: str, module_number: int, trainer_id: str | None = None
+    ):
+        course = self.draft(course_id, trainer_id)
+        if module_number < 1 or module_number > len(course.get("modules") or []):
+            raise ValueError(f"Module number {module_number} out of range.")
+        try:
+            return self.jobs.submit_process(
+                course_id,
+                backend_dir=self.config.backend_dir,
+                restart_from_blueprint=False,
+                module_video=module_number,
+            )
+        except ValueError as exc:
+            raise ConflictError(str(exc)) from exc
+
+    def start_continue_job(self, course_id: str, trainer_id: str | None = None):
+        """Resume a failed generation in the background worker.
+
+        Blueprint checkpoints keep the synchronous continue route, which owns the
+        document re-extraction rules.
+        """
+        state = generation_state(self.draft(course_id, trainer_id))
+        checkpoint = state.get("failed_checkpoint") or state.get("current_checkpoint")
+        if not checkpoint:
+            raise ValueError("This course has no generation checkpoint to continue")
+        if checkpoint == "blueprint":
+            raise ValueError("Blueprint checkpoints must be continued with continue-generation")
+        try:
+            return self.jobs.submit_process(
+                course_id,
+                backend_dir=self.config.backend_dir,
+                restart_from_blueprint=False,
             )
         except ValueError as exc:
             raise ConflictError(str(exc)) from exc

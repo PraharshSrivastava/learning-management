@@ -7,6 +7,7 @@ import {
   dartString,
   int,
   isRecord,
+  lenient,
   list,
   optRecord,
   optStr,
@@ -22,6 +23,36 @@ export const courseImageSchema = z
 export type CourseImage = z.output<typeof courseImageSchema>
 export const parseCourseImage = (json: unknown): CourseImage => courseImageSchema.parse(json)
 
+/** Progress of one module's run on the external Video Generator service. */
+export interface ModuleVideoService {
+  status: string
+  stage: string | null
+  /** 0 to 100, or null when the service cannot report it. */
+  progress: number | null
+  error: string | null
+}
+
+const ACTIVE_VIDEO_STATUSES = new Set(['submitting', 'queued', 'processing'])
+const FAILED_VIDEO_STATUSES = new Set(['failed', 'needs_attention'])
+
+export const isVideoServiceActive = (service: ModuleVideoService | null): boolean =>
+  service != null && ACTIVE_VIDEO_STATUSES.has(service.status)
+
+export const hasVideoServiceFailed = (service: ModuleVideoService | null): boolean =>
+  service != null && FAILED_VIDEO_STATUSES.has(service.status)
+
+const videoService = () =>
+  lenient((value): ModuleVideoService | null => {
+    if (!isRecord(value) || value.status == null || value.status === '') return null
+    const progress = value.progress
+    return {
+      status: dartString(value.status),
+      stage: value.stage == null ? null : dartString(value.stage),
+      progress: typeof progress === 'number' && Number.isFinite(progress) ? progress : null,
+      error: value.error == null ? null : dartString(value.error),
+    }
+  })
+
 export const courseModuleSchema = z
   .object({
     module_number: int(),
@@ -36,6 +67,7 @@ export const courseModuleSchema = z
     video_path: optStr(),
     notes: str(),
     captions: unknownList(),
+    video_service: videoService(),
   })
   .transform((j) => ({
     moduleNumber: j.module_number,
@@ -50,6 +82,7 @@ export const courseModuleSchema = z
     videoPath: j.video_path,
     notes: j.notes,
     captions: j.captions,
+    videoService: j.video_service,
   }))
 export type CourseModule = z.output<typeof courseModuleSchema>
 export const parseCourseModule = (json: unknown): CourseModule => courseModuleSchema.parse(json)
@@ -70,6 +103,7 @@ const moduleOrTitleSchema = z.unknown().transform((item, ctx): CourseModule => {
     videoPath: null,
     notes: '',
     captions: [],
+    videoService: null,
   }
 })
 
