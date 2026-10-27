@@ -1,5 +1,5 @@
 // GET /api/me/learning-journeys and its parser.
-import { apiRequest } from '@lms/shared/api/client'
+import { apiRequest, apiUrl, authHeaders } from '@lms/shared/api/client'
 import { isRecord, type JsonRecord } from '@lms/shared/models'
 
 export type StepState = 'passed' | 'in_progress' | 'available' | 'locked' | 'unavailable'
@@ -28,6 +28,10 @@ export interface LearnerJourney {
   passedCount: number
   requiredCount: number
   nextCourseId: string | null
+  /** The next course's state, so its button says Start or Continue. */
+  nextCourseState: StepState | null
+  /** Set once the journey is completed with a certificate. */
+  certificateNumber: string | null
   prerequisite: { journeyId: string; title: string; met: boolean } | null
   stages: { title: string; steps: LearnerStep[] }[]
 }
@@ -83,6 +87,8 @@ export function parseLearnerJourney(json: unknown): LearnerJourney {
     passedCount: num(j.passed_count),
     requiredCount: num(j.required_count),
     nextCourseId: optText(j.next_course_id),
+    nextCourseState: STEP_STATES.find((item) => item === j.next_course_state) ?? null,
+    certificateNumber: optText(j.certificate_number),
     prerequisite: prerequisite
       ? {
           journeyId: text(prerequisite.journey_id),
@@ -114,3 +120,22 @@ export const fetchMyJourneys = async () =>
 /** Share of required, available steps already passed, from 0 to 1. */
 export const journeyProgress = (journey: LearnerJourney): number =>
   journey.requiredCount > 0 ? journey.passedCount / journey.requiredCount : 0
+
+/** Saves the learner's completion certificate as a PDF file. */
+export async function downloadMyCertificate(journey: LearnerJourney): Promise<void> {
+  const response = await fetch(
+    apiUrl(`/api/me/learning-journeys/${encodeURIComponent(journey.journeyId)}/certificate`),
+    { headers: authHeaders(), credentials: 'same-origin' },
+  )
+  if (!response.ok) throw new Error('Your certificate could not be downloaded. Try again.')
+  const url = URL.createObjectURL(await response.blob())
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${journey.certificateNumber ?? 'certificate'}.pdf`
+  anchor.style.display = 'none'
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  // Revoke later: some browsers start the download after the click handler returns.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}

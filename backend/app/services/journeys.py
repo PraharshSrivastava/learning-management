@@ -7,6 +7,7 @@ unlocks, so progress, the course player, emails and reports keep working unchang
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -17,15 +18,21 @@ from app.repositories.assignments import (
     get_assignment_rule,
     matching_employees_for_assignment_rule,
 )
-from app.repositories.courses import CourseRepository, update_course_status
+from app.repositories.courses import get_course, update_course_status
 from app.repositories.database import advisory_lock, get_connection
 from app.repositories.employees import EmployeeRepository
 from app.repositories.journeys import JourneyRepository, assignment_changed
 from app.repositories.progress import ProgressRepository
-from app.schemas.journey import JourneyCreateRequest, JourneyObserversRequest, JourneySaveRequest
+from app.schemas.journey import (
+    JourneyCreateRequest,
+    JourneyObserversRequest,
+    JourneyPreviewRequest,
+    JourneySaveRequest,
+)
 from app.services.assignment_conflicts import observer_ids
 from app.services.assignment_deadlines import deadline_expired, resolve_deadline, validate_deadline
 from app.services.course_access import course_is_publishable
+from app.services.journey_certificates import certificate_number
 from app.services.journey_state import (
     CourseState,
     JourneyState,
@@ -35,8 +42,8 @@ from app.services.journey_state import (
     prerequisite_met,
 )
 
+logger = logging.getLogger(__name__)
 _journeys = JourneyRepository()
-_courses = CourseRepository()
 _employees = EmployeeRepository()
 _progress = ProgressRepository()
 
@@ -128,6 +135,8 @@ def _evaluate(
     now: datetime,
     *,
     persist: bool,
+    availability: dict[str, dict] | None = None,
+    observers: dict[str, set[str]] | None = None,
 ) -> dict[str, _Evaluation]:
     """Evaluate every active journey assignment, prerequisites first."""
     active = {
@@ -136,7 +145,9 @@ def _evaluate(
         if journey_id in journeys and not assignment.get("revoked_at")
     }
     course_ids = {step["course_id"] for jid in active for step in journeys[jid]["steps"]}
-    availability = _course_availability(course_ids)
+    # Reports pass availability and Observers preloaded for many learners at once.
+    if availability is None:
+        availability = _course_availability(course_ids)
     observed: dict[str, bool] = {}
 
     def step_available(course_id: str) -> bool:
@@ -144,7 +155,10 @@ def _evaluate(
         if not info or not info["published"] or info["disabled"]:
             return False
         if course_id not in observed:
-            observed[course_id] = employee_id in observer_ids(course_id)
+            watchers = observers.get(course_id) if observers is not None else None
+            observed[course_id] = employee_id in (
+                watchers if watchers is not None else observer_ids(course_id)
+            )
         return not observed[course_id]
 
     results: dict[str, _Evaluation] = {}
@@ -285,6 +299,24 @@ def journey_wanted_courses(
                 continue
             current = wanted.get(step.course_id)
             wanted[step.course_id] = deadline if current is None else min(current, deadline)
+        # A course the trainer removed from the journey stays with people who started or
+        # finished it; only those who had not started it lose it.
+        in_journey = {step.course_id for step in evaluation.state.steps}
+        removed = [
+            course_id
+            for course_id in evaluation.assignment.get("unlocked_course_ids") or []
+            if course_id not in in_journey and course_id not in wanted
+        ]
+        availability = _course_availability(removed)
+        for course_id in removed:
+            info = availability.get(course_id)
+            # A course its creator unpublished or Disabled is not kept.
+            if not info or not info["published"] or info["disabled"]:
+                continue
+            course = _course_state(progress.get(course_id))
+            # Never brings back a course that was revoked for another reason.
+            if course.active and (course.started or course.passed):
+                wanted[course_id] = deadline
     return wanted
 
 
@@ -354,33 +386,56 @@ def _course_disabled(course_id: str) -> bool:
     return bool(rule.get("published_at")) and not rule.get("is_active", True)
 
 
-def _course_option(course: dict) -> dict:
+def _course_option(course: dict, other_journeys: list[dict]) -> dict:
     status = course.get("status")
     reason = None
-    if status not in {"ready", "published"}:
-        reason = "Generate the full course first."
-    elif not course_is_publishable(course):
-        reason = "Generate all videos, quizzes and the thumbnail first."
-    elif _course_disabled(course["course_id"]):
-        reason = "This course is Disabled. Enable it from the Assign tab first."
+    try:
+        if course.get("_unreadable"):
+            raise ValueError("unreadable course")
+        if status not in {"ready", "published"}:
+            reason = "Generate the full course first."
+        elif not course_is_publishable(course):
+            reason = "Generate all videos, quizzes and the thumbnail first."
+        elif _course_disabled(course["course_id"]):
+            reason = "This course is Disabled. Enable it from the Assign tab first."
+    except Exception:  # A damaged course must not break the whole Journeys tab.
+        logger.exception("journey_course_option_failed course_id=%s", course.get("course_id"))
+        reason = "This course could not be read. Open it in Courses to check it."
     return {
         "course_id": course["course_id"],
         "course_name": course.get("course_name") or "",
         "course_description": course.get("course_description") or "",
+        "thumbnail_path": course.get("thumbnail_path") or "",
         "status": status,
         "module_count": len(course.get("modules") or []),
         "eligible": reason is None,
         "reason": reason,
+        "journeys": other_journeys,
     }
 
 
 def _course_options_by_id(trainer_id: str) -> dict[str, dict]:
-    # Draft courses are listed as not eligible, so a step whose course went back to draft shows
-    # a warning instead of making the journey impossible to save.
-    return {
-        course["course_id"]: _course_option(course)
-        for course in _courses.list_for_trainer(trainer_id)
-    }
+    """This trainer's courses, eligible or not.
+
+    Reads raw course rows rather than the strictly validated list, so one damaged course shows
+    as not eligible instead of hiding the Journeys tab. Draft courses are listed as not eligible,
+    so a step whose course went back to draft shows a warning instead of blocking saves.
+    """
+    by_course = _journeys.journeys_by_course(trainer_id)
+    with get_connection() as db:
+        rows = db.execute(
+            "SELECT course_id, course_name, status FROM courses WHERE trainer_id = ? ORDER BY created_at",
+            (trainer_id,),
+        ).fetchall()
+    options = {}
+    for row in rows:
+        try:
+            course = get_course(row["course_id"]) or dict(row)
+        except Exception:  # Unreadable course data: list it as not eligible.
+            logger.exception("journey_course_read_failed course_id=%s", row["course_id"])
+            course = {**dict(row), "_unreadable": True}
+        options[row["course_id"]] = _course_option(course, by_course.get(row["course_id"], []))
+    return options
 
 
 def api_course_options(trainer_id: str) -> list[dict]:
@@ -424,25 +479,34 @@ def _summary(journey: dict, options: dict[str, dict]) -> dict:
 
 
 def _detail(journey: dict, options: dict[str, dict]) -> dict:
+    # How many of this journey's learners hold each course, and how many started it. The trainer
+    # sees this before removing a course from a live journey.
+    counts = _journeys.step_learner_counts(
+        journey["journey_id"], [step["course_id"] for step in journey["steps"]]
+    )
     stages = []
     for stage in journey["stages"]:
-        stages.append(
-            {
-                "stage_id": stage["stage_id"],
-                "title": stage["title"],
-                "steps": [
-                    {
-                        **step,
-                        "eligible": bool(options.get(step["course_id"], {}).get("eligible")),
-                        "reason": options.get(step["course_id"], {}).get(
-                            "reason", "This course is not one of your courses."
-                        ),
-                    }
-                    for step in journey["steps"]
-                    if step["stage_id"] == stage["stage_id"]
-                ],
-            }
-        )
+        steps = []
+        for step in journey["steps"]:
+            if step["stage_id"] != stage["stage_id"]:
+                continue
+            option = options.get(step["course_id"], {})
+            steps.append(
+                {
+                    **step,
+                    "eligible": bool(option.get("eligible")),
+                    "reason": option.get("reason", "This course is not one of your courses."),
+                    "thumbnail_path": option.get("thumbnail_path", ""),
+                    "other_journeys": [
+                        item
+                        for item in option.get("journeys", [])
+                        if item["journey_id"] != journey["journey_id"]
+                    ],
+                    "learner_count": counts.get(step["course_id"], {}).get("active", 0),
+                    "started_count": counts.get(step["course_id"], {}).get("started", 0),
+                }
+            )
+        stages.append({"stage_id": stage["stage_id"], "title": stage["title"], "steps": steps})
     return {
         **_summary(journey, options),
         "stages": stages,
@@ -513,6 +577,20 @@ def api_save_journey(journey_id: str, trainer_id: str, payload: JourneySaveReque
             validate_deadline(rule)
         else:
             rule["deadline_date"] = None
+        live = journey["status"] == "published"
+        prerequisite_id = payload.prerequisite_journey_id or None
+        if live and prerequisite_id and prerequisite_id != journey["prerequisite_journey_id"]:
+            prerequisite = _journeys.get(prerequisite_id)
+            if prerequisite is None or prerequisite["status"] != "published":
+                raise DomainValidationError("Publish the journey it starts after first.")
+        steps_before = _step_signature(journey["steps"])
+        steps_after = [
+            (step.course_id, step.unlock_rule, step.is_required)
+            for stage in payload.stages
+            for step in stage.steps
+        ]
+        rule_changed = live and _rule(journey["applied_rule"]) != _rule(rule)
+        prerequisite_changed = prerequisite_id != journey["prerequisite_journey_id"]
         _journeys.save(
             journey_id,
             {
@@ -524,20 +602,34 @@ def api_save_journey(journey_id: str, trainer_id: str, payload: JourneySaveReque
             },
             [
                 {
-                    "title": stage.title.strip() or f"Stage {index + 1}",
+                    "title": stage.title.strip() or f"Section {index + 1}",
                     "steps": [step.model_dump() for step in stage.steps],
                 }
                 for index, stage in enumerate(payload.stages)
             ],
             rule,
         )
+        if rule_changed:
+            # On a live journey, Save applies everything, including who gets it.
+            _journeys.apply_rule(journey_id, rule)
         saved = _journeys.get(journey_id)
-        if saved["status"] == "published":
+        if live:
             _publish_ready_courses(saved, trainer_id)
-    if saved["status"] == "published":
-        # Step changes apply at once; the rule applies at the next Publish, as for courses.
+            if steps_before != steps_after:
+                # Journey Observers now see a different set of courses.
+                _journeys.bump_observer_access(journey_id)
+    # Re-check learners only when something that decides their courses changed. Editing the
+    # name, description or certificate setting needs no reconcile.
+    reconciled = live and (steps_before != steps_after or rule_changed or prerequisite_changed)
+    if reconciled:
         _reconcile_journey_employees(journey_id)
-    return api_get_journey(journey_id, trainer_id)
+    detail = api_get_journey(journey_id, trainer_id)
+    detail["learners_rechecked"] = reconciled
+    return detail
+
+
+def _step_signature(steps: list[dict]) -> list[tuple]:
+    return [(step["course_id"], step["unlock_rule"], step["is_required"]) for step in steps]
 
 
 def api_delete_journey(journey_id: str, trainer_id: str) -> dict:
@@ -550,22 +642,70 @@ def api_delete_journey(journey_id: str, trainer_id: str) -> dict:
     return {"message": "Learning journey deleted."}
 
 
-def api_preview_journey(journey_id: str, trainer_id: str) -> dict:
+def api_preview_journey(
+    journey_id: str, trainer_id: str, payload: JourneyPreviewRequest | None = None
+) -> dict:
+    """Who would receive the journey. Uses the unsaved rule and Observers when given, so the
+    trainer sees the count change while editing, before saving."""
     _require_enabled()
     journey = _owned_journey(journey_id, trainer_id)
-    observer_ids = _journeys.observer_ids(journey_id)
+    if payload is not None:
+        rule = payload.rule.model_dump(mode="json")
+        excluded = set(payload.observer_employee_ids)
+    else:
+        rule = journey["rule"]
+        excluded = set(_journeys.observer_ids(journey_id))
     matches = [
         employee
-        for employee in matching_employees_for_assignment_rule(_rule(journey["rule"]))
-        if employee["employee_id"] not in observer_ids
+        for employee in matching_employees_for_assignment_rule(_rule(rule))
+        if employee["employee_id"] not in excluded
     ]
     return {
         "match_count": len(matches),
         "preview_employees": [
             {key: employee.get(key) for key in ("employee_id", "name", "department", "job_title")}
-            for employee in matches[:10]
+            for employee in matches[:50]
         ],
     }
+
+
+def api_duplicate_journey(journey_id: str, trainer_id: str) -> dict:
+    """A new draft with the same courses, order, sections and rule. Observers and learners are
+    not copied."""
+    _require_enabled()
+    source = _owned_journey(journey_id, trainer_id)
+    options = _course_options_by_id(trainer_id)
+    # Courses that could not be added today are left out of the copy.
+    eligible = {course_id for course_id, option in options.items() if option["eligible"]}
+    new_id = _journeys.create(trainer_id, f"Copy of {source['title']}"[:200])
+    stages = [
+        {
+            "title": stage["title"],
+            "steps": [
+                {
+                    "course_id": step["course_id"],
+                    "unlock_rule": step["unlock_rule"],
+                    "is_required": step["is_required"],
+                }
+                for step in source["steps"]
+                if step["stage_id"] == stage["stage_id"] and step["course_id"] in eligible
+            ],
+        }
+        for stage in source["stages"]
+    ] or [{"title": "Section 1", "steps": []}]
+    _journeys.save(
+        new_id,
+        {
+            "title": f"Copy of {source['title']}"[:200],
+            "description": source["description"],
+            "target_audience": source["target_audience"],
+            "prerequisite_journey_id": source["prerequisite_journey_id"],
+            "certificate_enabled": source["certificate_enabled"],
+        },
+        stages,
+        _rule(source["rule"]),
+    )
+    return api_get_journey(new_id, trainer_id)
 
 
 # Fields of a course rule that describe who gets it and when (not its publication state).
@@ -784,50 +924,6 @@ def api_save_journey_observers(
     return api_get_journey_observers(journey_id, trainer_id)
 
 
-def api_journey_progress(journey_id: str, trainer_id: str) -> dict:
-    _require_enabled()
-    journey = _owned_journey(journey_id, trainer_id)
-    journeys = {item["journey_id"]: item for item in _journeys.list(status="published")}
-    journeys[journey_id] = journey
-    now = datetime.now()
-    rows = []
-    for assignment in _journeys.assignments_for_journey(journey_id):
-        if assignment.get("revoked_at"):
-            continue
-        employee = _employees.get(assignment["employee_id"]) or {}
-        evaluation = _evaluate(
-            assignment["employee_id"],
-            journeys,
-            _journeys.assignments_for_employee(assignment["employee_id"]),
-            _progress.get_for_employee(assignment["employee_id"]),
-            now,
-            persist=False,
-        ).get(journey_id)
-        steps = evaluation.state.steps if evaluation else ()
-        counted = [step for step in steps if step.is_required and step.state != "unavailable"]
-        passed = sum(1 for step in counted if step.state == "passed")
-        current = next((step for step in steps if step.state in {"in_progress", "available"}), None)
-        names = {step["course_id"]: step["course_name"] for step in journey["steps"]}
-        rows.append(
-            {
-                "employee_id": assignment["employee_id"],
-                "name": employee.get("name") or assignment["employee_id"],
-                "department": employee.get("department") or "",
-                "status": evaluation.assignment["status"] if evaluation else assignment["status"],
-                "assigned_at": assignment["assigned_at"],
-                "deadline": evaluation.assignment.get("deadline") if evaluation else assignment.get("deadline"),
-                "completed_at": assignment.get("completed_at"),
-                "passed_count": passed,
-                "required_count": len(counted),
-                "current_course_id": current.course_id if current else None,
-                "current_course_name": names.get(current.course_id) if current else None,
-                "current_step": (current.position + 1) if current else None,
-            }
-        )
-    rows.sort(key=lambda row: (row["name"].casefold(), row["employee_id"]))
-    return {"journey_id": journey_id, "rows": rows}
-
-
 # ---------------------------------------------------------------------------
 # Learner views
 # ---------------------------------------------------------------------------
@@ -868,6 +964,8 @@ def learner_journeys(employee_id: str) -> dict:
                 )
             stages.append({"title": stage["title"], "steps": steps})
         counted = [s for s in evaluation.state.steps if s.is_required and s.state != "unavailable"]
+        next_state = states.get(evaluation.state.next_course_id or "")
+        completed = bool(evaluation.assignment.get("completed_at"))
         prerequisite = journeys.get(journey.get("prerequisite_journey_id") or "")
         prerequisite_assignment = assignments.get(prerequisite["journey_id"]) if prerequisite else None
         result.append(
@@ -885,6 +983,13 @@ def learner_journeys(employee_id: str) -> dict:
                 "passed_count": sum(1 for s in counted if s.state == "passed"),
                 "required_count": len(counted),
                 "next_course_id": evaluation.state.next_course_id,
+                # "in_progress" or "available", so the button says Continue or Start.
+                "next_course_state": next_state.state if next_state else None,
+                "certificate_number": (
+                    certificate_number(evaluation.assignment["journey_assignment_id"])
+                    if journey["certificate_enabled"] and completed
+                    else None
+                ),
                 "prerequisite": (
                     {
                         "journey_id": prerequisite["journey_id"],
@@ -915,9 +1020,9 @@ __all__ = [
     "api_create_journey",
     "api_delete_journey",
     "api_disable_journey",
+    "api_duplicate_journey",
     "api_get_journey",
     "api_get_journey_observers",
-    "api_journey_progress",
     "api_save_journey_observers",
     "api_list_journeys",
     "api_my_journeys",

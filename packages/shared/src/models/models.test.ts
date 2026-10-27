@@ -698,16 +698,19 @@ describe('performance reports', () => {
         courses: [{ course_id: 'c1', course_name: 'Safety' }],
         departments: ['Ops'],
         mailing_lists: ['all'],
+        journeys_enabled: true,
       }),
     ).toEqual({
       courses: [{ courseId: 'c1', courseName: 'Safety' }],
       departments: ['Ops'],
       mailingLists: ['all'],
+      journeysEnabled: true,
     })
     expect(parsePerformanceReportOptions({})).toEqual({
       courses: [],
       departments: [],
       mailingLists: [],
+      journeysEnabled: false,
     })
   })
   it('maps course list and detail', () => {

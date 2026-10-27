@@ -65,3 +65,22 @@ export function downloadCsv(csv: string, filename: string): void {
   anchor.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+
+/** A file from the report, such as a journey certificate. `failure` is the error prefix. */
+export async function reportBlob(url: string, failure: string): Promise<Blob> {
+  const response = await send(url)
+  if (!response.ok) {
+    throw new ApiError(`${failure} (${response.status})`, response.status, null)
+  }
+  return response.blob()
+}
+
+/** Saves a downloaded file. The object URL is revoked later, once the download has started. */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}

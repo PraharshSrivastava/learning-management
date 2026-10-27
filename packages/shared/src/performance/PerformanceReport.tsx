@@ -1,7 +1,7 @@
 // Dart: frontend/lib/features/performance/performance_report_portal.dart:31-165 (shell, header,
 // _reportScope), :757-834 (_showAssignment, _showEmployee, _showCourse, _export), :944-986 (_ViewTabs).
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '../ui/Button'
 import { ProgressBar } from '../ui/ProgressBar'
 import { Select } from '../ui/TextField'
@@ -14,6 +14,8 @@ import { EmployeeDrawer } from './EmployeeDrawer'
 import { EmployeesView } from './EmployeesView'
 import { FilterCard } from './FilterCard'
 import { dmyHm } from './format'
+import { JourneysView } from './JourneyBrowser'
+import { JourneyDetailDialog } from './JourneyDetailDialog'
 import { Overview } from './Overview'
 import { Box } from './primitives'
 import type { ReportApp, ReportTab } from './state'
@@ -30,6 +32,7 @@ const VIEW_LABELS: Record<string, string> = {
 const TABS: { view: ReportTab; label: string }[] = [
   { view: 0, label: 'Overview' },
   { view: 1, label: 'Courses' },
+  { view: 3, label: 'Journeys' },
   { view: 2, label: 'Employees' },
 ]
 
@@ -56,6 +59,12 @@ function Portal() {
   const [courseId, setCourseId] = useState<string | null>(null)
   const [employeeId, setEmployeeId] = useState<string | null>(null)
   const generatedAt = report.overview?.generatedAt
+  const journeysEnabled = report.options?.journeysEnabled === true
+  // A journey link falls back to Overview when Learning Journeys are switched off.
+  const journeysOff = report.options != null && !journeysEnabled
+  useEffect(() => {
+    if (journeysOff && state.view === 3) dispatch({ type: 'tab', view: 0 })
+  }, [journeysOff, state.view, dispatch])
 
   return (
     <div className="min-h-full bg-[#f5f8fc] p-6">
@@ -92,7 +101,11 @@ function Portal() {
       <div className="h-4" />
       <ReportScope />
       <div className="h-4" />
-      <ViewTabs selected={state.view} onSelect={(view) => dispatch({ type: 'tab', view })} />
+      <ViewTabs
+        selected={state.view}
+        tabs={journeysEnabled ? TABS : TABS.filter((tab) => tab.view !== 3)}
+        onSelect={(view) => dispatch({ type: 'tab', view })}
+      />
       <div className="h-4" />
       <FilterCard options={report.options} />
       {report.isLoading && <ProgressBar className="mt-3" label="Loading performance report" />}
@@ -116,6 +129,13 @@ function Portal() {
           onOpenCourse={setCourseId}
         />
       )}
+      {state.view === 3 && journeysEnabled && (
+        <JourneysView
+          journeys={report.journeys?.journeys ?? []}
+          isLoading={report.isLoading}
+          onOpenJourney={(journeyId) => dispatch({ type: 'openJourney', journeyId })}
+        />
+      )}
       {state.view === 2 && (
         <EmployeesView
           assignments={report.assignments}
@@ -126,6 +146,10 @@ function Portal() {
       )}
       <AssignmentDetailDialog assignmentId={assignmentId} onClose={() => setAssignmentId(null)} />
       <CourseDetailDialog courseId={courseId} onClose={() => setCourseId(null)} />
+      <JourneyDetailDialog
+        journeyId={journeysEnabled ? state.openJourneyId : null}
+        onClose={() => dispatch({ type: 'openJourney', journeyId: null })}
+      />
       <EmployeeDrawer
         employeeId={employeeId}
         onClose={() => setEmployeeId(null)}
@@ -161,15 +185,17 @@ function ReportScope() {
 /** `_ViewTabs`: 106 px tabs with a 3 px primary blue underline on the selected one. */
 function ViewTabs({
   selected,
+  tabs,
   onSelect,
 }: {
   selected: ReportTab
+  tabs: { view: ReportTab; label: string }[]
   onSelect: (view: ReportTab) => void
 }) {
   return (
     // Flutter centers the 44 px unselected tabs next to the 46 px selected one.
     <div role="tablist" aria-label="Report sections" className="flex items-center">
-      {TABS.map(({ view, label }) => {
+      {tabs.map(({ view, label }) => {
         const active = view === selected
         return (
           <button

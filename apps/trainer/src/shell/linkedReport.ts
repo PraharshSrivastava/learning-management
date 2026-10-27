@@ -2,6 +2,8 @@
 export interface LinkedReport {
   courseId: string | null
   status: 'due_soon' | 'overdue' | 'completed' | 'assigned' | null
+  /** Opens the Journeys tab with this journey's detail. */
+  journeyId?: string | null
 }
 
 export function linkedStatus(raw: string | null): LinkedReport['status'] {

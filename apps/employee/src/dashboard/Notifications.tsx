@@ -1,7 +1,6 @@
 import type { EmployeeCourse } from '@lms/shared/models'
 import { Dialog, DialogClose } from '@lms/shared/ui/Dialog'
 import { Icon } from '@lms/shared/ui/icons/Icon'
-import { Tooltip } from '@lms/shared/ui/Tooltip'
 import { PageFrame } from './PageFrame'
 import { assignedDateLabel } from './progress'
 
@@ -13,13 +12,19 @@ function SchoolAvatar() {
   )
 }
 
-/** Flutter `_NotificationsView`: new assignments as a list. */
+/** "Step 2 of 5 in New Joiner Induction" for a course that is part of a learning journey. */
+function journeyLine(course: EmployeeCourse): string | null {
+  const place = course.journeys[0]
+  return place ? `Step ${place.step} of ${place.stepCount} in ${place.title}` : null
+}
+
+/** Flutter `_NotificationsView`: new assignments as a list. Each row opens its course. */
 export function NotificationsView({
   notifications,
-  onOpenNotifications,
+  onOpenCourse,
 }: {
   notifications: EmployeeCourse[]
-  onOpenNotifications: () => void
+  onOpenCourse: (course: EmployeeCourse) => void
 }) {
   return (
     <PageFrame
@@ -27,43 +32,46 @@ export function NotificationsView({
       subtitle="Keep track of new learning assignments and important due dates."
     >
       <ul className="m-0 list-none divide-y divide-light-gray rounded-lg border border-[#e6e9ef] bg-white p-0">
-        {notifications.map((course) => (
-          <li key={course.courseId} className="flex min-h-[88px] items-center gap-4 px-[18px] py-2">
-            <SchoolAvatar />
-            <div className="min-w-0 flex-1">
-              <p className="m-0 text-[15px] text-text-black">
-                New course assigned: {course.courseName}
-              </p>
-              <p className="m-0 text-[#44474e]">
-                Open your notification center to review this assignment.
-              </p>
-            </div>
-            <Tooltip content="Open notification">
+        {notifications.map((course) => {
+          const journey = journeyLine(course)
+          return (
+            <li key={course.courseId}>
               <button
                 type="button"
-                aria-label="Open notification"
-                onClick={onOpenNotifications}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-[#44474e] hover:bg-primary-blue/8"
+                aria-label={`Open ${course.courseName}`}
+                onClick={() => onOpenCourse(course)}
+                className="flex min-h-[88px] w-full items-center gap-4 px-[18px] py-2 text-left hover:bg-primary-blue/4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-blue-light"
               >
-                <Icon name="arrow_forward" />
+                <SchoolAvatar />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] break-words text-text-black">
+                    New course assigned: {course.courseName}
+                  </span>
+                  <span className="block text-[#44474e]">
+                    {journey ?? assignedDateLabel(course.assignedAt)}
+                  </span>
+                </span>
+                <Icon name="arrow_forward" className="shrink-0 text-[#44474e]" />
               </button>
-            </Tooltip>
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
     </PageFrame>
   )
 }
 
-/** Flutter `_showNotifications` dialog. */
+/** Flutter `_showNotifications` dialog. Each row opens its course. */
 export function NotificationsDialog({
   courses,
   open,
   onOpenChange,
+  onOpenCourse,
 }: {
   courses: EmployeeCourse[]
   open: boolean
   onOpenChange: (open: boolean) => void
+  onOpenCourse: (course: EmployeeCourse) => void
 }) {
   return (
     <Dialog
@@ -87,16 +95,31 @@ export function NotificationsDialog({
         <p className="m-0">You are up to date. New course assignments will appear here.</p>
       ) : (
         <ul className="m-0 list-none divide-y divide-light-gray p-0">
-          {courses.map((course) => (
-            // The Flutter ListTile row renders 60 px high at desktop density.
-            <li key={course.courseId} className="flex min-h-[60px] items-center gap-4 py-2">
-              <SchoolAvatar />
-              <div className="min-w-0 flex-1">
-                <p className="m-0 text-[15px] text-text-black">New course: {course.courseName}</p>
-                <p className="m-0 text-[#44474e]">{assignedDateLabel(course.assignedAt)}</p>
-              </div>
-            </li>
-          ))}
+          {courses.map((course) => {
+            const journey = journeyLine(course)
+            return (
+              <li key={course.courseId}>
+                {/* The Flutter ListTile row renders 60 px high at desktop density. */}
+                <button
+                  type="button"
+                  aria-label={`Open ${course.courseName}`}
+                  onClick={() => onOpenCourse(course)}
+                  className="flex min-h-[60px] w-full items-center gap-4 py-2 text-left hover:bg-primary-blue/4 focus-visible:outline-2 focus-visible:outline-brand-blue-light"
+                >
+                  <SchoolAvatar />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] break-words text-text-black">
+                      New course: {course.courseName}
+                    </span>
+                    {journey && <span className="block text-[#44474e]">{journey}</span>}
+                    <span className="block text-[#44474e]">
+                      {assignedDateLabel(course.assignedAt)}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </Dialog>

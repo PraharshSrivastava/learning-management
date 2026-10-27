@@ -202,6 +202,12 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
     else:
         raise ValueError(f"Unsupported individual email template: {event_type}/{role}")
 
+    journey = context.get("journey_title")
+    if journey and role == "employee":
+        step = f"Step {context.get('journey_step')} of {context.get('journey_step_count')}"
+        paragraphs.insert(2, f"This course is {step.lower()} in your learning journey {journey}.")
+        details.insert(1, ("Learning journey", f"{journey} ({step})"))
+
     if role != "hod":
         link_label = "Open LMS"
     guidance = "Sign in to the LMS and open My Courses to access this course." if role != "hod" else ""

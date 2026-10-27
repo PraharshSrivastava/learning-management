@@ -84,6 +84,13 @@ class JourneyObserversRequest(RequestSchema):
         return self
 
 
+class JourneyPreviewRequest(RequestSchema):
+    """The unsaved rule and Observers, for a live count while the trainer edits."""
+
+    rule: JourneyRuleRequest = Field(default_factory=JourneyRuleRequest)
+    observer_employee_ids: list[str] = Field(default_factory=list, max_length=100)
+
+
 class JourneyListResponse(ApiSchema):
     enabled: bool
     journeys: list[dict] = Field(default_factory=list)

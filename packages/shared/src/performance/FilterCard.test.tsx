@@ -17,6 +17,7 @@ const options = {
   courses: [{ courseId: 'c1', courseName: 'Safety' }],
   departments: ['Finance'],
   mailingLists: ['Ops list'],
+  journeysEnabled: false,
 }
 
 function Probe() {

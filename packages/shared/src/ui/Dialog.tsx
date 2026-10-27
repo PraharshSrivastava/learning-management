@@ -1,6 +1,7 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
 import clsx from 'clsx'
 import { useRef, type ReactNode } from 'react'
+import { OVERLAY_LAYER, WINDOW_LAYER } from './layers'
 
 interface DialogProps {
   open: boolean
@@ -39,7 +40,7 @@ export function Dialog({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/54" />
+        <RadixDialog.Overlay className={`fixed inset-0 ${OVERLAY_LAYER} bg-black/54`} />
         <RadixDialog.Content
           onOpenAutoFocus={() => {
             opener.current =
@@ -59,7 +60,7 @@ export function Dialog({
           aria-describedby={undefined}
           style={{ maxWidth: width }}
           className={clsx(
-            'fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100%-48px)] w-[calc(100%-80px)] -translate-x-1/2 -translate-y-1/2 flex-col',
+            `fixed top-1/2 left-1/2 ${WINDOW_LAYER} flex max-h-[calc(100%-48px)] w-[calc(100%-80px)] -translate-x-1/2 -translate-y-1/2 flex-col`,
             'rounded-[28px] bg-[#e8e7ef] p-6 focus:outline-none',
             className,
           )}

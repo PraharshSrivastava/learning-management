@@ -117,6 +117,54 @@ def list_assignment_summaries(
         ]
 
 
+def visible_learner_courses(
+    trainer_id: TrainerReportScope,
+    course_ids: list[str],
+    *,
+    employee_id: str | None = None,
+    department: str | None = None,
+    mailing_list: str | None = None,
+    joined_less_than_days_ago: int | None = None,
+) -> set[tuple[str, str]]:
+    """(employee_id, course_id) pairs of these courses that the report scope may see."""
+    if not course_ids:
+        return set()
+    where, params = _assignment_scope(
+        trainer_id,
+        employee_id=employee_id,
+        department=department,
+        mailing_list=mailing_list,
+        joined_less_than_days_ago=joined_less_than_days_ago,
+    )
+    # SQL structure is fixed here; all user-supplied values are bound parameters.
+    query = f"""
+        SELECT DISTINCT ca.employee_id, ca.course_id
+        FROM course_assignments ca
+        JOIN courses c ON c.course_id = ca.course_id
+        JOIN employees e ON e.employee_id = ca.employee_id
+        JOIN assignment_rules ar ON ar.course_id = ca.course_id
+        WHERE {where} AND ca.course_id = ANY(?)
+    """  # nosec B608
+    with get_connection() as connection:
+        rows = connection.execute(query, [*params, list(course_ids)]).fetchall()
+    return {(row["employee_id"], row["course_id"]) for row in rows}
+
+
+def report_people(employee_ids: list[str]) -> dict[str, dict]:
+    """Name, department and status of these employees, as the report rows show them."""
+    if not employee_ids:
+        return {}
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT employee_id, name AS employee_name, department, status AS employee_status
+            FROM employees WHERE employee_id = ANY(?)
+            """,
+            (list(employee_ids),),
+        ).fetchall()
+    return {row["employee_id"]: dict(row) for row in rows}
+
+
 def _decorated_assignments(where: str) -> str:
     """Shared assignment flags and scores for assignment and employee reports."""
     return f"""

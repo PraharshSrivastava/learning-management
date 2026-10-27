@@ -17,6 +17,7 @@ import { AccessGuard } from './AccessGuard'
 import { useReport, useReportQuery } from './context'
 import { alpha, colors, dialogStatusColor, dialogStatusLabel, dmy, dmyHm, score } from './format'
 import { useElementWidth } from './useElementWidth'
+import { OVERLAY_LAYER, WINDOW_LAYER } from '../ui/layers'
 
 /**
  * The assignment detail dialog. `assignmentId == null` means closed. The body mounts per
@@ -33,7 +34,7 @@ export function AssignmentDetailDialog({
   return (
     <RadixDialog.Root open={assignmentId != null} onOpenChange={(open) => !open && onClose()}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/54" />
+        <RadixDialog.Overlay className={`fixed inset-0 ${OVERLAY_LAYER} bg-black/54`} />
         {assignmentId != null && (
           <GuardedAssignment key={assignmentId} assignmentId={assignmentId} onClose={onClose} />
         )}
@@ -107,7 +108,7 @@ function AssignmentDialogContent({
         }
       }}
       aria-describedby={undefined}
-      className="fixed top-1/2 left-1/2 z-40 flex h-[min(800px,calc(100%-32px))] w-[min(1080px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl bg-white focus:outline-none"
+      className={`fixed top-1/2 left-1/2 ${WINDOW_LAYER} flex h-[min(800px,calc(100%-32px))] w-[min(1080px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl bg-white focus:outline-none`}
     >
       {(detail.error || !detail.data) && (
         <RadixDialog.Title className="sr-only">Assignment detail</RadixDialog.Title>

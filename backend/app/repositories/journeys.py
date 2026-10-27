@@ -256,7 +256,7 @@ def create_journey(trainer_id: str, title: str) -> str:
         )
         connection.execute(
             "INSERT INTO learning_journey_stages (stage_id, journey_id, position, title) VALUES (?, ?, 0, ?)",
-            (str(uuid.uuid4()), journey_id, "Stage 1"),
+            (str(uuid.uuid4()), journey_id, "Section 1"),
         )
         connection.execute(
             "INSERT INTO learning_journey_rules (journey_id, rule_json, updated_at) VALUES (?, ?, ?)",
@@ -346,6 +346,69 @@ def set_journey_published(journey_id: str, applied_rule: dict) -> None:
         connection.commit()
 
 
+def apply_journey_rule(journey_id: str, rule: dict) -> None:
+    """Make the saved rule the live one on an already published journey."""
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE learning_journey_rules SET applied_rule_json = ? WHERE journey_id = ?",
+            (_jsonb(rule), journey_id),
+        )
+        connection.commit()
+
+
+def journeys_by_course(trainer_id: str) -> dict[str, list[dict]]:
+    """For each of this trainer's courses, the journeys it appears in."""
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT s.course_id, j.journey_id, j.title, j.status
+            FROM learning_journey_steps s JOIN learning_journeys j ON j.journey_id = s.journey_id
+            WHERE j.trainer_id = ?
+            ORDER BY lower(j.title)
+            """,
+            (trainer_id,),
+        ).fetchall()
+    result: dict[str, list[dict]] = {}
+    for row in rows:
+        result.setdefault(row["course_id"], []).append(
+            {"journey_id": row["journey_id"], "title": row["title"], "status": row["status"]}
+        )
+    return result
+
+
+def step_learner_counts(journey_id: str, course_ids: list[str]) -> dict[str, dict]:
+    """Per course: how many of the journey's current learners hold it, and how many started it."""
+    if not course_ids:
+        return {}
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT ca.course_id,
+                   COUNT(*) AS active,
+                   COUNT(*) FILTER (
+                       WHERE ca.started_at IS NOT NULL OR ca.completed_at IS NOT NULL
+                          OR ca.status IN ('started', 'completed')
+                   ) AS started
+            FROM course_assignments ca
+            JOIN learning_journey_assignments ja
+              ON ja.employee_id = ca.employee_id AND ja.journey_id = ? AND ja.revoked_at IS NULL
+            WHERE ca.course_id = ANY(?) AND ca.revoked_at IS NULL AND ca.status <> 'revoked'
+            GROUP BY ca.course_id
+            """,
+            (journey_id, list(course_ids)),
+        ).fetchall()
+    return {row["course_id"]: {"active": int(row["active"]), "started": int(row["started"])} for row in rows}
+
+
+def completed_assignments() -> list[dict]:
+    """Every completed journey assignment, for certificate verification."""
+    with get_connection() as connection:
+        rows = connection.execute(
+            "SELECT * FROM learning_journey_assignments WHERE completed_at IS NOT NULL"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def set_journey_disabled(journey_id: str) -> None:
     now = datetime.now().isoformat()
     with get_connection() as connection:
@@ -416,6 +479,43 @@ def assignments_for_journey(journey_id: str) -> list[dict]:
             (journey_id,),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def assignments_for_employees(employee_ids: list[str]) -> dict[str, dict[str, dict]]:
+    """Every journey assignment of these employees, by employee and then journey."""
+    result: dict[str, dict[str, dict]] = {}
+    if not employee_ids:
+        return result
+    with get_connection() as connection:
+        rows = connection.execute(
+            "SELECT * FROM learning_journey_assignments WHERE employee_id = ANY(?)",
+            (list(employee_ids),),
+        ).fetchall()
+    for row in rows:
+        result.setdefault(row["employee_id"], {})[row["journey_id"]] = dict(row)
+    return result
+
+
+def course_states_for_employees(
+    employee_ids: list[str], course_ids: list[str]
+) -> dict[str, dict[str, dict]]:
+    """The course assignment fields journey rules read, by employee and then course."""
+    result: dict[str, dict[str, dict]] = {}
+    if not employee_ids or not course_ids:
+        return result
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT employee_id, course_id, status, started_at, completed_at, revoked_at,
+                   last_learner_activity_at
+            FROM course_assignments
+            WHERE employee_id = ANY(?) AND course_id = ANY(?)
+            """,
+            (list(employee_ids), list(course_ids)),
+        ).fetchall()
+    for row in rows:
+        result.setdefault(row["employee_id"], {})[row["course_id"]] = dict(row)
+    return result
 
 
 def has_assignment_history(journey_id: str) -> bool:
@@ -615,12 +715,18 @@ class JourneyRepository:
     create = staticmethod(create_journey)
     save = staticmethod(save_journey)
     publish = staticmethod(set_journey_published)
+    apply_rule = staticmethod(apply_journey_rule)
+    journeys_by_course = staticmethod(journeys_by_course)
+    step_learner_counts = staticmethod(step_learner_counts)
+    completed_assignments = staticmethod(completed_assignments)
     disable = staticmethod(set_journey_disabled)
     delete = staticmethod(delete_journey)
     containing_course = staticmethod(journeys_containing_course)
     requiring = staticmethod(journeys_requiring)
     assignments_for_employee = staticmethod(assignments_for_employee)
     assignments_for_journey = staticmethod(assignments_for_journey)
+    assignments_for_employees = staticmethod(assignments_for_employees)
+    course_states_for_employees = staticmethod(course_states_for_employees)
     has_assignment_history = staticmethod(has_assignment_history)
     save_assignment = staticmethod(save_assignment)
     observers = staticmethod(journey_observers)

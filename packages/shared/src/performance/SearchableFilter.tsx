@@ -8,6 +8,7 @@ import { Icon, type IconName } from '../ui/icons/Icon'
 import { Tooltip } from '../ui/Tooltip'
 import { AccessGuard } from './AccessGuard'
 import { useReport } from './context'
+import { OVERLAY_LAYER, WINDOW_LAYER } from '../ui/layers'
 
 type FilterItems = ReadonlyArray<readonly [value: string, label: string]>
 
@@ -79,12 +80,12 @@ export function SearchableFilter({
         </RadixDialog.Trigger>
       </Tooltip>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/54" />
+        <RadixDialog.Overlay className={`fixed inset-0 ${OVERLAY_LAYER} bg-black/54`} />
         {expected != null && (
           <AccessGuard expected={expected} onClose={() => setExpected(null)}>
             <RadixDialog.Content
               aria-describedby={undefined}
-              className="fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100%-48px)] w-[calc(100%-80px)] max-w-[528px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[28px] bg-[#e8e7ef] p-6 focus:outline-none"
+              className={`fixed top-1/2 left-1/2 ${WINDOW_LAYER} flex max-h-[calc(100%-48px)] w-[calc(100%-80px)] max-w-[528px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[28px] bg-[#e8e7ef] p-6 focus:outline-none`}
             >
               <RadixDialog.Title className="m-0 font-manrope text-2xl leading-[30px] font-extrabold tracking-normal text-text-black">
                 {`Select ${lower}`}

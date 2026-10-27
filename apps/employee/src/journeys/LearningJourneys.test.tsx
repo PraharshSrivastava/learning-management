@@ -112,16 +112,106 @@ describe('Learning Journeys for employees', () => {
     expect(router.state.location.search).toEqual({ view: 'journeys', journey_id: 'j1' })
     expect(await screen.findByRole('heading', { name: 'Markets Foundation' })).toBeInTheDocument()
     expect(screen.getByText('Opens after you pass Equity Basics')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Open Order Types' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start Order Types' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Open Equity Basics' }))
+    await user.click(screen.getByRole('button', { name: 'Start Equity Basics' }))
     expect(router.state.location.search).toEqual({
       view: 'journeys',
       course_id: 'c2',
       journey_id: 'j1',
     })
     expect(await screen.findByText('Step 2 of 3', { exact: false })).toBeInTheDocument()
+    // One back button: the course player's, which returns to the journey.
+    expect(await screen.findAllByRole('button', { name: 'Back to journey' })).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Back to journey' }))
     expect(router.state.location.search).toEqual({ view: 'journeys', journey_id: 'j1' })
+  })
+
+  it('says Start for a course not begun and Continue for one in progress', async () => {
+    const user = userEvent.setup()
+    const { router } = renderDashboard()
+    const section = await screen.findByRole('region', { name: 'Your learning journeys' })
+    expect(within(section).queryByRole('button', { name: /^Continue/ })).toBeNull()
+    await user.click(within(section).getByRole('button', { name: 'Start Equity Basics' }))
+    // Opened from a journey card, the course keeps its journey in the URL.
+    expect(router.state.location.search).toEqual({ course_id: 'c2', journey_id: 'j1' })
+    cleanup()
+
+    journeysReply = {
+      enabled: true,
+      journeys: [{ ...journey, next_course_state: 'in_progress' }],
+    }
+    renderDashboard()
+    const again = await screen.findByRole('region', { name: 'Your learning journeys' })
+    expect(within(again).getByRole('button', { name: 'Continue Equity Basics' })).toHaveTextContent(
+      'Continue course',
+    )
+  })
+
+  it('shows one plain list without a section header when there is one section', async () => {
+    renderDashboard('/?view=journeys&journey_id=j1')
+    expect(await screen.findByRole('heading', { name: 'Markets Foundation' })).toBeInTheDocument()
+    expect(screen.queryByText(/Stage 1/i)).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Market basics' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Start Equity Basics' })).toBeInTheDocument()
+  })
+
+  it('downloads the certificate of a completed journey', async () => {
+    const user = userEvent.setup()
+    const createObjectURL = vi.fn(() => 'blob:certificate')
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }))
+    journeysReply = {
+      enabled: true,
+      journeys: [
+        {
+          ...journey,
+          status: 'completed',
+          completed_at: '2026-10-20T10:00:00',
+          passed_count: 3,
+          next_course_id: null,
+          certificate_number: 'PCIL-LJ-AAAA-BBBB-CCCC',
+        },
+      ],
+    }
+    const requests: string[] = []
+    stubFetch((url) => {
+      requests.push(url.pathname)
+      if (url.pathname.endsWith('/certificate'))
+        return new Response(new Blob(['%PDF-1.4']), { status: 200 })
+      if (url.pathname.endsWith('/api/me/courses')) return courses
+      if (url.pathname.endsWith('/api/me/learning-journeys')) return journeysReply
+      if (url.pathname.endsWith('/api/lms/me')) return { performance_views: [] }
+      if (url.pathname.endsWith('/api/media-ticket')) return { ticket: 't' }
+      return new Response('{}', { status: 404 })
+    })
+    renderDashboard('/?view=journeys&journey_id=j1')
+    expect(await screen.findByText(/Certificate number PCIL-LJ-AAAA-BBBB-CCCC/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Download certificate' }))
+    await vi.waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1))
+    expect(requests).toContain('/api/me/learning-journeys/j1/certificate')
+  })
+
+  it('names the journey in notifications and opens the course from them', async () => {
+    const user = userEvent.setup()
+    const recent = new Date(Date.now() - 60_000).toISOString()
+    stubFetch((url) => {
+      if (url.pathname.endsWith('/api/me/courses'))
+        return [
+          courseJson({
+            course_id: 'c2',
+            course_name: 'Equity Basics',
+            assigned_at: recent,
+            journeys: place(2),
+          }),
+        ]
+      if (url.pathname.endsWith('/api/me/learning-journeys')) return journeysReply
+      if (url.pathname.endsWith('/api/lms/me')) return { performance_views: [] }
+      if (url.pathname.endsWith('/api/media-ticket')) return { ticket: 't' }
+      return new Response('{}', { status: 404 })
+    })
+    const { router } = renderDashboard('/?view=notifications')
+    expect(await screen.findByText('Step 2 of 3 in Markets Foundation')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open Equity Basics' }))
+    expect(router.state.location.search).toMatchObject({ course_id: 'c2' })
   })
 })

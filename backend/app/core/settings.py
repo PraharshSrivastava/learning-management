@@ -81,6 +81,10 @@ class Settings(BaseModel):
 
     # Learning Journeys stay hidden and inert until the Phase 1 content is ready.
     learning_journeys_enabled: bool = False
+    # Printed on Learning Journey completion certificates.
+    certificate_issuer_name: str = Field(default="PhillipCapital India Pvt Ltd", min_length=1, max_length=120)
+    certificate_signatory_name: str = Field(default="Mr Vineet Bhatnagar", min_length=1, max_length=120)
+    certificate_signatory_title: str = Field(default="Managing Director", min_length=1, max_length=120)
 
     # New workflow stays disabled until model/editor/handoff acceptance gates pass.
     document_builder_workflow_enabled: bool = False
@@ -355,6 +359,9 @@ class Settings(BaseModel):
                 "llm_max_input_tokens": values.get("LLM_MAX_INPUT_TOKENS", "87000"),
                 "llm_max_output_tokens": values.get("LLM_MAX_OUTPUT_TOKENS", "12000"),
                 "learning_journeys_enabled": values.get("LEARNING_JOURNEYS_ENABLED", "false"),
+                "certificate_issuer_name": values.get("CERTIFICATE_ISSUER_NAME") or "PhillipCapital India Pvt Ltd",
+                "certificate_signatory_name": values.get("CERTIFICATE_SIGNATORY_NAME") or "Mr Vineet Bhatnagar",
+                "certificate_signatory_title": values.get("CERTIFICATE_SIGNATORY_TITLE") or "Managing Director",
                 "document_builder_workflow_enabled": values.get("DOCUMENT_BUILDER_WORKFLOW_ENABLED", "false"),
                 "document_builder_model": values.get("DOCUMENT_BUILDER_MODEL") or None,
                 "document_builder_enable_thinking": values.get("DOCUMENT_BUILDER_ENABLE_THINKING") or None,

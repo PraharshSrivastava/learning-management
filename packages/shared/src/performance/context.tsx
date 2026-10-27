@@ -21,6 +21,7 @@ import { useSession } from '../auth/session'
 import {
   parseAssignmentListReport,
   parseCourseListReport,
+  parseJourneyListReport,
   parsePerformanceOverview,
   parsePerformanceReportOptions,
 } from '../models/performance'
@@ -40,6 +41,8 @@ import {
 export interface LinkedReportInput {
   courseId: string | null
   status: string | null
+  /** Opens the Journeys tab with this journey's detail. */
+  journeyId?: string | null
 }
 
 export interface ReportContextValue {
@@ -86,7 +89,12 @@ export function ReportProvider({
   if (linkedReport !== appliedLink) {
     setAppliedLink(linkedReport)
     if (linkedReport) {
-      dispatch({ type: 'openLinked', courseId: linkedReport.courseId, status: linkedReport.status })
+      dispatch({
+        type: 'openLinked',
+        courseId: linkedReport.courseId,
+        status: linkedReport.status,
+        journeyId: linkedReport.journeyId ?? null,
+      })
     }
   }
   const { person, token } = useSession<PersonIds>()
@@ -193,14 +201,18 @@ export function useMainReport() {
     assignmentParams(state),
     parseAssignmentListReport,
   )
-  const all = [options, overview, courses, assignments]
+  // Journeys load only while their tab is open, because each learner's steps are worked out.
+  const journeysShown = options.data?.journeysEnabled === true && state.view === 3
+  const journeys = useReportQuery('journeys', scope, parseJourneyListReport, journeysShown)
+  const all = [options, overview, courses, assignments, ...(journeysShown ? [journeys] : [])]
   const failed = all.find((query) => query.error != null)
-  const refetchAll = [options.refetch, overview.refetch, courses.refetch, assignments.refetch]
+  const refetchAll = all.map((query) => query.refetch)
   return {
     options: options.data,
     overview: overview.data,
     courses: courses.data,
     assignments: assignments.data,
+    journeys: journeys.data,
     isLoading: all.some((query) => query.isFetching),
     error: failed ? errorMessage(failed.error) : null,
     refresh: () => Promise.all(refetchAll.map((refetch) => refetch())),

@@ -27,11 +27,13 @@ export const performanceReportOptionsSchema = z
     courses: list(reportCourseOptionSchema),
     departments: strList(),
     mailing_lists: strList(),
+    journeys_enabled: bool(),
   })
   .transform((j) => ({
     courses: j.courses,
     departments: j.departments,
     mailingLists: j.mailing_lists,
+    journeysEnabled: j.journeys_enabled,
   }))
 export type PerformanceReportOptions = z.output<typeof performanceReportOptionsSchema>
 export const parsePerformanceReportOptions = (json: unknown) =>
@@ -411,3 +413,151 @@ export const formatScore = (value: unknown): string =>
 
 export const formatPercent = (value: unknown): string =>
   typeof value === 'number' ? `${value.toFixed(Number.isInteger(value) ? 0 : 1)}%` : '-'
+
+// Learning Journey results. Source: backend/app/services/journey_reporting.py.
+export const journeyReportSchema = z
+  .object({
+    journey_id: str(),
+    title: str(),
+    journey_status: str(),
+    step_count: looseInt(),
+    required_count: looseInt(),
+    certificate_enabled: bool(),
+    assigned: looseInt(),
+    unique_learners: looseInt(),
+    completed: looseInt(),
+    started: looseInt(),
+    pending: looseInt(),
+    waiting: looseInt(),
+    overdue: looseInt(),
+    removed: looseInt(),
+    due_soon: looseInt(),
+    inactive: looseInt(),
+    completion_rate: looseInt(),
+    average_progress: looseInt(),
+    certificates: looseInt(),
+  })
+  .transform((j) => ({
+    journeyId: j.journey_id,
+    title: j.title,
+    journeyStatus: j.journey_status,
+    stepCount: j.step_count,
+    requiredCount: j.required_count,
+    certificateEnabled: j.certificate_enabled,
+    assigned: j.assigned,
+    uniqueLearners: j.unique_learners,
+    completed: j.completed,
+    started: j.started,
+    pending: j.pending,
+    waiting: j.waiting,
+    overdue: j.overdue,
+    removed: j.removed,
+    dueSoon: j.due_soon,
+    inactive: j.inactive,
+    completionRate: j.completion_rate,
+    averageProgress: j.average_progress,
+    certificates: j.certificates,
+  }))
+export type JourneyReport = z.output<typeof journeyReportSchema>
+
+export const journeyListReportSchema = z
+  .object({ enabled: bool(), journeys: list(journeyReportSchema), generated_at: str() })
+  .transform((j) => ({ enabled: j.enabled, journeys: j.journeys, generatedAt: j.generated_at }))
+export type JourneyListReport = z.output<typeof journeyListReportSchema>
+export const parseJourneyListReport = (json: unknown) => journeyListReportSchema.parse(json)
+
+export const journeyStepReportSchema = z
+  .object({
+    course_id: str(),
+    course_name: str(),
+    step_number: looseInt(),
+    stage_title: optStr(),
+    is_required: bool(),
+    unlock_rule: str(),
+    learners: looseInt(),
+    passed: looseInt(),
+    in_progress: looseInt(),
+    available: looseInt(),
+    locked: looseInt(),
+    unavailable: looseInt(),
+  })
+  .transform((j) => ({
+    courseId: j.course_id,
+    courseName: j.course_name,
+    stepNumber: j.step_number,
+    stageTitle: j.stage_title,
+    isRequired: j.is_required,
+    unlockRule: j.unlock_rule,
+    learners: j.learners,
+    passed: j.passed,
+    inProgress: j.in_progress,
+    available: j.available,
+    locked: j.locked,
+    unavailable: j.unavailable,
+  }))
+export type JourneyStepReport = z.output<typeof journeyStepReportSchema>
+
+export const journeyLearnerReportSchema = z
+  .object({
+    journey_id: str(),
+    employee_id: str(),
+    employee_name: str(),
+    employee_status: str(),
+    department: optStr(),
+    status: str(),
+    assigned_at: optStr(),
+    available_at: optStr(),
+    started_at: optStr(),
+    completed_at: optStr(),
+    deadline: optStr(),
+    last_learner_activity_at: optStr(),
+    passed_count: looseInt(),
+    required_count: looseInt(),
+    completion_percent: looseInt(),
+    current_step: optNum(),
+    current_course_id: optStr(),
+    current_course_name: optStr(),
+    certificate_number: optStr(),
+    due_soon: bool(),
+    inactive: bool(),
+  })
+  .transform((j) => ({
+    journeyId: j.journey_id,
+    employeeId: j.employee_id,
+    employeeName: j.employee_name,
+    employeeStatus: j.employee_status,
+    department: j.department,
+    status: j.status,
+    assignedAt: j.assigned_at,
+    availableAt: j.available_at,
+    startedAt: j.started_at,
+    completedAt: j.completed_at,
+    deadline: j.deadline,
+    lastLearnerActivityAt: j.last_learner_activity_at,
+    passedCount: j.passed_count,
+    requiredCount: j.required_count,
+    completionPercent: j.completion_percent,
+    currentStep: j.current_step,
+    currentCourseId: j.current_course_id,
+    currentCourseName: j.current_course_name,
+    certificateNumber: j.certificate_number,
+    dueSoon: j.due_soon,
+    inactive: j.inactive,
+  }))
+export type JourneyLearnerReport = z.output<typeof journeyLearnerReportSchema>
+
+export const journeyDetailReportSchema = z
+  .object({
+    journey: nestedRecord(journeyReportSchema),
+    steps: list(journeyStepReportSchema),
+    learners: list(journeyLearnerReportSchema),
+    generated_at: str(),
+  })
+  .transform((j) => ({
+    journey: j.journey,
+    steps: j.steps,
+    learners: j.learners,
+    generatedAt: j.generated_at,
+  }))
+export type JourneyDetailReport = z.output<typeof journeyDetailReportSchema>
+export const parseJourneyDetailReport = (json: unknown) => journeyDetailReportSchema.parse(json)

@@ -164,7 +164,33 @@ def _assignment_context(connection, assignment_id: str) -> dict | None:
     total = int(context.get("total_modules") or 0)
     completed = int(context.get("completed_modules") or 0)
     context["completion_percent"] = round((completed / total) * 100) if total else 0
+    context.update(_journey_context(connection, context))
     return context
+
+
+def _journey_context(connection, context: dict) -> dict:
+    """The Learning Journey a course belongs to for this employee, so emails can say
+    "Step 2 of 5 in New Joiner Induction". Empty when the course is not part of one."""
+    if not settings.learning_journeys_enabled:
+        return {}
+    row = connection.execute(
+        """
+        SELECT j.title AS journey_title,
+               (SELECT COUNT(*) FROM learning_journey_steps p
+                WHERE p.journey_id = j.journey_id AND p.position <= s.position) AS journey_step,
+               (SELECT COUNT(*) FROM learning_journey_steps p
+                WHERE p.journey_id = j.journey_id) AS journey_step_count
+        FROM learning_journey_steps s
+        JOIN learning_journeys j ON j.journey_id = s.journey_id AND j.status = 'published'
+        JOIN learning_journey_assignments a
+          ON a.journey_id = j.journey_id AND a.employee_id = ? AND a.revoked_at IS NULL
+        WHERE s.course_id = ?
+        ORDER BY lower(j.title), j.journey_id
+        LIMIT 1
+        """,
+        (context["employee_id"], context["course_id"]),
+    ).fetchone()
+    return dict(row) if row else {}
 
 
 def _recipient_rows(context: dict, event_type: str) -> list[dict]:
