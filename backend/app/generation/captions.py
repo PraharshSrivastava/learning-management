@@ -45,6 +45,11 @@ def source_inputs(slides: list[dict]) -> list[dict]:
     ]
 
 
+def narration_pace() -> str:
+    """Audio made under different speed settings must be re-synthesized."""
+    return f"speed={settings.tts_speed};max_wpm={settings.tts_max_words_per_minute}"
+
+
 def record_narration_source(audio: Path, script: str) -> None:
     atomic_json(
         audio.with_suffix(".narration.json"),
@@ -52,6 +57,7 @@ def record_narration_source(audio: Path, script: str) -> None:
             "version": VERSION,
             "audio_sha256": digest(audio),
             "spoken_sha256": hashlib.sha256(clean_text_for_tts(script).encode()).hexdigest(),
+            "pace": narration_pace(),
         },
     )
 
@@ -64,6 +70,7 @@ def narration_matches(audio: Path, script: str) -> bool:
             and source.get("audio_sha256") == digest(audio)
             and source.get("spoken_sha256")
             == hashlib.sha256(clean_text_for_tts(script).encode()).hexdigest()
+            and source.get("pace") == narration_pace()
         )
     except (OSError, ValueError, TypeError):
         return False

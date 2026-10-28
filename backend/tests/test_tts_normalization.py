@@ -20,3 +20,13 @@ def test_clean_text_for_tts_keeps_tts_pacing_breaks() -> None:
         "Welcome to Sebee basics.\n\n"
         "Next, we explain S I P's and E T F's."
     )
+
+
+def test_clean_text_for_tts_spells_out_aml_and_fiu_ind() -> None:
+    text = "AML rules require reports to FIU-IND, also written FIU‑IND or FIU IND."
+
+    assert clean_text_for_tts(text) == (
+        "ay em el rules require reports to eff eye you India, "
+        "also written eff eye you India or eff eye you India."
+    )
+    assert clean_text_for_tts("The FIU and AML/CFT team.") == "The eff eye you and ay em el/C F T team."

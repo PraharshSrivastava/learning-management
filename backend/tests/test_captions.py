@@ -397,3 +397,21 @@ def test_align_slides_round_trips_a_module_request_through_the_worker(monkeypatc
     words = captions.align_slides([(audio, "one"), (audio, "two")])
     assert [entry[0]["text"] for entry in words] == ["one", "two"]
     assert captions.align_slide(audio, "solo")[0]["text"] == "solo"
+
+
+def test_narration_cache_rejects_audio_made_with_other_pace(tmp_path, monkeypatch):
+    from app.core.settings import settings
+    from app.generation.captions import narration_matches, record_narration_source
+
+    audio = tmp_path / "slide.wav"
+    audio.write_bytes(b"audio")
+    record_narration_source(audio, "Save.")
+    monkeypatch.setattr(settings, "tts_max_words_per_minute", 120)
+    assert not narration_matches(audio, "Save.")
+
+
+def test_captions_show_aml_and_fiu_ind_as_written():
+    from app.generation.captions import display_words
+
+    _, mapping = display_words("AML reports go to FIU-IND.")
+    assert [word for word, _ in mapping] == ["AML", "reports", "go", "to", "FIU-IND."]

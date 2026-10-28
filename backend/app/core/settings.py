@@ -106,6 +106,7 @@ class Settings(BaseModel):
     tts_voice: str = "priyanka"
     tts_temperature: float = Field(default=0.6, ge=0, le=2)
     tts_speed: float = Field(default=0.9, gt=0)
+    tts_max_words_per_minute: float = Field(default=150, ge=0)
     caption_align_command: tuple[str, ...] = ()
     caption_align_model_path: str = ""
     caption_align_device: str = "cpu"
@@ -425,6 +426,7 @@ class Settings(BaseModel):
                 "tts_voice": values.get("TTS_VOICE", "priyanka"),
                 "tts_temperature": values.get("TTS_TEMPERATURE", "0.6"),
                 "tts_speed": values.get("TTS_SPEED", "0.9"),
+                "tts_max_words_per_minute": values.get("TTS_MAX_WORDS_PER_MINUTE", "150"),
                 "caption_align_command": values.get("CAPTION_ALIGN_COMMAND", "[]"),
                 "caption_align_model_path": values.get("CAPTION_ALIGN_MODEL_PATH", ""),
                 "caption_align_device": values.get("CAPTION_ALIGN_DEVICE", "cpu"),
