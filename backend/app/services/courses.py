@@ -209,6 +209,7 @@ class CourseService:
                 "slides",
                 "notes",
                 "video_path",
+                "video_service",
             ):
                 module.pop(field, None)
         for field in ("thumbnail_path", "thumbnail_prompt_hash"):

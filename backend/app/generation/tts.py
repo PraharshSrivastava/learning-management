@@ -11,6 +11,7 @@ import requests
 from app.core.logging import generation_logger
 from app.core.providers import (
     TTS_ENDPOINT,
+    TTS_MAX_WORDS_PER_MINUTE,
     TTS_MODEL_NAME,
     TTS_SPEED,
     TTS_TEMPERATURE,
@@ -31,11 +32,28 @@ logger = generation_logger(__name__)
 
 TTS_STAGE_WORKERS = 3
 
-def _apply_tts_speed(output_path: str) -> bool:
-    if abs(TTS_SPEED - 1.0) < 0.001:
-        return True
+# ffmpeg's atempo filter accepts factors down to 0.5.
+MIN_TTS_SPEED = 0.5
+
+
+def narration_speed(duration: float, word_count: int) -> float:
+    """Return the configured speed, slowed further when the voice rushed a slide."""
+    speed = TTS_SPEED
+    if TTS_MAX_WORDS_PER_MINUTE > 0 and duration > 0 and word_count > 0:
+        # Slowing by a factor stretches duration by 1/factor, so the final pace is wpm * factor.
+        words_per_minute = word_count / duration * 60
+        speed = min(speed, TTS_MAX_WORDS_PER_MINUTE / words_per_minute)
+    return max(speed, MIN_TTS_SPEED)
+
+
+def _apply_tts_speed(output_path: str, word_count: int) -> bool:
+    from app.generation.video import audio_duration
+
     if TTS_SPEED <= 0:
         logger.warning("tts_invalid_speed speed=%s", TTS_SPEED)
+        return True
+    speed = narration_speed(audio_duration(output_path), word_count)
+    if abs(speed - 1.0) < 0.001:
         return True
 
     temp_path = f"{output_path}.speed.wav"
@@ -45,17 +63,17 @@ def _apply_tts_speed(output_path: str) -> bool:
         "-i",
         output_path,
         "-filter:a",
-        f"atempo={TTS_SPEED}",
+        f"atempo={speed:.4f}",
         temp_path,
     ]
     result = subprocess.run(command, capture_output=True, text=True, errors="ignore")  # nosec B603
     if result.returncode != 0:
-        logger.warning("tts_speed_apply_failed speed=%s error=%s", TTS_SPEED, result.stderr)
+        logger.warning("tts_speed_apply_failed speed=%s error=%s", speed, result.stderr)
         if os.path.exists(temp_path):
             os.remove(temp_path)
         return False
     os.replace(temp_path, output_path)
-    logger.info("tts_speed_applied speed=%s output=%s", TTS_SPEED, output_path)
+    logger.info("tts_speed_applied speed=%.4f output=%s", speed, output_path)
     return True
 
 def synthesize_speech_for_slide(text: str, output_path: str, language: str = "English") -> bool:
@@ -95,7 +113,7 @@ def synthesize_speech_for_slide(text: str, output_path: str, language: str = "En
             return False
         with open(output_path, "wb") as audio_file:
             audio_file.write(response.content)
-        _apply_tts_speed(output_path)
+        _apply_tts_speed(output_path, len(cleaned_text.split()))
         logger.info("tts_request_completed voice=%s output=%s", voice, output_path)
         return True
     except (requests.RequestException, OSError, subprocess.SubprocessError):

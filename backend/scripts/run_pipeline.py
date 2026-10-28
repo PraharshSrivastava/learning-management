@@ -9,7 +9,7 @@ import sys
 from app.core.langfuse_tracing import trace_scope
 from app.core.logging import configure_logging
 from app.core.settings import settings
-from app.generation.runtime import run_full_course_generation
+from app.generation.runtime import run_full_course_generation, run_module_video_generation
 from app.repositories.courses import CourseRepository
 from app.repositories.schema import init_db
 
@@ -21,6 +21,11 @@ def main() -> int:
     parser.add_argument("--course-id", required=True)
     parser.add_argument("--job-id")
     parser.add_argument("--restart-from-blueprint", action="store_true")
+    parser.add_argument(
+        "--module-video",
+        type=int,
+        help="Regenerate only this module's video instead of running the full pipeline.",
+    )
     arguments = parser.parse_args()
 
     configure_logging(settings.log_level)
@@ -34,14 +39,21 @@ def main() -> int:
             metadata={
                 "course_id": arguments.course_id,
                 "job_id": arguments.job_id,
-                "operation": "background_full_course",
+                "operation": (
+                    "background_module_video"
+                    if arguments.module_video is not None
+                    else "background_full_course"
+                ),
             },
             tags=["course-generation", "background"],
         ):
-            run_full_course_generation(
-                arguments.course_id,
-                restart_from_blueprint=arguments.restart_from_blueprint,
-            )
+            if arguments.module_video is not None:
+                run_module_video_generation(arguments.course_id, arguments.module_video)
+            else:
+                run_full_course_generation(
+                    arguments.course_id,
+                    restart_from_blueprint=arguments.restart_from_blueprint,
+                )
     except Exception as exc:
         logger.exception("pipeline_worker_failed course_id=%s", arguments.course_id)
         print(str(exc), file=sys.stderr)

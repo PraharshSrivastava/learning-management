@@ -76,4 +76,41 @@ describe('full course generation overlay', () => {
     )
     expect(polls).toBe(2)
   })
+
+  it('shows module video progress when the Video Generator makes the videos', async () => {
+    stubBrowser()
+    const inProgress = courseJson({
+      modules: [
+        { module_number: 1, title: 'One', video_path: 'assets/videos/c1/module_1.mp4' },
+        {
+          module_number: 2,
+          title: 'Two',
+          video_service: { status: 'processing', stage: 'rendering', progress: 82 },
+        },
+      ],
+    })
+    stubFetch((url, init) => {
+      const key = `${init?.method ?? 'GET'} ${url.pathname}`
+      if (url.pathname === '/api/generation/config') return { video_generation_mode: 'external' }
+      if (key === 'POST /api/courses/c1/generation-jobs') {
+        return { id: 'j1', course_id: 'c1', status: 'queued' }
+      }
+      if (key === 'GET /api/generation-jobs/j1')
+        return { id: 'j1', course_id: 'c1', status: 'running' }
+      if (url.pathname === '/api/courses') return [inProgress]
+      if (url.pathname === '/api/courses/c1') return inProgress
+      return null
+    })
+    renderCourses(Harness)
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Generate' }))
+    expect(
+      await screen.findByText(/the Video Generator produces each module video/),
+    ).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(4000))
+    expect(
+      await screen.findByText(/Module videos ready: 1 of 2\s+Module 2: rendering 82%/),
+    ).toBeInTheDocument()
+  })
 })

@@ -26,6 +26,14 @@ PRONUNCIATION_MAP = {
     "PAN": "P A N",
     "KYC": "K Y C",
     "Aadhaar": "Aadhaar",
+    # Compliance and anti-money-laundering. Letter-by-letter "A M L" is read as "am L",
+    # so these are spelled out as sounds.
+    "AML": "ay em el",
+    "FIU-IND": "eff eye you India",
+    "FIU‑IND": "eff eye you India",
+    "FIU–IND": "eff eye you India",
+    "FIU IND": "eff eye you India",
+    "FIU": "eff eye you",
     # Securities, products, and portfolio terms.
     "IPO": "I P O",
     "FPO": "F P O",

@@ -56,6 +56,7 @@ class GenerationJobManager:
         *,
         backend_dir: Path,
         restart_from_blueprint: bool,
+        module_video: int | None = None,
     ) -> GenerationJobResponse:
         with self._lock:
             job = self._create_job(course_id)
@@ -72,6 +73,8 @@ class GenerationJobManager:
         ]
         if restart_from_blueprint:
             command.append("--restart-from-blueprint")
+        if module_video is not None:
+            command.extend(["--module-video", str(module_video)])
 
         def operation() -> None:
             popen_kwargs = {

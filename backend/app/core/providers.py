@@ -38,6 +38,7 @@ TTS_ENDPOINT = settings.tts_endpoint
 TTS_VOICE = settings.tts_voice
 TTS_TEMPERATURE = settings.tts_temperature
 TTS_SPEED = settings.tts_speed
+TTS_MAX_WORDS_PER_MINUTE = settings.tts_max_words_per_minute
 SLIDE_TRANSITION_PAUSE_SECONDS = settings.slide_transition_pause_seconds
 
 

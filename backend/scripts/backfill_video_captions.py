@@ -1,4 +1,8 @@
-"""Explicit, serial, provenance-checked caption backfill; dry-run by default."""
+"""Explicit, serial caption backfill for locally rendered module videos; dry-run by default.
+
+Videos with render-time provenance use it. Older videos are captioned from their own
+soundtrack once their slide boundaries are verified. Video Generator videos are skipped.
+"""
 
 from __future__ import annotations
 
@@ -9,50 +13,35 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core.settings import settings
-from app.generation.captions import check_video_source, generate_module_captions
+from app.generation.captions import backfill_module_captions
 from app.generation.runtime import load_course_for_generation
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--course-id", required=True)
-    parser.add_argument("--module", required=True, type=int)
+    parser.add_argument("--module", type=int, help="One module number; all modules by default")
     parser.add_argument(
         "--apply", action="store_true", help="Generate captions; otherwise inspect only"
     )
     args = parser.parse_args()
+    if settings.video_generation_mode == "external":
+        parser.error("The Video Generator is enabled; it supplies its own subtitles")
     course = load_course_for_generation(args.course_id)
-    module = next(
-        (
-            module
-            for module in course.get("modules", [])
-            if module.get("module_number") == args.module
-        ),
-        None,
-    )
-    if module is None:
+    modules = [
+        module
+        for module in course.get("modules", [])
+        if args.module is None or module.get("module_number") == args.module
+    ]
+    if not modules:
         parser.error("Module does not exist")
-    from app.core.storage import resolve_public_asset_path
-
-    video = resolve_public_asset_path(str(module.get("video_path") or ""), settings)
-    provenance = video.with_suffix(".source.json")
-    if not video.is_file() or not provenance.is_file():
-        print(json.dumps({"status": "requires_video_regeneration", "module": args.module}))
-        return 1
-    try:
-        check_video_source(video, module.get("slides", []))
-        if not args.apply:
-            print(json.dumps({"status": "dry_run", "module": args.module, "video": str(video)}))
-            return 0
-        print(
-            json.dumps(
-                {"status": generate_module_captions(video, module["slides"]), "module": args.module}
-            )
-        )
-        return 0
-    except Exception as error:
-        print(json.dumps({"status": "unavailable", "reason": str(error), "module": args.module}))
-        return 1
+    failed = False
+    # One module at a time: each alignment run holds the model in memory.
+    for module in modules:
+        result = backfill_module_captions(module, apply=args.apply)
+        failed = failed or result["status"] == "unavailable"
+        print(json.dumps(result), flush=True)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
