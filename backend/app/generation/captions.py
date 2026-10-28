@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import array
 import hashlib
 import html
 import json
@@ -11,6 +12,7 @@ import re
 import subprocess
 import tempfile
 import unicodedata
+import wave
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -152,7 +154,14 @@ def display_words(script: str) -> tuple[str, list[tuple[str, int]]]:
 
 
 def align_slide(audio: Path, transcript: str) -> list[dict]:
-    """Run an explicitly configured local worker with no shell or audio upload."""
+    return align_slides([(audio, transcript)])[0]
+
+
+def align_slides(items: list[tuple[Path, str]]) -> list[list[dict]]:
+    """Run an explicitly configured local worker with no shell or audio upload.
+
+    All slides of a module go to one worker run, so the model loads once per module.
+    """
     command = list(settings.caption_align_command)
     if not command:
         raise CaptionsUnavailable(
@@ -162,13 +171,21 @@ def align_slide(audio: Path, transcript: str) -> list[dict]:
         request = Path(directory) / "request.json"
         result = Path(directory) / "result.json"
         request.write_text(
-            json.dumps({"audio": str(audio.resolve()), "text": transcript, "language": "English"}),
+            json.dumps(
+                {
+                    "items": [
+                        {"audio": str(audio.resolve()), "text": transcript}
+                        for audio, transcript in items
+                    ],
+                    "language": "English",
+                }
+            ),
             encoding="utf-8",
         )
         subprocess.run(
             command + [str(request), str(result)],
             check=True,
-            timeout=600,
+            timeout=600 + 120 * len(items),
             capture_output=True,
             text=True,
             shell=False,
@@ -178,7 +195,10 @@ def align_slide(audio: Path, transcript: str) -> list[dict]:
                 "CAPTION_ALIGN_DEVICE": settings.caption_align_device,
             },
         )  # nosec B603
-        return json.loads(result.read_text(encoding="utf-8"))["words"]
+        results = json.loads(result.read_text(encoding="utf-8"))["results"]
+        if len(results) != len(items):
+            raise CaptionsUnavailable("Aligner returned a different number of slides")
+        return [entry["words"] for entry in results]
 
 
 def group_cues(script: str, words: list[dict], duration: float, offset: float = 0) -> list[dict]:
@@ -331,16 +351,19 @@ def generate_module_captions(
                 and existing.get("vtt_sha256") == digest(vtt_path)
             ):
                 return "skipped_valid_captions"
-        cues, offset = [], 0.0
+        items, narration = [], []
         for slide, clip_duration in zip(slides, durations, strict=True):
             audio = resolve_public_asset_path(slide["audio_path"], settings)
             duration = audio_duration(str(audio))
             if duration > clip_duration + 0.05:
                 raise CaptionsUnavailable("Narration exceeds rendered clip")
-            transcript, _ = display_words(slide["script"])
-            cues.extend(
-                group_cues(slide["script"], align_slide(audio, transcript), duration, offset)
-            )
+            items.append((audio, display_words(slide["script"])[0]))
+            narration.append(duration)
+        cues, offset = [], 0.0
+        for slide, words, duration, clip_duration in zip(
+            slides, align_slides(items), narration, durations, strict=True
+        ):
+            cues.extend(group_cues(slide["script"], words, duration, offset))
             offset += clip_duration
         final_duration = audio_duration(str(video))
         if abs(offset - final_duration) > 0.1 or cues[-1]["end"] > final_duration:
@@ -385,3 +408,217 @@ def check_video_source(video: Path, slides: list[dict]) -> None:
             raise CaptionsUnavailable("Video/narration provenance mismatch; regenerate video")
     except (OSError, ValueError, TypeError) as error:
         raise CaptionsUnavailable(f"Video provenance unavailable: {error}") from error
+
+
+# Videos rendered before render-time provenance existed. Each slide clip is the slide's
+# narration padded with a silent transition pause. Encoding shifts each clip's sound by a
+# few hundredths of a second, so every slide is located in the video's own soundtrack by
+# matching its narration's loudness pattern near the expected position.
+LEGACY_METHOD = "forced-alignment-legacy"
+LEGACY_MAX_PAUSE_SECONDS = 3.0
+LEGACY_SAMPLE_RATE = 16000
+LEGACY_FRAME = LEGACY_SAMPLE_RATE // 100  # 10 ms loudness frames
+LEGACY_SEARCH_FRAMES = 60  # Look up to 0.6 s either side of the expected start.
+LEGACY_MAX_MISMATCH = 0.25
+
+
+def _to_pcm(source: Path, destination: Path) -> array.array:
+    import imageio_ffmpeg
+
+    subprocess.run(  # nosec B603
+        [imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y", "-i", str(source), "-vn",
+         "-ac", "1", "-ar", str(LEGACY_SAMPLE_RATE), "-c:a", "pcm_s16le", str(destination)],
+        check=True,
+        capture_output=True,
+        timeout=600,
+    )
+    return _read_pcm(destination)
+
+
+def _envelope(samples: array.array) -> list[float]:
+    return [
+        _rms(samples[index : index + LEGACY_FRAME])
+        for index in range(0, len(samples) - LEGACY_FRAME + 1, LEGACY_FRAME)
+    ]
+
+
+def _locate(track: list[float], template: list[float], expected: int) -> tuple[int, float]:
+    """Best start frame for template near expected, and its relative loudness mismatch."""
+    total = sum(template) or 1.0
+    best = (expected, math.inf)
+    for start in range(max(0, expected - LEGACY_SEARCH_FRAMES), expected + LEGACY_SEARCH_FRAMES + 1):
+        window = track[start : start + len(template)]
+        if len(window) < len(template):
+            break
+        mismatch = sum(abs(a - b) for a, b in zip(window, template)) / total
+        if mismatch < best[1]:
+            best = (start, mismatch)
+    return best
+
+
+def _read_pcm(path: Path) -> array.array:
+    with wave.open(str(path), "rb") as stream:
+        if stream.getsampwidth() != 2 or stream.getnchannels() != 1:
+            raise CaptionsUnavailable("Unexpected soundtrack format")
+        samples = array.array("h")
+        samples.frombytes(stream.readframes(stream.getnframes()))
+    return samples
+
+
+def _rms(samples: array.array) -> float:
+    return math.sqrt(sum(value * value for value in samples) / len(samples)) if samples else 0.0
+
+
+def _write_pcm(path: Path, samples: array.array) -> None:
+    with wave.open(str(path), "wb") as stream:
+        stream.setnchannels(1)
+        stream.setsampwidth(2)
+        stream.setframerate(LEGACY_SAMPLE_RATE)
+        stream.writeframes(samples.tobytes())
+
+
+def prepare_legacy_slides(video: Path, slides: list[dict], directory: Path) -> dict:
+    """Cut the video's soundtrack into per-slide narration, refusing unverifiable layouts."""
+    from app.generation.video import audio_duration
+
+    try:
+        if not slides:
+            raise CaptionsUnavailable("No narration slides")
+        scripts = [str(slide["script"] or "") for slide in slides]
+        if not all(script.strip() for script in scripts):
+            raise CaptionsUnavailable("A slide has no narration script")
+        narration = [
+            audio_duration(str(resolve_public_asset_path(str(slide["audio_path"]), settings)))
+            for slide in slides
+        ]
+        video_duration = audio_duration(str(video))
+    except (FileNotFoundError, KeyError, TypeError, RuntimeError) as error:
+        raise CaptionsUnavailable(f"Caption source data unavailable: {error}") from error
+    pause = (video_duration - sum(narration)) / len(slides)
+    if not 0 <= pause <= LEGACY_MAX_PAUSE_SECONDS:
+        raise CaptionsUnavailable(
+            "Slide narration does not add up to the video length; regenerate video"
+        )
+    samples = _to_pcm(video, directory / "soundtrack.wav")
+    track = _envelope(samples)
+    if not any(track):
+        raise CaptionsUnavailable("Video has no audible narration")
+    # The silent pause belongs to the pattern, so each slide's end is matched too.
+    silence = [0.0] * int(min(pause, 1.0) * 100)
+    items, starts, expected = [], [], 0.0
+    for index, (slide, script, duration) in enumerate(zip(slides, scripts, narration), start=1):
+        audio = resolve_public_asset_path(str(slide["audio_path"]), settings)
+        template = _envelope(_to_pcm(audio, directory / f"narration_{index}.wav")) + silence
+        frame, mismatch = _locate(track, template, round(expected * 100))
+        if mismatch > LEGACY_MAX_MISMATCH:
+            raise CaptionsUnavailable(
+                f"Slide {index} narration does not match the video soundtrack; regenerate video"
+            )
+        start = frame / 100
+        segment = directory / f"slide_{index}.wav"
+        first = frame * LEGACY_FRAME
+        _write_pcm(segment, samples[first : first + round(duration * LEGACY_SAMPLE_RATE)])
+        items.append((segment, display_words(script)[0]))
+        starts.append(start)
+        expected = start + duration + pause
+    return {
+        "items": items,
+        "narration": narration,
+        "starts": starts,
+        "pause": pause,
+        "video_duration": video_duration,
+    }
+
+
+def _valid_existing_captions(video: Path, video_hash: str) -> bool:
+    metadata_path, vtt_path = video.with_suffix(".captions.json"), video.with_suffix(".vtt")
+    if not (metadata_path.is_file() and vtt_path.is_file()):
+        return False
+    try:
+        existing = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except ValueError:
+        return False
+    return (
+        existing.get("version") == VERSION
+        and existing.get("video_sha256") == video_hash
+        and existing.get("vtt_sha256") == digest(vtt_path)
+    )
+
+
+def generate_legacy_module_captions(
+    video: Path, slides: list[dict], *, already_locked: bool = False
+) -> str:
+    """Caption a video that has no render-time provenance, from its own soundtrack."""
+    if not already_locked:
+        with module_lock(video):
+            return generate_legacy_module_captions(video, slides, already_locked=True)
+    if video.with_suffix(".srt").exists():
+        raise CaptionsUnavailable("Video Generator videos already show burned-in subtitles")
+    video_hash = digest(video)
+    if _valid_existing_captions(video, video_hash):
+        return "skipped_valid_captions"
+    with tempfile.TemporaryDirectory() as directory:
+        layout = prepare_legacy_slides(video, slides, Path(directory))
+        aligned = align_slides(layout["items"])
+    words = [word for slide in aligned for word in slide]
+    # A script edited after rendering aligns badly: most words collapse to zero length.
+    if words and sum(float(w["end"]) - float(w["start"]) < 0.02 for w in words) > len(words) / 2:
+        raise CaptionsUnavailable("Narration script does not match the spoken audio")
+    cues = []
+    for slide, slide_words, duration, start in zip(
+        slides, aligned, layout["narration"], layout["starts"], strict=True
+    ):
+        cues.extend(group_cues(slide["script"], slide_words, duration, start))
+    if not cues or cues[-1]["end"] > layout["video_duration"]:
+        raise CaptionsUnavailable("Caption timeline differs from the video")
+    if digest(video) != video_hash:
+        raise CaptionsUnavailable("Video changed during alignment")
+    content = serialize_vtt(cues)
+    fingerprint = hashlib.sha256(content.encode()).hexdigest()
+    stat = video.stat()
+    atomic_text(video.with_suffix(".vtt"), content)
+    atomic_json(
+        video.with_suffix(".captions.json"),
+        {
+            "version": VERSION,
+            "language": "en",
+            "method": LEGACY_METHOD,
+            "video_sha256": video_hash,
+            "pause_seconds": round(layout["pause"], 3),
+            "video_size": stat.st_size,
+            "video_mtime": int(stat.st_mtime),
+            "duration": layout["video_duration"],
+            "fingerprint": fingerprint,
+            "vtt_sha256": fingerprint,
+            "cue_count": len(cues),
+        },
+    )
+    return "generated"
+
+
+def backfill_module_captions(module: dict, *, apply: bool) -> dict:
+    """Inspect or caption one module video; local video mode only."""
+    number = module.get("module_number")
+    if (module.get("video_service") or {}).get("run_id"):
+        return {"status": "skipped_video_generator", "module": number}
+    video = resolve_public_asset_path(str(module.get("video_path") or ""), settings)
+    if not module.get("video_path") or not video.is_file():
+        return {"status": "skipped_no_video", "module": number}
+    if video.with_suffix(".srt").exists():
+        return {"status": "skipped_video_generator", "module": number}
+    slides = module.get("slides") or []
+    legacy = not video.with_suffix(".source.json").is_file()
+    method = LEGACY_METHOD if legacy else "forced-alignment"
+    try:
+        if not apply:
+            if legacy:
+                with tempfile.TemporaryDirectory() as directory:
+                    layout = prepare_legacy_slides(video, slides, Path(directory))
+                return {"status": "dry_run", "module": number, "method": method,
+                        "slides": len(slides), "pause_seconds": round(layout["pause"], 3)}
+            check_video_source(video, slides)
+            return {"status": "dry_run", "module": number, "method": method, "slides": len(slides)}
+        generate = generate_legacy_module_captions if legacy else generate_module_captions
+        return {"status": generate(video, slides), "module": number, "method": method}
+    except (CaptionsUnavailable, OSError, subprocess.SubprocessError) as error:
+        return {"status": "unavailable", "module": number, "reason": str(error)}

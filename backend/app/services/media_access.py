@@ -118,6 +118,13 @@ def authorize_course_media(principal, course_ids):
 def asset_courses(path):
     from psycopg.types.json import Jsonb
 
+    # Caption files share their MP4's course. Other sidecars (render provenance,
+    # narration proof, generator transcripts) stay unmapped and are never served.
+    if path.startswith("/assets/videos/"):
+        for suffix in (".captions.json", ".vtt"):
+            if path.endswith(suffix):
+                path = path[: -len(suffix)] + ".mp4"
+                break
     variants = [path, path.lstrip("/")]
     # Slide HTML is stored under a verified course directory.
     parts = path.strip("/").split("/")
