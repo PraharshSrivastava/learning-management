@@ -192,7 +192,10 @@ describe('Learning Journeys for employees', () => {
   })
 
   it('keeps a closed journey with its certificate but no course buttons', async () => {
-    const passed = journey.stages[0].steps.map((step) => ({ ...step, state: 'passed' }))
+    const stages = journey.stages.map((stage) => ({
+      ...stage,
+      steps: stage.steps.map((step) => ({ ...step, state: 'passed' })),
+    }))
     journeysReply = {
       enabled: true,
       journeys: [
@@ -204,7 +207,7 @@ describe('Learning Journeys for employees', () => {
           next_course_id: null,
           certificate_number: 'PCIL-LJ-AAAA-BBBB-CCCC',
           closed: true,
-          stages: [{ ...journey.stages[0], steps: passed }],
+          stages,
         },
       ],
     }
