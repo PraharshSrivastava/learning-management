@@ -2,7 +2,7 @@
 
 ## Current state
 
-The branch contains the corporate player, verified-caption asset pipeline, generation integration, local alignment worker, and selected-module backfill command. Caption controls are unavailable for a video until a valid caption asset is present. The configured alignment command defaults to `[]`, so this checkout does not fabricate timings or enable captions for historical videos.
+The branch contains the corporate player, verified-caption asset pipeline, generation integration, local alignment worker, and selected-module backfill command. Caption controls are unavailable for a video until a valid caption asset is present. The configured alignment command defaults to `[]`, so no captions are produced until the aligner is configured. Captions never use estimated timings. Historical videos are captioned only through the explicit backfill below.
 
 The configured speech URL, `http://35.238.33.238:8081`, was checked read-only on 9 October 2026. Its `/openapi.json` identifies **Docling Serve 1.29.0**, exposes document conversion routes, and does not list `/v1/audio/speech` or word alignment. Repository defaults and `.env` point to that same address. No production settings were changed. Existing videos can play independently of this service, but new speech generation needs the actual speech endpoint.
 
@@ -22,28 +22,42 @@ CAPTION_ALIGN_DEVICE=cpu
 
 Use `cuda:0` only where the isolated worker has a compatible GPU stack. All command/model paths must exist inside the backend's runtime namespace. Docker Compose passes these variables but does not install the optional worker or mount weights automatically. Provisioning the worker in a production container is a separate release prerequisite, not a change already deployed by this branch.
 
-`CAPTION_ALIGN_COMMAND` is a JSON argv list executed without a shell. Custom compatible workers receive `request.json` and `result.json` as their final arguments. The request contains `audio` (absolute local path), `text` (normalized spoken transcript), and `language` (`English`). The result must contain a complete ordered `words` list with `text`, `start`, and `end` in seconds. Validation rejects missing words, nonfinite/nonpositive/overlapping intervals, wrong tokens, or audio-bound violations.
+`CAPTION_ALIGN_COMMAND` is a JSON argv list executed without a shell. Custom compatible workers receive `request.json` and `result.json` as their final arguments. The backend sends one request per module: `items` (a list of `audio`, an absolute local path, and `text`, the normalized spoken transcript) and `language` (`English`). The result must contain `results`, one entry per item in order, each with a complete ordered `words` list of `text`, `start`, and `end` in seconds. The bundled worker also still accepts the older single-slide request (`audio`, `text`, `language` → `words`). Validation rejects missing words, nonfinite/negative/overlapping intervals, wrong tokens, or audio-bound violations.
+
+Measured on 27 October 2026 (WSL, CPU, `CAPTION_ALIGN_THREADS=4`): the model loads in about 14 s, alignment runs at about 0.08× real time, and a 3-minute module takes about 30 s in total. Peak memory is about 6 GB per run, released when the worker exits. Runs are serial, so memory does not add up across modules.
 
 ## Assets and provenance
 
 New narration records `.narration.json` with normalized transcript and final WAV hashes. TTS cache reuse requires that proof, preventing audio from an old script being silently reused. Narration synthesis uses an audio asset lock. Newly rendered videos record `.source.json` with narration hashes and measured encoded slide durations only when the narration proof matches. Video rendering and backfill share a per-module `.media.lock`. Video publication is atomic, and caption metadata is published after the caption file. Regeneration/replaced narration invalidates the source fingerprint; failures remain visible in generation logs without breaking video playback.
 
-Each successful caption run produces `module_N.vtt` and `module_N.captions.json` beside the MP4. The client validates version, cue count, final duration, the MP4's size/Last-Modified headers, and the caption file's SHA-256 before enabling CC. VTT URLs contain a content fingerprint; metadata and headers are fetched without caching. CORS exposes the necessary video headers. Caption integrity works on both HTTP and HTTPS deployments.
+Each successful caption run produces `module_N.vtt` and `module_N.captions.json` beside the MP4. Media authorization maps exactly these two files to their MP4's course; `.source.json`, `.narration.json`, `.srt`, and lock files are never served. The client validates version, cue count, final duration, the MP4's size/Last-Modified headers, and the caption file's SHA-256 before enabling CC. VTT URLs contain a content fingerprint; metadata and headers are fetched without caching. CORS exposes the necessary video headers. Caption integrity works on both HTTP and HTTPS deployments.
 
 Treat video/sidecar replacement as one release operation. Do not manually copy caption metadata from another video. A hard-killed generation job can leave `.media.lock`; remove it only after confirming no render or backfill process is active for that module.
 
 ## Existing videos
 
-Backfill is dry-run by default and limited to an explicit course/module:
+Backfill is dry-run by default, runs one module at a time, and is limited to an explicit course (optionally one module). It refuses to run when `VIDEO_GENERATION_MODE=external`, and it always skips Video Generator videos (a `video_service` run record or an `.srt` transcript), because those already show burned-in subtitles.
 
-```powershell
-backend/.venv/Scripts/python.exe backend/scripts/backfill_video_captions.py --course-id COURSE_ID --module 2
-backend/.venv/Scripts/python.exe backend/scripts/backfill_video_captions.py --course-id COURSE_ID --module 2 --apply
+```bash
+python backend/scripts/backfill_video_captions.py --course-id COURSE_ID              # dry run, all modules
+python backend/scripts/backfill_video_captions.py --course-id COURSE_ID --module 2   # dry run, one module
+python backend/scripts/backfill_video_captions.py --course-id COURSE_ID --apply      # write captions
 ```
 
-Use the backend Python equivalent on Linux. A historical MP4 without render-time provenance reports `requires_video_regeneration`; matching text filenames alone do not prove the audio belongs to that video. Regenerate selected narration and then the module video through the normal authorized workflow to establish provenance. Existing WAV files without narration proof are regenerated on an explicitly requested TTS generation run. Do not mass-regenerate published courses as part of a caption dry-run.
+Each module prints one JSON line: `dry_run`, `generated`, `skipped_valid_captions`, `skipped_video_generator`, `skipped_no_video`, or `unavailable` with a reason. The exit status is nonzero when any module is `unavailable`.
 
-The command returns a nonzero exit status on unavailable/mismatched sources. A valid existing caption asset is skipped idempotently. No production course backfill or video regeneration has been run during this implementation.
+- **Videos with render-time provenance** (`.source.json`) use the provenance-checked path above.
+- **Older videos without provenance** (`method: forced-alignment-legacy`) are captioned from the MP4's own soundtrack:
+  1. The pause between slides is solved from the video length and the slide WAV lengths. It must be between 0 and 3 seconds.
+  2. Each slide WAV's loudness pattern, followed by its silent pause, is matched against the soundtrack within 0.6 s of where it should start. Encoding shifts each clip by a few hundredths of a second, so the matched position is used rather than the arithmetic one.
+  3. Each matched piece of soundtrack is aligned with the slide's current script.
+- The legacy path refuses a module when:
+  - the narration does not add up to the video length;
+  - a slide's narration does not match the soundtrack (`Slide N narration does not match…`);
+  - most aligned words collapse to zero length, which means the script no longer matches the speech.
+- **Known limitation:** if a script was edited after rendering but the edit still aligns plausibly, the captions show the edited text. Spot-check one module per course after a backfill.
+
+A valid existing caption asset is skipped idempotently. No production course backfill has been run.
 
 ## Validation commands
 

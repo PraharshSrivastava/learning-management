@@ -61,6 +61,25 @@ function activeCue(cues, time) {
 }
 // HTTP deployments do not expose SubtleCrypto; integrity still needs verification.
 const doc = global.document
+// Each module mounts a new video, so the learner's volume is carried here and in storage.
+const volumeKey = 'lms.video-volume.v1'
+let sessionVolume = null
+function restoreVolume(video) {
+  let saved = sessionVolume
+  try {
+    saved = JSON.parse(global.localStorage.getItem(volumeKey) || 'null') || saved
+  } catch (_) {}
+  if (!saved) return
+  if (Number.isFinite(saved.volume) && saved.volume >= 0 && saved.volume <= 1)
+    video.volume = saved.volume
+  video.muted = saved.muted === true
+}
+function rememberVolume(video) {
+  sessionVolume = { volume: video.volume, muted: video.muted }
+  try {
+    global.localStorage.setItem(volumeKey, JSON.stringify(sessionVolume))
+  } catch (_) {}
+}
 function create(video, onHeight, constrainSeek) {
   const root = doc.createElement('div')
   root.className = 'lms-caption-player'
@@ -354,6 +373,8 @@ function create(video, onHeight, constrainSeek) {
     video.volume = +volume.value
     video.muted = false
   })
+  restoreVolume(video)
+  listen(video, 'volumechange', () => rememberVolume(video))
   for (const event of [
     'timeupdate',
     'seeked',

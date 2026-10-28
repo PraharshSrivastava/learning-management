@@ -26,6 +26,12 @@ def test_asset_lookup_and_normal_trainer_cannot_use_all_performance_as_playback(
     assert media_access.asset_courses("/assets/videos/module_hls/segment.ts") == ["course-1"]
     assert media_access.asset_courses("/assets/slides/course-1/module_1.html") == ["course-1"]
     assert media_access.asset_courses("/assets/images/private-other.png") == []
+    # The player loads captions beside the MP4; only those two sidecars are mapped.
+    assert media_access.asset_courses("/assets/videos/module.vtt") == ["course-1"]
+    assert media_access.asset_courses("/assets/videos/module.captions.json") == ["course-1"]
+    for internal in ("source.json", "narration.json", "srt", "media.lock"):
+        assert media_access.asset_courses(f"/assets/videos/module.{internal}") == []
+    assert media_access.asset_courses("/assets/videos/other.vtt") == []
     employee = dict(report_db.execute("SELECT * FROM employees WHERE employee_id='hod'").fetchone())
     normal = media_access.MediaPrincipal("trainer", employee, {"trainer_id": "t-2"})
     with pytest.raises(NotFoundError):
