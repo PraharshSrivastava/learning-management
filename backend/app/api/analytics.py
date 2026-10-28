@@ -5,7 +5,7 @@ import io
 from typing import Literal
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app.schemas.analytics import TrainerPerformanceResponse
 from app.schemas.performance_reporting import (
@@ -15,9 +15,12 @@ from app.schemas.performance_reporting import (
     CourseListReport,
     EmployeeDetailReport,
     EmployeeListReport,
+    JourneyDetailReport,
+    JourneyListReport,
     PerformanceOverview,
     PerformanceReportOptions,
 )
+from app.services import journey_reporting as journey_reports
 from app.services import performance_reporting as reports
 from app.services.analytics import api_trainer_performance
 from app.services.auth import current_trainer_from_request
@@ -118,7 +121,12 @@ def performance_overview(
 def performance_options(request: Request, authorization: str | None = Header(default=None)):
     from app.repositories.performance_reporting import list_scope_options
 
-    return list_scope_options(_trainer_scope(request, authorization))
+    from app.services.journeys import journeys_enabled
+
+    return {
+        **list_scope_options(_trainer_scope(request, authorization)),
+        "journeys_enabled": journeys_enabled(),
+    }
 
 
 @router.get("/trainer/performance/employees", response_model=EmployeeListReport)
@@ -304,6 +312,63 @@ def performance_course_detail(
     if result is None:
         raise HTTPException(status_code=404, detail="Course report not found")
     return result
+
+
+@router.get("/trainer/performance/journeys", response_model=JourneyListReport)
+def performance_journeys(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    course_id: str | None = None,
+    employee_id: str | None = None,
+    department: str | None = None,
+    mailing_list: str | None = None,
+    joined_less_than_days_ago: int | None = Query(default=None, ge=1),
+):
+    return journey_reports.journey_list(
+        _trainer_scope(request, authorization),
+        **_scope(course_id, employee_id, department, mailing_list, joined_less_than_days_ago),
+    )
+
+
+@router.get("/trainer/performance/journeys/{journey_id}", response_model=JourneyDetailReport)
+def performance_journey_detail(
+    journey_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+    course_id: str | None = None,
+    employee_id: str | None = None,
+    department: str | None = None,
+    mailing_list: str | None = None,
+    joined_less_than_days_ago: int | None = Query(default=None, ge=1),
+):
+    result = journey_reports.journey_detail(
+        _trainer_scope(request, authorization),
+        journey_id,
+        **_scope(course_id, employee_id, department, mailing_list, joined_less_than_days_ago),
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Journey report not found")
+    return result
+
+
+@router.get("/trainer/performance/journeys/{journey_id}/certificates/{employee_id}")
+def performance_journey_certificate(
+    journey_id: str,
+    employee_id: str,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    filename, content = journey_reports.journey_certificate(
+        _trainer_scope(request, authorization), journey_id, employee_id
+    )
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get("/trainer/performance/assignments", response_model=AssignmentListReport)

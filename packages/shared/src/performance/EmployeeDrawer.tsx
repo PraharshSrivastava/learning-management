@@ -20,6 +20,7 @@ import { alpha, colors, courseStatusColor, courseStatusLabel, dMonY, percent } f
 import { scopeParams, without } from './state'
 import { Badge, Completion, Identity, Metric } from './employeeParts'
 import { useElementWidth } from './useElementWidth'
+import { OVERLAY_LAYER, WINDOW_LAYER } from '../ui/layers'
 
 /** Employee `_date`: local date, "Not recorded" when missing. */
 const date = (value: string | null) => dMonY(value, 'Not recorded', true)
@@ -53,7 +54,7 @@ export function EmployeeDrawer({
       }}
     >
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/38" />
+        <RadixDialog.Overlay className={`fixed inset-0 ${OVERLAY_LAYER} bg-black/38`} />
         <AccessGuard expected={opened?.expected ?? contextKey} onClose={onClose}>
           <RadixDialog.Content
             onOpenAutoFocus={() => {
@@ -69,7 +70,7 @@ export function EmployeeDrawer({
               }
             }}
             aria-describedby={undefined}
-            className="fixed top-0 right-0 z-40 flex h-full w-[min(100vw,900px)] flex-col overflow-hidden rounded-l-[22px] bg-white focus:outline-none"
+            className={`fixed top-0 right-0 ${WINDOW_LAYER} flex h-full w-[min(100vw,900px)] flex-col overflow-hidden rounded-l-[22px] bg-white focus:outline-none`}
           >
             <div className="flex items-center pt-4 pr-3 pb-3 pl-6">
               <RadixDialog.Title className="m-0 min-w-0 flex-1 text-[21px] font-extrabold">

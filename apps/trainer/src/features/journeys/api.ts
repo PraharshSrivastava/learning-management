@@ -32,14 +32,25 @@ export interface JourneySummary {
   warnings: string[]
 }
 
+export interface OtherJourney {
+  journeyId: string
+  title: string
+}
+
 export interface JourneyStep {
   courseId: string
   courseName: string
   moduleCount: number
+  thumbnailPath: string
   unlockRule: UnlockRule
   isRequired: boolean
   eligible: boolean
   reason: string | null
+  /** Other journeys this course is in. */
+  otherJourneys: OtherJourney[]
+  /** This journey's learners who hold the course, and how many of them started or passed it. */
+  learnerCount: number
+  startedCount: number
 }
 
 export interface JourneyStage {
@@ -66,21 +77,17 @@ export interface CourseOption {
   courseName: string
   status: string
   moduleCount: number
+  thumbnailPath: string
   eligible: boolean
   reason: string | null
+  journeys: OtherJourney[]
 }
 
-export interface ProgressRow {
+export interface PreviewEmployee {
   employeeId: string
   name: string
   department: string
-  status: string
-  deadline: string | null
-  completedAt: string | null
-  passedCount: number
-  requiredCount: number
-  currentCourseName: string | null
-  currentStep: number | null
+  jobTitle: string
 }
 
 const text = (value: unknown, fallback = ''): string =>
@@ -90,6 +97,8 @@ const count = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) : 0
 const records = (value: unknown): JsonRecord[] =>
   Array.isArray(value) ? value.filter(isRecord) : []
+const otherJourneys = (value: unknown): OtherJourney[] =>
+  records(value).map((row) => ({ journeyId: text(row.journey_id), title: text(row.title) }))
 
 export function parseSummary(json: unknown): JourneySummary {
   const j = isRecord(json) ? json : {}
@@ -134,10 +143,14 @@ export function parseDetail(json: unknown): JourneyDetail {
         courseId: text(step.course_id),
         courseName: text(step.course_name),
         moduleCount: count(step.module_count),
+        thumbnailPath: text(step.thumbnail_path),
         unlockRule: step.unlock_rule === 'open' ? 'open' : 'after_previous',
         isRequired: step.is_required !== false,
         eligible: step.eligible === true,
         reason: optText(step.reason),
+        otherJourneys: otherJourneys(step.other_journeys),
+        learnerCount: count(step.learner_count),
+        startedCount: count(step.started_count),
       })),
     })),
     rule: parseRule(j.rule),
@@ -151,24 +164,21 @@ export function parseCourseOption(json: unknown): CourseOption {
     courseName: text(j.course_name),
     status: text(j.status),
     moduleCount: count(j.module_count),
+    thumbnailPath: text(j.thumbnail_path),
     eligible: j.eligible === true,
     reason: optText(j.reason),
+    journeys: otherJourneys(j.journeys),
   }
 }
 
-export function parseProgressRow(json: unknown): ProgressRow {
-  const j = isRecord(json) ? json : {}
+export function rulePayload(rule: JourneyRule): JsonRecord {
   return {
-    employeeId: text(j.employee_id),
-    name: text(j.name),
-    department: text(j.department),
-    status: text(j.status),
-    deadline: optText(j.deadline),
-    completedAt: optText(j.completed_at),
-    passedCount: count(j.passed_count),
-    requiredCount: count(j.required_count),
-    currentCourseName: optText(j.current_course_name),
-    currentStep: typeof j.current_step === 'number' ? j.current_step : null,
+    include_all: rule.includeAll,
+    include_groups: rule.includeGroups.map(assignmentGroupToJson),
+    exclude_groups: rule.excludeGroups.map(assignmentGroupToJson),
+    deadline_mode: rule.deadlineMode,
+    deadline_days: rule.deadlineDays,
+    deadline_date: rule.deadlineMode === 'fixed' ? rule.deadlineDate : null,
   }
 }
 
@@ -182,21 +192,14 @@ export function savePayload(journey: JourneyDetail): JsonRecord {
     prerequisite_journey_id: journey.prerequisiteJourneyId,
     certificate_enabled: journey.certificateEnabled,
     stages: journey.stages.map((stage, index) => ({
-      title: stage.title.trim() || `Stage ${index + 1}`,
+      title: stage.title.trim() || `Section ${index + 1}`,
       steps: stage.steps.map((step) => ({
         course_id: step.courseId,
         unlock_rule: step.unlockRule,
         is_required: step.isRequired,
       })),
     })),
-    rule: {
-      include_all: journey.rule.includeAll,
-      include_groups: journey.rule.includeGroups.map(assignmentGroupToJson),
-      exclude_groups: journey.rule.excludeGroups.map(assignmentGroupToJson),
-      deadline_mode: journey.rule.deadlineMode,
-      deadline_days: journey.rule.deadlineDays,
-      deadline_date: journey.rule.deadlineMode === 'fixed' ? journey.rule.deadlineDate : null,
-    },
+    rule: rulePayload(journey.rule),
   }
 }
 
@@ -217,10 +220,21 @@ export const fetchJourney = async (id: string) => parseDetail(await apiRequest(o
 export const createJourney = async (title: string) =>
   parseDetail(await apiRequest(base, { method: 'POST', json: { title } }))
 
-export const saveJourney = async (journey: JourneyDetail) =>
-  parseDetail(
-    await apiRequest(one(journey.journeyId), { method: 'PUT', json: savePayload(journey) }),
-  )
+export async function saveJourney(
+  journey: JourneyDetail,
+): Promise<{ detail: JourneyDetail; learnersRechecked: boolean }> {
+  const body = await apiRequest(one(journey.journeyId), {
+    method: 'PUT',
+    json: savePayload(journey),
+  })
+  return {
+    detail: parseDetail(body),
+    learnersRechecked: isRecord(body) && body.learners_rechecked === true,
+  }
+}
+
+export const duplicateJourney = async (id: string) =>
+  parseDetail(await apiRequest(`${one(id)}/duplicate`, { method: 'POST' }))
 
 export const publishJourney = async (id: string) => {
   const body = await apiRequest(`${one(id)}/publish`, { method: 'POST' })
@@ -240,19 +254,26 @@ export async function fetchCourseOptions(): Promise<CourseOption[]> {
   return Array.isArray(body) ? body.map(parseCourseOption) : []
 }
 
-export async function fetchPreview(id: string): Promise<{ matchCount: number; names: string[] }> {
-  const body = await apiRequest(`${one(id)}/preview`)
+/** Who would get the journey with the unsaved rule and Observers (the first 50 are listed). */
+export async function fetchPreview(
+  id: string,
+  rule: JourneyRule,
+  observerEmployeeIds: string[],
+): Promise<{ matchCount: number; employees: PreviewEmployee[] }> {
+  const body = await apiRequest(`${one(id)}/preview`, {
+    method: 'POST',
+    json: { rule: rulePayload(rule), observer_employee_ids: observerEmployeeIds },
+  })
   const data = isRecord(body) ? body : {}
   return {
     matchCount: count(data.match_count),
-    names: records(data.preview_employees).map((row) => text(row.name)),
+    employees: records(data.preview_employees).map((row) => ({
+      employeeId: text(row.employee_id),
+      name: text(row.name),
+      department: text(row.department),
+      jobTitle: text(row.job_title),
+    })),
   }
-}
-
-export async function fetchProgress(id: string): Promise<ProgressRow[]> {
-  const body = await apiRequest(`${one(id)}/progress`)
-  const data = isRecord(body) ? body : {}
-  return records(data.rows).map(parseProgressRow)
 }
 
 export interface JourneyObserver {

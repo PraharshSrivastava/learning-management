@@ -198,7 +198,7 @@ function Drop({
 }
 
 /** `_StatusFilterChip`: r8 outlined chip, 12 px label. */
-function StatusFilterChip({
+export function StatusFilterChip({
   label,
   selected,
   onClick,

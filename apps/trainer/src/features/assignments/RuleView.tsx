@@ -375,7 +375,7 @@ function TargetEmployees({
 }
 
 /** Individually chosen employees: chips in directory order, with the multi-select picker. */
-function EmployeePicks({
+export function EmployeePicks({
   title,
   empty,
   action,
@@ -444,7 +444,7 @@ function EmployeePicks({
 }
 
 /** Supplementary criteria, collapsed until needed or already in use. */
-function MoreCriteria({
+export function MoreCriteria({
   label,
   count,
   children,

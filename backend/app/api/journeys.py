@@ -8,10 +8,11 @@ from app.schemas.journey import (
     JourneyDetailResponse,
     JourneyListResponse,
     JourneyObserversRequest,
+    JourneyPreviewRequest,
     JourneySaveRequest,
     LearnerJourneyListResponse,
 )
-from app.services import journeys
+from app.services import journey_certificates, journeys
 from app.services.auth import current_employee_from_request, current_trainer_from_request
 
 router = APIRouter(prefix="/api", tags=["learning-journeys"])
@@ -44,6 +45,13 @@ def course_options(request: Request, authorization: str | None = Header(default=
     return journeys.api_course_options(_trainer_id(request, authorization))
 
 
+@router.get("/learning-journeys/certificates/{number}", response_model=dict)
+def verify_certificate(number: str, request: Request, authorization: str | None = Header(default=None)):
+    _trainer_id(request, authorization)
+    journeys._require_enabled()
+    return journey_certificates.verify_certificate(number)
+
+
 @router.get("/learning-journeys/{journey_id}", response_model=JourneyDetailResponse)
 def get_journey(
     journey_id: str, request: Request, authorization: str | None = Header(default=None)
@@ -68,11 +76,21 @@ def delete_journey(
     return journeys.api_delete_journey(journey_id, _trainer_id(request, authorization))
 
 
-@router.get("/learning-journeys/{journey_id}/preview", response_model=dict)
+@router.post("/learning-journeys/{journey_id}/preview", response_model=dict)
 def preview_journey(
+    journey_id: str,
+    request: Request,
+    payload: JourneyPreviewRequest | None = None,
+    authorization: str | None = Header(default=None),
+):
+    return journeys.api_preview_journey(journey_id, _trainer_id(request, authorization), payload)
+
+
+@router.post("/learning-journeys/{journey_id}/duplicate", response_model=JourneyDetailResponse)
+def duplicate_journey(
     journey_id: str, request: Request, authorization: str | None = Header(default=None)
 ):
-    return journeys.api_preview_journey(journey_id, _trainer_id(request, authorization))
+    return journeys.api_duplicate_journey(journey_id, _trainer_id(request, authorization))
 
 
 @router.post("/learning-journeys/{journey_id}/publish", response_model=JourneyDetailResponse)
@@ -107,13 +125,6 @@ def save_journey_observers(
     return journeys.api_save_journey_observers(journey_id, _trainer_id(request, authorization), payload)
 
 
-@router.get("/learning-journeys/{journey_id}/progress", response_model=dict)
-def journey_progress(
-    journey_id: str, request: Request, authorization: str | None = Header(default=None)
-):
-    return journeys.api_journey_progress(journey_id, _trainer_id(request, authorization))
-
-
 @router.get("/me/learning-journeys", response_model=LearnerJourneyListResponse)
 def my_journeys(
     request: Request, response: Response, authorization: str | None = Header(default=None)
@@ -121,3 +132,23 @@ def my_journeys(
     employee = current_employee_from_request(request, authorization)
     response.headers["Cache-Control"] = "no-store"
     return journeys.api_my_journeys(employee)
+
+
+def _pdf(filename: str, content: bytes) -> Response:
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/me/learning-journeys/{journey_id}/certificate")
+def my_certificate(
+    journey_id: str, request: Request, authorization: str | None = Header(default=None)
+):
+    employee = current_employee_from_request(request, authorization)
+    journeys._require_enabled()
+    return _pdf(*journey_certificates.learner_certificate(employee["employee_id"], journey_id))

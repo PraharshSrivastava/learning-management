@@ -17,6 +17,7 @@ import { useReport, useReportQuery } from './context'
 import { colors, score } from './format'
 import { scopeParams, without } from './state'
 import { useElementWidth } from './useElementWidth'
+import { OVERLAY_LAYER, WINDOW_LAYER } from '../ui/layers'
 
 /**
  * The course detail dialog. `courseId == null` means closed. The body mounts per course, keeps the
@@ -33,7 +34,7 @@ export function CourseDetailDialog({
   return (
     <RadixDialog.Root open={courseId != null} onOpenChange={(open) => !open && onClose()}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/54" />
+        <RadixDialog.Overlay className={`fixed inset-0 ${OVERLAY_LAYER} bg-black/54`} />
         {courseId != null && <GuardedCourse key={courseId} courseId={courseId} onClose={onClose} />}
       </RadixDialog.Portal>
     </RadixDialog.Root>
@@ -99,7 +100,7 @@ function CourseDialogContent({ courseId, onClose }: { courseId: string; onClose:
         }
       }}
       aria-describedby={undefined}
-      className="fixed top-1/2 left-1/2 z-40 flex h-[min(800px,calc(100%-32px))] w-[min(1040px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl bg-white focus:outline-none"
+      className={`fixed top-1/2 left-1/2 ${WINDOW_LAYER} flex h-[min(800px,calc(100%-32px))] w-[min(1040px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl bg-white focus:outline-none`}
     >
       {(detail.error || !detail.data) && (
         <RadixDialog.Title className="sr-only">Course detail</RadixDialog.Title>
@@ -225,7 +226,15 @@ function CourseSummary({
 }
 
 /** The determinate CircularProgressIndicator (stroke 9, inset 4) with the rate in the middle. */
-function Ring({ rate, size }: { rate: number; size: number }) {
+export function Ring({
+  rate,
+  size,
+  label = 'Course completion',
+}: {
+  rate: number
+  size: number
+  label?: string
+}) {
   const radius = (size - 8) / 2
   const circumference = 2 * Math.PI * radius
   return (
@@ -235,7 +244,7 @@ function Ring({ rate, size }: { rate: number; size: number }) {
     >
       <svg
         role="progressbar"
-        aria-label="Course completion"
+        aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={rate}

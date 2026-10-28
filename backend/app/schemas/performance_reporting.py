@@ -158,6 +158,8 @@ class PerformanceReportOptions(ApiSchema):
     courses: list[ReportCourseOption]
     departments: list[str]
     mailing_lists: list[str]
+    # True when Learning Journeys are switched on, so the report shows its Journeys tab.
+    journeys_enabled: bool = False
 
 
 class EmployeeReportRow(ApiSchema):
@@ -192,4 +194,78 @@ class EmployeeListReport(ApiSchema):
 class EmployeeDetailReport(ApiSchema):
     employee: EmployeeReportRow
     assignments: list[AssignmentReportRow]
+    generated_at: str
+
+
+class JourneyReport(ApiSchema):
+    journey_id: str
+    title: str
+    journey_status: str
+    step_count: int
+    required_count: int
+    certificate_enabled: bool
+    assigned: int
+    unique_learners: int
+    completed: int
+    started: int
+    pending: int
+    waiting: int
+    overdue: int
+    removed: int
+    due_soon: int
+    inactive: int
+    completion_rate: int
+    average_progress: int
+    certificates: int
+
+
+class JourneyListReport(ApiSchema):
+    enabled: bool
+    journeys: list[JourneyReport]
+    generated_at: str
+
+
+class JourneyStepReport(ApiSchema):
+    course_id: str
+    course_name: str
+    step_number: int
+    stage_title: str | None = None
+    is_required: bool
+    unlock_rule: str
+    learners: int
+    passed: int
+    in_progress: int
+    available: int
+    locked: int
+    unavailable: int
+
+
+class JourneyLearnerReport(ApiSchema):
+    journey_id: str
+    employee_id: str
+    employee_name: str
+    employee_status: str
+    department: str | None = None
+    status: str
+    assigned_at: str | None = None
+    available_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    deadline: str | None = None
+    last_learner_activity_at: str | None = None
+    passed_count: int
+    required_count: int
+    completion_percent: int
+    current_step: int | None = None
+    current_course_id: str | None = None
+    current_course_name: str | None = None
+    certificate_number: str | None = None
+    due_soon: bool
+    inactive: bool
+
+
+class JourneyDetailReport(ApiSchema):
+    journey: JourneyReport
+    steps: list[JourneyStepReport]
+    learners: list[JourneyLearnerReport]
     generated_at: str

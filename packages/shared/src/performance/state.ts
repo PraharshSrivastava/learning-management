@@ -2,7 +2,8 @@
 // frontend/lib/state/trainer/performance_report_providers.dart.
 
 export type ReportApp = 'trainer' | 'employee'
-export type ReportTab = 0 | 1 | 2
+// 3 is Journeys. It comes last in the numbering so links to the other tabs keep working.
+export type ReportTab = 0 | 1 | 2 | 3
 
 export interface ReportFilter {
   courseStatus: string
@@ -33,6 +34,8 @@ export interface ReportState {
   page: number
   employeeSummary: boolean
   employeeResetVersion: number
+  /** The journey whose detail is open in the Journeys tab. */
+  openJourneyId: string | null
 }
 
 export const defaultReportView = (app: ReportApp) =>
@@ -67,13 +70,30 @@ const baseState = (reportView: string, employeeResetVersion: number): ReportStat
   page: 1,
   employeeSummary: true,
   employeeResetVersion,
+  openJourneyId: null,
 })
 
 export function initialReportState(
   app: ReportApp,
-  linked?: { courseId: string | null; status: string | null } | null,
+  linked?: {
+    courseStatus?: string | null
+    courseId: string | null
+    status: string | null
+    journeyId?: string | null
+  } | null,
 ): ReportState {
   const state = baseState(defaultReportView(app), 0)
+  const journeyId = linked?.journeyId?.trim() || null
+  // A journey link opens the Journeys tab with that journey's detail.
+  if (journeyId != null) {
+    const courseStatus = linked?.courseStatus || state.filter.courseStatus
+    return {
+      ...state,
+      filter: { ...state.filter, courseStatus },
+      view: 3,
+      openJourneyId: journeyId,
+    }
+  }
   const courseId = linked?.courseId?.trim() || null
   const status = sanitizeStatus(linked?.status)
   // openLinkedReport runs only when the link has a course or a status.
@@ -103,7 +123,14 @@ export type ReportAction =
   | { type: 'clearFilters' }
   | { type: 'employeeSummary'; summary: boolean }
   | { type: 'viewEmployeesOf'; courseId: string }
-  | { type: 'openLinked'; courseId: string | null; status: string | null }
+  | {
+      type: 'openLinked'
+      courseId: string | null
+      status: string | null
+      journeyId?: string | null
+      courseStatus?: string | null
+    }
+  | { type: 'openJourney'; journeyId: string | null }
 
 export function reportReducer(state: ReportState, action: ReportAction): ReportState {
   switch (action.type) {
@@ -153,7 +180,21 @@ export function reportReducer(state: ReportState, action: ReportAction): ReportS
         employeeSummary: false,
         view: 2,
       }
+    case 'openJourney':
+      return { ...state, openJourneyId: action.journeyId }
     case 'openLinked':
+      if (action.journeyId) {
+        return {
+          ...state,
+          filter: {
+            ...defaultFilter,
+            courseStatus: action.courseStatus || state.filter.courseStatus,
+          },
+          status: null,
+          view: 3,
+          openJourneyId: action.journeyId,
+        }
+      }
       // openLinkedReport keeps the course availability and replaces the other filters.
       return {
         ...state,

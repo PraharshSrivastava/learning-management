@@ -66,10 +66,13 @@ export function CoursePlayback({
   course,
   initialCourse = course,
   onBack,
+  backLabel = 'Back to dashboard',
 }: {
   course: EmployeeCourse
   initialCourse?: EmployeeCourse
   onBack: () => void
+  /** Names where the back button goes, such as the journey the course was opened from. */
+  backLabel?: string
 }) {
   const [activeNumber, setActiveNumber] = useState(
     () => initialCourse.publishedModules[resumeModuleIndex(initialCourse)]?.moduleNumber,
@@ -377,7 +380,7 @@ export function CoursePlayback({
     <>
       {isMobile ? (
         <div data-scroll-pane className="h-full overflow-y-auto p-4 [scrollbar-width:none]">
-          <WorkspaceHeader course={course} onBack={onBack} />
+          <WorkspaceHeader course={course} onBack={onBack} backLabel={backLabel} />
           <div className="h-5" />
           <ModuleSelect
             course={course}
@@ -390,7 +393,7 @@ export function CoursePlayback({
         </div>
       ) : (
         <div className="flex h-full flex-col">
-          <WorkspaceHeader course={course} onBack={onBack} />
+          <WorkspaceHeader course={course} onBack={onBack} backLabel={backLabel} />
           <div className="flex min-h-0 flex-1">
             <div
               data-scroll-pane
@@ -416,16 +419,24 @@ export function CoursePlayback({
   )
 }
 
-function WorkspaceHeader({ course, onBack }: { course: EmployeeCourse; onBack: () => void }) {
+function WorkspaceHeader({
+  course,
+  onBack,
+  backLabel,
+}: {
+  course: EmployeeCourse
+  onBack: () => void
+  backLabel: string
+}) {
   const total = course.publishedModules.length
   const passed = passedModuleCount(course)
   const progress = total === 0 ? 0 : passed / total
   return (
     <div className="flex shrink-0 items-center border-b border-[#e6e9ef] bg-white px-7 py-4">
-      <Tooltip content="Back to dashboard">
+      <Tooltip content={backLabel}>
         <button
           type="button"
-          aria-label="Back to dashboard"
+          aria-label={backLabel}
           onClick={onBack}
           className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-[#44474e] hover:bg-[#44474e]/8 focus-visible:outline-2 focus-visible:outline-brand-blue-light"
         >

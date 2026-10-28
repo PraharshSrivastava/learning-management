@@ -75,9 +75,16 @@ export function EmployeeDashboard() {
   const openJourney = (journeyId: string | null) =>
     setSearch({ view: 'journeys', journey_id: journeyId ?? undefined })
 
-  const openCourseById = (id: string) => {
+  // Opening a course from a journey keeps that journey in the URL, so the course player's back
+  // button returns to the journey it came from.
+  const openCourseById = (id: string, journeyId?: string) => {
     const course = courses.find((item) => item.courseId === id)
-    if (course) openCourseView(course)
+    if (!course) return
+    setSearch({
+      view: search.view,
+      course_id: course.courseId,
+      journey_id: journeyId ?? search.journey_id,
+    })
   }
 
   const showNotifications = (list: EmployeeCourse[]) => {
@@ -121,16 +128,19 @@ export function EmployeeDashboard() {
         course={openCourse}
         refetch={refetch}
         onBack={closeCourse}
+        backLabel={
+          search.view === 'journeys' && search.journey_id
+            ? 'Back to journey'
+            : search.view === 'notifications'
+              ? 'Back to notifications'
+              : 'Back to dashboard'
+        }
       />
     )
     content =
       learnerJourneys.enabled && openCourse.journeys.length > 0 ? (
         <div className="flex h-full flex-col">
-          <JourneyBar
-            course={openCourse}
-            journeys={learnerJourneys.journeys}
-            onOpenJourney={openJourney}
-          />
+          <JourneyBar course={openCourse} journeys={learnerJourneys.journeys} />
           <div className="min-h-0 flex-1">{playback}</div>
         </div>
       ) : (
@@ -161,7 +171,11 @@ export function EmployeeDashboard() {
     content = (
       <NotificationsView
         notifications={notifications}
-        onOpenNotifications={() => showNotifications(notifications)}
+        onOpenCourse={(course) => {
+          // Opening a notification reads it, as opening the notification list does.
+          setSeenNotifications((seen) => new Set([...seen, course.courseId]))
+          openCourseView(course)
+        }}
       />
     )
   } else {
@@ -225,6 +239,10 @@ export function EmployeeDashboard() {
         courses={dialogCourses ?? []}
         open={dialogCourses != null}
         onOpenChange={(open) => !open && setDialogCourses(null)}
+        onOpenCourse={(course) => {
+          setDialogCourses(null)
+          openCourseView(course)
+        }}
       />
     </div>
   )
@@ -235,10 +253,12 @@ function FreshCoursePlayback({
   course,
   refetch,
   onBack,
+  backLabel,
 }: {
   course: EmployeeCourse
   refetch: ReturnType<typeof useEmployeeCourses>['refetch']
   onBack: () => void
+  backLabel: string
 }) {
   const [entry, setEntry] = useState<EmployeeCourse | null>(null)
   const [error, setError] = useState(false)
@@ -268,7 +288,10 @@ function FreshCoursePlayback({
       clearTimeout(timer)
     }
   }, [course.courseId, refetch, attempt])
-  if (entry) return <CoursePlayback course={course} initialCourse={entry} onBack={onBack} />
+  if (entry)
+    return (
+      <CoursePlayback course={course} initialCourse={entry} onBack={onBack} backLabel={backLabel} />
+    )
   return (
     <div className="p-8" role={error ? 'alert' : 'status'}>
       <p>

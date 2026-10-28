@@ -252,3 +252,38 @@ The course titles are listed in the earlier draft, and SMEs and the compliance t
 - the journeys roadmap states;
 - the trainer journey editor's save payload;
 - the full existing suite passes unchanged.
+
+## Improvements after the first UX review (October 2026)
+
+- **Removing a course from a live journey** keeps it for learners who started or passed it; the
+  others lose it. The trainer sees how many learners hold the course, and how many keep it, before
+  Save & apply.
+- **Saving a live journey** applies everything at once (Save & apply), including who gets it.
+  Learners are re-checked only when the courses, their order or rules, who gets it, or the earlier
+  journey changed; a name or description edit touches no one.
+- **Completion certificate**: an A4 landscape PDF (`app/services/journey_certificates.py`) with the
+  learner's name, journey, courses, completion date, PhillipCapital India Pvt Ltd and the
+  Managing Director, Mr Vineet Bhatnagar. Issuer and signatory come from `CERTIFICATE_ISSUER_NAME`,
+  `CERTIFICATE_SIGNATORY_NAME` and `CERTIFICATE_SIGNATORY_TITLE`. Each certificate has a stable
+  number (`PCIL-LJ-XXXX-XXXX-XXXX`) that any trainer can check at
+  `GET /api/learning-journeys/certificates/{number}`. Learners download theirs from the journey;
+  the owning trainer downloads any learner's from Progress.
+- **Reminders** stay automatic, as for courses (assignment reminder, due soon, overdue every 48 h).
+  Course emails to the employee now say which journey the course belongs to and its step number.
+- **Trainer editor**: one action bar (Draft: Save draft, Publish & assign; Published: Save & apply;
+  Disabled: Save, Re-publish), an unsaved-changes marker and guard, Observers saved with the
+  journey, In order / In any order with per-course "Opens anytime", optional sections, drag and
+  drop, Optional switch, live match count with the unsaved rule, Preview as learner, Duplicate,
+  and a Progress table with search, status filter, deadlines, last activity, CSV and certificates.
+  Only the trainer who created a journey can change it.
+- **Employee views**: Start or Continue by the course's state, one back button in the course
+  player, a single list when a journey has one section, wrapped course names on phones, and
+  notifications that name the journey and open the course.
+
+### Journey results moved to Performance (October 2026)
+
+- Performance has a **Journeys** tab between Courses and Employees, shown only when Learning Journeys are on. It follows the Courses tab: search, cards (completion %, assigned, completed, overdue) and a detail dialog with the completion ring, each course's outcomes (completed, in progress, not started, locked) and every learner (progress, current course, due date, last activity, status, certificate PDF, CSV export).
+- It uses the same report views and filters as courses. A learner appears when the viewer can see one of their course assignments for the journey's courses, so All/My courses, department heads and journey Observers each see exactly their people.
+- Course availability: Active shows published journeys; Disabled shows disabled journeys (learners read as Removed, completed ones stay Completed); All shows both.
+- Endpoints: `GET /performance/journeys`, `GET /performance/journeys/{id}`, `GET /performance/journeys/{id}/certificates/{employee_id}` under both `/api/trainer` and `/api/employee`. The options answer carries `journeys_enabled`.
+- The Journeys tab's Progress panel and its endpoints (`/learning-journeys/{id}/progress`, the owner-only certificate download) are removed. The editor shows **View in Performance**, which opens the journey there.

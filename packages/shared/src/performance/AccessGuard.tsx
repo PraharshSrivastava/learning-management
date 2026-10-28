@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { Button } from '../ui/Button'
 import { useReport } from './context'
 import type { ReportApp } from './state'
+import { WINDOW_LAYER } from '../ui/layers'
 
 /**
  * ReportAccessGuard. In Flutter the guard replaces the whole dialog route with an AlertDialog.
@@ -26,7 +27,7 @@ export function AccessGuard({
   return (
     <RadixDialog.Content
       aria-describedby={undefined}
-      className="fixed top-1/2 left-1/2 z-40 flex w-[calc(100%-80px)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[28px] bg-[#e8e7ef] p-6 focus:outline-none"
+      className={`fixed top-1/2 left-1/2 ${WINDOW_LAYER} flex w-[calc(100%-80px)] max-w-[560px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[28px] bg-[#e8e7ef] p-6 focus:outline-none`}
     >
       <RadixDialog.Title className="m-0 font-manrope text-2xl leading-[30px] font-extrabold tracking-normal text-text-black">
         Performance access changed

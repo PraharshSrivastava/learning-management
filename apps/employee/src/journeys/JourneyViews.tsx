@@ -1,13 +1,21 @@
 // Learner views of Learning Journeys: dashboard cards, the journeys page and its roadmap,
 // and the slim bar shown above a journey course in the existing course player.
+import { errorMessage } from '@lms/shared/api/client'
 import type { EmployeeCourse } from '@lms/shared/models'
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
 import { ProgressBar } from '@lms/shared/ui/ProgressBar'
 import { Spinner } from '@lms/shared/ui/Spinner'
 import clsx from 'clsx'
+import { useState } from 'react'
 import { PageFrame } from '../dashboard/PageFrame'
 import { dueDateLabel } from '../dashboard/progress'
-import { journeyProgress, type LearnerJourney, type LearnerStep, type StepState } from './api'
+import {
+  downloadMyCertificate,
+  journeyProgress,
+  type LearnerJourney,
+  type LearnerStep,
+  type StepState,
+} from './api'
 
 const statusChips: Record<LearnerJourney['status'], { label: string; color: string }> = {
   waiting: { label: 'Waiting', color: '#667085' },
@@ -25,10 +33,15 @@ const stepLooks: Record<StepState, { icon: IconName; color: string; label: strin
   unavailable: { icon: 'remove_circle_outline', color: '#8b94a3', label: 'Not available' },
 }
 
+const primaryButton =
+  'inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-primary-blue px-4 text-[14px] font-bold text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light disabled:opacity-60'
+const secondaryButton =
+  'inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-light-gray px-4 text-[14px] font-bold text-primary-blue hover:bg-brand-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light disabled:opacity-60'
+
 function Chip({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="inline-flex items-center rounded-2xl px-2 py-[5px] text-[11px] leading-[1.5] font-bold"
+      className="inline-flex shrink-0 items-center rounded-2xl px-2 py-[5px] text-[11px] leading-[1.5] font-bold"
       style={{ color, backgroundColor: `${color}1c` }}
     >
       {label}
@@ -39,6 +52,37 @@ function Chip({ label, color }: { label: string; color: string }) {
 const stepName = (journey: LearnerJourney, courseId: string | null) =>
   journey.stages.flatMap((stage) => stage.steps).find((step) => step.courseId === courseId)
     ?.courseName
+
+/** Downloads the learner's certificate; shows a short message if it fails. */
+function CertificateButton({ journey, className }: { journey: LearnerJourney; className: string }) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
+  if (!journey.certificateNumber) return null
+  return (
+    <span className="inline-flex flex-col gap-1">
+      <button
+        type="button"
+        disabled={busy}
+        className={className}
+        onClick={() => {
+          setBusy(true)
+          setFailed(null)
+          downloadMyCertificate(journey)
+            .catch((error: unknown) => setFailed(errorMessage(error)))
+            .finally(() => setBusy(false))
+        }}
+      >
+        <Icon name="download_outlined" size={18} />
+        {busy ? 'Preparing…' : 'Download certificate'}
+      </button>
+      {failed && (
+        <span role="alert" className="text-[12px] text-[#d92d20]">
+          {failed}
+        </span>
+      )}
+    </span>
+  )
+}
 
 export function JourneyCard({
   journey,
@@ -53,6 +97,7 @@ export function JourneyCard({
   const nextCourseId = journey.status === 'completed' ? null : journey.nextCourseId
   const next = stepName(journey, journey.nextCourseId)
   const progress = journeyProgress(journey)
+  const verb = journey.nextCourseState === 'in_progress' ? 'Continue' : 'Start'
   return (
     <article className="flex flex-col gap-2.5 rounded-2xl border border-light-gray bg-white p-[18px]">
       <div className="flex flex-wrap gap-1.5">
@@ -64,7 +109,7 @@ export function JourneyCard({
           <Chip label={`After ${journey.prerequisite.title}`} color="#667085" />
         )}
       </div>
-      <h3 className="m-0 font-barlow text-[19px] leading-tight font-bold text-[#101828]">
+      <h3 className="m-0 font-barlow text-[19px] leading-tight font-bold break-words text-[#101828]">
         {journey.title}
       </h3>
       {journey.description && (
@@ -88,7 +133,7 @@ export function JourneyCard({
       <div className="rounded-[10px] bg-[#f7f9fc] px-3 py-2.5 text-[12px] text-[#667085]">
         {journey.status === 'completed' ? (
           <b className="block text-[13px] text-[#101828]">
-            All courses passed{journey.certificateEnabled ? ' · Certificate earned' : ''}
+            All courses passed{journey.certificateNumber ? ' · Certificate earned' : ''}
           </b>
         ) : journey.status === 'waiting' ? (
           <b className="block text-[13px] text-[#101828]">
@@ -97,29 +142,28 @@ export function JourneyCard({
         ) : next ? (
           <>
             Up next
-            <b className="block text-[13px] text-[#101828]">{next}</b>
+            <b className="block text-[13px] break-words text-[#101828]">{next}</b>
           </>
         ) : (
           <b className="block text-[13px] text-[#101828]">No course is open right now</b>
         )}
       </div>
       <div className="mt-1 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onOpenJourney}
-          className="inline-flex h-9 items-center justify-center rounded-full bg-primary-blue px-4 text-[14px] font-bold text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light"
-        >
+        <button type="button" onClick={onOpenJourney} className={primaryButton}>
           View journey
         </button>
         {nextCourseId != null && (
           <button
             type="button"
             onClick={() => onOpenCourse(nextCourseId)}
-            aria-label={`Continue ${next ?? 'course'}`}
-            className="inline-flex h-9 items-center justify-center rounded-full border border-light-gray px-4 text-[14px] font-bold text-primary-blue hover:bg-brand-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light"
+            aria-label={`${verb} ${next ?? 'course'}`}
+            className={secondaryButton}
           >
-            Continue course
+            {verb} course
           </button>
+        )}
+        {journey.status === 'completed' && (
+          <CertificateButton journey={journey} className={secondaryButton} />
         )}
       </div>
     </article>
@@ -135,7 +179,7 @@ export function JourneyStrip({
 }: {
   journeys: LearnerJourney[]
   onOpenJourney: (journeyId: string) => void
-  onOpenCourse: (courseId: string) => void
+  onOpenCourse: (courseId: string, journeyId: string) => void
   onSeeAll: () => void
 }) {
   if (journeys.length === 0) return null
@@ -151,13 +195,13 @@ export function JourneyStrip({
           See all
         </button>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
         {journeys.map((journey) => (
           <JourneyCard
             key={journey.journeyId}
             journey={journey}
             onOpenJourney={() => onOpenJourney(journey.journeyId)}
-            onOpenCourse={onOpenCourse}
+            onOpenCourse={(courseId) => onOpenCourse(courseId, journey.journeyId)}
           />
         ))}
       </div>
@@ -178,11 +222,17 @@ export function LearningJourneysPage({
   error: string | null
   openJourneyId: string | null
   onOpenJourney: (journeyId: string | null) => void
-  onOpenCourse: (courseId: string) => void
+  onOpenCourse: (courseId: string, journeyId: string) => void
 }) {
   const open = journeys.find((journey) => journey.journeyId === openJourneyId) ?? null
   if (open)
-    return <Roadmap journey={open} onBack={() => onOpenJourney(null)} onOpenCourse={onOpenCourse} />
+    return (
+      <Roadmap
+        journey={open}
+        onBack={() => onOpenJourney(null)}
+        onOpenCourse={(courseId) => onOpenCourse(courseId, open.journeyId)}
+      />
+    )
   return (
     <PageFrame
       title="Learning journeys"
@@ -197,13 +247,13 @@ export function LearningJourneysPage({
       ) : journeys.length === 0 ? (
         <p className="text-[#667085]">No learning journeys are assigned to you yet.</p>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
           {journeys.map((journey) => (
             <JourneyCard
               key={journey.journeyId}
               journey={journey}
               onOpenJourney={() => onOpenJourney(journey.journeyId)}
-              onOpenCourse={onOpenCourse}
+              onOpenCourse={(courseId) => onOpenCourse(courseId, journey.journeyId)}
             />
           ))}
         </div>
@@ -222,8 +272,10 @@ function Roadmap({
   onOpenCourse: (courseId: string) => void
 }) {
   const progress = journeyProgress(journey)
+  // Sections are optional: a journey with one section is a plain list of courses.
+  const sectioned = journey.stages.length > 1
   return (
-    <div className="h-full overflow-y-auto p-6 [scrollbar-width:none]">
+    <div className="h-full overflow-y-auto p-4 [scrollbar-width:none] sm:p-6">
       <div className="mx-auto max-w-[1100px]">
         <button
           type="button"
@@ -232,15 +284,17 @@ function Roadmap({
         >
           <Icon name="arrow_back" size={16} /> Learning journeys
         </button>
-        <section className="mb-6 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-light-gray bg-white p-5">
+        <section className="mb-6 flex flex-col gap-4 rounded-2xl border border-light-gray bg-white p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
           <div className="min-w-0 flex-1">
-            <h1 className="m-0 text-[28px] font-bold text-[#101828]">{journey.title}</h1>
+            <h1 className="m-0 text-[22px] leading-tight font-bold break-words text-[#101828] sm:text-[28px]">
+              {journey.title}
+            </h1>
             {journey.description && (
               <p className="m-0 mt-1.5 text-[14px] text-[#667085]">{journey.description}</p>
             )}
           </div>
-          <div className="w-full max-w-[260px]">
-            <div className="mb-1.5 flex justify-between text-[13px]">
+          <div className="w-full shrink-0 sm:max-w-[260px]">
+            <div className="mb-1.5 flex justify-between gap-2 text-[13px]">
               <b>{Math.round(progress * 100)}% complete</b>
               <span className="text-[#667085]">{journey.stepCount} courses</span>
             </div>
@@ -258,68 +312,95 @@ function Roadmap({
             {journey.prerequisite?.title ?? 'the earlier journey'}.
           </p>
         )}
-        <ol className="m-0 list-none p-0">
-          {journey.stages.map((stage, index) => {
-            const done =
-              stage.steps.length > 0 &&
-              stage.steps.every((s) => s.state === 'passed' || s.state === 'unavailable')
-            const live =
-              !done && stage.steps.some((s) => s.state === 'available' || s.state === 'in_progress')
-            return (
-              <li key={index} className="grid grid-cols-[40px_1fr] gap-3.5">
-                <div className="flex flex-col items-center">
-                  <span
-                    className={clsx(
-                      'flex size-[34px] shrink-0 items-center justify-center rounded-full border-2 font-bold',
-                      done
-                        ? 'border-[#00a878] bg-[#00a878] text-white'
-                        : live
-                          ? 'border-primary-blue bg-primary-blue text-white'
-                          : 'border-light-gray bg-white text-[#667085]',
+        {sectioned ? (
+          <ol className="m-0 list-none p-0">
+            {journey.stages.map((stage, index) => {
+              const done =
+                stage.steps.length > 0 &&
+                stage.steps.every((s) => s.state === 'passed' || s.state === 'unavailable')
+              const live =
+                !done &&
+                stage.steps.some((s) => s.state === 'available' || s.state === 'in_progress')
+              return (
+                <li key={index} className="grid grid-cols-[34px_1fr] gap-3 sm:grid-cols-[40px_1fr]">
+                  <div className="flex flex-col items-center">
+                    <span
+                      className={clsx(
+                        'flex size-[34px] shrink-0 items-center justify-center rounded-full border-2 font-bold',
+                        done
+                          ? 'border-[#00a878] bg-[#00a878] text-white'
+                          : live
+                            ? 'border-primary-blue bg-primary-blue text-white'
+                            : 'border-light-gray bg-white text-[#667085]',
+                      )}
+                    >
+                      {done ? <Icon name="check" size={18} /> : index + 1}
+                    </span>
+                    {index < journey.stages.length - 1 && (
+                      <span className="my-1 w-0.5 flex-1 bg-light-gray" />
                     )}
-                  >
-                    {done ? <Icon name="check" size={18} /> : index + 1}
-                  </span>
-                  {index < journey.stages.length - 1 && (
-                    <span className="my-1 w-0.5 flex-1 bg-light-gray" />
-                  )}
-                </div>
-                <div className="flex min-w-0 flex-col gap-2.5 pb-6">
-                  <div>
-                    <p className="m-0 text-[11px] font-bold tracking-[0.08em] text-[#667085] uppercase">
-                      Stage {index + 1}
-                    </p>
-                    <h2 className="m-0 text-[17px] font-bold text-[#101828]">{stage.title}</h2>
                   </div>
-                  {stage.steps.map((step) => (
-                    <StepRow
-                      key={step.courseId}
-                      step={step}
-                      onOpen={() => onOpenCourse(step.courseId)}
-                    />
-                  ))}
-                </div>
-              </li>
-            )
-          })}
-        </ol>
+                  <div className="flex min-w-0 flex-col gap-2.5 pb-6">
+                    <h2 className="m-0 pt-1 text-[17px] font-bold break-words text-[#101828]">
+                      {stage.title}
+                    </h2>
+                    {stage.steps.map((step) => (
+                      <StepRow
+                        key={step.courseId}
+                        step={step}
+                        closed={journey.closed}
+                        onOpen={() => onOpenCourse(step.courseId)}
+                      />
+                    ))}
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        ) : (
+          <div className="flex flex-col gap-2.5 pb-4">
+            {journey.stages.flatMap((stage) =>
+              stage.steps.map((step) => (
+                <StepRow
+                  key={step.courseId}
+                  step={step}
+                  closed={journey.closed}
+                  onOpen={() => onOpenCourse(step.courseId)}
+                />
+              )),
+            )}
+          </div>
+        )}
         {journey.certificateEnabled && (
-          <p className="mt-2 flex items-center gap-2 rounded-xl border border-dashed border-light-gray p-4 text-[13px] text-[#667085]">
+          <div className="mt-2 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-light-gray p-4 text-[13px] text-[#667085]">
             <Icon name="verified_outlined" size={20} color="#d59a00" />
-            {journey.status === 'completed'
-              ? 'Certificate earned. You passed every required course in this journey.'
-              : 'A certificate is shown when every required course in this journey is passed.'}
-          </p>
+            <span className="min-w-[200px] flex-1">
+              {journey.certificateNumber
+                ? `Certificate earned. Certificate number ${journey.certificateNumber}.`
+                : 'Pass every required course in this journey to earn a certificate from PhillipCapital India Pvt Ltd.'}
+            </span>
+            <CertificateButton journey={journey} className={primaryButton} />
+          </div>
         )}
       </div>
     </div>
   )
 }
 
-function StepRow({ step, onOpen }: { step: LearnerStep; onOpen: () => void }) {
+function StepRow({
+  step,
+  closed,
+  onOpen,
+}: {
+  step: LearnerStep
+  /** The journey is finished and closed: its courses no longer open from here. */
+  closed: boolean
+  onOpen: () => void
+}) {
   const look = stepLooks[step.state]
   const openable =
-    step.state === 'passed' || step.state === 'available' || step.state === 'in_progress'
+    !closed &&
+    (step.state === 'passed' || step.state === 'available' || step.state === 'in_progress')
   const detail =
     step.state === 'locked'
       ? step.lockedByCourseName
@@ -332,7 +413,7 @@ function StepRow({ step, onOpen }: { step: LearnerStep; onOpen: () => void }) {
     <>
       <Icon name={look.icon} size={26} color={look.color} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-bold text-[#101828]">
+        <span className="block text-[15px] leading-snug font-bold break-words text-[#101828]">
           {step.stepNumber}. {step.courseName}
         </span>
         <span className="block text-[12px] text-[#667085]">{detail}</span>
@@ -351,7 +432,7 @@ function StepRow({ step, onOpen }: { step: LearnerStep; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${step.state === 'passed' ? 'Review' : 'Open'} ${step.courseName}`}
+      aria-label={`${step.state === 'passed' ? 'Review' : step.state === 'in_progress' ? 'Continue' : 'Start'} ${step.courseName}`}
       className="flex w-full items-center gap-3 rounded-xl border border-light-gray bg-white p-3 text-left hover:border-brand-blue-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light"
     >
       {body}
@@ -359,15 +440,16 @@ function StepRow({ step, onOpen }: { step: LearnerStep; onOpen: () => void }) {
   )
 }
 
-/** Slim bar above a journey course in the existing course player. */
+/**
+ * Slim bar above a journey course in the existing course player: where this course sits in the
+ * journey. The player's own back button returns to wherever the course was opened from.
+ */
 export function JourneyBar({
   course,
   journeys,
-  onOpenJourney,
 }: {
   course: EmployeeCourse
   journeys: LearnerJourney[]
-  onOpenJourney: (journeyId: string) => void
 }) {
   const place = course.journeys[0]
   if (!place) return null
@@ -375,9 +457,9 @@ export function JourneyBar({
   const steps = journey?.stages.flatMap((stage) => stage.steps) ?? []
   const next = steps.find((step) => step.stepNumber === place.step + 1)
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-[#d0dbf4] bg-brand-blue-100 px-5 py-2.5 text-[13px] text-[#101828]">
+    <div className="flex items-start gap-3 border-b border-[#d0dbf4] bg-brand-blue-100 px-5 py-2.5 text-[13px] text-[#101828]">
       <Icon name="track_changes" size={18} color="var(--color-primary-blue)" />
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 break-words">
         <b>{place.title}</b> · Step {place.step} of {place.stepCount}
         {next && (
           <span className="text-[#667085]">
@@ -387,13 +469,6 @@ export function JourneyBar({
           </span>
         )}
       </span>
-      <button
-        type="button"
-        onClick={() => onOpenJourney(place.journeyId)}
-        className="font-semibold text-primary-blue"
-      >
-        Back to journey
-      </button>
     </div>
   )
 }
