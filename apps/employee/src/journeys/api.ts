@@ -33,6 +33,8 @@ export interface LearnerJourney {
   /** Set once the journey is completed with a certificate. */
   certificateNumber: string | null
   prerequisite: { journeyId: string; title: string; met: boolean } | null
+  /** A finished journey that was disabled, or the learner was removed from: its courses are closed. */
+  closed: boolean
   stages: { title: string; steps: LearnerStep[] }[]
 }
 
@@ -96,6 +98,7 @@ export function parseLearnerJourney(json: unknown): LearnerJourney {
           met: prerequisite.met === true,
         }
       : null,
+    closed: j.closed === true,
     stages: records(j.stages).map((stage) => ({
       title: text(stage.title),
       steps: records(stage.steps).map(parseStep),

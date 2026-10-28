@@ -4,6 +4,8 @@ export interface LinkedReport {
   status: 'due_soon' | 'overdue' | 'completed' | 'assigned' | null
   /** Opens the Journeys tab with this journey's detail. */
   journeyId?: string | null
+  /** Course availability to open with; a disabled journey is only in the history choices. */
+  courseStatus?: string | null
 }
 
 export function linkedStatus(raw: string | null): LinkedReport['status'] {

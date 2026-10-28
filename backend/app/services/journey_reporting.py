@@ -69,8 +69,25 @@ def _flags(row: dict, now: datetime) -> dict:
     }
 
 
-def _learner_row(journey: dict, employee: dict, evaluation, removed: bool, progress: dict, now):
+def _learner_row(
+    journey: dict,
+    employee: dict,
+    evaluation,
+    stored: dict,
+    removed: bool,
+    progress: dict,
+    now,
+    *,
+    snapshot: bool,
+):
+    """One learner's report row.
+
+    ``snapshot`` marks a removed learner or a disabled journey, evaluated only to show how far
+    the learner got: completion then comes from the stored assignment alone. A certificate
+    number is shown only for a stored completion, so it always matches a downloadable PDF.
+    """
     assignment = evaluation.assignment
+    stored_completed_at = stored.get("completed_at")
     steps = evaluation.state.steps
     counted = [step for step in steps if step.is_required and step.state != "unavailable"]
     passed = sum(step.state == "passed" for step in counted)
@@ -81,7 +98,12 @@ def _learner_row(journey: dict, employee: dict, evaluation, removed: bool, progr
         for course_id, item in progress.items()
         if course_id in names and item.get("last_learner_activity_at")
     ]
-    completed = bool(assignment.get("completed_at"))
+    completed_at = stored_completed_at if snapshot else assignment.get("completed_at")
+    completed = bool(completed_at)
+    status = assignment["status"]
+    if snapshot and not completed and status == "completed":
+        # Evaluating a removed or disabled journey can finish it in memory; it was not.
+        status = "started" if assignment.get("started_at") else "pending"
     row = {
         "journey_id": journey["journey_id"],
         "employee_id": assignment["employee_id"],
@@ -89,11 +111,11 @@ def _learner_row(journey: dict, employee: dict, evaluation, removed: bool, progr
         "employee_status": employee.get("employee_status") or "active",
         "department": employee.get("department"),
         # A completed journey stays completed, even after the learner was removed from it.
-        "status": "completed" if completed else "removed" if removed else assignment["status"],
+        "status": "completed" if completed else "removed" if removed else status,
         "assigned_at": assignment.get("assigned_at"),
         "available_at": assignment.get("available_at"),
         "started_at": assignment.get("started_at"),
-        "completed_at": assignment.get("completed_at"),
+        "completed_at": completed_at,
         "deadline": assignment.get("deadline"),
         "last_learner_activity_at": max(activities) if activities else None,
         "passed_count": passed,
@@ -104,7 +126,7 @@ def _learner_row(journey: dict, employee: dict, evaluation, removed: bool, progr
         "current_course_name": names.get(current.course_id) if current and not removed else None,
         "certificate_number": (
             certificate_number(assignment["journey_assignment_id"])
-            if journey["certificate_enabled"] and completed
+            if journey["certificate_enabled"] and stored_completed_at
             else None
         ),
         "step_states": {step.course_id: step.state for step in steps},
@@ -132,7 +154,11 @@ def _report_rows(scope: TrainerReportScope, *, journey_id: str | None = None, **
         return journeys, []
     course_ids = sorted({step["course_id"] for journey in journeys.values() for step in journey["steps"]})
     visible = course_reports.visible_learner_courses(_visibility_scope(scope), course_ids, **filters)
-    employee_ids = sorted({employee_id for employee_id, _ in visible})
+    # Learners with none of the journey's courses yet (waiting on a prerequisite, say).
+    unstarted = course_reports.visible_unstarted_journey_learners(
+        _visibility_scope(scope), sorted(journeys), **filters
+    )
+    employee_ids = sorted({employee_id for employee_id, _ in visible | unstarted})
     all_assignments = _journeys.assignments_for_employees(employee_ids)
     wanted: list[tuple[str, str]] = []
     for employee_id in employee_ids:
@@ -142,7 +168,9 @@ def _report_rows(scope: TrainerReportScope, *, journey_id: str | None = None, **
                 continue
             if assignment.get("revoked_at") and _course_status(scope) == "active":
                 continue
-            if any((employee_id, step["course_id"]) in visible for step in journey["steps"]):
+            if (employee_id, jid) in unstarted or any(
+                (employee_id, step["course_id"]) in visible for step in journey["steps"]
+            ):
                 wanted.append((employee_id, jid))
     if not wanted:
         return journeys, []
@@ -193,7 +221,14 @@ def _report_rows(scope: TrainerReportScope, *, journey_id: str | None = None, **
             evaluation = current[employee_id][jid]
         rows.append(
             _learner_row(
-                journeys[jid], people.get(employee_id, {}), evaluation, removed, mine, now
+                journeys[jid],
+                people.get(employee_id, {}),
+                evaluation,
+                assignments[jid],
+                removed,
+                mine,
+                now,
+                snapshot=removed or jid not in published,
             )
         )
     rows.sort(key=lambda row: (row["employee_name"].casefold(), row["employee_id"]))
@@ -243,7 +278,11 @@ def journey_detail(scope: TrainerReportScope, journey_id: str, **filters: Any) -
         return None
     journeys, rows = _report_rows(scope, journey_id=journey_id, **filters)
     journey = journeys.get(journey_id)
-    if journey is None or not rows:
+    if journey is None:
+        return None
+    # The creator's own journey opens even before anyone is in it; others see only learners.
+    owner = isinstance(scope, TrainerPerformanceScope) and scope.trainer_id == journey.get("trainer_id")
+    if not rows and not owner:
         return None
     stage_titles = {stage["stage_id"]: stage["title"] for stage in journey["stages"]}
     steps = []

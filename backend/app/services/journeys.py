@@ -936,7 +936,26 @@ def learner_journeys(employee_id: str) -> dict:
     assignments = _journeys.assignments_for_employee(employee_id)
     journeys = {journey["journey_id"]: journey for journey in _journeys.list(status="published")}
     progress = _progress.get_for_employee(employee_id)
-    evaluations = _evaluate(employee_id, journeys, assignments, progress, datetime.now(), persist=False)
+    now = datetime.now()
+    evaluations = _evaluate(employee_id, journeys, assignments, progress, now, persist=False)
+    # A completed journey stays with the learner, certificate included, after it was disabled
+    # or they were removed from it. It is shown as it was finished, with nothing left to do.
+    finished: set[str] = set()
+    every = {journey["journey_id"]: journey for journey in _journeys.list()}
+    for journey_id, assignment in assignments.items():
+        if journey_id in evaluations or not assignment.get("completed_at") or journey_id not in every:
+            continue
+        snapshot = _evaluate(
+            employee_id,
+            {**journeys, journey_id: every[journey_id]},
+            {**assignments, journey_id: {**assignment, "revoked_at": None}},
+            progress,
+            now,
+            persist=False,
+        )[journey_id]
+        snapshot.assignment.update(status="completed", completed_at=assignment["completed_at"])
+        evaluations[journey_id] = snapshot
+        finished.add(journey_id)
     result = []
     for journey_id, evaluation in evaluations.items():
         journey = evaluation.journey
@@ -964,8 +983,8 @@ def learner_journeys(employee_id: str) -> dict:
                 )
             stages.append({"title": stage["title"], "steps": steps})
         counted = [s for s in evaluation.state.steps if s.is_required and s.state != "unavailable"]
-        next_state = states.get(evaluation.state.next_course_id or "")
-        completed = bool(evaluation.assignment.get("completed_at"))
+        next_course_id = None if journey_id in finished else evaluation.state.next_course_id
+        next_state = states.get(next_course_id or "")
         prerequisite = journeys.get(journey.get("prerequisite_journey_id") or "")
         prerequisite_assignment = assignments.get(prerequisite["journey_id"]) if prerequisite else None
         result.append(
@@ -982,14 +1001,17 @@ def learner_journeys(employee_id: str) -> dict:
                 "step_count": len(journey["steps"]),
                 "passed_count": sum(1 for s in counted if s.state == "passed"),
                 "required_count": len(counted),
-                "next_course_id": evaluation.state.next_course_id,
+                "next_course_id": next_course_id,
                 # "in_progress" or "available", so the button says Continue or Start.
                 "next_course_state": next_state.state if next_state else None,
+                # Only a stored completion has a certificate to download.
                 "certificate_number": (
                     certificate_number(evaluation.assignment["journey_assignment_id"])
-                    if journey["certificate_enabled"] and completed
+                    if journey["certificate_enabled"] and assignments[journey_id].get("completed_at")
                     else None
                 ),
+                # Disabled, or the learner was removed: shown as finished, its courses closed.
+                "closed": journey_id in finished,
                 "prerequisite": (
                     {
                         "journey_id": prerequisite["journey_id"],

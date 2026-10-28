@@ -226,6 +226,19 @@ it('opens the Journeys tab from a link and closes the detail', () => {
     { type: 'openLinked', courseId: null, status: null, journeyId: 'j2' },
   )
   expect([relinked.view, relinked.openJourneyId, relinked.status]).toEqual([3, 'j2', null])
+  expect(relinked.filter.courseStatus).toBe('active')
+})
+
+it('opens a disabled journey with the history choice, which it is only listed under', () => {
+  const link = { courseId: null, status: null, journeyId: 'j1', courseStatus: 'all' }
+  expect(initialReportState('trainer', link).filter.courseStatus).toBe('all')
+  const state = initialReportState('trainer')
+  const relinked = reportReducer(state, { type: 'openLinked', ...link })
+  expect([relinked.view, relinked.openJourneyId, relinked.filter.courseStatus]).toEqual([
+    3,
+    'j1',
+    'all',
+  ])
 })
 
 it('words learner statuses like the course rows and exports them as CSV', () => {

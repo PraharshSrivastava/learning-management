@@ -150,6 +150,62 @@ def visible_learner_courses(
     return {(row["employee_id"], row["course_id"]) for row in rows}
 
 
+def visible_unstarted_journey_learners(
+    scope: TrainerReportScope,
+    journey_ids: list[str],
+    *,
+    employee_id: str | None = None,
+    department: str | None = None,
+    mailing_list: str | None = None,
+    joined_less_than_days_ago: int | None = None,
+) -> set[tuple[str, str]]:
+    """(employee_id, journey_id) pairs for journey learners the journey has opened nothing for.
+
+    Such a learner (waiting on a prerequisite, say) has no course assignment to scope by, so
+    they are scoped by the courses the journey opens first, as if already assigned them: the
+    same people rules as the course report, and the same report filters. Once those courses
+    are assigned, the learner is scoped by them as usual, so the report shows them throughout.
+    """
+    if not journey_ids:
+        return set()
+    owner_sql, owner_params = owner_filter(scope)
+    conditions = ["ja.journey_id = ANY(?)"]
+    params: list[object] = [*owner_params, list(journey_ids)]
+    if employee_id:
+        conditions.append("ja.employee_id = ?")
+        params.append(employee_id)
+    if department:
+        conditions.append("e.department = ?")
+        params.append(department)
+    if mailing_list:
+        conditions.append(
+            "EXISTS (SELECT 1 FROM employee_groups eg WHERE eg.employee_id = e.employee_id AND eg.group_cn = ?)"
+        )
+        params.append(mailing_list)
+    if joined_less_than_days_ago is not None:
+        conditions.append(
+            "e.join_date IS NOT NULL AND e.join_date::date > CURRENT_DATE - ?::integer"
+        )
+        params.append(joined_less_than_days_ago)
+    # SQL structure is fixed here; all user-supplied values are bound parameters.
+    query = f"""
+        SELECT DISTINCT ja.employee_id, ja.journey_id
+        FROM learning_journey_assignments ja
+        JOIN learning_journey_steps js ON js.journey_id = ja.journey_id
+            AND (js.unlock_rule = 'open' OR js.position = (
+                SELECT MIN(opening.position) FROM learning_journey_steps opening
+                WHERE opening.journey_id = ja.journey_id
+            ))
+        JOIN courses c ON c.course_id = js.course_id
+        JOIN employees e ON e.employee_id = ja.employee_id
+        WHERE {owner_sql}{" AND ".join(conditions)}
+        AND jsonb_array_length(ja.unlocked_course_ids) = 0
+    """  # nosec B608
+    with get_connection() as connection:
+        rows = connection.execute(query, params).fetchall()
+    return {(row["employee_id"], row["journey_id"]) for row in rows}
+
+
 def report_people(employee_ids: list[str]) -> dict[str, dict]:
     """Name, department and status of these employees, as the report rows show them."""
     if not employee_ids:

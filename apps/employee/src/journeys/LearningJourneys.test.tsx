@@ -191,6 +191,30 @@ describe('Learning Journeys for employees', () => {
     expect(requests).toContain('/api/me/learning-journeys/j1/certificate')
   })
 
+  it('keeps a closed journey with its certificate but no course buttons', async () => {
+    const passed = journey.stages[0].steps.map((step) => ({ ...step, state: 'passed' }))
+    journeysReply = {
+      enabled: true,
+      journeys: [
+        {
+          ...journey,
+          status: 'completed',
+          completed_at: '2026-10-20T10:00:00',
+          passed_count: 3,
+          next_course_id: null,
+          certificate_number: 'PCIL-LJ-AAAA-BBBB-CCCC',
+          closed: true,
+          stages: [{ ...journey.stages[0], steps: passed }],
+        },
+      ],
+    }
+    renderDashboard('/?view=journeys&journey_id=j1')
+    expect(await screen.findByText(/Certificate number PCIL-LJ-AAAA-BBBB-CCCC/)).toBeInTheDocument()
+    expect(screen.getByText('1. Indian Market Structure')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Review|Start|Continue) / })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Download certificate' })).toBeInTheDocument()
+  })
+
   it('names the journey in notifications and opens the course from them', async () => {
     const user = userEvent.setup()
     const recent = new Date(Date.now() - 60_000).toISOString()

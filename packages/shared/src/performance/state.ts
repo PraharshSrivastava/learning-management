@@ -75,12 +75,25 @@ const baseState = (reportView: string, employeeResetVersion: number): ReportStat
 
 export function initialReportState(
   app: ReportApp,
-  linked?: { courseId: string | null; status: string | null; journeyId?: string | null } | null,
+  linked?: {
+    courseStatus?: string | null
+    courseId: string | null
+    status: string | null
+    journeyId?: string | null
+  } | null,
 ): ReportState {
   const state = baseState(defaultReportView(app), 0)
   const journeyId = linked?.journeyId?.trim() || null
   // A journey link opens the Journeys tab with that journey's detail.
-  if (journeyId != null) return { ...state, view: 3, openJourneyId: journeyId }
+  if (journeyId != null) {
+    const courseStatus = linked?.courseStatus || state.filter.courseStatus
+    return {
+      ...state,
+      filter: { ...state.filter, courseStatus },
+      view: 3,
+      openJourneyId: journeyId,
+    }
+  }
   const courseId = linked?.courseId?.trim() || null
   const status = sanitizeStatus(linked?.status)
   // openLinkedReport runs only when the link has a course or a status.
@@ -115,6 +128,7 @@ export type ReportAction =
       courseId: string | null
       status: string | null
       journeyId?: string | null
+      courseStatus?: string | null
     }
   | { type: 'openJourney'; journeyId: string | null }
 
@@ -172,7 +186,10 @@ export function reportReducer(state: ReportState, action: ReportAction): ReportS
       if (action.journeyId) {
         return {
           ...state,
-          filter: { ...defaultFilter, courseStatus: state.filter.courseStatus },
+          filter: {
+            ...defaultFilter,
+            courseStatus: action.courseStatus || state.filter.courseStatus,
+          },
           status: null,
           view: 3,
           openJourneyId: action.journeyId,

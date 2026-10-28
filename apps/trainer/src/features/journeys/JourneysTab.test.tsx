@@ -265,6 +265,11 @@ describe('JourneysTab', () => {
     const progress = await screen.findByRole('region', { name: 'Learner progress' })
     expect(screen.queryByRole('region', { name: 'Progress' })).toBeNull()
     await user.click(within(progress).getByRole('button', { name: 'View in Performance' }))
-    expect(takePendingLinkedReport()).toEqual({ courseId: null, status: null, journeyId: 'j1' })
+    expect(takePendingLinkedReport()).toEqual({
+      courseId: null,
+      status: null,
+      journeyId: 'j1',
+      courseStatus: 'active',
+    })
   })
 })

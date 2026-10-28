@@ -348,6 +348,7 @@ function Roadmap({
                       <StepRow
                         key={step.courseId}
                         step={step}
+                        closed={journey.closed}
                         onOpen={() => onOpenCourse(step.courseId)}
                       />
                     ))}
@@ -363,6 +364,7 @@ function Roadmap({
                 <StepRow
                   key={step.courseId}
                   step={step}
+                  closed={journey.closed}
                   onOpen={() => onOpenCourse(step.courseId)}
                 />
               )),
@@ -385,10 +387,20 @@ function Roadmap({
   )
 }
 
-function StepRow({ step, onOpen }: { step: LearnerStep; onOpen: () => void }) {
+function StepRow({
+  step,
+  closed,
+  onOpen,
+}: {
+  step: LearnerStep
+  /** The journey is finished and closed: its courses no longer open from here. */
+  closed: boolean
+  onOpen: () => void
+}) {
   const look = stepLooks[step.state]
   const openable =
-    step.state === 'passed' || step.state === 'available' || step.state === 'in_progress'
+    !closed &&
+    (step.state === 'passed' || step.state === 'available' || step.state === 'in_progress')
   const detail =
     step.state === 'locked'
       ? step.lockedByCourseName

@@ -189,6 +189,7 @@ def test_publish_assigns_first_step_and_completion_unlocks_the_next(journey_db):
     mine = journeys.learner_journeys("old")["journeys"][0]
     states = [step["state"] for step in mine["stages"][0]["steps"]]
     assert states == ["passed", "available", "locked"]
+    assert mine["closed"] is False
     assert mine["stages"][0]["steps"][2]["locked_by_course_name"] == "Course c2"
     assert mine["status"] == "started"
 
@@ -721,6 +722,88 @@ def test_a_disabled_journey_shows_only_in_the_history_views(journey_db):
     assert learners["new"]["status"] == "removed" and learners["new"]["current_step"] is None
     assert report_list(TrainerPerformanceScope("creator", course_status="disabled"))[0]["removed"] == 2
     assert report_list(TrainerPerformanceScope("creator", course_status="archived"))[0]["removed"] == 2
+
+
+def test_learners_waiting_on_a_prerequisite_are_in_the_report(journey_db):
+    induction = make_journey(
+        "Induction",
+        [("c1", "after_previous")],
+        rule={"include_all": False, "include_groups": [{"joined_less_than_days_ago": 30}], "deadline_days": 14},
+    )
+    journeys.api_publish_journey(induction, "creator")
+    foundation = make_journey(
+        "Foundation", [("c2", "after_previous"), ("c3", "after_previous")], prerequisite=induction
+    )
+    journeys.api_publish_journey(foundation, "creator")
+    assert journey_row(foundation, "new")["status"] == "waiting"
+
+    learners = {row["employee_id"]: row for row in report(foundation)["learners"]}
+    assert learners["new"]["status"] == "waiting" and learners["new"]["current_step"] is None
+    summary = {item["title"]: item for item in report_list()}["Foundation"]
+    assert (summary["assigned"], summary["waiting"]) == (3, 1)
+    # The same views and filters apply to waiting learners as to everyone else.
+    assert report_list(employee_id="new", course_id="c3")[0]["waiting"] == 1
+    assert {item["title"] for item in report_list(department="Marketing")} == set()
+    assert {item["title"] for item in report_list(TrainerPerformanceScope("other"))} == set()
+    with database.get_connection() as db:
+        db.execute(
+            "INSERT INTO hod_department_access(hod_employee_id, identity_key, department_id, source, source_key) VALUES ('obs', 'directory:uuid-obs', 'sales', 'directory', 'dir-sales')"
+        )
+        db.commit()
+    heads = EmployeePerformanceScope("obs", "directory:uuid-obs", "my_departments")
+    assert {item["title"]: item for item in report_list(heads)}["Foundation"]["waiting"] == 1
+
+
+def test_the_creator_can_open_a_journey_report_before_anyone_is_in_it(journey_db):
+    journey_id = make_journey(
+        "Dealers only",
+        [("c1", "open")],
+        rule={"include_all": False, "include_groups": [{"department": "Dealing"}], "deadline_days": 30},
+    )
+    journeys.api_publish_journey(journey_id, "creator")
+    detail = report(journey_id)
+    assert detail["learners"] == [] and detail["journey"]["assigned"] == 0
+    assert [step["course_id"] for step in detail["steps"]] == ["c1"]
+    assert report_list() == []
+    assert report(journey_id, TrainerPerformanceScope("other", all_courses=True)) is None
+
+
+def test_a_learner_is_shown_completed_only_once_the_journey_was_completed(journey_db):
+    journey_id = make_journey("Compliance", [("c1", "open"), ("c2", "open")])
+    journeys.api_publish_journey(journey_id, "creator")
+    complete("old", "c1")
+    journeys.api_disable_journey(journey_id, "creator")
+    # With c2 disabled by its creator, c1 alone would finish the journey in a fresh evaluation.
+    with database.get_connection() as db:
+        db.execute("UPDATE assignment_rules SET is_active = FALSE WHERE course_id = 'c2'")
+        db.commit()
+    everything = TrainerPerformanceScope("creator", course_status="all")
+    old = next(row for row in report(journey_id, everything)["learners"] if row["employee_id"] == "old")
+    assert journey_row(journey_id, "old")["completed_at"] is None
+    assert (old["status"], old["completed_at"], old["certificate_number"]) == ("removed", None, None)
+    assert report(journey_id, everything)["journey"]["certificates"] == 0
+    with pytest.raises(NotFoundError):
+        journey_reporting.journey_certificate(everything, journey_id, "old")
+
+
+def test_a_completed_journey_and_its_certificate_stay_with_the_learner(journey_db):
+    from app.services import journey_certificates
+
+    journey_id = make_journey("Compliance", [("c1", "open"), ("c2", "open")])
+    journeys.api_publish_journey(journey_id, "creator")
+    complete("old", "c1")
+    complete("old", "c2")
+    number = journey_certificates.certificate_number(journey_row(journey_id, "old")["journey_assignment_id"])
+    journeys.api_disable_journey(journey_id, "creator")
+
+    [mine] = journeys.learner_journeys("old")["journeys"]
+    assert (mine["journey_id"], mine["status"], mine["certificate_number"]) == (journey_id, "completed", number)
+    assert mine["completed_at"] == journey_row(journey_id, "old")["completed_at"]
+    assert mine["next_course_id"] is None and mine["next_course_state"] is None
+    assert mine["closed"] is True
+    assert journey_certificates.learner_certificate("old", journey_id)[0] == f"{number}.pdf"
+    # A learner who had not finished it no longer sees the disabled journey.
+    assert journeys.learner_journeys("new")["journeys"] == []
 
 
 def test_the_journey_report_is_empty_when_the_feature_is_off(journey_db, monkeypatch):

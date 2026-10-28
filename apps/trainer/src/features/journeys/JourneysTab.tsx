@@ -397,7 +397,13 @@ function JourneyEditor({
 
   // Learner results live in Performance, next to course results, for trainers and Observers alike.
   const viewPerformance = () => {
-    setPendingLinkedReport({ courseId: null, status: null, journeyId })
+    // A disabled journey is only in the report's history choices; a live one in Active.
+    setPendingLinkedReport({
+      courseId: null,
+      status: null,
+      journeyId,
+      courseStatus: saved.status === 'disabled' ? 'all' : 'active',
+    })
     void queryClient.invalidateQueries({ queryKey: trainerKeys.performance })
     updateSearch({ tab: 'performance' })
   }
