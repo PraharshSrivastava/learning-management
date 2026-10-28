@@ -91,6 +91,15 @@ it('loads validated sidecars using the current ticket and exposes working captio
   player.disposePlayer()
 })
 
+it.each(['narration-timing', 'narration-timing-legacy', 'forced-alignment'])(
+  'accepts captions timed by %s',
+  async (method) => {
+    const { player } = await loadFixture({ method })
+    expect(player.querySelector<HTMLButtonElement>('.lms-cc')!.disabled).toBe(false)
+    player.disposePlayer()
+  },
+)
+
 it.each([
   [{ video_size: 99 }, vtt],
   [{ video_mtime: 999 }, vtt],
