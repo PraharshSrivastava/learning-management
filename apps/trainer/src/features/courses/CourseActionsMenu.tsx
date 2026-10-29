@@ -329,6 +329,12 @@ function ConfirmationDialog({
             value={typed}
             autoComplete="off"
             onChange={(event) => setTyped(event.target.value)}
+            // Enter confirms like the Delete button, and only once the text is exactly DELETE.
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+              event.preventDefault()
+              if (!blocked) onConfirm()
+            }}
             className="absolute inset-x-0 bottom-1 h-6 bg-transparent text-base leading-6 text-text-black outline-none"
           />
         </div>
