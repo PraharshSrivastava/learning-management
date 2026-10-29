@@ -241,8 +241,24 @@ describe('TrainingView quiz', () => {
     expect(check).toBeEnabled()
     await user.click(check)
     expect(screen.getByText('Why Q one')).toBeInTheDocument()
-    expect(screen.getByText('1 / 2', { exact: false })).toBeInTheDocument()
-    expect(screen.getByText('In Progress')).toBeInTheDocument()
+    // The bar counts answered questions; the score is labelled on its own.
+    const progress = screen.getByRole('region', { name: 'Quiz progress' })
+    expect(within(progress).getByText('1 of 2 answered')).toBeInTheDocument()
+    expect(within(progress).getByText('1 of 2 correct')).toBeInTheDocument()
+    expect(
+      within(progress).getByRole('progressbar', { name: 'Questions answered' }),
+    ).toHaveAttribute('aria-valuenow', '50')
+  })
+
+  it('does not read a wrong answer as a finished score', async () => {
+    const user = userEvent.setup()
+    await renderView(<TrainingView course={course()} />)
+    const group = screen.getByRole('radiogroup', { name: 'Question 1 options' })
+    await user.click(within(group).getByRole('radio', { name: /Second/ }))
+    await user.click(screen.getAllByRole('button', { name: 'Check Answer' })[0]!)
+    const progress = screen.getByRole('region', { name: 'Quiz progress' })
+    expect(within(progress).getByText('1 of 2 answered')).toBeInTheDocument()
+    expect(within(progress).getByText('0 of 2 correct')).toBeInTheDocument()
   })
 
   it('locks the options after the answer is checked', async () => {
@@ -258,17 +274,19 @@ describe('TrainingView quiz', () => {
     )
   })
 
-  it('shows Completed when every question is checked and Reset Quiz clears the answers', async () => {
+  it('shows every question answered and Reset Quiz clears the answers', async () => {
     const user = userEvent.setup()
     await renderView(<TrainingView course={course()} />)
+    expect(screen.getByRole('button', { name: 'Reset Quiz' })).toBeDisabled()
     for (const index of [1, 2]) {
       const group = screen.getByRole('radiogroup', { name: `Question ${index} options` })
       await user.click(within(group).getAllByRole('radio')[0]!)
       await user.click(screen.getAllByRole('button', { name: 'Check Answer' })[0]!)
     }
-    expect(screen.getByText('Completed!')).toBeInTheDocument()
+    expect(screen.getByText('2 of 2 answered')).toBeInTheDocument()
+    expect(screen.getByText('All questions answered.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Reset Quiz' }))
-    expect(screen.getByText('In Progress')).toBeInTheDocument()
+    expect(screen.getByText('0 of 2 answered')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Check Answer' })).toHaveLength(2)
   })
 

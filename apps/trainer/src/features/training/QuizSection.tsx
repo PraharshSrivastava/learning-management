@@ -273,38 +273,60 @@ interface SummaryCardProps {
   onReset: () => void
 }
 
+/**
+ * The trainer's own try of the quiz: how many questions are answered (the bar) and how many of
+ * those were right, each labelled, so a finished quiz never reads as a score.
+ */
 function SummaryCard({ total, submitted, correct, onReset }: SummaryCardProps) {
+  if (total === 0) return null
+  const done = submitted === total
   return (
-    <section className="mt-2 mb-5 rounded-xl bg-primary-blue p-5">
-      <div className="flex items-center justify-between">
+    <section
+      aria-label="Quiz progress"
+      className="mt-2 mb-5 rounded-xl border border-light-gray bg-white p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="m-0 font-inter text-[11px] font-bold text-white/70">Quiz Progress</p>
-          <p className="mt-1 mb-0 font-inter text-lg font-bold text-white">
-            {submitted === total ? 'Completed!' : 'In Progress'}
+          <p className="m-0 font-inter text-[11px] font-bold tracking-[1px] text-gray">
+            QUIZ PROGRESS
+          </p>
+          <p className="mt-1 mb-0 font-inter text-base font-bold text-text-black">
+            {submitted} of {total} answered
           </p>
         </div>
-        <span className="rounded-full bg-white/15 p-2.5 font-inter text-lg font-bold text-white">
-          {correct} / {total}
+        <span
+          className={clsx(
+            'rounded-xl px-2.5 py-1 font-inter text-xs font-bold',
+            done && correct === total
+              ? 'bg-accent-green/12 text-accent-green'
+              : 'bg-primary-blue/8 text-primary-blue',
+          )}
+        >
+          {correct} of {total} correct
         </span>
       </div>
-      <div className="h-4" />
+      <div className="h-3" />
       <ProgressBar
-        value={total > 0 ? submitted / total : 0}
-        color="#fff"
-        trackColor="rgb(255 255 255 / 0.24)"
+        value={submitted / total}
+        color={done ? 'var(--color-accent-green)' : 'var(--color-primary-blue)'}
+        trackColor="#eef1f6"
         height={6}
         radius={10}
-        label="Quiz progress"
+        label="Questions answered"
       />
       <div className="h-4" />
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <p className="m-0 font-inter text-xs text-gray">
+          {done ? 'All questions answered.' : 'Check each answer to see its explanation.'}
+        </p>
         <ActionButton
           outlined
           icon="refresh_rounded"
           iconSize={14}
-          padding="10px 14px"
+          padding="8px 12px"
+          disabled={submitted === 0}
           onClick={onReset}
-          className="text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.6)] hover:bg-white/8"
+          className="text-primary-blue shadow-[inset_0_0_0_1px_var(--color-light-gray)] hover:bg-primary-blue/5 disabled:text-gray disabled:hover:bg-transparent"
         >
           Reset Quiz
         </ActionButton>

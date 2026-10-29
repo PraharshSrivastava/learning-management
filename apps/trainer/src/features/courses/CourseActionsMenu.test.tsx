@@ -174,6 +174,22 @@ describe('CourseActionsMenu', () => {
     expect(search().course).toBeUndefined()
   })
 
+  it('deletes with Enter once DELETE is typed, and not before', async () => {
+    const fetchMock = stubFetch(() => null)
+    renderCourses(menuFor({ lifecycle_state: 'draft', can_delete: true }))
+    await userEvent.click(within(await openMenu()).getByRole('menuitem', { name: 'Delete' }))
+    const dialog = await screen.findByRole('dialog')
+    const field = within(dialog).getByLabelText('Type DELETE')
+    await userEvent.type(field, 'DELET{Enter}')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
+    await userEvent.type(field, 'E{Enter}')
+    expect(await screen.findByText('Delete completed.')).toBeInTheDocument()
+    const calls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE')
+    expect(calls).toHaveLength(1)
+    expect(String(calls[0]?.[0])).toContain('/api/courses/c1?expected_revision=3')
+  })
+
   it('shows the Disable impact and posts the lifecycle action', async () => {
     const fetchMock = stubFetch((url) => {
       if (url.pathname.endsWith('/assignment')) {
