@@ -114,12 +114,15 @@ export function EmployeeDashboard() {
 
   let content
   if (showPerformance) {
+    // The page frame does not scroll; each page scrolls itself, as the report does here.
     content = (
-      <LazyPerformanceReport
-        key={`${person?.employeeId}:${token}:${access?.permissions_version}:${access?.report_scope_version}`}
-        app="employee"
-        linkedReport={linkedReport}
-      />
+      <div data-testid="performance-scroll" className="h-full overflow-y-auto">
+        <LazyPerformanceReport
+          key={`${person?.employeeId}:${token}:${access?.permissions_version}:${access?.report_scope_version}`}
+          app="employee"
+          linkedReport={linkedReport}
+        />
+      </div>
     )
   } else if (openCourse) {
     const playback = (
