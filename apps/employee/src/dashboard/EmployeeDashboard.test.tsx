@@ -170,6 +170,10 @@ describe('EmployeeDashboard', () => {
     expect(screen.getByRole('button', { name: 'Performance' })).toBeInTheDocument()
     // Flutter showed no label here, as its label list has no Performance entry.
     expect(within(screen.getByRole('banner')).getByText('Performance')).toBeInTheDocument()
+    // The page frame does not scroll, so the long report needs its own scroll area.
+    const scroll = screen.getByTestId('performance-scroll')
+    expect(scroll).toHaveClass('h-full', 'overflow-y-auto')
+    expect(scroll).toContainElement(screen.getByTestId('performance'))
   })
 
   it('keeps the same linked report object when the dashboard renders again', async () => {
