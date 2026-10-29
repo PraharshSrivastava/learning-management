@@ -122,6 +122,30 @@ def time_remaining(context: dict, now: datetime | None = None) -> str:
     return f"{days} day" if days == 1 else f"{days} days"
 
 
+def overdue_notice(context: dict) -> tuple[int, int]:
+    """(this overdue notice, total notices); the last notice is the escalation."""
+    maximum = int(context.get("overdue_notice_max") or settings.email_overdue_max_notices)
+    return int(context.get("overdue_notice") or 1), maximum
+
+
+def is_overdue_escalation(context: dict) -> bool:
+    notice, maximum = overdue_notice(context)
+    return notice >= maximum
+
+
+def overdue_reminder_status(context: dict) -> str:
+    notice, maximum = overdue_notice(context)
+    return "Escalated" if notice >= maximum else f"{notice} of {maximum - 1}"
+
+
+def ordinal(value: int) -> str:
+    words = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth"}
+    if value in words:
+        return words[value]
+    suffix = "th" if 10 <= value % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
+    return f"{value}{suffix}"
+
+
 def _details_text(values: list[tuple[str, object]]) -> list[str]:
     return [f"{label}: {value}" for label, value in values]
 
@@ -136,15 +160,30 @@ def _html_document(title: str, paragraphs: list[str], details: list[tuple[str, o
     )
     link_html = ""
     if link_label and link and link.startswith(("http://", "https://")):
+        href = html.escape(link, quote=True)
+        label = html.escape(link_label)
+        # Classic Outlook renders with Word, which ignores inline-block, margins and
+        # border-radius; it gets a VML button and every other client the padded link.
         link_html = (
-            "<table role='presentation' style='margin:24px 0 0'><tr>"
-            "<td style='background:#173b8f;border-radius:4px;padding:12px 22px'>"
-            f"<a href='{html.escape(link, quote=True)}' style='font-family:{font};font-size:15px;font-weight:600;color:#fff;text-decoration:none;display:inline-block'>{html.escape(link_label)}</a>"
-            "</td></tr></table>"
+            "<table role='presentation' border='0' cellspacing='0' cellpadding='0'><tr><td style='height:24px;line-height:24px;font-size:1px'>&nbsp;</td></tr></table>"
+            "<!--[if mso]>"
+            f"<v:roundrect xmlns:v='urn:schemas-microsoft-com:vml' xmlns:w='urn:schemas-microsoft-com:office:word' href='{href}' "
+            "style='height:44px;v-text-anchor:middle;width:150px' arcsize='10%' stroke='f' fillcolor='#173b8f'>"
+            f"<w:anchorlock/><center style='color:#ffffff;font-family:{font};font-size:15px;font-weight:bold'>{label}</center>"
+            "</v:roundrect><![endif]-->"
+            "<!--[if !mso]><!-->"
+            "<table role='presentation' border='0' cellspacing='0' cellpadding='0'><tr>"
+            "<td align='center' bgcolor='#173b8f' style='background:#173b8f;border-radius:4px'>"
+            f"<a href='{href}' target='_blank' style='display:inline-block;padding:12px 24px;font-family:{font};font-size:15px;line-height:20px;"
+            f"font-weight:600;color:#ffffff;text-decoration:none;border-radius:4px'>{label}</a>"
+            "</td></tr></table><!--<![endif]-->"
         )
     guidance_html = f"<p style='font-size:14px;color:#596579;margin:16px 0 0'>{html.escape(guidance)}</p>" if guidance else ""
     return (
-        f"<!doctype html><html lang='en'><head><meta charset='utf-8'></head><body style='margin:0;background:#f3f5f7;font-family:{font};color:#172033;line-height:1.5'>"
+        "<!doctype html><html lang='en' xmlns='http://www.w3.org/1999/xhtml' xmlns:v='urn:schemas-microsoft-com:vml' xmlns:o='urn:schemas-microsoft-com:office:office'>"
+        "<head><meta charset='utf-8'><meta name='x-apple-disable-message-reformatting'>"
+        "<!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]--></head>"
+        f"<body style='margin:0;background:#f3f5f7;font-family:{font};color:#172033;line-height:1.5'>"
         "<table role='presentation' width='100%' style='border-collapse:collapse'><tr><td align='center' style='padding:24px 12px'>"
         "<table role='presentation' width='100%' style='max-width:660px;border-collapse:collapse;background:#fff;border-top:5px solid #173b8f'>"
         "<tr><td style='padding:24px 28px;border-bottom:1px solid #e5e9ef'><strong style='font-size:20px;color:#173b8f'>PhillipCapital</strong><br>"
@@ -194,10 +233,19 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
         paragraphs = [f"Congratulations, {employee_first}!", f"You have successfully completed {course} {timing_sentence}.", "Thank you for the time and effort you invested in completing this course.\nYour learning record has been updated successfully."]
         details = [("Course", course), ("Completion date", format_datetime(context.get("completed_at"))), ("Deadline", deadline), ("Status", timing_status)]
         link_label = "View course"
+    elif event_type == "overdue" and is_overdue_escalation(context):
+        escalated_to = "your Head of Department" if context.get("overdue_escalated_to") == "hod" else "the course trainer"
+        subject = f"Escalation notice: Overdue course {course}"
+        paragraphs = [f"Dear {employee_first},", f"The deadline for {course} has passed, and the course remains incomplete despite previous reminders.", f"This matter has now been escalated to {escalated_to} for further action.", "This is the final automated reminder you will receive for this course. Please complete the remaining modules at the earliest."]
+        details = [("Course", course), ("Deadline", deadline), ("Days overdue", days_overdue(context)), ("Current progress", f"{progress}%"), ("Status", f"Escalated to {escalated_to.removeprefix('your ').removeprefix('the ')}")]
+        link_label = "Resume course"
     elif event_type == "overdue":
+        hours = settings.email_overdue_repeat_days * 24
+        escalated_to = "your Head of Department" if context.get("overdue_escalated_to", "hod") == "hod" else "the course trainer"
+        reminders = overdue_notice(context)[1] - 1
         subject = f"Overdue course: {course}"
-        paragraphs = [f"Dear {employee_first},", f"The deadline for {course} has passed, and the course is still incomplete.", "Please complete the remaining modules as soon as possible.", "You will continue receiving reminders every 48 hours until the course is completed."]
-        details = [("Course", course), ("Deadline", deadline), ("Days overdue", days_overdue(context)), ("Current progress", f"{progress}%")]
+        paragraphs = [f"Dear {employee_first},", f"The deadline for {course} has passed, and the course is still incomplete.", "Please complete the remaining modules as soon as possible.", f"Reminders will be sent every {hours} hours. If the course remains incomplete after the {ordinal(reminders)} reminder, the matter will be escalated to {escalated_to}."]
+        details = [("Course", course), ("Deadline", deadline), ("Days overdue", days_overdue(context)), ("Current progress", f"{progress}%"), ("Reminder", overdue_reminder_status(context))]
         link_label = "Resume course"
     else:
         raise ValueError(f"Unsupported individual email template: {event_type}/{role}")
@@ -230,7 +278,7 @@ def _digest_table(rows: list[dict], event_type: str) -> tuple[str, str]:
     else:
         headers.append("Progress")
         if event_type == "overdue":
-            headers.append("Days overdue")
+            headers.extend(["Days overdue", "Reminders"])
     text_rows = [" | ".join(headers), " | ".join("---" for _ in headers)]
     html_rows = "<tr>" + "".join(f"<th style='text-align:left;padding:8px;border-bottom:1px solid #d0d5dd'>{html.escape(header)}</th>" for header in headers) + "</tr>"
     for row in rows:
@@ -241,7 +289,7 @@ def _digest_table(rows: list[dict], event_type: str) -> tuple[str, str]:
         else:
             values = [row.get("employee_name") or "Employee", row.get("course_name") or "Course", format_date(row.get("deadline")), f"{int(row.get('completion_percent') or 0)}%"]
             if event_type == "overdue":
-                values.append(days_overdue(row))
+                values.extend([days_overdue(row), overdue_reminder_status(row)])
         text_rows.append(" | ".join(str(value) for value in values))
         html_rows += "<tr>" + "".join(f"<td style='padding:8px;border-bottom:1px solid #eaecf0'>{html.escape(str(value))}</td>" for value in values) + "</tr>"
     return "\n".join(text_rows), f"<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px'>{html_rows}</table>"
@@ -266,11 +314,21 @@ def render_digest(event_type: str, role: str, rows: list[dict], summary: dict, r
         subject = "Learner completion summary"
         paragraphs = ["The following employees have completed their assigned courses.", "The learners’ course records have been updated automatically."]
     elif event_type == "overdue" and role == "hod":
+        escalated = [row for row in rows if is_overdue_escalation(row)]
         subject = f"Overdue learning summary: {count} employees require attention"
         paragraphs = [f"{count} members of your team have overdue learning assignments.", "Please follow up with the employees listed in this report."]
+        if escalated:
+            subject += f" ({len(escalated)} escalated)"
+            marked = "1 employee marked Escalated has received a final reminder" if len(escalated) == 1 else f"{len(escalated)} employees marked Escalated have received their final reminders"
+            paragraphs.insert(1, f"{marked}, and the matter has been escalated to you for follow-up. Escalated employees will not appear in future overdue summaries.")
     elif event_type == "overdue":
+        escalated = [row for row in rows if is_overdue_escalation(row)]
         subject = f"Overdue course summary: {course_name}"
         paragraphs = [f"{count} of {summary.get('assigned_count', 0)} assigned employees have not completed {course_name} by the deadline.", "The following employees have not completed their assigned courses by the deadline.", "Please review the employees listed below and follow up where required."]
+        if escalated:
+            to_hod = all(row.get("overdue_escalated_to") == "hod" for row in escalated)
+            escalated_to = " to their Head of Department" if to_hod else ""
+            paragraphs.insert(2, f"Employees marked Escalated have received their final reminder, and the matter has been escalated{escalated_to}. They will not appear in future overdue summaries.")
     else:
         raise ValueError(f"Unsupported digest template: {event_type}/{role}")
 

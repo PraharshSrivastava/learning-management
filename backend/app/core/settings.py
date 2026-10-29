@@ -162,6 +162,8 @@ class Settings(BaseModel):
     email_due_soon_days: int = Field(default=2, ge=1, le=30)
     email_assignment_reminder_days: int = Field(default=5, ge=1, le=90)
     email_overdue_repeat_days: int = Field(default=2, ge=1, le=30)
+    # The last overdue notice is the escalation; nothing is sent after it.
+    email_overdue_max_notices: int = Field(default=5, ge=2, le=20)
     email_notification_timezone: str = "Asia/Kolkata"
     email_digest_send_time: str = "09:00"
     email_due_soon_digest_interval_hours: int = Field(default=24, ge=1, le=168)
@@ -539,6 +541,7 @@ class Settings(BaseModel):
                     "EMAIL_OVERDUE_REPEAT_DAYS",
                     "2",
                 ),
+                "email_overdue_max_notices": values.get("EMAIL_OVERDUE_MAX_NOTICES", "5"),
                 "email_notification_timezone": values.get(
                     "EMAIL_NOTIFICATION_TIMEZONE", "Asia/Kolkata"
                 ),

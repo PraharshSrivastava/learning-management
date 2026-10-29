@@ -899,3 +899,203 @@ def test_claim_recovers_notifications_left_sending_after_worker_crash(monkeypatc
     assert "status = 'sending' AND locked_at <= ?" in executed["query"]
     assert executed["params"][0] == (now - timedelta(seconds=600)).isoformat()
     assert executed["committed"] is True
+
+
+class _IssuedOverdueKeys:
+    """Fake connection returning issued overdue keys, first issued first."""
+
+    def __init__(self, keys):
+        self.keys = keys
+
+    def execute(self, query, params):
+        rows = [
+            {"occurrence_key": key, "first_created_at": f"2026-10-01T09:{minute:02d}:00"}
+            for minute, key in enumerate(self.keys)
+        ]
+
+        class Result:
+            def fetchall(self):
+                return rows
+
+        return Result()
+
+
+def test_overdue_notice_counts_issued_notices_even_when_periods_were_skipped():
+    # Scheduler outage: periods 3, 5 and 6 were never issued.
+    connection = _IssuedOverdueKeys(["period-1", "period-2", "period-4"])
+
+    number = email_notifications._overdue_notice_number
+
+    assert number(connection, "a-1", 1, "period-2") == 2
+    assert number(connection, "a-1", 1, "period-4") == 3
+    assert number(connection, "a-1", 1, "period-7") == 4
+
+
+def test_notices_sent_in_test_mode_still_count_after_switching_to_normal_mode(monkeypatch):
+    # UAT test mode uses minute-long periods, so earlier keys have far higher numbers
+    # than the two-day periods used once test mode is switched off.
+    monkeypatch.setattr(email_notifications.settings, "email_overdue_max_notices", 5)
+    monkeypatch.setattr(email_notifications.settings, "email_recipient_allowlist", ())
+    sent_in_test_mode = [f"period-{n}" for n in (12, 13, 14, 15, 16, 17, 18)]
+
+    assert not email_notifications._with_overdue_notice(
+        _IssuedOverdueKeys(sent_in_test_mode), _overdue_context(), 1, "period-3"
+    )
+    context = _overdue_context()
+    assert email_notifications._with_overdue_notice(
+        _IssuedOverdueKeys(sent_in_test_mode[:3]), context, 1, "period-2"
+    )
+    assert context["overdue_notice"] == 4
+
+
+def _overdue_context(**overrides):
+    context = {
+        "assignment_id": "a-1",
+        "employee_name": "Aditya Satpute",
+        "course_name": "AML Training - India",
+        "deadline": "2026-10-15T16:51:00",
+        "completion_percent": 0,
+        "hod_employee_id": "hod-1",
+        "hod_email": "hod@example.com",
+    }
+    context.update(overrides)
+    return context
+
+
+@pytest.mark.parametrize(
+    ("issued", "expected_notice"),
+    [
+        ([], 1),
+        (["period-1", "period-2", "period-3"], 4),
+        ([f"period-{n}" for n in range(1, 5)], 5),
+    ],
+)
+def test_overdue_notices_stop_after_the_escalation(monkeypatch, issued, expected_notice):
+    monkeypatch.setattr(email_notifications.settings, "email_overdue_max_notices", 5)
+    monkeypatch.setattr(email_notifications.settings, "email_recipient_allowlist", ())
+    context = _overdue_context()
+
+    period = f"period-{len(issued) + 1}"
+    assert email_notifications._with_overdue_notice(
+        _IssuedOverdueKeys(issued), context, 1, period
+    )
+    assert context["overdue_notice"] == expected_notice
+    assert context["overdue_escalated_to"] == "hod"
+
+    escalated = [f"period-{n}" for n in range(1, 6)]
+    assert not email_notifications._with_overdue_notice(
+        _IssuedOverdueKeys(escalated), _overdue_context(), 1, "period-6"
+    )
+
+
+def test_overdue_escalation_goes_to_trainer_without_a_reachable_hod(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings, "email_recipient_allowlist", ("learner@example.com",)
+    )
+    for context in (_overdue_context(hod_employee_id=None), _overdue_context()):
+        assert email_notifications._with_overdue_notice(
+            _IssuedOverdueKeys([]), context, 1, "period-1"
+        )
+        assert context["overdue_escalated_to"] == "trainer"
+
+
+def test_overdue_reminders_count_down_to_the_escalation(monkeypatch):
+    monkeypatch.setattr(email_notifications.settings, "email_overdue_repeat_days", 2)
+    context = _overdue_context(overdue_notice=3, overdue_notice_max=5, overdue_escalated_to="hod")
+
+    subject, body_text, _ = render_individual(context, "overdue", "employee")
+
+    assert subject == "Overdue course: AML Training - India"
+    assert "Reminders will be sent every 48 hours." in body_text
+    assert (
+        "after the fourth reminder, the matter will be escalated to your Head of Department."
+        in body_text
+    )
+    assert "Reminder: 3 of 4" in body_text
+    assert "until the course is completed" not in body_text
+    assert "LMS Team" not in body_text
+
+
+@pytest.mark.parametrize(
+    ("escalated_to", "wording", "status"),
+    [
+        ("hod", "your Head of Department", "Escalated to Head of Department"),
+        ("trainer", "the course trainer", "Escalated to course trainer"),
+    ],
+)
+def test_final_overdue_notice_is_an_escalation(escalated_to, wording, status):
+    context = _overdue_context(
+        overdue_notice=5, overdue_notice_max=5, overdue_escalated_to=escalated_to
+    )
+
+    subject, body_text, body_html = render_individual(context, "overdue", "employee")
+
+    assert subject == "Escalation notice: Overdue course AML Training - India"
+    assert f"This matter has now been escalated to {wording} for further action." in body_text
+    assert "This is the final automated reminder you will receive for this course." in body_text
+    assert f"Status: {status}" in body_text
+    assert "Reminders will be sent" not in body_text
+    assert "Escalation notice" in body_html
+
+
+def test_overdue_digests_mark_escalated_employees():
+    rows = [
+        _overdue_context(
+            employee_id="e-1", overdue_notice=5, overdue_notice_max=5, overdue_escalated_to="hod"
+        ),
+        _overdue_context(
+            assignment_id="a-2",
+            employee_id="e-2",
+            employee_name="Anita Desai",
+            overdue_notice=2,
+            overdue_notice_max=5,
+            overdue_escalated_to="hod",
+        ),
+    ]
+    summary = {"assigned_count": 10, "completed_count": 5, "completion_rate": 50, "overdue_rate": 20}
+
+    hod_subject, hod_text, _ = render_digest("overdue", "hod", rows, summary)
+    _, trainer_text, _ = render_digest("overdue", "trainer", rows, summary)
+
+    assert hod_subject == "Overdue learning summary: 2 employees require attention (1 escalated)"
+    assert (
+        "1 employee marked Escalated has received a final reminder, "
+        "and the matter has been escalated to you for follow-up."
+    ) in hod_text
+    assert (
+        "Employees marked Escalated have received their final reminder, "
+        "and the matter has been escalated to their Head of Department."
+    ) in trainer_text
+    for text in (hod_text, trainer_text):
+        assert "| Reminders" in text
+        assert "| Escalated" in text
+        assert "| 2 of 4" in text
+
+
+def test_overdue_digests_without_escalations_keep_their_wording():
+    rows = [_overdue_context(employee_id="e-1", overdue_notice=1, overdue_notice_max=5)]
+    summary = {"assigned_count": 1, "completed_count": 0, "completion_rate": 0, "overdue_rate": 100}
+
+    subject, body_text, _ = render_digest("overdue", "hod", rows, summary)
+
+    assert subject == "Overdue learning summary: 1 employees require attention"
+    assert "marked Escalated" not in body_text
+
+
+def test_open_lms_button_is_outlook_safe(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings, "lms_hub_login_url", "https://hub.example.com/login"
+    )
+
+    _, _, body_html = render_individual(_overdue_context(), "overdue", "employee")
+
+    assert "<!--[if mso]><v:roundrect" in body_html
+    assert "href='https://hub.example.com/login'" in body_html
+    assert "<!--[if !mso]><!-->" in body_html
+    assert "<o:PixelsPerInch>96</o:PixelsPerInch>" in body_html
+
+
+def test_overdue_cap_must_leave_room_for_a_reminder():
+    with pytest.raises(ValueError):
+        _production_settings(email_overdue_max_notices=1)
+    assert _production_settings().email_overdue_max_notices == 5
