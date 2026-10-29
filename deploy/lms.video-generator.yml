@@ -1,0 +1,13 @@
+# Lets the LMS backend reach the Video Generator API (VIDEO_SERVICE_BASE_URL)
+# on its proxy network. Include this file in every LMS compose command while
+# VIDEO_GENERATION_MODE=external. See docs/video-generator-operations.md.
+services:
+  backend:
+    networks:
+      default: {}
+      video-generator:
+
+networks:
+  video-generator:
+    external: true
+    name: video-generator-proxy

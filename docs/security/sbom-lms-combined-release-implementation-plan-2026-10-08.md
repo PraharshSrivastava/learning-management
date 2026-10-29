@@ -28,7 +28,7 @@ Use a separate checkout/worktree on a `codex/` integration branch based on verif
 | Backend Dockerfile | Full maintained security runtime, current application source and required build inputs. Do not select an older intermediate Docker stage. |
 | Frontend Dockerfiles | Security SDK/lock/font settings plus latest Nginx template and trusted-edge configuration. |
 | Python and Flutter locks | Preserve feature-required packages while retaining security pins; regenerate only when integration requires it. |
-| Compose and overlays | Preserve latest environment variables, routes, storage, service names and both `lms.pr-onprem.yml` and `lms.edge-network.yml` settings. Add security restrictions without losing edge aliases. |
+| Compose and overlays | Preserve latest environment variables, routes, storage, service names and both `lms.pr-onprem.yml` and `lms.edge-network.yml` settings, plus `lms.video-generator.yml` (backend on `video-generator-proxy`; see `docs/video-generator-operations.md`). Add security restrictions without losing edge aliases or that network. |
 | Database | Preserve the deployed database reference/configuration; do not deploy the historical PostgreSQL candidate. Review feature-related startup migrations independently. |
 
 The existing SBOM Compose diff adds app-service security restrictions; it does not itself change the PostgreSQL image reference. Compare the final effective configuration against each deployment, because the running database may differ from repository configuration.
