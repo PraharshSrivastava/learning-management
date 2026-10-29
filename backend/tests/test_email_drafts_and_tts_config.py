@@ -40,7 +40,7 @@ def test_employee_greetings_and_general_login_link(monkeypatch, event):
     assert "Open LMS: https://hub.example.com/login" in text
     assert "private-id" not in markup
     if event == "overdue":
-        assert "You will continue receiving reminders every 48 hours until the course is completed." in text
+        assert "Reminders will be sent every 48 hours. If the course remains incomplete after the fourth reminder" in text
 
 
 def test_missing_login_url_omits_button(monkeypatch):

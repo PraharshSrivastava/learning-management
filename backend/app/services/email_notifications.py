@@ -103,6 +103,56 @@ def _overdue_occurrence_key(deadline: datetime, now: datetime | None = None) -> 
     return f"period-{occurrence}"
 
 
+def _overdue_notice_number(
+    connection, assignment_id: str, lifecycle: int, occurrence_key: str
+) -> int:
+    """Position of this overdue occurrence among those already issued to anyone.
+
+    Notices are ordered by when they were first queued, never by period number: periods
+    are skipped while the scheduler is down, and their length changes with
+    EMAIL_TEST_MODE, so notices sent under the other mode must still count.
+    """
+    rows = connection.execute(
+        """
+        SELECT occurrence_key, MIN(created_at) AS first_created_at
+        FROM (
+            SELECT occurrence_key, created_at FROM email_notifications
+            WHERE assignment_id = ? AND notification_lifecycle = ?
+              AND event_type = 'overdue' AND status <> 'cancelled'
+            UNION ALL
+            SELECT eni.occurrence_key, eni.created_at
+            FROM email_notification_items eni
+            JOIN email_notifications en ON en.notification_id = eni.notification_id
+            WHERE eni.assignment_id = ? AND eni.notification_lifecycle = ?
+              AND en.event_type = 'overdue' AND en.status <> 'cancelled'
+        ) issued
+        GROUP BY occurrence_key
+        """,
+        (assignment_id, lifecycle, assignment_id, lifecycle),
+    ).fetchall()
+    issued = {row["occurrence_key"]: row["first_created_at"] for row in rows}
+    if occurrence_key not in issued:
+        return len(issued) + 1
+    return sum(1 for created_at in issued.values() if created_at <= issued[occurrence_key])
+
+
+def _with_overdue_notice(
+    connection, context: dict, lifecycle: int, occurrence_key: str
+) -> bool:
+    """Add the notice number to an overdue context; False once the cap is passed."""
+    notice = _overdue_notice_number(connection, context["assignment_id"], lifecycle, occurrence_key)
+    if notice > settings.email_overdue_max_notices:
+        return False
+    hod_email = str(context.get("hod_email") or "").strip()
+    has_hod = bool(context.get("hod_employee_id")) and is_single_mailbox(hod_email)
+    context.update(
+        overdue_notice=notice,
+        overdue_notice_max=settings.email_overdue_max_notices,
+        overdue_escalated_to="hod" if has_hod and _recipient_allowed(hod_email) else "trainer",
+    )
+    return True
+
+
 def _assignment_context(connection, assignment_id: str) -> dict | None:
     row = connection.execute(
         """
@@ -319,6 +369,10 @@ def enqueue_assignment_notifications(
             else:
                 occurrence_key = "once"
         if not _event_is_current(context, event_type, lifecycle, occurrence_key):
+            return 0
+        if event_type == "overdue" and not _with_overdue_notice(
+            active_connection, context, lifecycle, occurrence_key
+        ):
             return 0
         for recipient in _recipient_rows(context, event_type):
             subject, body_text, body_html = _message_for(context, event_type, recipient["role"])
@@ -610,6 +664,13 @@ def enqueue_digest_notifications(
         if not context or not _event_is_current(
             context,
             event_type,
+            int(context.get("notification_lifecycle") or 1),
+            occurrence_key,
+        ):
+            return 0
+        if event_type == "overdue" and not _with_overdue_notice(
+            active_connection,
+            context,
             int(context.get("notification_lifecycle") or 1),
             occurrence_key,
         ):
@@ -1014,6 +1075,10 @@ def _digest_contexts(connection, notification: dict) -> list[dict]:
             item["occurrence_key"],
         ):
             continue
+        if notification["event_type"] == "overdue" and not _with_overdue_notice(
+            connection, context, int(item["notification_lifecycle"]), item["occurrence_key"]
+        ):
+            continue
         recipient = _digest_recipient(
             context,
             notification["recipient_role"],
@@ -1169,10 +1234,21 @@ def process_pending_notifications(limit: int | None = None) -> int:
             continue
         with get_connection() as connection:
             context = _assignment_context(connection, notification["assignment_id"])
+            within_overdue_cap = (
+                not context
+                or notification["event_type"] != "overdue"
+                or _with_overdue_notice(
+                    connection,
+                    context,
+                    int(notification["notification_lifecycle"]),
+                    notification.get("occurrence_key") or "once",
+                )
+            )
         if (
             notification["recipient_role"]
             not in EVENT_RECIPIENT_ROLES.get(notification["event_type"], set())
             or not context
+            or not within_overdue_cap
             or not _event_is_current(
                 context,
                 notification["event_type"],

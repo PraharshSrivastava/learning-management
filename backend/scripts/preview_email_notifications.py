@@ -71,12 +71,18 @@ def _sample_data() -> dict[str, dict]:
         completion_percent=100,
     )
     overdue = _context(**common, deadline=now - timedelta(days=2, hours=3), completion_percent=60)
+    overdue.update(overdue_notice=2, overdue_escalated_to="hod")
+    escalation = _context(**common, deadline=now - timedelta(days=8, hours=3), completion_percent=60)
+    escalation.update(
+        overdue_notice=settings.email_overdue_max_notices, overdue_escalated_to="hod"
+    )
     return {
         "assigned": assigned,
         "reminder": reminder,
         "due_soon": due_soon,
         "completed": completed,
         "overdue": overdue,
+        "escalation": escalation,
     }
 
 
@@ -101,6 +107,9 @@ def _digest_rows(base: dict, event_type: str) -> list[dict]:
             row["deadline"] = _iso(completed_at + timedelta(days=index + 1))
         elif event_type == "overdue":
             row["deadline"] = _iso(datetime.now(UTC) - timedelta(days=index + 1, hours=2))
+            # The first employee shows how an escalated (final) notice is marked.
+            row["overdue_notice"] = settings.email_overdue_max_notices if index == 0 else index
+            row["overdue_escalated_to"] = "hod"
         elif event_type == "due_soon":
             row["deadline"] = _iso(datetime.now(UTC) + timedelta(hours=12 * (index + 1)))
         rows.append(row)
@@ -190,6 +199,11 @@ def generate(output_dir: Path) -> list[dict]:
             "06-overdue-employee",
             "Overdue · Employee",
             render_individual(samples["overdue"], "overdue", "employee"),
+        ),
+        (
+            "07-overdue-escalation-employee",
+            "Overdue escalation (final) · Employee",
+            render_individual(samples["escalation"], "overdue", "employee"),
         ),
     ]
     for event_type, source in (
