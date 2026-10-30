@@ -91,7 +91,8 @@ function create(video, onHeight, constrainSeek) {
       .lms-caption-player *{box-sizing:border-box}.lms-caption-player [hidden]{display:none!important}
       .lms-caption-player .lms-viewport{position:relative;flex:1;min-height:0;overflow:hidden}
       .lms-caption-player video{width:100%;height:100%;object-fit:contain;background:#000}
-      .lms-caption-player .lms-controls{position:absolute;bottom:0;left:0;right:0;padding:28px 12px 8px;background:linear-gradient(transparent,#000c);display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+      .lms-caption-player .lms-controls{position:absolute;bottom:0;left:0;right:0;padding:28px 12px 8px;background:linear-gradient(transparent,#000c);display:flex;flex-wrap:wrap;align-items:center;gap:8px;transition:opacity .3s}
+      .lms-caption-player.lms-idle .lms-viewport{cursor:none}.lms-caption-player.lms-idle .lms-controls{opacity:0;pointer-events:none}
       .lms-caption-player button{border:0;background:transparent;color:inherit;font:inherit;border-radius:4px;min-height:32px;min-width:32px;padding:6px}
       .lms-caption-player button:hover{background:#ffffff16}.lms-caption-player button:disabled{opacity:.45}
       .lms-caption-player input[type=range]{accent-color:#3e75c8;min-width:0}.lms-caption-player .lms-seek{width:100%;margin:0;height:14px}
@@ -236,7 +237,24 @@ function create(video, onHeight, constrainSeek) {
   viewport.append(status)
   icon(fullscreen, 'fullscreen')
   icon(more, 'more')
-  let statusTimer
+  let statusTimer, idleTimer
+  // Hide the controls after 3s without pointer or keyboard activity while playing, so they
+  // do not sit over subtitles burned into the video.
+  function canHide() {
+    return (
+      !video.paused &&
+      menu.hidden &&
+      !controls.matches(':hover') &&
+      !controls.querySelector(':focus-visible')
+    )
+  }
+  function wake() {
+    root.classList.remove('lms-idle')
+    clearTimeout(idleTimer)
+    idleTimer = global.setTimeout(() => {
+      if (canHide()) root.classList.add('lms-idle')
+    }, 3000)
+  }
   function showStatus(message) {
     status.textContent = message
     status.hidden = !message
@@ -433,6 +451,11 @@ function create(video, onHeight, constrainSeek) {
   listen(doc, 'pointerdown', (event) => {
     if (!menu.contains(event.target) && !more.contains(event.target)) closeMenu()
   })
+  for (const event of ['pointermove', 'pointerdown', 'keydown']) listen(root, event, wake)
+  for (const event of ['play', 'pause']) listen(video, event, wake)
+  listen(root, 'pointerleave', () => {
+    if (canHide()) root.classList.add('lms-idle')
+  })
   const observer = new ResizeObserver(height)
   observer.observe(captions)
   async function loadCaptions(url) {
@@ -512,6 +535,7 @@ function create(video, onHeight, constrainSeek) {
     generation++
     if (abort) abort.abort()
     clearTimeout(statusTimer)
+    clearTimeout(idleTimer)
     observer.disconnect()
     for (const remove of listeners) remove()
     video.pause()

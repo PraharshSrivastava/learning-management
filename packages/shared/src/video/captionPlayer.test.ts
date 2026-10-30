@@ -100,6 +100,40 @@ it.each(['narration-timing', 'narration-timing-legacy', 'forced-alignment'])(
   },
 )
 
+it('hides the controls after 3s of inactivity while playing, so burned-in subtitles show', () => {
+  vi.useFakeTimers()
+  const video = document.createElement('video')
+  let paused = true
+  Object.defineProperty(video, 'paused', { get: () => paused })
+  const player = create(
+    video,
+    () => {},
+    (seconds) => seconds,
+  )
+  document.body.append(player)
+  const idle = () => player.classList.contains('lms-idle')
+
+  video.dispatchEvent(new Event('pause'))
+  vi.advanceTimersByTime(3000)
+  expect(idle()).toBe(false)
+
+  paused = false
+  video.dispatchEvent(new Event('play'))
+  vi.advanceTimersByTime(2900)
+  expect(idle()).toBe(false)
+  vi.advanceTimersByTime(100)
+  expect(idle()).toBe(true)
+
+  player.dispatchEvent(new Event('pointermove'))
+  expect(idle()).toBe(false)
+  player.querySelector<HTMLButtonElement>('[aria-label="More video options"]')!.click()
+  vi.advanceTimersByTime(3000)
+  expect(idle()).toBe(false)
+
+  player.disposePlayer()
+  vi.useRealTimers()
+})
+
 it.each([
   [{ video_size: 99 }, vtt],
   [{ video_mtime: 999 }, vtt],
