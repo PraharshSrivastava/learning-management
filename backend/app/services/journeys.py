@@ -137,8 +137,12 @@ def _evaluate(
     persist: bool,
     availability: dict[str, dict] | None = None,
     observers: dict[str, set[str]] | None = None,
+    newly_available: list[str] | None = None,
 ) -> dict[str, _Evaluation]:
-    """Evaluate every active journey assignment, prerequisites first."""
+    """Evaluate every active journey assignment, prerequisites first.
+
+    Journey assignments that open for the employee in this run are added to `newly_available`.
+    """
     active = {
         journey_id: assignment
         for journey_id, assignment in assignments.items()
@@ -213,6 +217,14 @@ def _evaluate(
         )
         if persist and assignment_changed(stored, assignment):
             assignment = _journeys.save_assignment(assignment)
+            if assignment.get("completed_at") and not stored.get("completed_at"):
+                _email_journey_completed(assignment)
+            elif (
+                newly_available is not None
+                and assignment.get("available_at")
+                and not stored.get("available_at")
+            ):
+                newly_available.append(assignment["journey_assignment_id"])
         evaluation = _Evaluation(journey, assignment, state, available)
         results[journey_id] = evaluation
         return evaluation
@@ -220,6 +232,33 @@ def _evaluate(
     for journey_id in active:
         visit(journey_id, frozenset())
     return results
+
+
+def email_journeys_assigned(journey_assignment_ids: list[str]) -> None:
+    """Queue the assigned email for journeys that just opened, once their courses exist."""
+    from app.services.email_notifications import enqueue_journey_assigned
+
+    for journey_assignment_id in journey_assignment_ids:
+        try:
+            enqueue_journey_assigned(journey_assignment_id)
+        except Exception:
+            logger.exception(
+                "journey_assigned_email_not_queued journey_assignment_id=%s",
+                journey_assignment_id,
+            )
+
+
+def _email_journey_completed(assignment: dict) -> None:
+    """Queue the certificate email; a mail problem never undoes the learner's completion."""
+    from app.services.email_notifications import enqueue_journey_completed
+
+    try:
+        enqueue_journey_completed(assignment["journey_assignment_id"])
+    except Exception:
+        logger.exception(
+            "journey_completed_email_not_queued journey_assignment_id=%s",
+            assignment.get("journey_assignment_id"),
+        )
 
 
 def _sync_membership(
@@ -267,12 +306,17 @@ def _sync_membership(
 
 
 def journey_wanted_courses(
-    employee_id: str, employee: dict | None, progress: dict[str, dict], now: datetime
+    employee_id: str,
+    employee: dict | None,
+    progress: dict[str, dict],
+    now: datetime,
+    newly_available: list[str] | None = None,
 ) -> dict[str, str]:
     """Sync one employee's journeys and return each unlocked course with its deadline.
 
     Called by `reconcile_assignments_for_employee`, which creates, keeps or reactivates the
-    matching course assignments.
+    matching course assignments. Journeys that opened in this sync are added to
+    `newly_available` so their assigned email can be queued after those courses exist.
     """
     if not journeys_enabled():
         return {}
@@ -288,7 +332,15 @@ def journey_wanted_courses(
     if not journeys and not assignments:
         return {}
     assignments = _sync_membership(employee, assignments, journeys, now)
-    evaluations = _evaluate(employee_id, journeys, assignments, progress, now, persist=True)
+    evaluations = _evaluate(
+        employee_id,
+        journeys,
+        assignments,
+        progress,
+        now,
+        persist=True,
+        newly_available=newly_available,
+    )
     wanted: dict[str, str] = {}
     for evaluation in evaluations.values():
         if not evaluation.available:

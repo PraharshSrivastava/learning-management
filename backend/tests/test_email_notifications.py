@@ -7,7 +7,13 @@ import pytest
 from app.core.settings import Settings
 from app.repositories.progress import _notification_transition
 from app.services import email_notifications
-from app.services.email_templates import completion_timing, render_digest, render_individual
+from app.services.email_templates import (
+    completion_timing,
+    render_digest,
+    render_individual,
+    render_journey_assigned,
+    render_journey_completed,
+)
 
 
 def _production_settings(**overrides):
@@ -1099,3 +1105,205 @@ def test_overdue_cap_must_leave_room_for_a_reminder():
     with pytest.raises(ValueError):
         _production_settings(email_overdue_max_notices=1)
     assert _production_settings().email_overdue_max_notices == 5
+
+
+def _journey_context(**overrides):
+    context = {
+        "journey_assignment_id": "ja-1",
+        "journey_id": "j-1",
+        "employee_id": "e-1",
+        "employee_name": "Satpute, Aditya",
+        "employee_email": "aditya@example.com",
+        "journey_title": "New Joiner Induction",
+        "required_course_count": 4,
+        "completed_at": "2026-10-28T15:30:00",
+        "certificate_number": "PCIL-LJ-AAAA-BBBB-CCCC",
+        "anchor_assignment_id": "a-4",
+    }
+    context.update(overrides)
+    return context
+
+
+def test_journey_completed_email_announces_the_attached_certificate(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings, "lms_hub_login_url", "https://hub.example.com/login"
+    )
+
+    subject, body_text, body_html = render_journey_completed(_journey_context())
+
+    assert subject == "Learning journey completed: New Joiner Induction"
+    assert "Dear Aditya," in body_text
+    assert "Congratulations on successfully completing the learning journey New Joiner Induction." in body_text
+    assert "You have completed all 4 required courses in this journey." in body_text
+    assert "Your certificate of completion is attached to this email." in body_text
+    assert "Certificate number: PCIL-LJ-AAAA-BBBB-CCCC" in body_text
+    assert "Completion date: 28 Oct 2026" in body_text
+    assert "Open LMS: https://hub.example.com/login" in body_text
+    assert "download your certificate from Learning Journeys" in body_text
+    assert "<!--[if mso]><v:roundrect" in body_html
+
+
+def test_smtp_attaches_certificate_pdf_alongside_both_bodies(monkeypatch):
+    sent = []
+
+    class FakeSmtp:
+        def __init__(self, host, port, timeout):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def starttls(self, *, context):
+            pass
+
+        def ehlo(self):
+            pass
+
+        def send_message(self, message, *, from_addr, to_addrs):
+            sent.append(message)
+
+    monkeypatch.setattr(email_notifications.smtplib, "SMTP", FakeSmtp)
+    monkeypatch.setattr(email_notifications.settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(email_notifications.settings, "smtp_use_ssl", False)
+    monkeypatch.setattr(email_notifications.settings, "smtp_use_starttls", True)
+    monkeypatch.setattr(email_notifications.settings, "smtp_username", None)
+    monkeypatch.setattr(email_notifications.settings, "smtp_password", None)
+    monkeypatch.setattr(email_notifications.settings, "email_from_email", "lms@example.com")
+    monkeypatch.setattr(email_notifications.settings, "email_recipient_allowlist", ())
+
+    email_notifications._send_smtp(
+        {
+            "notification_id": "notice-cert",
+            "recipient_email": "learner@example.com",
+            "subject": "Learning journey completed",
+            "body_text": "Text body",
+            "body_html": "<p>HTML body</p>",
+            "attachments": [("PCIL-LJ-AAAA-BBBB-CCCC.pdf", b"%PDF-1.4 certificate")],
+        }
+    )
+
+    message = sent[0]
+    attachments = list(message.iter_attachments())
+    assert message.get_content_type() == "multipart/mixed"
+    assert message.get_body(preferencelist=("plain",)).get_content().strip() == "Text body"
+    assert message.get_body(preferencelist=("html",)).get_content_type() == "text/html"
+    assert [part.get_filename() for part in attachments] == ["PCIL-LJ-AAAA-BBBB-CCCC.pdf"]
+    assert attachments[0].get_content_type() == "application/pdf"
+    assert attachments[0].get_content() == b"%PDF-1.4 certificate"
+
+
+def _patch_journey_send(monkeypatch, context):
+    calls = {}
+
+    @contextmanager
+    def fake_connection():
+        yield None
+
+    monkeypatch.setattr(email_notifications, "get_connection", fake_connection)
+    monkeypatch.setattr(
+        email_notifications, "_journey_email_context", lambda _connection, _key, _event: context
+    )
+    monkeypatch.setattr(
+        email_notifications,
+        "learner_certificate",
+        lambda employee_id, journey_id: ("PCIL-LJ-AAAA-BBBB-CCCC.pdf", b"%PDF certificate"),
+    )
+    monkeypatch.setattr(
+        email_notifications, "_send_notification", lambda notification: calls.update(sent=notification)
+    )
+    monkeypatch.setattr(email_notifications, "_mark_sent", lambda notification_id: calls.update(marked=notification_id))
+    monkeypatch.setattr(email_notifications, "_cancel_stale", lambda notification_id: calls.update(cancelled=notification_id))
+    return calls
+
+
+def test_journey_completed_notification_is_sent_with_a_fresh_certificate(monkeypatch):
+    calls = _patch_journey_send(monkeypatch, _journey_context())
+    notification = {
+        "notification_id": "n-1",
+        "event_type": "journey_completed",
+        "occurrence_key": "ja-1",
+        "recipient_role": "employee",
+        "recipient_email": "aditya@example.com",
+    }
+
+    assert email_notifications._send_journey_email(notification) == 1
+
+    assert calls["marked"] == "n-1"
+    assert calls["sent"]["attachments"] == [("PCIL-LJ-AAAA-BBBB-CCCC.pdf", b"%PDF certificate")]
+    assert calls["sent"]["subject"] == "Learning journey completed: New Joiner Induction"
+
+
+def test_journey_completed_notification_is_cancelled_when_certificate_is_unavailable(monkeypatch):
+    # e.g. the trainer turned certificates off before the email went out.
+    calls = _patch_journey_send(monkeypatch, None)
+    notification = {
+        "notification_id": "n-2",
+        "event_type": "journey_completed",
+        "occurrence_key": "ja-1",
+        "recipient_role": "employee",
+        "recipient_email": "aditya@example.com",
+    }
+
+    assert email_notifications._send_journey_email(notification) == 0
+
+    assert calls == {"cancelled": "n-2"}
+
+
+def test_journey_completed_is_not_queued_while_email_is_disabled(monkeypatch):
+    monkeypatch.setattr(email_notifications.settings, "email_delivery_mode", "disabled")
+
+    assert email_notifications.enqueue_journey_completed("ja-1") == 0
+    assert email_notifications.enqueue_journey_assigned("ja-1") == 0
+
+
+@pytest.mark.parametrize("certificate_enabled", [True, False])
+def test_journey_assigned_email_introduces_the_journey(monkeypatch, certificate_enabled):
+    monkeypatch.setattr(
+        email_notifications.settings, "lms_hub_login_url", "https://hub.example.com/login"
+    )
+    context = _journey_context(
+        deadline="2026-11-30T18:00:00", certificate_enabled=certificate_enabled
+    )
+
+    subject, body_text, body_html = render_journey_assigned(context)
+
+    assert subject == "Learning journey assigned: New Joiner Induction"
+    assert "Dear Aditya," in body_text
+    assert "You have been enrolled in the learning journey New Joiner Induction." in body_text
+    assert "This journey consists of 4 courses." in body_text
+    assert "Target completion date: 30 Nov 2026" in body_text
+    assert "open Learning Journeys to begin" in body_text
+    assert ("certificate of completion by email" in body_text) is certificate_enabled
+    assert "<!--[if mso]><v:roundrect" in body_html
+
+
+def test_journey_only_courses_send_no_course_emails():
+    context = {
+        "notification_lifecycle": 1,
+        "assignment_status": "overdue",
+        "deadline": "2026-01-01T09:00:00",
+        "completed_at": "2026-01-02T09:00:00",
+        "journey_only": True,
+    }
+
+    for event_type in ("assigned", "assignment_reminder", "due_soon", "overdue", "completed"):
+        assert not email_notifications._event_is_current(context, event_type, 1, "period-1")
+
+
+def test_journey_assigned_notification_is_sent_without_an_attachment(monkeypatch):
+    calls = _patch_journey_send(monkeypatch, _journey_context(certificate_enabled=True))
+    notification = {
+        "notification_id": "n-3",
+        "event_type": "journey_assigned",
+        "occurrence_key": "ja-1",
+        "recipient_role": "employee",
+        "recipient_email": "aditya@example.com",
+    }
+
+    assert email_notifications._send_journey_email(notification) == 1
+
+    assert calls["sent"]["subject"] == "Learning journey assigned: New Joiner Induction"
+    assert "attachments" not in calls["sent"]

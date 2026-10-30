@@ -164,19 +164,21 @@ def test_publish_assigns_first_step_and_completion_unlocks_the_next(journey_db):
     assert live["published_at"] and live["is_active"] and live["include_all"] is False
     assert not any(employee_matches_assignment_rule(e, live) for e in list_employees())
     assert active_courses("old") == ["c1"]
-    assert assigned_emails("old", "c1") == 1
-    # Journey courses appear in reports and get reminder emails like any assigned course.
+    # Journeys are optional: one journey email instead of course emails.
+    assert assigned_emails("old", "c1") == 0
+    assert len(journey_emails("old", "journey_assigned")) == 1
+    # Journey courses appear in reports, but send no reminders.
     rows = performance_reporting.list_assignment_summaries(TrainerPerformanceScope("creator"))
     assert {(r["employee_id"], r["course_id"]) for r in rows} == {("new", "c1"), ("old", "c1"), ("obs", "c1")}
     later = datetime.now() + timedelta(days=settings.email_assignment_reminder_days + 1)
     with pytest.MonkeyPatch.context() as clock:
         clock.setattr(email_notifications, "_now", lambda: later)
-        assert email_notifications.enqueue_assignment_reminders() == 3
+        assert email_notifications.enqueue_assignment_reminders() == 0
 
     complete("old", "c1")
     assert active_courses("old") == ["c1", "c2"]
-    assert assigned_emails("old", "c2") == 1
-    assert assigned_emails("old", "c1") == 1
+    assert assigned_emails("old", "c2") == 0
+    assert len(journey_emails("old", "journey_assigned")) == 1
 
     # Reconcile is idempotent.
     assert assignments.reconcile_assignments_for_employee("old") == {"assigned": 0, "removed": 0, "reactivated": 0}
@@ -813,3 +815,93 @@ def test_the_journey_report_is_empty_when_the_feature_is_off(journey_db, monkeyp
     result = journey_reporting.journey_list(TrainerPerformanceScope("creator"))
     assert result["enabled"] is False and result["journeys"] == []
     assert report(journey_id) is None
+
+
+def journey_emails(employee_id, event_type):
+    with database.get_connection() as db:
+        return db.execute(
+            """SELECT n.notification_id, n.status, n.subject, n.occurrence_key, a.course_id
+            FROM email_notifications n JOIN course_assignments a ON a.assignment_id = n.assignment_id
+            WHERE a.employee_id = ? AND n.event_type = ?""",
+            (employee_id, event_type),
+        ).fetchall()
+
+
+def journey_completed_emails(employee_id):
+    return journey_emails(employee_id, "journey_completed")
+
+
+def employee_email_events(employee_id):
+    with database.get_connection() as db:
+        rows = db.execute(
+            """SELECT n.event_type FROM email_notifications n
+            JOIN course_assignments a ON a.assignment_id = n.assignment_id
+            WHERE a.employee_id = ? AND n.recipient_role = 'employee'
+            ORDER BY n.created_at""",
+            (employee_id,),
+        ).fetchall()
+    return [row["event_type"] for row in rows]
+
+
+def test_a_journey_sends_only_its_assigned_and_certificate_emails(journey_db, monkeypatch):
+    journey_id = make_journey("Markets Foundation", [("c1", "open"), ("c2", "after_previous")])
+    journeys.api_publish_journey(journey_id, "creator")
+    [assigned] = journey_emails("old", "journey_assigned")
+    assert assigned["course_id"] == "c1"
+    assert assigned["subject"] == "Learning journey assigned: Markets Foundation"
+    complete("old", "c1")
+    assert journey_completed_emails("old") == []
+
+    complete("old", "c2")
+    learning._unlock_next_journey_steps("old")  # a later recheck must not queue it again
+
+    emails = journey_completed_emails("old")
+    assert len(emails) == 1
+    assert emails[0]["course_id"] == "c2"
+    assert emails[0]["occurrence_key"] == journey_row(journey_id, "old")["journey_assignment_id"]
+    assert emails[0]["subject"] == "Learning journey completed: Markets Foundation"
+    # No course emails (assigned, completed) for courses the employee has only via the journey,
+    # and nothing for the HOD or trainer either.
+    assert employee_email_events("old") == ["journey_assigned", "journey_completed"]
+    with database.get_connection() as db:
+        assert db.execute(
+            "SELECT count(*) AS n FROM email_notifications WHERE recipient_role <> 'employee'"
+        ).fetchone()["n"] == 0
+
+    delivered = []
+    monkeypatch.setattr(email_notifications, "_send_notification", delivered.append)
+    email_notifications.process_pending_notifications()
+
+    journey_email = next(n for n in delivered if n["event_type"] == "journey_completed")
+    [(filename, pdf)] = journey_email["attachments"]
+    assert filename.startswith("PCIL-LJ-") and pdf.startswith(b"%PDF")
+    assert journey_completed_emails("old")[0]["status"] == "sent"
+    assert "attachments" not in next(n for n in delivered if n["event_type"] == "journey_assigned")
+
+
+def test_a_journey_course_the_course_rule_also_assigns_keeps_its_emails(journey_db):
+    journey_id = make_journey("Foundation", [("c1", "open")])
+    assignments.api_publish_course_assignment(
+        "c1", AssignmentRuleRequest(include_all=False, include_groups=[{"employee_ids": ["old"]}]), "creator"
+    )
+    journeys.api_publish_journey(journey_id, "creator")
+
+    assert assigned_emails("old", "c1") == 1
+    complete("old", "c1")
+    assert "completed" in employee_email_events("old")
+
+
+def test_no_certificate_email_when_the_journey_has_certificates_off(journey_db):
+    journey_id = make_journey("No Certificate", [("c1", "open")])
+    journeys.api_publish_journey(journey_id, "creator")
+    with database.get_connection() as db:
+        db.execute(
+            "UPDATE learning_journeys SET certificate_enabled = FALSE WHERE journey_id = ?",
+            (journey_id,),
+        )
+        db.commit()
+
+    complete("old", "c1")
+
+    assert journey_row(journey_id, "old")["completed_at"]
+    assert journey_completed_emails("old") == []
