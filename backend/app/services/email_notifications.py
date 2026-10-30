@@ -16,7 +16,13 @@ from zoneinfo import ZoneInfo
 
 from app.core.settings import is_single_mailbox, settings
 from app.repositories.database import advisory_lock, get_connection
-from app.services.email_templates import render_digest, render_individual
+from app.services.email_templates import (
+    render_digest,
+    render_individual,
+    render_journey_assigned,
+    render_journey_completed,
+)
+from app.services.journey_certificates import certificate_number, learner_certificate
 
 logger = logging.getLogger(__name__)
 _task: asyncio.Task | None = None
@@ -215,7 +221,34 @@ def _assignment_context(connection, assignment_id: str) -> dict | None:
     completed = int(context.get("completed_modules") or 0)
     context["completion_percent"] = round((completed / total) * 100) if total else 0
     context.update(_journey_context(connection, context))
+    context["journey_only"] = _journey_only(connection, context)
     return context
+
+
+def _journey_only(connection, context: dict) -> bool:
+    """True when the employee has this course only through a Learning Journey.
+
+    Journeys are optional learning, so their courses send no course emails to anyone; the
+    journey sends its own assigned and completed emails instead. A course the employee also
+    gets from its own assignment rule keeps all its course emails.
+    """
+    in_journey = connection.execute(
+        """
+        SELECT 1
+        FROM learning_journey_assignments a
+        JOIN learning_journeys j ON j.journey_id = a.journey_id AND j.status = 'published'
+        WHERE a.employee_id = ?
+          AND a.revoked_at IS NULL
+          AND a.unlocked_course_ids @> jsonb_build_array(?::text)
+        LIMIT 1
+        """,
+        (context["employee_id"], context["course_id"]),
+    ).fetchone()
+    if not in_journey:
+        return False
+    from app.services.assignments import course_rule_assigns
+
+    return not course_rule_assigns(context["employee_id"], context["course_id"])
 
 
 def _journey_context(connection, context: dict) -> dict:
@@ -297,6 +330,8 @@ def _event_is_current(
     occurrence_key: str = "once",
 ) -> bool:
     if int(context.get("notification_lifecycle") or 1) != lifecycle:
+        return False
+    if context.get("journey_only"):
         return False
     status = context.get("assignment_status")
     if context.get("revoked_at"):
@@ -420,6 +455,133 @@ def enqueue_assignment_notifications(
         if connection is None:
             active_connection.commit()
     return created
+
+
+JOURNEY_EVENTS = {"journey_assigned", "journey_completed"}
+
+
+def _journey_email_context(
+    connection, journey_assignment_id: str, event_type: str
+) -> dict | None:
+    """A journey email's details, or None when the email no longer applies.
+
+    The outbox links every email to a course assignment, so a journey email is filed under
+    the journey's first course (assigned) or the course that completed it (completed).
+    """
+    anchor_order = (
+        "ca.completed_at DESC NULLS LAST, s.position DESC"
+        if event_type == "journey_completed"
+        else "s.position ASC"
+    )
+    row = connection.execute(
+        f"""
+        SELECT
+            ja.journey_assignment_id,
+            ja.journey_id,
+            ja.employee_id,
+            ja.available_at,
+            ja.deadline,
+            ja.completed_at,
+            ja.revoked_at,
+            j.title AS journey_title,
+            j.status AS journey_status,
+            j.certificate_enabled,
+            e.name AS employee_name,
+            e.email AS employee_email,
+            (
+                SELECT COUNT(*) FROM learning_journey_steps s
+                WHERE s.journey_id = ja.journey_id AND s.is_required
+            ) AS required_course_count,
+            (
+                SELECT ca.assignment_id
+                FROM course_assignments ca
+                JOIN learning_journey_steps s
+                  ON s.course_id = ca.course_id AND s.journey_id = ja.journey_id
+                WHERE ca.employee_id = ja.employee_id AND ca.revoked_at IS NULL
+                ORDER BY {anchor_order}
+                LIMIT 1
+            ) AS anchor_assignment_id
+        FROM learning_journey_assignments ja
+        JOIN learning_journeys j ON j.journey_id = ja.journey_id
+        JOIN employees e ON e.employee_id = ja.employee_id
+        WHERE ja.journey_assignment_id = ?
+        """,
+        (journey_assignment_id,),
+    ).fetchone()
+    if not row or not row["anchor_assignment_id"]:
+        return None
+    if event_type == "journey_completed":
+        if not row["completed_at"] or not row["certificate_enabled"]:
+            return None
+    elif (
+        not row["available_at"]
+        or row["revoked_at"]
+        or row["completed_at"]
+        or row["journey_status"] != "published"
+    ):
+        # A journey finished straight away gets only its completion email.
+        return None
+    context = dict(row)
+    context["certificate_number"] = certificate_number(journey_assignment_id)
+    return context
+
+
+def _render_journey_email(context: dict, event_type: str) -> tuple[str, str, str]:
+    if event_type == "journey_completed":
+        return render_journey_completed(context)
+    return render_journey_assigned(context)
+
+
+def enqueue_journey_assigned(journey_assignment_id: str) -> int:
+    """Queue the one email an employee gets when a Learning Journey opens for them."""
+    return _enqueue_journey_email(journey_assignment_id, "journey_assigned")
+
+
+def enqueue_journey_completed(journey_assignment_id: str) -> int:
+    """Queue the employee's journey completion email, which carries the certificate PDF."""
+    return _enqueue_journey_email(journey_assignment_id, "journey_completed")
+
+
+def _enqueue_journey_email(journey_assignment_id: str, event_type: str) -> int:
+    if settings.email_delivery_mode == "disabled":
+        return 0
+    with get_connection() as connection:
+        context = _journey_email_context(connection, journey_assignment_id, event_type)
+        if not context or not is_single_mailbox(context.get("employee_email")):
+            return 0
+        subject, body_text, body_html = _render_journey_email(context, event_type)
+        now = _now().isoformat()
+        row = connection.execute(
+            """
+            INSERT INTO email_notifications (
+                notification_id, assignment_id, notification_lifecycle, event_type,
+                occurrence_key, recipient_role, recipient_email, recipient_name,
+                subject, body_text, body_html, status, next_attempt_at, created_at, updated_at
+            ) VALUES (?, ?, 1, ?, ?, 'employee', ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+            ON CONFLICT (
+                assignment_id, notification_lifecycle, event_type,
+                occurrence_key, recipient_role
+            )
+            DO NOTHING
+            RETURNING notification_id
+            """,
+            (
+                str(uuid.uuid4()),
+                context["anchor_assignment_id"],
+                event_type,
+                journey_assignment_id,
+                context["employee_email"],
+                context.get("employee_name"),
+                _email_subject(subject),
+                body_text,
+                body_html,
+                now,
+                now,
+                now,
+            ),
+        ).fetchone()
+        connection.commit()
+    return 1 if row else 0
 
 
 def _digest_send_at(
@@ -907,6 +1069,8 @@ def _send_smtp(notification: dict) -> None:
     message.set_content(notification["body_text"])
     if notification.get("body_html"):
         message.add_alternative(notification["body_html"], subtype="html")
+    for filename, content in notification.get("attachments") or []:
+        message.add_attachment(content, maintype="application", subtype="pdf", filename=filename)
 
     if not (settings.smtp_use_ssl or settings.smtp_use_starttls):
         if not settings.smtp_allow_insecure_relay:
@@ -945,12 +1109,13 @@ def _send_smtp(notification: dict) -> None:
 def _send_notification(notification: dict) -> None:
     if settings.email_delivery_mode == "log":
         logger.info(
-            "course_email_log notification_id=%s event=%s role=%s to=%s subject=%s",
+            "course_email_log notification_id=%s event=%s role=%s to=%s subject=%s attachments=%s",
             notification["notification_id"],
             notification["event_type"],
             notification["recipient_role"],
             notification["recipient_email"],
             notification["subject"],
+            ",".join(name for name, _ in notification.get("attachments") or []) or "-",
         )
         return
     if settings.email_delivery_mode == "smtp":
@@ -1168,6 +1333,48 @@ def _digest_summary(connection, notification: dict) -> dict[str, int]:
     }
 
 
+def _send_journey_email(notification: dict) -> int:
+    """Send one journey email; the completion email gets a freshly drawn certificate."""
+    event_type = notification["event_type"]
+    with get_connection() as connection:
+        context = _journey_email_context(connection, notification["occurrence_key"], event_type)
+    if not context or notification["recipient_role"] != "employee":
+        logger.info(
+            "course_email_cancelled_stale notification_id=%s event=%s to=%s",
+            notification["notification_id"],
+            event_type,
+            notification["recipient_email"],
+        )
+        _cancel_stale(notification["notification_id"])
+        return 0
+    subject, body_text, body_html = _render_journey_email(context, event_type)
+    notification.update(subject=_email_subject(subject), body_text=body_text, body_html=body_html)
+    try:
+        if event_type == "journey_completed":
+            notification["attachments"] = [
+                learner_certificate(context["employee_id"], context["journey_id"])
+            ]
+        _send_notification(notification)
+    except Exception as exc:
+        logger.warning(
+            "course_email_send_failed notification_id=%s event=%s to=%s error=%s",
+            notification["notification_id"],
+            event_type,
+            notification["recipient_email"],
+            exc,
+        )
+        _mark_failed(notification, exc)
+        return 0
+    _mark_sent(notification["notification_id"])
+    logger.info(
+        "course_email_sent notification_id=%s event=%s role=employee to=%s",
+        notification["notification_id"],
+        event_type,
+        notification["recipient_email"],
+    )
+    return 1
+
+
 def process_pending_notifications(limit: int | None = None) -> int:
     if settings.email_delivery_mode == "disabled":
         return 0
@@ -1231,6 +1438,9 @@ def process_pending_notifications(limit: int | None = None) -> int:
                 len(contexts),
             )
             processed += 1
+            continue
+        if notification["event_type"] in JOURNEY_EVENTS:
+            processed += _send_journey_email(notification)
             continue
         with get_connection() as connection:
             context = _assignment_context(connection, notification["assignment_id"])

@@ -268,8 +268,13 @@ The course titles are listed in the earlier draft, and SMEs and the compliance t
   number (`PCIL-LJ-XXXX-XXXX-XXXX`) that any trainer can check at
   `GET /api/learning-journeys/certificates/{number}`. Learners download theirs from the journey;
   the owning trainer downloads any learner's from Progress.
-- **Reminders** stay automatic, as for courses (assignment reminder, due soon, overdue every 48 h).
-  Course emails to the employee now say which journey the course belongs to and its step number.
+- **Emails**: journeys are optional learning, so a journey sends the employee only two emails:
+  **Learning journey assigned** when it opens for them, and **Learning journey completed** with
+  the certificate PDF attached (only when the journey has certificates on). Courses the employee
+  has only through a journey send no course emails (assigned, reminder, due soon, overdue,
+  escalation, completed) to the employee, HOD or trainer. A journey course that its own course
+  rule also assigns to the employee keeps all its course emails, which say which journey the
+  course belongs to and its step number.
 - **Trainer editor**: one action bar (Draft: Save draft, Publish & assign; Published: Save & apply;
   Disabled: Save, Re-publish), an unsaved-changes marker and guard, Observers saved with the
   journey, In order / In any order with per-course "Opens anytime", optional sections, drag and

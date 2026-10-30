@@ -269,6 +269,46 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
     return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, link_label, link, guidance=guidance)
 
 
+def render_journey_assigned(context: dict) -> tuple[str, str, str]:
+    """The one email a learner gets when a Learning Journey opens for them."""
+    journey = context.get("journey_title") or "Learning journey"
+    employee_first = first_name(context.get("employee_name"), "there")
+    count = int(context.get("required_course_count") or 0)
+    courses = f"{count} course{'s' if count != 1 else ''}" if count else "a series of courses"
+    subject = f"Learning journey assigned: {journey}"
+    paragraphs = [f"Dear {employee_first},", f"You have been enrolled in the learning journey {journey}.", f"This journey consists of {courses}. Each course becomes available in the LMS as you progress through the journey."]
+    if context.get("certificate_enabled"):
+        paragraphs.append("On completing the journey, you will receive a certificate of completion by email.")
+    details = [("Learning journey", journey), ("Courses", count or "See the LMS"), ("Target completion date", format_date(context.get("deadline")))]
+    link = course_link(context)
+    guidance = "Sign in to the LMS and open Learning Journeys to begin."
+    text_lines = []
+    for paragraph in paragraphs:
+        text_lines.extend([paragraph, ""])
+    text_lines.extend(_details_text(details))
+    text_lines.extend(["", f"Open LMS: {link}", "", guidance, "", FOOTER])
+    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, "Open LMS", link, guidance=guidance)
+
+
+def render_journey_completed(context: dict) -> tuple[str, str, str]:
+    """The learner's journey completion email; the certificate PDF is attached on sending."""
+    journey = context.get("journey_title") or "Learning journey"
+    employee_first = first_name(context.get("employee_name"), "there")
+    count = int(context.get("required_course_count") or 0)
+    courses = f"all {count} required course{'s' if count != 1 else ''}" if count else "all the required courses"
+    subject = f"Learning journey completed: {journey}"
+    paragraphs = [f"Dear {employee_first},", f"Congratulations on successfully completing the learning journey {journey}.", f"You have completed {courses} in this journey. Your certificate of completion is attached to this email.", "Thank you for your commitment to your learning and development. Your learning record has been updated accordingly."]
+    details = [("Learning journey", journey), ("Courses completed", count or "All"), ("Completion date", format_date(context.get("completed_at"))), ("Certificate number", context.get("certificate_number") or "")]
+    link = course_link(context)
+    guidance = "You can also download your certificate from Learning Journeys in the LMS."
+    text_lines = []
+    for paragraph in paragraphs:
+        text_lines.extend([paragraph, ""])
+    text_lines.extend(_details_text(details))
+    text_lines.extend(["", f"Open LMS: {link}", "", guidance, "", FOOTER])
+    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, "Open LMS", link, guidance=guidance)
+
+
 def _digest_table(rows: list[dict], event_type: str) -> tuple[str, str]:
     headers = ["Employee", "Course", "Deadline"]
     if event_type == "assigned":
@@ -370,5 +410,7 @@ __all__ = [
     "days_overdue",
     "render_digest",
     "render_individual",
+    "render_journey_assigned",
+    "render_journey_completed",
     "time_remaining",
 ]

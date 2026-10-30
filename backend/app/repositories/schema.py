@@ -317,7 +317,8 @@ def _create_tables(cursor) -> None:
             CONSTRAINT ck_email_notifications_event_type CHECK (
                 event_type IN (
                     'assigned', 'reactivated', 'assignment_reminder',
-                    'due_soon', 'completed', 'overdue'
+                    'due_soon', 'completed', 'overdue',
+                    'journey_assigned', 'journey_completed'
                 )
             ),
             CHECK (recipient_role IN ('employee', 'hod', 'trainer')),
@@ -429,6 +430,23 @@ def _create_tables(cursor) -> None:
         )
         """
     )
+    # Databases created before journey completion emails have the older list of event types.
+    cursor.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'ck_email_notifications_event_type'
+                  AND conrelid = 'email_notifications'::regclass
+                  AND pg_get_constraintdef(oid) NOT LIKE '%journey_assigned%'
+            ) THEN
+                ALTER TABLE email_notifications
+                DROP CONSTRAINT ck_email_notifications_event_type;
+            END IF;
+        END $$
+        """
+    )
     cursor.execute(
         """
         DO $$
@@ -442,7 +460,8 @@ def _create_tables(cursor) -> None:
                 ADD CONSTRAINT ck_email_notifications_event_type CHECK (
                     event_type IN (
                         'assigned', 'reactivated', 'assignment_reminder',
-                        'due_soon', 'completed', 'overdue'
+                        'due_soon', 'completed', 'overdue',
+                        'journey_assigned', 'journey_completed'
                     )
                 );
             END IF;

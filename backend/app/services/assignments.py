@@ -105,6 +105,7 @@ def _revoked_progress(progress: dict, now: datetime, reason: str) -> dict:
 
 def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False) -> dict[str, int]:
     from app.services.journeys import (
+        email_journeys_assigned,
         journey_held_courses,
         journey_wanted_courses,
         journeys_enabled,
@@ -118,7 +119,8 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
     removed = 0
     reactivated = 0
     # Courses unlocked by the employee's Learning Journeys, with the journey deadline.
-    journey_courses = journey_wanted_courses(employee_id, employee, existing, now)
+    opened_journeys: list[str] = []
+    journey_courses = journey_wanted_courses(employee_id, employee, existing, now, opened_journeys)
     # With the feature switched off nothing new is unlocked, but courses a journey already gave
     # the employee are kept rather than revoked. Looked up only when a revocation is considered.
     kept_cache: list[set[str]] = []
@@ -247,7 +249,20 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
             assigned += 1
             if notify:
                 schedule_employee_broadcast(employee_id)
+    email_journeys_assigned(opened_journeys)
     return {"assigned": assigned, "removed": removed, "reactivated": reactivated}
+
+
+def course_rule_assigns(employee_id: str, course_id: str) -> bool:
+    """Whether the course's own published assignment rule covers this employee, as opposed
+    to the employee having the course only through a Learning Journey."""
+    employee = _employees.get(employee_id)
+    if not employee or not _courses.is_published(course_id):
+        return False
+    rule = _assignments.get_applied(course_id)
+    if not rule.get("published_at") or not rule.get("is_active", True):
+        return False
+    return _assignments.matches_employee(employee, rule, datetime.now())
 
 
 def ensure_assignments_for_employee(employee_id: str) -> bool:
