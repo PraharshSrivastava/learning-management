@@ -67,7 +67,8 @@ RUN python -m pip wheel --no-deps --no-binary=lxml --require-hashes -r /src/requ
     && cd /out/wheels && sha256sum lxml-*.whl > SHA256SUMS
 
 COPY security/record_source_wheel.py /src/
-RUN python /src/record_source_wheel.py --source-lock /src/requirements-lxml-source.lock --wheels /out/wheels --output /out/lxml-source-build.json
+RUN python /src/record_source_wheel.py --source-lock /src/requirements-lxml-source.lock --wheels /out/wheels --output /out/lxml-source-build.json \
+        --config-tool xml2-config --config-tool xslt-config
 
 FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS app-runtime
 
@@ -311,6 +312,8 @@ RUN ldconfig \
 COPY requirements-pillow-source.lock /src/
 RUN python -m pip wheel --no-deps --no-binary=pillow --require-hashes -r /src/requirements-pillow-source.lock --wheel-dir=/out/wheels \
     && cd /out/wheels && sha256sum pillow-*.whl > SHA256SUMS
+COPY security/record_source_wheel.py /src/
+RUN python /src/record_source_wheel.py --source-lock /src/requirements-pillow-source.lock --wheels /out/wheels --output /out/pillow-source-build.json
 
 FROM security-runtime AS maintained-parsers-runtime
 USER 0:0
@@ -542,6 +545,7 @@ COPY --from=backlog-poppler-build /extra-out/provenance.json /usr/share/lms-secu
 RUN dpkg -i /tmp/poppler-security.deb && ldconfig && apt-get check \
     && test -z "$(dpkg --audit)" && rm /tmp/poppler-security.deb
 COPY --from=lxml-build /out/lxml-source-build.json /usr/share/lms-security/lxml-source-build.json
+COPY --from=python-parsers-build /out/pillow-source-build.json /usr/share/lms-security/pillow-source-build.json
 COPY security/check_native_bundle_lock.py security/native-bundle-lock.json /usr/share/lms-security/
 # Reference identities and reviewed-source output manifests are not CVE exemptions.
 RUN python /usr/share/lms-security/check_native_bundle_lock.py \

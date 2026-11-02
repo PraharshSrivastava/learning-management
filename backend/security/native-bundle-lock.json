@@ -16,49 +16,49 @@
     "/usr/local/lib/python3.12/site-packages/PIL/_avif.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "b6666bff7517b2384aaa76267f507ae6086c6f8baaf38def1eb1e553b4d0e347",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/PIL/_imagingmath.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "39c79a19c23dfd49c9f62f464105cad93a96cf3de137e698c6decd7b9651e4cf",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/PIL/_imaging.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "1a6a210a5476da4566e6deda4e877bff5508b887b3bbad2b79acfa1ae458fe2e",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/PIL/_imagingft.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "9b4daea1fcdbc5e46f1c74f9a97dad8587e7361a705a6be22a3f88df3a660898",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/PIL/_imagingmorph.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "17f5510f4c4140bbec792275b3f386c4c819ae96096e8e934e431aec5710979e",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/PIL/_imagingcms.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "c6155ac80de00ce813d67ff471fe9e0c1f392c3c8f88c508f47ac55036e56e05",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/PIL/_imagingtk.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "9da5cf5c5b809f6481eabdb84045e2df09b486786d0557866b4fe0b3e90324ba",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/PIL/_webp.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "a5bb5f404466ec22807b98173581e4494068a53da266cf809c6ba8cb3c80bb1a",
       "owners": [
-        "python:pillow==12.3.0"
+        "python:pillow==13.0.0"
       ]
     },
     "/usr/local/lib/python3.12/site-packages/google/_upb/_message.abi3.so": {
@@ -399,6 +399,11 @@
       "source_sha256": "45222d94ddd511536f3b2f7d9deae3b2339b4ce0f075f1ca25703b07cad9dd21",
       "version": "6.1.3",
       "manifest": "/usr/share/lms-security/lxml-source-build.json"
+    },
+    "pillow": {
+      "source_sha256": "cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510",
+      "version": "13.0.0",
+      "manifest": "/usr/share/lms-security/pillow-source-build.json"
     }
   }
 }
