@@ -94,7 +94,7 @@ def main():
                     {'name': 'lms:security-patch-sha256', 'value': patch_hash},
                 ])
         if parser_proof.exists() and name in ('pillow', 'python'):
-            component.setdefault('properties', []).append({'name': 'lms:parser-linkage', 'value': 'CPython pyexpat rebuilt against system Expat 2.8.5; Pillow 12.3.0 rebuilt against system TIFF 4.7.2; previous private TIFF removed'})
+            component.setdefault('properties', []).append({'name': 'lms:parser-linkage', 'value': 'CPython pyexpat rebuilt against system Expat 2.8.5; Pillow 13.0.0 rebuilt against system TIFF 4.7.2; previous private TIFF removed'})
         if name in SOURCES:
             version, url, digest = SOURCES[name]
             assert component['version'] == version

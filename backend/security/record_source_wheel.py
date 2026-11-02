@@ -56,12 +56,14 @@ if __name__ == '__main__':
     parser.add_argument('--source-lock', type=Path, required=True)
     parser.add_argument('--wheels', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    # Library config tools (for example xml2-config) whose --version output is recorded.
+    parser.add_argument('--config-tool', action='append', default=[])
     args = parser.parse_args()
     result = record(args.source_lock, args.wheels)
     # Preserve build-environment evidence; dependency versions are not exemptions.
     result['compiler'] = subprocess.check_output(['gcc', '--version'], text=True).splitlines()[0]
-    result['xml2_config_version'] = subprocess.check_output(['xml2-config', '--version'], text=True).strip()
-    result['xslt_config_version'] = subprocess.check_output(['xslt-config', '--version'], text=True).strip()
+    for tool in args.config_tool:
+        result[tool.replace('-', '_') + '_version'] = subprocess.check_output([tool, '--version'], text=True).strip()
     result['build_packages'] = subprocess.check_output(
         ['dpkg-query', '-W', '-f=${Package}=${Version}\n'], text=True).splitlines()
     args.output.write_text(json.dumps(result, indent=2) + '\n')

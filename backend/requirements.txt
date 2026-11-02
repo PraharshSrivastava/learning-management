@@ -19,5 +19,5 @@ langfuse==4.15.4
 
 # Video & Image Generation (Playwright requires: playwright install chromium)
 playwright==1.63.0
-pillow==12.3.0
+pillow==13.0.0
 imageio-ffmpeg==0.6.0
