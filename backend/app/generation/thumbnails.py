@@ -26,7 +26,29 @@ THUMBNAIL_API_KEY = settings.thumbnail_api_key
 THUMBNAIL_CONNECT_TIMEOUT = settings.thumbnail_connect_timeout
 THUMBNAIL_READ_TIMEOUT = settings.thumbnail_read_timeout
 THUMBNAIL_DIR = os.path.join(str(settings.image_dir), "course_thumbnails")
+# The signature also gates publishing (course_access.course_is_publishable), so
+# bumping this marks every existing course's thumbnail stale. Change it only
+# when old thumbnails must be regenerated, not for prompt wording tweaks.
 THUMBNAIL_PROMPT_VERSION = "single-subject-v2"
+# The planner picks the subject only; the shared style keeps course cards
+# visually consistent across courses.
+THUMBNAIL_STYLE = (
+    "Polished modern 3D illustration for a corporate e-learning course card, "
+    "soft studio lighting, smooth rounded shapes, cohesive professional colour palette, "
+    "softly coloured gradient background, one clear focal point, high detail."
+)
+# The planner sometimes ignores its no-writing rule. Qwen Image then draws the
+# words (often garbled), so subjects naming text or text-bearing objects are
+# rejected and planned again.
+_TEXT_BEARING_SUBJECT = re.compile(
+    r"(?:^|\s)['\"‘“]"
+    r"|\b(?:label(?:l?ed|s)?|written|words?|text|letters?|numbers?|signs?|signposts?"
+    r"|newspapers?|books?|documents?|certificates?|papers?|screens?|monitors?"
+    r"|display(?:s|ing|ed)?|interfaces?|dashboards?|charts?|graphs?|tickers?|boards?"
+    r"|banknotes?|currency|phones?|tablets?|laptops?|flags?|logos?|brands?)\b",
+    re.IGNORECASE,
+)
+THUMBNAIL_PLANNER_ATTEMPTS = 3
 THUMBNAILS_ENABLED = settings.thumbnails_enabled
 
 _PLACEHOLDER_PALETTES = (
@@ -83,34 +105,38 @@ def _extract_subject_from_llm(content: str) -> Optional[str]:
 
 
 def _thumbnail_prompt_from_subject(subject: str) -> str:
-    return f"{subject}. No text or logos."
+    # Qwen Image renders legible text eagerly, so the ban is spelled out in full.
+    return (
+        f"{subject}. {THUMBNAIL_STYLE} "
+        "The image contains no text, letters, numbers, words, labels, logos or watermarks."
+    )
 
 
 def _planned_thumbnail_prompt(
     title: str, description: str, course_id: str, *, attempts: int = 3
 ) -> str:
+    rejected_subjects: list[str] = []
+
     def plan_once() -> str:
+        request = {
+            "course_name": title,
+            "course_description": description,
+            "style": "polished modern corporate e-learning thumbnail",
+            "size": "1024x1024",
+        }
+        if rejected_subjects:
+            # Without this feedback the planner keeps returning the same idea.
+            request["rejected_subjects"] = rejected_subjects
         base_url, model = get_llm_endpoint("thumbnail")
         response = safe_chat_completion(
             base_url,
             model,
             [
                 {"role": "system", "content": COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": json.dumps(
-                        {
-                            "course_name": title,
-                            "course_description": description,
-                            "style": "polished modern corporate e-learning thumbnail",
-                            "size": "1024x1024",
-                        },
-                        ensure_ascii=False,
-                    ),
-                },
+                {"role": "user", "content": json.dumps(request, ensure_ascii=False)},
             ],
             response_format={"type": "json_object"},
-            temperature=0.2,
+            temperature=0.2 if not rejected_subjects else 0.7,
             default_max_tokens=500,
             course_id=course_id,
             stage="thumbnail_prompt",
@@ -121,6 +147,9 @@ def _planned_thumbnail_prompt(
         subject = _extract_subject_from_llm(response.choices[0].message.content)
         if not subject:
             raise ValueError("LLM thumbnail subject response was not valid JSON")
+        if _TEXT_BEARING_SUBJECT.search(subject):
+            rejected_subjects.append(subject)
+            raise ValueError(f"LLM thumbnail subject names text-bearing objects: {subject}")
         return _thumbnail_prompt_from_subject(subject)
 
     return retry(plan_once, course_id=course_id, stage="thumbnail_prompt", attempts=attempts)
@@ -163,13 +192,18 @@ def _thumbnail_request_payload(prompt: str) -> dict:
     if "/v1/images/generations" not in THUMBNAIL_ENDPOINT:
         return {"prompt": prompt}
 
-    return {
+    payload = {
         "model": THUMBNAIL_MODEL,
         "prompt": prompt,
-        "n": 1,
         "size": "1024x1024",
-        "response_format": "b64_json",
     }
+    # LiteLLM rejects the OpenAI-only `n` and `response_format` for Qwen Image
+    # and Flux (HTTP 400); both already answer with base64 JSON by default.
+    family = THUMBNAIL_MODEL.casefold()
+    if "qwen-image" not in family and "flux" not in family:
+        payload["n"] = 1
+        payload["response_format"] = "b64_json"
+    return payload
 
 
 def _thumbnail_request_headers() -> dict:
@@ -177,6 +211,16 @@ def _thumbnail_request_headers() -> dict:
     if THUMBNAIL_API_KEY:
         headers["Authorization"] = f"Bearer {THUMBNAIL_API_KEY}"
     return headers
+
+
+def _compressed_thumbnail(image_bytes: bytes) -> bytes:
+    """Re-encode model output as WebP; Qwen Image returns ~4 MB uncompressed PNGs."""
+    from io import BytesIO
+
+    with Image.open(BytesIO(image_bytes)) as image:
+        buffer = BytesIO()
+        image.convert("RGB").save(buffer, format="WEBP", quality=85, method=6)
+    return buffer.getvalue()
 
 
 def _placeholder_image_bytes() -> bytes:
@@ -212,7 +256,8 @@ def generate_course_thumbnail(
     Generate and persist a course-card thumbnail.
 
     Returns a relative static asset path, e.g.
-    assets/images/course_thumbnails/course-id-abc123.png.
+    assets/images/course_thumbnails/course-id-abc123.webp (model output) or
+    .png (local placeholder).
     """
     title = course.get("course_name") or "Course"
     if not THUMBNAILS_ENABLED:
@@ -222,23 +267,26 @@ def generate_course_thumbnail(
     start = time.perf_counter()
     description = course.get("course_description") or ""
     prompt_hash = course_thumbnail_signature(course)
-    filename = f"{_safe_filename(course_id)}-{prompt_hash}.png"
-    output_path = os.path.join(THUMBNAIL_DIR, filename)
+    stem = f"{_safe_filename(course_id)}-{prompt_hash}"
 
-    if os.path.exists(output_path):
-        elapsed = time.perf_counter() - start
-        logger.info(
-            f"[THUMBNAIL] Reused existing thumbnail for course {course_id} in {elapsed:.1f}s: {filename}"
-        )
-        return public_asset_url("images", "course_thumbnails", filename)
+    for extension in ("webp", "png"):
+        filename = f"{stem}.{extension}"
+        if os.path.exists(os.path.join(THUMBNAIL_DIR, filename)):
+            elapsed = time.perf_counter() - start
+            logger.info(
+                f"[THUMBNAIL] Reused existing thumbnail for course {course_id} in {elapsed:.1f}s: {filename}"
+            )
+            return public_asset_url("images", "course_thumbnails", filename)
 
     os.makedirs(THUMBNAIL_DIR, exist_ok=True)
     try:
         logger.info("thumbnail_prompt_planning_started course_id=%s", course_id)
         prompt_start = time.perf_counter()
-        # Thumbnail generation deliberately gets one attempt. Any model, transport,
-        # response, or prompt-planning failure is replaced locally below.
-        prompt = _planned_thumbnail_prompt(str(title), str(description), course_id, attempts=1)
+        # The image request deliberately gets one attempt; only the cheap planning
+        # call is retried. Any failure is replaced locally below.
+        prompt = _planned_thumbnail_prompt(
+            str(title), str(description), course_id, attempts=THUMBNAIL_PLANNER_ATTEMPTS
+        )
         logger.info(
             f"[THUMBNAIL] Prompt planned for course {course_id} in {time.perf_counter() - prompt_start:.1f}s"
         )
@@ -257,6 +305,8 @@ def generate_course_thumbnail(
         image_bytes = _decode_image_payload(response.json(), THUMBNAIL_ENDPOINT)
         if not image_bytes:
             raise ValueError("Image generation response did not include image data")
+        image_bytes = _compressed_thumbnail(image_bytes)
+        filename = f"{stem}.webp"
         logger.info(
             f"[THUMBNAIL] Image response received for course {course_id} in {time.perf_counter() - image_start:.1f}s"
         )
@@ -267,7 +317,9 @@ def generate_course_thumbnail(
             str(exc)[:500],
         )
         image_bytes = _placeholder_image_bytes()
+        filename = f"{stem}.png"
 
+    output_path = os.path.join(THUMBNAIL_DIR, filename)
     with open(output_path, "wb") as image_file:
         image_file.write(image_bytes)
 

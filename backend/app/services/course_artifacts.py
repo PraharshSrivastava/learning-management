@@ -45,8 +45,9 @@ def delete_course_artifacts(
     files: set[Path] = set()
     thumbnail_root = config.image_dir / "course_thumbnails"
     if thumbnail_root.is_dir():
-        for candidate in thumbnail_root.glob(f"{_thumbnail_stem(course_id)}-*.png"):
-            files.add(_safe_child(thumbnail_root, candidate))
+        for pattern in ("png", "webp"):
+            for candidate in thumbnail_root.glob(f"{_thumbnail_stem(course_id)}-*.{pattern}"):
+                files.add(_safe_child(thumbnail_root, candidate))
     if thumbnail_path:
         candidate = resolve_public_asset_path(thumbnail_path, config)
         files.add(_safe_child(config.image_dir, candidate))

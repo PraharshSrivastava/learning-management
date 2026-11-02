@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -30,6 +31,10 @@ from app.services.email_notifications import (
     stop_email_notification_scheduler,
 )
 from app.services.generation_queue import generation_queue
+
+# Slim images ship without /etc/mime.types, so Starlette would serve WebP
+# course thumbnails as text/plain.
+mimetypes.add_type("image/webp", ".webp")
 
 
 @asynccontextmanager
