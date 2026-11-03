@@ -83,6 +83,25 @@ interface Call {
 
 let calls: Call[] = []
 let detail: Record<string, unknown> = draftDetail
+let preview: Record<string, unknown> = {}
+
+/** The journey's Observer configuration: after a save it is pending, after Apply active. */
+const observerReply = (revision: number, applied: boolean) => {
+  const scope = { employee_ids: [], department_ids: ['d1'] }
+  return {
+    journey_id: 'j1',
+    revision,
+    observers: [
+      {
+        observer_employee_id: 'e5',
+        is_active: applied,
+        active: applied ? scope : { employee_ids: [], department_ids: [] },
+        pending: scope,
+      },
+    ],
+  }
+}
+let observerConfig: { revision: number; observers: unknown[] } = { revision: 0, observers: [] }
 
 const sent = (method: string, suffix: string) =>
   calls.filter((call) => call.method === method && call.path.endsWith(suffix))
@@ -90,6 +109,8 @@ const sent = (method: string, suffix: string) =>
 beforeEach(() => {
   calls = []
   detail = draftDetail
+  preview = {}
+  observerConfig = { revision: 0, observers: [] }
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -107,8 +128,16 @@ beforeEach(() => {
         return json({
           match_count: 12,
           preview_employees: [{ employee_id: 'e1', name: 'Asha Verma', department: 'Sales' }],
+          ...preview,
         })
-      if (path.endsWith('/observers')) return json({ observers: [] })
+      if (path.endsWith('/observers/apply')) {
+        observerConfig = observerReply(observerConfig.revision + 1, true)
+        return json(observerConfig)
+      }
+      if (path.endsWith('/observers')) {
+        if (method === 'PUT') observerConfig = observerReply(observerConfig.revision + 1, false)
+        return json(observerConfig)
+      }
       if (path.endsWith('/api/observer/options'))
         return json({ departments: [{ department_id: 'd1', name: 'Sales' }] })
       if (path.endsWith('/api/assignment/options'))
@@ -233,29 +262,55 @@ describe('JourneysTab', () => {
     expect(sent('POST', '/api/learning-journeys')[0]?.body).toEqual({ title: 'Wealth basics' })
   })
 
-  it('saves a new Observer before applying a live journey, so they are never enrolled', async () => {
+  it('saves and then applies Observers on their own, as in the Assign tab', async () => {
     const user = userEvent.setup()
     detail = liveDetail
     renderCourses(JourneysTab, { url: '/?tab=journeys&journey=j1' })
     const observers = await screen.findByRole('region', { name: 'Journey observers' })
-    await user.click(within(observers).getByRole('button', { name: 'Add observer' }))
-    await user.click(await screen.findByText('Meera Iyer'))
-    const observer = await within(observers).findByRole('region', { name: 'Observer Meera Iyer' })
-    await user.click(within(observer).getByRole('button', { name: 'Departments' }))
+    await user.click(await within(observers).findByRole('button', { name: 'Add observer' }))
+    await user.click(within(observers).getByRole('button', { name: 'Departments (0)' }))
     await user.click(await screen.findByRole('checkbox', { name: 'Sales' }))
-    await user.click(screen.getByRole('button', { name: 'Apply' }))
-    await user.clear(screen.getByRole('textbox', { name: 'Description' }))
-    await user.type(screen.getByRole('textbox', { name: 'Description' }), 'Markets 101')
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    // Unsaved Observer edits must be saved before Apply, and never mark the journey unsaved.
+    expect(within(observers).getByRole('button', { name: 'Apply Observers' })).toBeDisabled()
+    expect(screen.queryByText('Unsaved changes')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: 'Save & apply' }))
-    await waitFor(() => expect(sent('PUT', '/j1')).toHaveLength(1))
-    const order = calls
-      .filter((call) => call.method === 'PUT')
-      .map((call) => call.path.split('/').pop())
-    expect(order).toEqual(['observers', 'j1'])
-    expect(sent('PUT', '/observers')[0]?.body).toEqual({
+    await user.click(within(observers).getByRole('button', { name: 'Save Observers' }))
+    await waitFor(() => expect(sent('PUT', '/j1/observers')).toHaveLength(1))
+    expect(sent('PUT', '/j1/observers')[0]?.body).toEqual({
+      revision: 0,
       observers: [{ observer_employee_id: 'e5', employee_ids: [], department_ids: ['d1'] }],
     })
+    expect(await within(observers).findByText(/additions need Apply Observers/)).toBeInTheDocument()
+    expect(within(observers).getByText('Access not active')).toBeInTheDocument()
+
+    await user.click(within(observers).getByRole('button', { name: 'Apply Observers' }))
+    await waitFor(() => expect(sent('POST', '/j1/observers/apply')).toHaveLength(1))
+    expect(sent('POST', '/j1/observers/apply')[0]?.body).toEqual({ revision: 1 })
+    expect(
+      await within(observers).findByText('Active access: 1 departments, 0 selected employees'),
+    ).toBeInTheDocument()
+    // The journey itself was never saved for this.
+    expect(sent('PUT', '/api/learning-journeys/j1')).toHaveLength(0)
+  })
+
+  it('cannot apply Observers until the journey is published', async () => {
+    renderCourses(JourneysTab, { url: '/?tab=journeys&journey=j1' })
+    const observers = await screen.findByRole('region', { name: 'Journey observers' })
+    expect(
+      await within(observers).findByText('Publish the journey before applying observers.'),
+    ).toBeInTheDocument()
+    expect(within(observers).getByRole('button', { name: 'Apply Observers' })).toBeDisabled()
+  })
+
+  it('warns when matching employees are also Observers', async () => {
+    preview = { blocked_employee_count: 2 }
+    renderCourses(JourneysTab, { url: '/?tab=journeys&journey=j1' })
+    expect(
+      await screen.findByText(
+        '2 matching employees are also Observers. Resolve these conflicts before saving.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('sends trainers to Performance for learner progress', async () => {

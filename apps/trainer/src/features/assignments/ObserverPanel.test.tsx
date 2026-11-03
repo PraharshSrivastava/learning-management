@@ -1,14 +1,13 @@
 // Ports of frontend/test/observer_refresh_test.dart.
 import { configureApi } from '@lms/shared/api/client'
-import { parseCourse, parseEmployee, type Employee } from '@lms/shared/models'
+import { parseEmployee, type Employee } from '@lms/shared/models'
 import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Reply, Requester } from './api'
 import { ObserverPanel } from './ObserverPanel'
-
-const course = parseCourse({ course_id: 'course', course_name: 'Test', status: 'published' })
+import { courseObserverEndpoints } from './observerStore'
 
 const employee = (id: string, status = 'active'): Employee =>
   parseEmployee({ employee_id: id, name: id, status })
@@ -37,10 +36,12 @@ function panel(
   return (
     <TooltipProvider>
       <ObserverPanel
-        course={course}
+        endpoints={courseObserverEndpoints('course')}
         employees={employees}
         refreshGeneration={refreshGeneration}
-        isAssignmentActive
+        canApply
+        notReadyText="Publish and assign the course before applying observers."
+        reportScope="reports include only assigned learners on this course."
         request={request}
         onDraftObservers={onDraftObservers}
       />

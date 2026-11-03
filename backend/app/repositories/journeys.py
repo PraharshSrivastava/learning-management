@@ -104,9 +104,19 @@ def create_journey_tables(cursor) -> None:
         )
         """
     )
-    # Journey Observers see every course of the journey for the people they watch.
+    # Journey Observers see every course of the journey for the people they watch. They work
+    # like course Observers: Save stores a pending selection and Apply makes it active.
     # department_id refers to lms_departments, which the access migrations create after this
     # runs, so it is validated on save instead of by a foreign key.
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS learning_journey_observer_configs (
+            journey_id TEXT PRIMARY KEY,
+            revision INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (journey_id) REFERENCES learning_journeys(journey_id) ON DELETE CASCADE
+        )
+        """
+    )
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS learning_journey_observers (
@@ -114,6 +124,7 @@ def create_journey_tables(cursor) -> None:
             observer_employee_id TEXT NOT NULL,
             identity_key TEXT NOT NULL,
             granted_by_trainer_id TEXT NOT NULL,
+            active BOOLEAN NOT NULL DEFAULT FALSE,
             updated_at TEXT NOT NULL DEFAULT (now()::text),
             PRIMARY KEY (journey_id, observer_employee_id),
             FOREIGN KEY (journey_id) REFERENCES learning_journeys(journey_id) ON DELETE CASCADE,
@@ -126,9 +137,10 @@ def create_journey_tables(cursor) -> None:
         CREATE TABLE IF NOT EXISTS learning_journey_observer_employees (
             journey_id TEXT NOT NULL,
             observer_employee_id TEXT NOT NULL,
+            phase TEXT NOT NULL CHECK (phase IN ('pending', 'active')),
             employee_id TEXT NOT NULL,
             identity_key TEXT NOT NULL,
-            PRIMARY KEY (journey_id, observer_employee_id, employee_id),
+            PRIMARY KEY (journey_id, observer_employee_id, phase, employee_id),
             FOREIGN KEY (journey_id, observer_employee_id)
                 REFERENCES learning_journey_observers ON DELETE CASCADE,
             FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE RESTRICT
@@ -140,13 +152,15 @@ def create_journey_tables(cursor) -> None:
         CREATE TABLE IF NOT EXISTS learning_journey_observer_departments (
             journey_id TEXT NOT NULL,
             observer_employee_id TEXT NOT NULL,
+            phase TEXT NOT NULL CHECK (phase IN ('pending', 'active')),
             department_id TEXT NOT NULL,
-            PRIMARY KEY (journey_id, observer_employee_id, department_id),
+            PRIMARY KEY (journey_id, observer_employee_id, phase, department_id),
             FOREIGN KEY (journey_id, observer_employee_id)
                 REFERENCES learning_journey_observers ON DELETE CASCADE
         )
         """
     )
+    _migrate_observer_phases(cursor)
     for statement in (
         "CREATE INDEX IF NOT EXISTS idx_learning_journey_observers_employee "
         "ON learning_journey_observers(observer_employee_id)",
@@ -157,6 +171,57 @@ def create_journey_tables(cursor) -> None:
         "ON learning_journey_assignments(employee_id)",
     ):
         cursor.execute(statement)
+
+
+def _migrate_observer_phases(cursor) -> None:
+    """Journey Observers saved before Apply existed were live while the journey was published.
+
+    Each saved selection becomes both the active and the pending one, as if it had been
+    applied, so nobody on a published journey gains or loses access in the upgrade. On a draft
+    or disabled journey they wait for Apply, as a course's Observers do.
+    """
+    # Workers starting together take turns; the second finds the upgrade done.
+    cursor.execute("SELECT pg_advisory_xact_lock(hashtext('learning_journey_observer_phases'))")
+    cursor.execute(
+        """SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema()
+        AND table_name = 'learning_journey_observer_employees' AND column_name = 'phase'"""
+    )
+    if cursor.fetchone():
+        return
+    cursor.execute(
+        "ALTER TABLE learning_journey_observers "
+        "ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT FALSE"
+    )
+    cursor.execute(
+        """UPDATE learning_journey_observers o SET active = EXISTS(
+            SELECT 1 FROM learning_journeys j WHERE j.journey_id = o.journey_id AND j.status = 'published')"""
+    )
+    for table, column in (
+        ("learning_journey_observer_employees", "employee_id"),
+        ("learning_journey_observer_departments", "department_id"),
+    ):
+        cursor.execute(
+            f"ALTER TABLE {table} ADD COLUMN phase TEXT NOT NULL DEFAULT 'active' "
+            "CHECK (phase IN ('pending', 'active'))"
+        )
+        cursor.execute(f"ALTER TABLE {table} ALTER COLUMN phase DROP DEFAULT")
+        cursor.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {table}_pkey")
+        cursor.execute(
+            f"ALTER TABLE {table} ADD PRIMARY KEY (journey_id, observer_employee_id, phase, {column})"
+        )
+    cursor.execute(
+        """INSERT INTO learning_journey_observer_employees
+        (journey_id, observer_employee_id, phase, employee_id, identity_key)
+        SELECT journey_id, observer_employee_id, 'pending', employee_id, identity_key
+        FROM learning_journey_observer_employees"""
+    )
+    cursor.execute(
+        """INSERT INTO learning_journey_observer_departments
+        (journey_id, observer_employee_id, phase, department_id)
+        SELECT journey_id, observer_employee_id, 'pending', department_id
+        FROM learning_journey_observer_departments"""
+    )
 
 
 def _journeys_with_parts(connection, rows) -> list[dict]:
@@ -587,40 +652,6 @@ def assignment_changed(before: dict | None, after: dict) -> bool:
     return any(value(before, field) != value(after, field) for field in _ASSIGNMENT_FIELDS)
 
 
-def journey_observers(journey_id: str) -> list[dict]:
-    with get_connection() as connection:
-        observers = connection.execute(
-            """
-            SELECT o.observer_employee_id, e.name, e.department
-            FROM learning_journey_observers o JOIN employees e ON e.employee_id = o.observer_employee_id
-            WHERE o.journey_id = ? ORDER BY lower(e.name), o.observer_employee_id
-            """,
-            (journey_id,),
-        ).fetchall()
-        employees = connection.execute(
-            "SELECT observer_employee_id, employee_id FROM learning_journey_observer_employees WHERE journey_id = ? ORDER BY employee_id",
-            (journey_id,),
-        ).fetchall()
-        departments = connection.execute(
-            "SELECT observer_employee_id, department_id FROM learning_journey_observer_departments WHERE journey_id = ? ORDER BY department_id",
-            (journey_id,),
-        ).fetchall()
-    return [
-        {
-            "observer_employee_id": row["observer_employee_id"],
-            "name": row["name"],
-            "department": row["department"] or "",
-            "employee_ids": [
-                r["employee_id"] for r in employees if r["observer_employee_id"] == row["observer_employee_id"]
-            ],
-            "department_ids": [
-                r["department_id"] for r in departments if r["observer_employee_id"] == row["observer_employee_id"]
-            ],
-        }
-        for row in observers
-    ]
-
-
 def journey_observer_ids(journey_id: str) -> set[str]:
     with get_connection() as connection:
         rows = connection.execute(
@@ -631,10 +662,18 @@ def journey_observer_ids(journey_id: str) -> set[str]:
 
 
 def observed_journey_ids(employee_id: str) -> set[str]:
-    """Journeys this employee observes. An Observer is never enrolled in that journey."""
+    """Journeys this employee observes, applied or pending. An Observer is never enrolled in
+    that journey, the same separation as course Observers."""
     with get_connection() as connection:
         rows = connection.execute(
-            "SELECT journey_id FROM learning_journey_observers WHERE observer_employee_id = ?",
+            """SELECT o.journey_id FROM learning_journey_observers o
+            WHERE o.observer_employee_id = ? AND (o.active
+                OR EXISTS(SELECT 1 FROM learning_journey_observer_employees s
+                    WHERE s.journey_id = o.journey_id AND s.observer_employee_id = o.observer_employee_id
+                    AND s.phase = 'pending')
+                OR EXISTS(SELECT 1 FROM learning_journey_observer_departments s
+                    WHERE s.journey_id = o.journey_id AND s.observer_employee_id = o.observer_employee_id
+                    AND s.phase = 'pending'))""",
             (employee_id,),
         ).fetchall()
     return {row["journey_id"] for row in rows}
@@ -649,56 +688,6 @@ def bump_access_versions(connection, employee_ids) -> None:
                 permissions_version = lms_access_versions.permissions_version + 1""",
             (employee_id,),
         )
-
-
-def replace_journey_observers(journey_id: str, trainer_id: str, observers: list[dict]) -> None:
-    """Replace a journey's Observers in one transaction, with an audit record.
-
-    Each item: observer_employee_id, identity_key, employees [(employee_id, identity_key)],
-    department_ids.
-    """
-    before = journey_observers(journey_id)
-    with get_connection() as connection:
-        connection.execute("DELETE FROM learning_journey_observers WHERE journey_id = ?", (journey_id,))
-        for observer in observers:
-            connection.execute(
-                """INSERT INTO learning_journey_observers
-                (journey_id, observer_employee_id, identity_key, granted_by_trainer_id) VALUES (?, ?, ?, ?)""",
-                (journey_id, observer["observer_employee_id"], observer["identity_key"], trainer_id),
-            )
-            for employee_id, key in observer["employees"]:
-                connection.execute(
-                    "INSERT INTO learning_journey_observer_employees VALUES (?, ?, ?, ?)",
-                    (journey_id, observer["observer_employee_id"], employee_id, key),
-                )
-            for department_id in observer["department_ids"]:
-                connection.execute(
-                    "INSERT INTO learning_journey_observer_departments VALUES (?, ?, ?)",
-                    (journey_id, observer["observer_employee_id"], department_id),
-                )
-        after = [
-            {
-                "observer_employee_id": o["observer_employee_id"],
-                "employee_ids": sorted(e for e, _ in o["employees"]),
-                "department_ids": sorted(o["department_ids"]),
-            }
-            for o in observers
-        ]
-        connection.execute(
-            """INSERT INTO lms_report_access_audit(audit_id, course_id, actor, action, revision, before_json, after_json)
-            VALUES (?, NULL, ?, 'journey_observers_save', NULL, ?, ?)""",
-            (
-                str(uuid.uuid4()),
-                trainer_id,
-                _jsonb({"journey_id": journey_id, "observers": before}),
-                _jsonb({"journey_id": journey_id, "observers": after}),
-            ),
-        )
-        bump_access_versions(
-            connection,
-            {o["observer_employee_id"] for o in before} | {o["observer_employee_id"] for o in observers},
-        )
-        connection.commit()
 
 
 def bump_journey_observer_access(journey_id: str) -> None:
@@ -731,8 +720,6 @@ class JourneyRepository:
     course_states_for_employees = staticmethod(course_states_for_employees)
     has_assignment_history = staticmethod(has_assignment_history)
     save_assignment = staticmethod(save_assignment)
-    observers = staticmethod(journey_observers)
     observer_ids = staticmethod(journey_observer_ids)
     observed_by = staticmethod(observed_journey_ids)
-    replace_observers = staticmethod(replace_journey_observers)
     bump_observer_access = staticmethod(bump_journey_observer_access)

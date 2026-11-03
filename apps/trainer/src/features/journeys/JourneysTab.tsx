@@ -15,7 +15,9 @@ import type { Trainer } from '../../auth/trainer'
 import { setPendingLinkedReport } from '../../shell/linkedReport'
 import { trainerKeys } from '../../shell/queryKeys'
 import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
+import { fetchRequester, type Requester } from '../assignments/api'
 import { ActionButton, Notice, Switch } from '../assignments/controls'
+import { ObserverPanel } from '../assignments/ObserverPanel'
 import '../assignments/AssignStyles.css'
 import {
   createJourney,
@@ -25,23 +27,20 @@ import {
   fetchAssignmentOptions,
   fetchCourseOptions,
   fetchJourney,
-  fetchJourneyObservers,
   fetchJourneys,
   fetchPreview,
   fetchSavedGroups,
+  journeyObserverPaths,
   publishJourney,
   saveJourney,
-  saveJourneyObservers,
   savePayload,
   type JourneyDetail,
-  type JourneyObserver,
   type JourneyStatus,
   type JourneySummary,
 } from './api'
 import { orderModeOf, publishSummary, removedWithLearners, type OrderMode } from './editing'
 import { JourneyAudience } from './JourneyAudience'
 import { JourneyCourses } from './JourneyCourses'
-import { JourneyObservers, observersIncomplete } from './JourneyObservers'
 import { LearnerPreview } from './LearnerPreview'
 
 const EMPTY_OPTIONS: AssignmentOptions = {
@@ -67,7 +66,7 @@ interface Guard {
   allowNext: () => void
 }
 
-export function JourneysTab() {
+export function JourneysTab({ request = fetchRequester }: { request?: Requester } = {}) {
   const { person } = useSession<Trainer>()
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -209,6 +208,7 @@ export function JourneysTab() {
               summary={selected}
               others={journeys}
               guard={guard}
+              request={request}
             />
           )}
         </main>
@@ -281,20 +281,18 @@ function JourneyLoader({
   summary,
   others,
   guard,
+  request,
 }: {
   summary: JourneySummary
   others: JourneySummary[]
   guard: Guard
+  request: Requester
 }) {
   const detail = useQuery({
     queryKey: [...trainerKeys.journeys, 'detail', summary.journeyId],
     queryFn: () => fetchJourney(summary.journeyId),
   })
-  const observers = useQuery({
-    queryKey: [...trainerKeys.journeys, 'observers', summary.journeyId],
-    queryFn: () => fetchJourneyObservers(summary.journeyId),
-  })
-  if (detail.isPending || observers.isPending) {
+  if (detail.isPending) {
     return (
       <div className="flex items-center justify-center p-12">
         <Spinner label="Loading journey" />
@@ -302,15 +300,14 @@ function JourneyLoader({
     )
   }
   if (detail.isError) return <Notice text={errorMessage(detail.error)} isError />
-  if (observers.isError) return <Notice text={errorMessage(observers.error)} isError />
   // The editor keeps its own copy of the saved journey, updated from each save's response, so a
   // background refetch never replaces what the trainer is editing.
   return (
     <JourneyEditor
       initial={detail.data}
-      initialObservers={observers.data}
       others={others.filter((j) => j.journeyId !== summary.journeyId)}
       guard={guard}
+      request={request}
     />
   )
 }
@@ -336,30 +333,30 @@ const overlayText: Partial<Record<Busy, string>> = {
 
 function JourneyEditor({
   initial,
-  initialObservers,
   others,
   guard,
+  request,
 }: {
   initial: JourneyDetail
-  initialObservers: JourneyObserver[]
   others: JourneySummary[]
   guard: Guard
+  request: Requester
 }) {
   const queryClient = useQueryClient()
   const toast = useToast()
   const updateSearch = useUpdateTrainerSearch()
   const [saved, setSaved] = useState(initial)
   const [draft, setDraft] = useState(initial)
-  const [savedObservers, setSavedObservers] = useState(initialObservers)
-  const [observers, setObservers] = useState(initialObservers)
   const [mode, setMode] = useState<OrderMode>(() => orderModeOf(initial.stages))
   const [busy, setBusy] = useState<Busy | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Confirm | null>(null)
   const [previewing, setPreviewing] = useState(false)
-  const journeyDirty = JSON.stringify(savePayload(draft)) !== JSON.stringify(savePayload(saved))
-  const observersDirty = JSON.stringify(observers) !== JSON.stringify(savedObservers)
-  const dirty = journeyDirty || observersDirty
+  // The Observers panel saves and applies on its own, as in the Assign tab. It reports its unsaved
+  // Observers for the conflict check, and reloads when a journey action changes their access.
+  const [draftObserverIds, setDraftObserverIds] = useState<string[]>([])
+  const [observerGeneration, setObserverGeneration] = useState(0)
+  const dirty = JSON.stringify(savePayload(draft)) !== JSON.stringify(savePayload(saved))
   const journeyId = saved.journeyId
   const live = saved.status === 'published'
 
@@ -377,11 +374,8 @@ function JourneyEditor({
     queryKey: ['assignment', 'saved-groups'],
     queryFn: fetchSavedGroups,
   })
-  // A live count of who the unsaved selection matches; Observers are never enrolled.
-  const audience = useDebounced(
-    { rule: draft.rule, observerIds: observers.map((o) => o.observerEmployeeId) },
-    400,
-  )
+  // A live count of who the unsaved selection matches, and which of them are also Observers.
+  const audience = useDebounced({ rule: draft.rule, observerIds: draftObserverIds }, 400)
   const preview = useQuery({
     queryKey: [...trainerKeys.journeys, 'preview', journeyId, JSON.stringify(audience)],
     queryFn: () => fetchPreview(journeyId, audience.rule, audience.observerIds),
@@ -425,38 +419,18 @@ function JourneyEditor({
     setDraft(next)
   }
 
-  /** Saves the journey and its Observers together; returns whether learners were re-checked. */
+  /** Saves the journey; returns whether learners were re-checked. */
   const persist = async (): Promise<boolean> => {
-    // Observers first: saving a live journey enrols everyone who matches, and a new Observer
-    // must already be one by then so they are never enrolled as a learner.
-    if (observersDirty) {
-      await saveJourneyObservers(journeyId, observers)
-      setSavedObservers(observers)
-      queryClient.setQueryData([...trainerKeys.journeys, 'observers', journeyId], observers)
-    }
-    if (!journeyDirty) return false
-    try {
-      const result = await saveJourney(draft)
-      adopt(result.detail)
-      return result.learnersRechecked
-    } catch (caught) {
-      throw new Error(
-        observersDirty
-          ? `The observers were saved, but the journey was not: ${errorMessage(caught)}`
-          : errorMessage(caught),
-        { cause: caught },
-      )
-    }
+    if (!dirty) return false
+    const result = await saveJourney(draft)
+    adopt(result.detail)
+    return result.learnersRechecked
   }
 
-  const observerProblem = () => {
-    if (!observersIncomplete(observers)) return false
-    setError('Choose employees or departments for every journey observer, or remove the observer.')
-    return true
-  }
+  /** Observer access follows the journey: reload the panel after a journey action. */
+  const reloadObservers = () => setObserverGeneration((n) => n + 1)
 
   const save = () => {
-    if (observerProblem()) return
     if (live && removedWithLearners(saved.stages, draft.stages).length > 0) {
       setConfirm('remove')
       return
@@ -467,6 +441,7 @@ function JourneyEditor({
   const applySave = () =>
     run(live ? 'apply' : 'save', async () => {
       const rechecked = await persist()
+      reloadObservers()
       await refresh()
       toast(
         live
@@ -478,16 +453,14 @@ function JourneyEditor({
       )
     })
 
-  const askPublish = () => {
-    if (observerProblem()) return
-    setConfirm('publish')
-  }
+  const askPublish = () => setConfirm('publish')
 
   const publish = () =>
     run('publish', async () => {
       await persist()
       const { detail, newlyAssigned } = await publishJourney(journeyId)
       adopt(detail)
+      reloadObservers()
       await refresh()
       toast(
         newlyAssigned > 0
@@ -500,6 +473,7 @@ function JourneyEditor({
   const disable = () =>
     run('disable', async () => {
       adopt(await disableJourney(journeyId))
+      reloadObservers()
       await refresh()
       toast('Learning journey disabled for employees.')
     })
@@ -524,7 +498,6 @@ function JourneyEditor({
 
   const discard = () => {
     setDraft(saved)
-    setObservers(savedObservers)
     setMode(orderModeOf(saved.stages))
     setError(null)
   }
@@ -687,6 +660,7 @@ function JourneyEditor({
                 error: preview.isError ? preview.error : null,
                 matchCount: preview.data?.matchCount ?? 0,
                 employees: preview.data?.employees ?? [],
+                blockedCount: preview.data?.blockedCount ?? 0,
               }}
               onChange={(rule) => update({ rule })}
             />
@@ -694,12 +668,18 @@ function JourneyEditor({
           <Section
             title="Journey observers"
             icon="visibility_outlined"
-            description="Observers follow every course in this journey for the people they watch, in their Performance view. They are never enrolled in this journey. Saved with the journey."
+            description="Observers see performance reports only and are not enrolled as learners. They follow every course in this journey for the people they watch."
           >
-            <JourneyObservers
-              value={observers}
-              onChange={setObservers}
+            <ObserverPanel
+              key={journeyId}
+              endpoints={journeyObserverPaths(journeyId)}
               employees={(options.data ?? EMPTY_OPTIONS).employees}
+              refreshGeneration={observerGeneration}
+              canApply={live}
+              notReadyText="Publish the journey before applying observers."
+              reportScope="reports include only learners on this journey."
+              request={request}
+              onDraftObservers={setDraftObserverIds}
             />
           </Section>
           {saved.status !== 'draft' && (

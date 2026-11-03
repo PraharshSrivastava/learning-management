@@ -42,11 +42,14 @@ def report_roles(employee):
             # A journey Observer reports through the same Observed view as a course Observer.
             journey = db.execute("""SELECT EXISTS(SELECT 1 FROM learning_journey_observers jo
                 JOIN learning_journeys j USING(journey_id)
-                WHERE jo.observer_employee_id = ? AND jo.identity_key = ? AND j.status = 'published'
+                WHERE jo.observer_employee_id = ? AND jo.identity_key = ? AND jo.active
+                AND j.status = 'published'
                 AND (EXISTS(SELECT 1 FROM learning_journey_observer_employees x
-                    WHERE x.journey_id = jo.journey_id AND x.observer_employee_id = jo.observer_employee_id)
+                    WHERE x.journey_id = jo.journey_id AND x.observer_employee_id = jo.observer_employee_id
+                    AND x.phase = 'active')
                 OR EXISTS(SELECT 1 FROM learning_journey_observer_departments x
-                    WHERE x.journey_id = jo.journey_id AND x.observer_employee_id = jo.observer_employee_id))) AS observer
+                    WHERE x.journey_id = jo.journey_id AND x.observer_employee_id = jo.observer_employee_id
+                    AND x.phase = 'active'))) AS observer
                 """, (employee["employee_id"], identity_key(employee))).fetchone()
             if journey["observer"]:
                 roles.add("observer")

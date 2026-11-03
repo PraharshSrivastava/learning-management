@@ -629,6 +629,7 @@ def api_save_journey(journey_id: str, trainer_id: str, payload: JourneySaveReque
             validate_deadline(rule)
         else:
             rule["deadline_date"] = None
+        _validate_separation(journey, rule)
         live = journey["status"] == "published"
         prerequisite_id = payload.prerequisite_journey_id or None
         if live and prerequisite_id and prerequisite_id != journey["prerequisite_journey_id"]:
@@ -745,23 +746,21 @@ def api_preview_journey(
     trainer sees the count change while editing, before saving."""
     _require_enabled()
     journey = _owned_journey(journey_id, trainer_id)
+    rule = journey["rule"] if payload is None else payload.rule.model_dump(mode="json")
+    observers = _designated_observers(journey_id)
     if payload is not None:
-        rule = payload.rule.model_dump(mode="json")
-        excluded = set(payload.observer_employee_ids)
-    else:
-        rule = journey["rule"]
-        excluded = set(_journeys.observer_ids(journey_id))
-    matches = [
-        employee
-        for employee in matching_employees_for_assignment_rule(_rule(rule))
-        if employee["employee_id"] not in excluded
-    ]
+        observers |= set(payload.observer_employee_ids)
+    matches = matching_employees_for_assignment_rule(_rule(rule))
+    conflicts = _observer_conflicts(journey, rule, observers)
     return {
         "match_count": len(matches),
         "preview_employees": [
             {key: employee.get(key) for key in ("employee_id", "name", "department", "job_title")}
             for employee in matches[:50]
         ],
+        # As for a course: matching employees who are also Observers block saving.
+        "blocked_employee_count": len(observers & {e["employee_id"] for e in matches}),
+        "conflicting_observer_ids": conflicts,
     }
 
 
@@ -882,6 +881,7 @@ def api_publish_journey(journey_id: str, trainer_id: str) -> dict:
                 raise DomainValidationError("Publish the journey it starts after first.")
         rule = _rule(journey["rule"])
         validate_deadline(rule)
+        _validate_separation(journey)
         _publish_ready_courses(journey, trainer_id)
         before = {
             row["employee_id"]
@@ -913,7 +913,10 @@ def api_disable_journey(journey_id: str, trainer_id: str) -> dict:
         if journey["status"] != "published":
             raise ConflictError("Only a published journey can be disabled.")
         _journeys.disable(journey_id)
-        _journeys.bump_observer_access(journey_id)
+        # As for a disabled course: its Observers stop seeing it until they are applied again.
+        from app.repositories.journey_observers import suspend_journey
+
+        suspend_journey(journey_id, trainer_id)
         now = datetime.now()
         for row in _journeys.assignments_for_journey(journey_id):
             if not row.get("revoked_at"):
@@ -950,74 +953,84 @@ def _reconcile_journey_employees(journey_id: str) -> dict[str, int]:
     return totals
 
 
-def _active_synced_employee(db, employee_id: str) -> dict:
-    """The same eligibility as course Observers: an active employee synced from the directory."""
-    row = db.execute("SELECT * FROM employees WHERE employee_id = ?", (employee_id,)).fetchone()
-    if (
-        not row
-        or row["status"] != "active"
-        or row.get("directory_status", "active") != "active"
-        or row.get("source") != "hub"
-    ):
-        raise DomainValidationError("Choose an active synced employee")
-    return dict(row)
+def _designated_observers(journey_id: str) -> set[str]:
+    """Observers saved for the journey, applied or pending, as course Observers count them."""
+    from app.repositories import journey_observers
+
+    return {
+        item["observer_employee_id"] for item in journey_observers.get_config(journey_id)["observers"]
+    }
+
+
+def _observer_conflicts(journey: dict, rule: dict, observers: set[str]) -> list[str]:
+    """Observers who match the journey's rule or already have it as learners."""
+    if not observers:
+        return []
+    matched = {e["employee_id"] for e in matching_employees_for_assignment_rule(_rule(rule))}
+    learners = {
+        row["employee_id"]
+        for row in _journeys.assignments_for_journey(journey["journey_id"])
+        if not row.get("revoked_at")
+    }
+    return sorted(observers & (matched | learners))
+
+
+def _validate_separation(journey: dict, rule: dict | None = None, observers: set[str] | None = None) -> None:
+    """The course rule for journeys: nobody is both a learner and an Observer of one journey."""
+    from app.services.assignment_conflicts import EmployeeObserverConflict
+
+    if observers is None:
+        observers = _designated_observers(journey["journey_id"])
+    conflicts = _observer_conflicts(journey, journey["rule"] if rule is None else rule, observers)
+    if conflicts:
+        names = {e["employee_id"]: e["name"] for e in _employees.list(include_inactive=True)}
+        label = ", ".join(names.get(i, i) for i in conflicts[:10])
+        suffix = f" and {len(conflicts) - 10} others" if len(conflicts) > 10 else ""
+        raise EmployeeObserverConflict(
+            f"{label}{suffix} is selected as both an employee and an Observer for this journey. "
+            "Remove the conflicting Observer selection or change who gets the journey before continuing."
+        )
 
 
 def api_get_journey_observers(journey_id: str, trainer_id: str) -> dict:
+    from app.repositories import journey_observers
+
     _require_enabled()
     _owned_journey(journey_id, trainer_id)
-    return {"journey_id": journey_id, "observers": _journeys.observers(journey_id)}
+    return journey_observers.get_config(journey_id)
 
 
 def api_save_journey_observers(
     journey_id: str, trainer_id: str, payload: JourneyObserversRequest
 ) -> dict:
-    """Journey Observers see every course in the journey for the people they watch.
-
-    They take effect at once while the journey is published. An Observer is never enrolled in
-    the journey, so someone who already has it as a learner cannot be made its Observer.
-    """
-    from app.repositories.lms_access import identity_key
+    """Saves the pending Observers, as for a course: removals take effect at once, additions
+    only on Apply. Nobody can observe a journey they match or already have as a learner."""
+    from app.repositories import journey_observers
 
     _require_enabled()
     with advisory_lock(f"learning_journey:{journey_id}"):
-        _owned_journey(journey_id, trainer_id)
-        learners = {
-            row["employee_id"]
-            for row in _journeys.assignments_for_journey(journey_id)
-            if not row.get("revoked_at")
-        }
-        prepared, conflicts = [], []
-        with get_connection() as db:
-            for selection in payload.observers:
-                observer = _active_synced_employee(db, selection.observer_employee_id)
-                if observer["employee_id"] in learners:
-                    conflicts.append(observer["name"] or observer["employee_id"])
-                targets = [
-                    _active_synced_employee(db, employee_id)
-                    for employee_id in sorted(set(selection.employee_ids))
-                ]
-                for department_id in set(selection.department_ids):
-                    if not db.execute(
-                        "SELECT 1 FROM lms_departments WHERE department_id = ? AND active",
-                        (department_id,),
-                    ).fetchone():
-                        raise DomainValidationError("Choose a current directory department")
-                prepared.append(
-                    {
-                        "observer_employee_id": observer["employee_id"],
-                        "identity_key": identity_key(observer),
-                        "employees": [(t["employee_id"], identity_key(t)) for t in targets],
-                        "department_ids": sorted(set(selection.department_ids)),
-                    }
-                )
-        if conflicts:
-            raise ConflictError(
-                f"{', '.join(conflicts[:10])} already {'has' if len(conflicts) == 1 else 'have'} "
-                "this journey as a learner, so cannot also observe it. Choose someone else."
-            )
-        _journeys.replace_observers(journey_id, trainer_id, prepared)
-    return api_get_journey_observers(journey_id, trainer_id)
+        journey = _owned_journey(journey_id, trainer_id)
+        return journey_observers.save_config(
+            journey_id,
+            trainer_id,
+            payload,
+            lambda observers: _validate_separation(journey, observers=observers),
+        )
+
+
+def api_apply_journey_observers(journey_id: str, trainer_id: str, revision: int) -> dict:
+    """Gives the saved Observers access. The journey must be published."""
+    from app.repositories import journey_observers
+
+    _require_enabled()
+    with advisory_lock(f"learning_journey:{journey_id}"):
+        journey = _owned_journey(journey_id, trainer_id)
+        return journey_observers.apply_config(
+            journey_id,
+            trainer_id,
+            revision,
+            lambda observers: _validate_separation(journey, observers=observers),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1143,6 +1156,7 @@ __all__ = [
     "api_get_journey",
     "api_get_journey_observers",
     "api_save_journey_observers",
+    "api_apply_journey_observers",
     "api_list_journeys",
     "api_my_journeys",
     "api_preview_journey",

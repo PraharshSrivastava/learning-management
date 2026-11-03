@@ -17,6 +17,7 @@ import { splitDirect, withDirectIds, withOtherGroups } from './directEmployees'
 import { GroupList, OutlinedNumberField } from './groups'
 import { LifecycleBadge } from './LifecycleBadge'
 import { ObserverPanel } from './ObserverPanel'
+import { courseObserverEndpoints } from './observerStore'
 import { EmployeeMultiPickerDialog } from './pickers'
 import type { AssignmentState, AssignmentWorkspace } from './workspace'
 
@@ -183,10 +184,12 @@ export function RuleView({ course, workspace, request, onCourseChanged }: RuleVi
             >
               <ObserverPanel
                 key={`${course.courseId}:${person?.trainerId}:${access?.permissions_version}`}
-                course={course}
+                endpoints={courseObserverEndpoints(course.courseId)}
                 employees={state.options.employees}
                 refreshGeneration={state.refreshGeneration}
-                isAssignmentActive={rule.isActive}
+                canApply={course.status === 'published' && rule.isActive}
+                notReadyText="Publish and assign the course before applying observers."
+                reportScope="reports include only assigned learners on this course."
                 request={request}
                 onDraftObservers={(ids) => workspace.updateDraftObservers(ids)}
               />

@@ -6,6 +6,7 @@ from app.repositories.database import get_connection
 from app.repositories.document_drafts import create_draft_tables
 
 TABLES = (
+    "learning_journey_observer_configs",
     "learning_journey_observer_departments",
     "learning_journey_observer_employees",
     "learning_journey_observers",

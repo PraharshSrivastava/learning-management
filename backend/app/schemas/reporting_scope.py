@@ -44,15 +44,15 @@ _JOURNEY_OBSERVER = """EXISTS(SELECT 1 FROM learning_journey_observers jo
             JOIN learning_journey_steps js ON js.journey_id = jo.journey_id AND js.course_id = c.course_id
             JOIN learning_journey_assignments ja ON ja.journey_id = jo.journey_id
                 AND ja.employee_id = e.employee_id AND ja.revoked_at IS NULL
-            WHERE jo.observer_employee_id = ? AND jo.identity_key = ?
+            WHERE jo.observer_employee_id = ? AND jo.identity_key = ? AND jo.active
             AND (EXISTS(SELECT 1 FROM learning_journey_observer_employees jx
                 WHERE jx.journey_id = jo.journey_id AND jx.observer_employee_id = jo.observer_employee_id
-                AND jx.employee_id = e.employee_id
+                AND jx.phase = 'active' AND jx.employee_id = e.employee_id
                 AND jx.identity_key = CASE WHEN e.directory_uuid IS NOT NULL THEN 'directory:' || e.directory_uuid
                     ELSE 'hub:' || e.hub_user_id::text END)
             OR EXISTS(SELECT 1 FROM learning_journey_observer_departments jd JOIN lms_departments d USING(department_id)
                 WHERE jd.journey_id = jo.journey_id AND jd.observer_employee_id = jo.observer_employee_id
-                AND d.active AND d.name = e.department)))"""
+                AND jd.phase = 'active' AND d.active AND d.name = e.department)))"""
 
 
 def owner_filter(scope: TrainerReportScope) -> tuple[str, tuple[str, ...]]:
@@ -77,8 +77,8 @@ def owner_filter(scope: TrainerReportScope) -> tuple[str, tuple[str, ...]]:
         key = (scope.employee_id, scope.identity_key)
         observer_key: tuple[str, ...] = key
         if _journeys_enabled():
-            # A journey Observer sees every course of the journey for the journey's learners
-            # they watch, while the journey is published.
+            # An applied journey Observer sees every course of the journey for the journey's
+            # learners they watch, while the journey is published.
             observer = "(" + observer + " OR " + _JOURNEY_OBSERVER + ")"
             observer_key = (*key, *key)
         if scope.view == "my_departments":
