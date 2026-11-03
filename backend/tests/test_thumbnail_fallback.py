@@ -45,13 +45,27 @@ def test_image_failure_writes_placeholder_without_retry(monkeypatch, tmp_path: P
     assert (tmp_path / path.rsplit("/", 1)[-1]).stat().st_size > 0
 
 
-def test_qwen_image_payload_omits_openai_only_params(monkeypatch):
+def test_qwen_image_payload_sends_steps_without_openai_only_params(monkeypatch):
     monkeypatch.setattr(thumbnails, "THUMBNAIL_ENDPOINT", "http://gateway/v1/images/generations")
     monkeypatch.setattr(thumbnails, "THUMBNAIL_MODEL", "qwen-image-2.1")
 
     payload = thumbnails._thumbnail_request_payload("A glass funnel")
 
-    assert payload == {"model": "qwen-image-2.1", "prompt": "A glass funnel", "size": "1024x1024"}
+    assert payload == {
+        "model": "qwen-image-2.1",
+        "prompt": "A glass funnel",
+        "size": "1024x1024",
+        "num_inference_steps": 40,
+    }
+
+
+def test_flux_payload_sends_only_model_prompt_and_size(monkeypatch):
+    monkeypatch.setattr(thumbnails, "THUMBNAIL_ENDPOINT", "http://gateway/v1/images/generations")
+    monkeypatch.setattr(thumbnails, "THUMBNAIL_MODEL", "flux-3-image-klein")
+
+    payload = thumbnails._thumbnail_request_payload("A glass funnel")
+
+    assert payload == {"model": "flux-3-image-klein", "prompt": "A glass funnel", "size": "1024x1024"}
 
 
 def test_other_gateway_models_keep_openai_params(monkeypatch):
