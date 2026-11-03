@@ -9,6 +9,8 @@ export interface LearnerStep {
   courseId: string
   courseName: string
   moduleCount: number
+  /** The course's cover image; empty when it has none. */
+  thumbnailPath: string
   stepNumber: number
   isRequired: boolean
   unlockRule: 'open' | 'after_previous'
@@ -66,6 +68,7 @@ function parseStep(j: JsonRecord): LearnerStep {
     courseId: text(j.course_id),
     courseName: text(j.course_name),
     moduleCount: num(j.module_count),
+    thumbnailPath: text(j.thumbnail_path),
     stepNumber: num(j.step_number),
     isRequired: j.is_required !== false,
     unlockRule: j.unlock_rule === 'open' ? 'open' : 'after_previous',

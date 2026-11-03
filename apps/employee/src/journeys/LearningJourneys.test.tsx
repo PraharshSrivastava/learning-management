@@ -127,6 +127,59 @@ describe('Learning Journeys for employees', () => {
     expect(router.state.location.search).toEqual({ view: 'journeys', journey_id: 'j1' })
   })
 
+  it('shows each step with its course image, greyed while locked', async () => {
+    const withImages = {
+      ...journey,
+      stages: journey.stages.map((stage) => ({
+        ...stage,
+        steps: stage.steps.map((step) =>
+          step.course_id === 'c2'
+            ? step
+            : { ...step, thumbnail_path: `assets/images/${step.course_id}.png` },
+        ),
+      })),
+    }
+    journeysReply = { enabled: true, journeys: [withImages] }
+    const { container } = renderDashboard('/?view=journeys&journey_id=j1')
+    expect(await screen.findByText('1. Indian Market Structure')).toBeInTheDocument()
+    const images = [...container.querySelectorAll('img')].filter((img) =>
+      img.getAttribute('src')?.includes('assets/images/'),
+    )
+    expect(images.map((img) => img.getAttribute('src')?.match(/c\d/)?.[0])).toEqual(['c1', 'c3'])
+    // Passed c1 can be opened; locked c3 cannot and is greyed. c2 has no image: a fallback tile.
+    expect(images[0]).not.toHaveClass('grayscale')
+    expect(images[1]).toHaveClass('grayscale')
+  })
+
+  it('lines up the card buttons and keeps them on one line', async () => {
+    journeysReply = {
+      enabled: true,
+      journeys: [
+        journey,
+        {
+          ...journey,
+          journey_id: 'j2',
+          title: 'New Joiner Induction',
+          status: 'completed',
+          completed_at: '2026-10-20T10:00:00',
+          next_course_id: null,
+          certificate_number: 'PCIL-LJ-AAAA-BBBB-CCCC',
+        },
+      ],
+    }
+    const { container } = renderDashboard('/?view=journeys')
+    await screen.findByText('New Joiner Induction')
+    const rows = container.querySelectorAll('[data-testid="journey-card-actions"]')
+    expect(rows).toHaveLength(2)
+    // Pinned to the bottom of every card, whatever the text above it.
+    for (const row of rows) expect(row).toHaveClass('mt-auto')
+    const certificate = within(rows[1] as HTMLElement).getByRole('button', {
+      name: 'Download certificate',
+    })
+    expect(certificate).toHaveTextContent('Certificate')
+    expect(certificate).not.toHaveTextContent('Download')
+  })
+
   it('says Start for a course not begun and Continue for one in progress', async () => {
     const user = userEvent.setup()
     const { router } = renderDashboard()

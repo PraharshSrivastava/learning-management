@@ -1,6 +1,7 @@
 // Learner views of Learning Journeys: dashboard cards, the journeys page and its roadmap,
 // and the slim bar shown above a journey course in the existing course player.
-import { errorMessage } from '@lms/shared/api/client'
+import { assetUrl, errorMessage } from '@lms/shared/api/client'
+import { useHasMediaTicket } from '@lms/shared/api/useMediaTicket'
 import type { EmployeeCourse } from '@lms/shared/models'
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
 import { ProgressBar } from '@lms/shared/ui/ProgressBar'
@@ -54,7 +55,16 @@ const stepName = (journey: LearnerJourney, courseId: string | null) =>
     ?.courseName
 
 /** Downloads the learner's certificate; shows a short message if it fails. */
-function CertificateButton({ journey, className }: { journey: LearnerJourney; className: string }) {
+function CertificateButton({
+  journey,
+  className,
+  short = false,
+}: {
+  journey: LearnerJourney
+  className: string
+  /** "Certificate", so it fits beside View journey on a card. */
+  short?: boolean
+}) {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState<string | null>(null)
   if (!journey.certificateNumber) return null
@@ -64,6 +74,7 @@ function CertificateButton({ journey, className }: { journey: LearnerJourney; cl
         type="button"
         disabled={busy}
         className={className}
+        aria-label={short ? 'Download certificate' : undefined}
         onClick={() => {
           setBusy(true)
           setFailed(null)
@@ -73,7 +84,7 @@ function CertificateButton({ journey, className }: { journey: LearnerJourney; cl
         }}
       >
         <Icon name="download_outlined" size={18} />
-        {busy ? 'Preparing…' : 'Download certificate'}
+        {busy ? 'Preparing…' : short ? 'Certificate' : 'Download certificate'}
       </button>
       {failed && (
         <span role="alert" className="text-[12px] text-[#d92d20]">
@@ -148,7 +159,8 @@ export function JourneyCard({
           <b className="block text-[13px] text-[#101828]">No course is open right now</b>
         )}
       </div>
-      <div className="mt-1 flex flex-wrap gap-2">
+      {/* Pinned to the bottom, so cards in a row line up their buttons whatever their text. */}
+      <div data-testid="journey-card-actions" className="mt-auto flex flex-wrap gap-2 pt-1">
         <button type="button" onClick={onOpenJourney} className={primaryButton}>
           View journey
         </button>
@@ -163,7 +175,7 @@ export function JourneyCard({
           </button>
         )}
         {journey.status === 'completed' && (
-          <CertificateButton journey={journey} className={secondaryButton} />
+          <CertificateButton journey={journey} className={secondaryButton} short />
         )}
       </div>
     </article>
@@ -412,6 +424,7 @@ function StepRow({
   const body = (
     <>
       <Icon name={look.icon} size={26} color={look.color} />
+      <StepThumbnail path={step.thumbnailPath} dimmed={!openable} />
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] leading-snug font-bold break-words text-[#101828]">
           {step.stepNumber}. {step.courseName}
@@ -437,6 +450,36 @@ function StepRow({
     >
       {body}
     </button>
+  )
+}
+
+/** The course's cover image beside its step, greyed while the course cannot be opened. */
+function StepThumbnail({ path, dimmed }: { path: string; dimmed: boolean }) {
+  // Re-render when the media ticket appears, so a protected image retries with it.
+  useHasMediaTicket()
+  const src = path ? assetUrl(path) : ''
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const frame = 'h-[45px] w-20 shrink-0 rounded-md max-[480px]:hidden'
+  if (!src || failedSrc === src)
+    return (
+      <span
+        aria-hidden="true"
+        className={clsx(
+          frame,
+          'flex items-center justify-center text-white',
+          dimmed ? 'bg-[#c9d0db]' : 'primary-gradient',
+        )}
+      >
+        <Icon name="school_outlined" size={18} />
+      </span>
+    )
+  return (
+    <img
+      src={src}
+      alt=""
+      className={clsx(frame, 'bg-brand-blue-100 object-cover', dimmed && 'opacity-60 grayscale')}
+      onError={() => setFailedSrc(src)}
+    />
   )
 }
 

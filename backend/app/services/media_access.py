@@ -115,6 +115,27 @@ def authorize_course_media(principal, course_ids):
     raise NotFoundError("Media not found")
 
 
+def journey_thumbnail_visible(principal, path):
+    """A learner sees the cover image of every course in their journeys, locked ones included.
+
+    Only the course thumbnail: videos, slides and files still need the course itself.
+    """
+    if principal.trainer or not settings.learning_journeys_enabled:
+        return False
+    with get_connection() as db:
+        row = db.execute(
+            """SELECT 1 FROM courses c
+            JOIN learning_journey_steps s ON s.course_id = c.course_id
+            JOIN learning_journeys j ON j.journey_id = s.journey_id AND j.status = 'published'
+            JOIN learning_journey_assignments a ON a.journey_id = j.journey_id
+                AND a.employee_id = ? AND a.revoked_at IS NULL
+            WHERE c.thumbnail_path = ANY(?::text[])
+            LIMIT 1""",
+            (principal.employee["employee_id"], [path, path.lstrip("/")]),
+        ).fetchone()
+    return row is not None
+
+
 def asset_courses(path):
     from psycopg.types.json import Jsonb
 
