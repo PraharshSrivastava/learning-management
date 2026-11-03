@@ -49,6 +49,7 @@ _TEXT_BEARING_SUBJECT = re.compile(
     re.IGNORECASE,
 )
 THUMBNAIL_PLANNER_ATTEMPTS = 3
+THUMBNAIL_QWEN_IMAGE_STEPS = 40
 THUMBNAILS_ENABLED = settings.thumbnails_enabled
 
 _PLACEHOLDER_PALETTES = (
@@ -200,7 +201,11 @@ def _thumbnail_request_payload(prompt: str) -> dict:
     # LiteLLM rejects the OpenAI-only `n` and `response_format` for Qwen Image
     # and Flux (HTTP 400); both already answer with base64 JSON by default.
     family = THUMBNAIL_MODEL.casefold()
-    if "qwen-image" not in family and "flux" not in family:
+    if "qwen-image" in family:
+        # Some Qwen Image servers have no default and fail with HTTP 500 without
+        # it; 40 matches the Video Generator's ANIMATION_IMAGE_STEPS default.
+        payload["num_inference_steps"] = THUMBNAIL_QWEN_IMAGE_STEPS
+    elif "flux" not in family:
         payload["n"] = 1
         payload["response_format"] = "b64_json"
     return payload
