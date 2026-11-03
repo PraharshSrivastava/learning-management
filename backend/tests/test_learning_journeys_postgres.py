@@ -752,7 +752,56 @@ def test_completion_certificate_pdf_and_verification(journey_db):
     assert report(journey_id)["journey"]["certificates"] == 1
 
 
-def test_certificate_text_names_the_company_and_signatory():
+def test_certificate_is_stored_at_completion_and_never_changes(journey_db):
+    import fitz
+
+    from app.services import journey_certificates
+
+    journey_id = make_journey("Markets Foundation", [("c1", "open")])
+    journeys.api_publish_journey(journey_id, "creator")
+    assignment_id = journey_row(journey_id, "old")["journey_assignment_id"]
+    assert journeys._journeys.certificate_for_assignment(assignment_id) is None
+    complete("old", "c1")
+
+    stored = journeys._journeys.certificate_for_assignment(assignment_id)
+    number = journey_certificates.certificate_number(assignment_id)
+    assert stored["certificate_number"] == number
+    assert stored["journey_title"] == "Markets Foundation"
+    assert stored["learner_name"] == "old" and stored["course_names"] == ["Course c1"]
+    assert stored["completed_at"] == journey_row(journey_id, "old")["completed_at"]
+
+    # The trainer renames the journey and the learner's name changes afterwards.
+    resave(journey_id, [("c1", "open"), ("c2", "open")], title="Markets Foundation 2027")
+    with database.get_connection() as db:
+        db.execute("UPDATE employees SET name = 'Renamed' WHERE employee_id = 'old'")
+        db.commit()
+
+    _filename, pdf = journey_certificates.learner_certificate("old", journey_id)
+    text = fitz.open(stream=pdf, filetype="pdf")[0].get_text()
+    assert "Markets Foundation" in text and "2027" not in text and "Renamed" not in text
+    checked = journey_certificates.verify_certificate(number)
+    assert (checked["journey_title"], checked["learner_name"]) == ("Markets Foundation", "old")
+    assert checked["issued_at"] == stored["issued_at"]
+    assert journeys._journeys.certificate_for_assignment(assignment_id) == stored
+
+
+def test_a_completion_from_before_stored_certificates_is_issued_on_first_check(journey_db):
+    from app.services import journey_certificates
+
+    journey_id = make_journey("Markets Foundation", [("c1", "open")])
+    journeys.api_publish_journey(journey_id, "creator")
+    complete("old", "c1")
+    assignment_id = journey_row(journey_id, "old")["journey_assignment_id"]
+    with database.get_connection() as db:
+        db.execute("DELETE FROM learning_journey_certificates")
+        db.commit()
+
+    number = journey_certificates.certificate_number(assignment_id)
+    assert journey_certificates.verify_certificate(number)["valid"] is True
+    assert journeys._journeys.get_certificate(number)["journey_assignment_id"] == assignment_id
+
+
+def test_certificate_text_names_the_issuing_team_without_a_signatory():
     import fitz
 
     from app.services import journey_certificates
@@ -760,21 +809,48 @@ def test_certificate_text_names_the_company_and_signatory():
     pdf = journey_certificates.render_certificate_pdf(
         learner_name="Asha Verma",
         journey_title="New Joiner Induction",
-        course_names=["Welcome", "Code of Conduct"],
+        course_names=["Welcome (Varsity)", "Code of Conduct (SB, C1)"],
         completed_at="2026-10-20T10:00:00",
         number="PCIL-LJ-AAAA-BBBB-CCCC",
     )
-    text = fitz.open(stream=pdf, filetype="pdf")[0].get_text()
+    document = fitz.open(stream=pdf, filetype="pdf")
+    assert document.page_count == 1
+    text = document[0].get_text()
     for expected in (
         "Asha Verma",
         "New Joiner Induction",
+        "2 courses: Welcome · Code of Conduct",
         "20 October 2026",
-        "Mr Vineet Bhatnagar",
-        "Managing Director",
+        "Learning & Development",
         "PhillipCapital India Pvt Ltd",
         "PCIL-LJ-AAAA-BBBB-CCCC",
+        "This is a computer-generated certificate",
+        "is not a regulatory certification",
     ):
         assert expected in text
+    for absent in ("Vineet Bhatnagar", "Managing Director", "Varsity", "signature"):
+        assert absent not in text
+
+
+def test_a_long_course_list_moves_to_a_course_record_page():
+    import fitz
+
+    from app.services import journey_certificates
+
+    courses = [f"A fairly long course name about markets, number {n}" for n in range(1, 41)]
+    pdf = journey_certificates.render_certificate_pdf(
+        learner_name="Asha Verma",
+        journey_title="New Joiner Induction",
+        course_names=courses,
+        completed_at="2026-10-20T10:00:00",
+        number="PCIL-LJ-AAAA-BBBB-CCCC",
+    )
+    document = fitz.open(stream=pdf, filetype="pdf")
+    assert document.page_count == 2
+    assert "40 courses · full list on page 2" in document[0].get_text()
+    record = document[1].get_text()
+    assert "C O U R S E   R E C O R D" in record and "40 courses completed" in record
+    assert "number 1\n" in record and "number 40\n" in record, record
 
 
 def test_course_emails_name_the_journey_and_step(journey_db):

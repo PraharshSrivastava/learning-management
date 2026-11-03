@@ -32,7 +32,7 @@ from app.schemas.journey import (
 from app.services.assignment_conflicts import observer_ids
 from app.services.assignment_deadlines import deadline_expired, resolve_deadline, validate_deadline
 from app.services.course_access import course_is_publishable
-from app.services.journey_certificates import certificate_number
+from app.services.journey_certificates import certificate_number, issue_certificate
 from app.services.journey_state import (
     CourseState,
     JourneyState,
@@ -218,6 +218,7 @@ def _evaluate(
         if persist and assignment_changed(stored, assignment):
             assignment = _journeys.save_assignment(assignment)
             if assignment.get("completed_at") and not stored.get("completed_at"):
+                _issue_certificate(assignment, journey)
                 _email_journey_completed(assignment)
             elif (
                 newly_available is not None
@@ -246,6 +247,18 @@ def email_journeys_assigned(journey_assignment_ids: list[str]) -> None:
                 "journey_assigned_email_not_queued journey_assignment_id=%s",
                 journey_assignment_id,
             )
+
+
+def _issue_certificate(assignment: dict, journey: dict) -> None:
+    """Store the certificate as the journey reads at completion; if this fails, it is issued on
+    first download instead, so the learner's completion is never undone."""
+    try:
+        issue_certificate(assignment, journey)
+    except Exception:
+        logger.exception(
+            "journey_certificate_not_issued journey_assignment_id=%s",
+            assignment.get("journey_assignment_id"),
+        )
 
 
 def _email_journey_completed(assignment: dict) -> None:
