@@ -262,12 +262,21 @@ The course titles are listed in the earlier draft, and SMEs and the compliance t
   Learners are re-checked only when the courses, their order or rules, who gets it, or the earlier
   journey changed; a name or description edit touches no one.
 - **Completion certificate**: an A4 landscape PDF (`app/services/journey_certificates.py`) with the
-  learner's name, journey, courses, completion date, PhillipCapital India Pvt Ltd and the
-  Managing Director, Mr Vineet Bhatnagar. Issuer and signatory come from `CERTIFICATE_ISSUER_NAME`,
-  `CERTIFICATE_SIGNATORY_NAME` and `CERTIFICATE_SIGNATORY_TITLE`. Each certificate has a stable
-  number (`PCIL-LJ-XXXX-XXXX-XXXX`) that any trainer can check at
-  `GET /api/learning-journeys/certificates/{number}`. Learners download theirs from the journey;
-  the owning trainer downloads any learner's from Progress.
+  learner's name, journey, its required courses as one line ("8 courses: A · B · …", trailing
+  tags such as "(Varsity)" dropped), the completion date, and "Learning & Development, issued by
+  PhillipCapital India Pvt Ltd" under a "Learning Journey Completed" stamp. There is no personal
+  signatory. The footer says the certificate is computer-generated and records an internal
+  learning journey, not a regulatory certification. A course list too long for page 1 moves to a
+  second "Course Record" page. The issuer name comes from `CERTIFICATE_ISSUER_NAME`.
+- **Certificate number and record**: each completion gets a stable number
+  (`PCIL-LJ-XXXX-XXXX-XXXX`, the first 12 hex characters of a SHA-256 of the journey assignment
+  ID). When the journey is completed, the certificate is stored in
+  `learning_journey_certificates` with the learner name, journey title, courses and completion
+  date as they were then. Every download, email and check prints from that record, so renaming
+  the journey or changing its courses never changes an issued certificate. Completions from
+  before this table existed are stored on their first download or check. Any trainer can check a
+  number at `GET /api/learning-journeys/certificates/{number}`. Learners download theirs from the
+  journey; report viewers download any learner's from Performance.
 - **Emails**: journeys are optional learning, so a journey sends the employee only two emails:
   **Learning journey assigned** when it opens for them, and **Learning journey completed** with
   the certificate PDF attached (only when the journey has certificates on). Courses the employee
