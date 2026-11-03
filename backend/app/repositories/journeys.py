@@ -104,6 +104,25 @@ def create_journey_tables(cursor) -> None:
         )
         """
     )
+    # A certificate as issued: what it says is fixed when the journey is completed, so renaming
+    # the journey or changing its courses later never changes a certificate already given out.
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS learning_journey_certificates (
+            certificate_number TEXT PRIMARY KEY,
+            journey_assignment_id TEXT NOT NULL UNIQUE,
+            journey_id TEXT NOT NULL,
+            employee_id TEXT NOT NULL,
+            learner_name TEXT NOT NULL,
+            journey_title TEXT NOT NULL,
+            course_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+            completed_at TEXT NOT NULL,
+            issued_at TEXT NOT NULL DEFAULT (now()::text),
+            FOREIGN KEY (journey_assignment_id)
+                REFERENCES learning_journey_assignments(journey_assignment_id) ON DELETE CASCADE
+        )
+        """
+    )
     # Journey Observers see every course of the journey for the people they watch.
     # department_id refers to lms_departments, which the access migrations create after this
     # runs, so it is validated on save instead of by a foreign key.
@@ -409,6 +428,55 @@ def completed_assignments() -> list[dict]:
             "SELECT * FROM learning_journey_assignments WHERE completed_at IS NOT NULL"
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def get_certificate(certificate_number: str) -> dict | None:
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT * FROM learning_journey_certificates WHERE certificate_number = ?",
+            (certificate_number,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def certificate_for_assignment(journey_assignment_id: str) -> dict | None:
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT * FROM learning_journey_certificates WHERE journey_assignment_id = ?",
+            (journey_assignment_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def issue_certificate(certificate: dict) -> dict:
+    """Store a certificate once. If it was already issued, the stored one is returned unchanged."""
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO learning_journey_certificates (
+                certificate_number, journey_assignment_id, journey_id, employee_id,
+                learner_name, journey_title, course_names, completed_at, issued_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
+            """,
+            (
+                certificate["certificate_number"],
+                certificate["journey_assignment_id"],
+                certificate["journey_id"],
+                certificate["employee_id"],
+                certificate["learner_name"],
+                certificate["journey_title"],
+                _jsonb(list(certificate["course_names"])),
+                certificate["completed_at"],
+                datetime.now().isoformat(),
+            ),
+        )
+        row = connection.execute(
+            "SELECT * FROM learning_journey_certificates WHERE journey_assignment_id = ?",
+            (certificate["journey_assignment_id"],),
+        ).fetchone()
+        connection.commit()
+    return dict(row)
 
 
 def set_journey_disabled(journey_id: str) -> None:
@@ -721,6 +789,9 @@ class JourneyRepository:
     journeys_by_course = staticmethod(journeys_by_course)
     step_learner_counts = staticmethod(step_learner_counts)
     completed_assignments = staticmethod(completed_assignments)
+    get_certificate = staticmethod(get_certificate)
+    certificate_for_assignment = staticmethod(certificate_for_assignment)
+    issue_certificate = staticmethod(issue_certificate)
     disable = staticmethod(set_journey_disabled)
     delete = staticmethod(delete_journey)
     containing_course = staticmethod(journeys_containing_course)

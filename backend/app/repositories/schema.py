@@ -9,6 +9,7 @@ TABLES = (
     "learning_journey_observer_departments",
     "learning_journey_observer_employees",
     "learning_journey_observers",
+    "learning_journey_certificates",
     "learning_journey_assignments",
     "learning_journey_rules",
     "learning_journey_steps",
