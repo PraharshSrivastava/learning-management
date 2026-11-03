@@ -1026,6 +1026,7 @@ def learner_journeys(employee_id: str) -> dict:
                         "course_id": step["course_id"],
                         "course_name": step["course_name"],
                         "module_count": step["module_count"],
+                        "thumbnail_path": step.get("thumbnail_path") or "",
                         "step_number": step["position"] + 1,
                         "is_required": step["is_required"],
                         "unlock_rule": step["unlock_rule"],

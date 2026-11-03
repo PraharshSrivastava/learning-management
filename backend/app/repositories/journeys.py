@@ -171,6 +171,7 @@ def _journeys_with_parts(connection, rows) -> list[dict]:
     steps = connection.execute(
         """
         SELECT s.*, c.course_name, c.status AS course_status, c.trainer_id AS course_trainer_id,
+               c.thumbnail_path,
                (SELECT COUNT(*) FROM course_modules m WHERE m.course_id = s.course_id) AS module_count
         FROM learning_journey_steps s
         JOIN courses c ON c.course_id = s.course_id
@@ -198,6 +199,7 @@ def _journeys_with_parts(connection, rows) -> list[dict]:
                 "course_name": row["course_name"],
                 "course_status": row["course_status"],
                 "course_trainer_id": row["course_trainer_id"],
+                "thumbnail_path": row["thumbnail_path"] or "",
                 "module_count": int(row["module_count"] or 0),
                 "position": row["position"],
                 "unlock_rule": row["unlock_rule"],

@@ -788,6 +788,47 @@ def test_a_learner_is_shown_completed_only_once_the_journey_was_completed(journe
         journey_reporting.journey_certificate(everything, journey_id, "old")
 
 
+def test_learners_see_the_cover_image_of_every_course_in_their_journey(journey_db, monkeypatch):
+    from app.repositories.employees import EmployeeRepository
+    from app.services.media_access import MediaPrincipal, journey_thumbnail_visible
+
+    with database.get_connection() as db:
+        for course_id in ("c1", "c2"):
+            db.execute(
+                "UPDATE courses SET thumbnail_path = ? WHERE course_id = ?",
+                (f"assets/images/{course_id}.png", course_id),
+            )
+        db.commit()
+    journey_id = make_journey(
+        "Foundation",
+        SEQUENCE[:2],
+        rule={"include_all": False, "include_groups": [{"joined_less_than_days_ago": 30}], "deadline_days": 30},
+    )
+    journeys.api_publish_journey(journey_id, "creator")
+    [mine] = journeys.learner_journeys("new")["journeys"]
+    steps = mine["stages"][0]["steps"]
+    assert [(step["state"], step["thumbnail_path"]) for step in steps] == [
+        ("available", "assets/images/c1.png"),
+        ("locked", "assets/images/c2.png"),
+    ]
+
+    people = EmployeeRepository()
+    learner = MediaPrincipal("employee", people.get("new"))
+    outsider = MediaPrincipal("employee", people.get("old"))
+    # Locked course c2 is not assigned yet, but its cover shows in the journey.
+    assert journey_thumbnail_visible(learner, "/assets/images/c2.png")
+    assert not journey_thumbnail_visible(outsider, "/assets/images/c2.png")
+    # Only the cover image: no other file of the course.
+    assert not journey_thumbnail_visible(learner, "/assets/videos/c2/module_1.mp4")
+    trainer = MediaPrincipal("trainer", people.get("old"), {"trainer_id": "creator"})
+    assert not journey_thumbnail_visible(trainer, "/assets/images/c2.png")
+    monkeypatch.setattr(settings, "learning_journeys_enabled", False)
+    assert not journey_thumbnail_visible(learner, "/assets/images/c2.png")
+    monkeypatch.setattr(settings, "learning_journeys_enabled", True)
+    journeys.api_disable_journey(journey_id, "creator")
+    assert not journey_thumbnail_visible(learner, "/assets/images/c2.png")
+
+
 def test_a_completed_journey_and_its_certificate_stay_with_the_learner(journey_db):
     from app.services import journey_certificates
 

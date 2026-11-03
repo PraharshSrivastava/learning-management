@@ -9,11 +9,13 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
+from app.core.exceptions import NotFoundError
 from app.security.hub_launch import HubApp
 from app.services.media_access import (
     asset_courses,
     authorize_course_media,
     issue_media_ticket,
+    journey_thumbnail_visible,
     media_principal,
 )
 
@@ -41,7 +43,15 @@ class PrivateCourseStaticFiles(StaticFiles):
         principal = await run_in_threadpool(media_principal, request, request.headers.get("Authorization"))
         full_path = request.url.path
         course_ids = await run_in_threadpool(asset_courses, full_path)
-        await run_in_threadpool(authorize_course_media, principal, course_ids)
+        try:
+            await run_in_threadpool(authorize_course_media, principal, course_ids)
+        except NotFoundError:
+            # A journey shows each of its courses' cover images before the course opens.
+            # Only images qualify; videos, slides and files never do.
+            if not full_path.startswith("/assets/images/") or not await run_in_threadpool(
+                journey_thumbnail_visible, principal, full_path
+            ):
+                raise
         ticket = request.query_params.get("media_ticket")
         rewrites_playlist = bool(ticket) and path.endswith((".m3u8", ".html"))
         if self.accel_location and request.headers.get(ACCEL_HEADER) == "1" and not rewrites_playlist:
