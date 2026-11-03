@@ -493,6 +493,52 @@ def test_removing_a_live_course_keeps_it_for_learners_who_started_it(journey_db)
     assert assignments.reconcile_assignments_for_employee("old") == {"assigned": 0, "removed": 0, "reactivated": 0}
 
 
+def test_a_new_deadline_on_a_live_journey_reaches_learners_and_their_courses(journey_db):
+    from app.services.assignment_deadlines import resolve_deadline
+
+    journey_id = make_journey("Markets Foundation", SEQUENCE[:2])
+    journeys.api_publish_journey(journey_id, "creator")
+    complete("obs", "c1")
+    complete("obs", "c2")
+    complete("old", "c1")
+    before = {name: journey_row(journey_id, name)["deadline"] for name in ("new", "old", "obs")}
+    finished = journey_row(journey_id, "obs")["completed_at"]
+    assert _progress.get_for_employee("old")["c2"]["deadline"] == before["old"]
+
+    # A course that also has a deadline of its own keeps it.
+    own = (datetime.now() + timedelta(days=90)).isoformat()
+    row = _progress.get_for_employee("new")["c1"]
+    _progress.save("new", "c1", {**row, "deadline": own})
+
+    fixed = {
+        "include_all": True,
+        "deadline_mode": "fixed",
+        "deadline_date": (date.today() + timedelta(days=60)).isoformat(),
+    }
+    saved = resave(journey_id, SEQUENCE[:2], rule=fixed)
+    assert saved["learners_rechecked"] is True
+    expected = resolve_deadline({**fixed, "deadline_days": 30}, datetime.now())
+
+    for name in ("new", "old"):
+        assert journey_row(journey_id, name)["deadline"] == expected
+    courses = _progress.get_for_employee("old")
+    assert courses["c2"]["deadline"] == expected
+    # A finished course and a finished journey keep their deadlines.
+    assert courses["c1"]["status"] == "completed" and courses["c1"]["deadline"] == before["old"]
+    assert journey_row(journey_id, "obs")["deadline"] == before["obs"]
+    assert journey_row(journey_id, "obs")["completed_at"] == finished
+    assert _progress.get_for_employee("new")["c1"]["deadline"] == own
+    # The learner and the report see the new date.
+    [mine] = journeys.learner_journeys("old")["journeys"]
+    assert mine["deadline"] == expected
+    rows = {row["employee_id"]: row for row in report(journey_id)["learners"]}
+    assert rows["new"]["deadline"] == expected
+
+    # Saving again without a deadline change leaves everything as it is.
+    resave(journey_id, SEQUENCE[:2], title="Markets Foundation 2026")
+    assert journey_row(journey_id, "old")["deadline"] == expected
+
+
 def test_live_save_applies_at_once_and_rechecks_learners_only_when_needed(journey_db):
     journey_id = make_journey("Markets", SEQUENCE)
     journeys.api_publish_journey(journey_id, "creator")

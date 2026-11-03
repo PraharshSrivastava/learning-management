@@ -642,6 +642,7 @@ def api_save_journey(journey_id: str, trainer_id: str, payload: JourneySaveReque
             for step in stage.steps
         ]
         rule_changed = live and _rule(journey["applied_rule"]) != _rule(rule)
+        deadline_changed = rule_changed and _deadline_fields(journey["applied_rule"]) != _deadline_fields(rule)
         prerequisite_changed = prerequisite_id != journey["prerequisite_journey_id"]
         _journeys.save(
             journey_id,
@@ -664,6 +665,8 @@ def api_save_journey(journey_id: str, trainer_id: str, payload: JourneySaveReque
         if rule_changed:
             # On a live journey, Save applies everything, including who gets it.
             _journeys.apply_rule(journey_id, rule)
+        if deadline_changed:
+            _apply_new_deadline(journey_id, _rule(rule), datetime.now())
         saved = _journeys.get(journey_id)
         if live:
             _publish_ready_courses(saved, trainer_id)
@@ -678,6 +681,47 @@ def api_save_journey(journey_id: str, trainer_id: str, payload: JourneySaveReque
     detail = api_get_journey(journey_id, trainer_id)
     detail["learners_rechecked"] = reconciled
     return detail
+
+
+def _deadline_fields(rule: dict | None) -> tuple:
+    current = _rule(rule)
+    mode = current.get("deadline_mode", "relative")
+    return (mode, current.get("deadline_date") if mode == "fixed" else current.get("deadline_days"))
+
+
+def _apply_new_deadline(journey_id: str, rule: dict, now: datetime) -> None:
+    """Give learners who are under way the new deadline, as a course deadline change does.
+
+    Only journeys that have opened and are not completed change; a waiting learner gets the
+    new deadline when the journey opens. Each course the journey has opened follows, unless
+    its deadline came from somewhere else (it no longer matches the old journey deadline).
+    """
+    from app.services.notifications import schedule_employee_broadcast
+
+    deadline = resolve_deadline(rule, now)
+    for assignment in _journeys.assignments_for_journey(journey_id):
+        previous = assignment.get("deadline")
+        if (
+            assignment.get("revoked_at")
+            or assignment.get("completed_at")
+            or not assignment.get("available_at")
+            or previous == deadline
+        ):
+            continue
+        employee_id = assignment["employee_id"]
+        _journeys.save_assignment({**assignment, "deadline": deadline})
+        courses = _progress.get_for_employee(employee_id)
+        for course_id in assignment.get("unlocked_course_ids") or []:
+            course = courses.get(course_id)
+            if (
+                course is None
+                or course.get("revoked_at")
+                or course.get("status") in {"completed", "revoked"}
+                or course.get("deadline") != previous
+            ):
+                continue
+            _progress.save(employee_id, course_id, {**course, "deadline": deadline})
+        schedule_employee_broadcast(employee_id)
 
 
 def _step_signature(steps: list[dict]) -> list[tuple]:
