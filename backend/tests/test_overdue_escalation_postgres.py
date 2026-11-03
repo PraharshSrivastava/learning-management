@@ -31,6 +31,8 @@ def overdue_db(monkeypatch):
         db.execute(f'CREATE SCHEMA "{name}"')
         db.execute(f'SET LOCAL search_path TO "{name}"')
         schema._create_tables(db.cursor())
+        # As init_db does: the digest queue's ON CONFLICT needs its unique index.
+        schema._create_indexes(db.cursor())
         apply_access_migrations(db)
         db.commit()
 
