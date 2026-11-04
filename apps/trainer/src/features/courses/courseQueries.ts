@@ -59,7 +59,16 @@ export function useSelectedCourse() {
 
 /** Fields that the list summary carries. Modules and images stay from the detail. */
 function summaryFields(summary: Course): Partial<Course> {
-  const { modules: _modules, images: _images, creatorName: _creator, ...fields } = summary
+  const {
+    modules: _modules,
+    images: _images,
+    creatorName: _creator,
+    // The list summary has no Video Engine fields; its nulls must not hide the detail's values.
+    videoEngine: _videoEngine,
+    videoEngineRecommended: _recommended,
+    meaningfulImageCount: _imageCount,
+    ...fields
+  } = summary
   return fields
 }
 

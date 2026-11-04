@@ -72,7 +72,11 @@ export function useVideoEngineToggle({
   const [notice, setNotice] = useState<{ key: number; message: string } | null>(null)
   const [confirming, setConfirming] = useState<boolean | null>(null)
 
-  if (!config.toggleEnabled) return { control: null, details: null, pending: false }
+  // Wait for the course detail, which carries the course's own engine: the list summary alone
+  // would briefly show the server default instead of the trainer's choice.
+  if (!config.toggleEnabled || course.videoEngine == null) {
+    return { control: null, details: null, pending: false }
+  }
 
   const enabled = courseVideoMode(course, config) === 'external'
   const recommended = course.videoEngineRecommended

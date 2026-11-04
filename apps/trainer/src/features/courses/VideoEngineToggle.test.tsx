@@ -40,22 +40,41 @@ const engineCourse = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   })
 
+function summaryOf(course: Record<string, unknown>) {
+  const {
+    video_engine: _engine,
+    video_engine_recommended: _recommended,
+    meaningful_image_count: _count,
+    ...summary
+  } = course
+  return summary
+}
+
 /** Serves one course; PUT echoes the stored course with the requested engine. */
 function api({
   course = engineCourse(),
   generationConfig = config(),
   put,
+  listDelayMs = 0,
 }: {
   course?: Record<string, unknown>
   generationConfig?: Record<string, unknown>
   put?: (body: Record<string, unknown>) => unknown
+  /** A long course list answers after the course detail, as on the server. */
+  listDelayMs?: number
 } = {}) {
   let current = course
   return stubFetch((url, init) => {
     const method = init?.method ?? 'GET'
     if (url.pathname === '/api/lms/me') return accessJson()
     if (url.pathname === '/api/generation/config') return generationConfig
-    if (url.pathname === '/api/courses') return [current]
+    // Like GET /api/courses: a summary without the Video Engine fields.
+    if (url.pathname === '/api/courses') {
+      const list = [summaryOf(current)]
+      return listDelayMs
+        ? new Promise((resolve) => setTimeout(() => resolve(list), listDelayMs))
+        : list
+    }
     if (url.pathname === '/api/courses/c1' && method === 'PUT') {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>
       if (put) return put(body)
@@ -132,6 +151,27 @@ describe('Video Engine toggle', () => {
       expect(screen.queryByText(VIDEO_ENGINE_RECOMMENDED_TEXT)).not.toBeInTheDocument(),
     )
     expect(screen.queryByTestId('video-engine-off-recommendation')).not.toBeInTheDocument()
+  })
+
+  it('stays off after the course list reloads when the trainer turns it off', async () => {
+    const fetchMock = api({ listDelayMs: 40 })
+    open()
+    await userEvent.click(await toggle())
+    const listLoads = () =>
+      fetchMock.mock.calls.filter(
+        ([input]) => new URL(String(input), 'http://x').pathname === '/api/courses',
+      ).length
+    // The first load, then the reload after the save.
+    await waitFor(() => expect(listLoads()).toBeGreaterThanOrEqual(2))
+    // Let the reloaded list settle, then the trainer's choice must still show.
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    expect(screen.getByRole('switch', { name: 'Video Engine' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
+    expect(
+      screen.getByText('Recommended: On · no images in the source document'),
+    ).toBeInTheDocument()
   })
 
   it('shows the screenshot advice when Video Engine is turned on for an image document', async () => {
