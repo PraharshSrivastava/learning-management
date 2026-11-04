@@ -421,6 +421,49 @@ def generate_scripts_for_module(
         slide["script"] = generated_scripts[index].strip()
     return module
 
+
+def _course_context(course: dict, index: int) -> dict:
+    modules = course.get("modules", [])
+    module_number = index + 1
+    return {
+        "course_name": course.get("course_name", ""),
+        "module_number": module_number,
+        "total_modules": len(modules),
+        "module_title": modules[index].get("title", ""),
+        "is_first_module": module_number == 1,
+        "is_last_module": module_number == len(modules),
+        "previous_module_title": modules[index - 1].get("title", "") if index > 0 else "",
+        "next_module_title": (
+            modules[index + 1].get("title", "") if index + 1 < len(modules) else ""
+        ),
+        "course_id": course.get("course_id"),
+    }
+
+
+def _module_narration(module: dict) -> str:
+    return " ".join(
+        slide.get("script", "") for slide in module.get("slides", []) if slide.get("script")
+    )
+
+
+def generate_scripts_for_single_module(course_id: str, module_number: int) -> dict:
+    """Write narration for one module, continuing from the previous module's narration."""
+    course = load_course_for_generation(course_id)
+    modules = course.get("modules", [])
+    index = module_number - 1
+    if index < 0 or index >= len(modules):
+        raise ValueError(f"Module number {module_number} out of range.")
+    ensure_module_cover_slide(course, modules[index], module_number, len(modules))
+    modules[index] = generate_scripts_for_module(
+        module_text=modules[index].get("source_text", ""),
+        module=modules[index],
+        previous_script=_module_narration(modules[index - 1]) if index > 0 else "",
+        course_context=_course_context(course, index),
+    )
+    save_generated_course(course_id, course, module_fields=("slides",))
+    return course
+
+
 def generate_scripts_for_course(course_id: str) -> dict:
     """
     Sequentially generate narration scripts and speech audio for all modules in a course
@@ -436,34 +479,15 @@ def generate_scripts_for_course(course_id: str) -> dict:
 
     previous_script = ""
     for i, module in enumerate(modules):
-        module_text = module.get("source_text", "")
-        module_number = i + 1
-        ensure_module_cover_slide(course, module, module_number, len(modules))
-        course_context = {
-            "course_name": course.get("course_name", ""),
-            "module_number": module_number,
-            "total_modules": len(modules),
-            "module_title": module.get("title", ""),
-            "is_first_module": module_number == 1,
-            "is_last_module": module_number == len(modules),
-            "previous_module_title": modules[i - 1].get("title", "") if i > 0 else "",
-            "next_module_title": modules[i + 1].get("title", "") if i + 1 < len(modules) else "",
-        }
-        course_context["course_id"] = course_id
+        ensure_module_cover_slide(course, module, i + 1, len(modules))
         updated_module = generate_scripts_for_module(
-            module_text=module_text,
+            module_text=module.get("source_text", ""),
             module=module,
             previous_script=previous_script,
-            course_context=course_context,
+            course_context=_course_context(course, i),
         )
         modules[i] = updated_module
-
-        current_scripts = [
-            slide.get("script", "")
-            for slide in updated_module.get("slides", [])
-            if slide.get("script")
-        ]
-        previous_script = " ".join(current_scripts)
+        previous_script = _module_narration(updated_module)
 
     course["modules"] = modules
 
