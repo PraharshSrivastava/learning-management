@@ -34,6 +34,7 @@ class DocxBlock:
     text: str = ""
     rows: list[str] = field(default_factory=list)
     image_rids: list[str] = field(default_factory=list)
+    image_alt: dict[str, str] = field(default_factory=dict)
     is_table: bool = False
     is_metadata_table: bool = False
     start_line: int | None = None
@@ -71,6 +72,40 @@ def _image_rids(element: Any) -> list[str]:
         if rid and rid not in rids:
             rids.append(rid)
     return rids
+
+
+_GENERIC_ALT_TEXT = re.compile(
+    r"^(?:picture|image|graphic|figure|diagram|chart|photo)\s*\d*$|\.\w{3,4}$"
+    r"|automatically generated",
+    re.I,
+)
+
+
+def _image_alt_texts(element: Any) -> dict[str, str]:
+    """Map each embedded image to the alt text or title the author gave it in Word."""
+    alt_by_rid: dict[str, str] = {}
+    for node in element.iter():
+        if not (str(node.tag).endswith("}inline") or str(node.tag).endswith("}anchor")):
+            continue
+        properties = next((n for n in node.iter() if str(n.tag).endswith("}docPr")), None)
+        if properties is None:
+            continue
+        alt = next(
+            (
+                text
+                for text in (
+                    re.sub(r"\s+", " ", properties.attrib.get(key) or "").strip()
+                    for key in ("descr", "title")
+                )
+                if text and not _GENERIC_ALT_TEXT.search(text)
+            ),
+            "",
+        )
+        if not alt:
+            continue
+        for rid in _image_rids(node):
+            alt_by_rid.setdefault(rid, alt)
+    return alt_by_rid
 
 
 def _iter_body_blocks(document: Any) -> Iterable[Any]:
@@ -189,6 +224,7 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                 is_table=True,
                 is_metadata_table=parsed_metadata is not None,
                 image_rids=_image_rids(block._element),
+                image_alt=_image_alt_texts(block._element),
             )
             if parsed_metadata is not None and metadata is None:
                 metadata = parsed_metadata
@@ -198,6 +234,7 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                 DocxBlock(
                     text=_clean_text(block.text or ""),
                     image_rids=_image_rids(block._element),
+                    image_alt=_image_alt_texts(block._element),
                 )
             )
 
@@ -247,6 +284,10 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                 pass
 
             raw_caption, line = _nearest_caption(blocks, block_index)
+            if not _looks_like_caption(raw_caption) and block.image_alt.get(rid):
+                # Without a "Figure ..." caption the nearest line is just neighbouring text,
+                # so the narration would describe that text instead of the image.
+                raw_caption = block.image_alt[rid]
             caption = _caption_body(raw_caption)
             aspect_ratio = width / height if width > 0 and height > 0 else None
             orientation = (

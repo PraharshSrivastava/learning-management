@@ -137,7 +137,9 @@ def test_regenerate_video_rebuilds_a_cover_only_module(monkeypatch: pytest.Monke
         "generate_scripts_for_single_module",
         lambda _c, number: steps.append(("scripts", number)),
     )
-    monkeypatch.setattr(tts, "generate_tts_for_course", lambda _c: steps.append(("tts", None)))
+    monkeypatch.setattr(
+        tts, "generate_tts_for_course", lambda _c, modules: steps.append(("tts", modules))
+    )
     monkeypatch.setattr(html, "compile_slides_for_course", lambda _c: steps.append(("html", None)))
     rendered = []
     monkeypatch.setattr(
@@ -147,5 +149,36 @@ def test_regenerate_video_rebuilds_a_cover_only_module(monkeypatch: pytest.Monke
     )
 
     assert video_module.generate_video_for_module("course_1", 1) == "v.mp4"
-    assert steps == [("slides", 1), ("scripts", 1), ("tts", None), ("html", None)]
+    assert steps == [("slides", 1), ("scripts", 1), ("tts", {1}), ("html", None)]
     assert rendered == [2]
+
+
+def test_regenerate_video_refreshes_stale_audio_for_that_module_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.generation import html, runtime, tts
+
+    steps = []
+    course = {
+        "course_id": "course_1",
+        "modules": [
+            {"source_text": SOURCE, "slides": [{"layout_type": "cover"}, {"layout_type": "bullets"}]}
+        ]
+        * 2,
+    }
+    monkeypatch.setattr(runtime, "load_course_for_generation", lambda _c: course)
+    monkeypatch.setattr(runtime, "save_generated_course", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        slides_module,
+        "generate_slides_for_single_module",
+        lambda *_a: pytest.fail("a module with content slides must not be re-planned"),
+    )
+    monkeypatch.setattr(
+        tts, "generate_tts_for_course", lambda _c, modules: steps.append(("tts", modules))
+    )
+    monkeypatch.setattr(html, "compile_slides_for_course", lambda _c: steps.append(("html", None)))
+    monkeypatch.setattr(video_module, "render_video_for_module", lambda *_a: "v.mp4")
+
+    video_module.generate_video_for_module("course_1", 2)
+
+    assert steps == [("tts", {2}), ("html", None)]

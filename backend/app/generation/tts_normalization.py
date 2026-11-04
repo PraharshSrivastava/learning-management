@@ -9,7 +9,8 @@ PRONUNCIATION_MAP = {
     "Mazagon": "Mazgaon",
     "Mazagon's": "Mazgaon's",
     # Indian markets, regulators, and institutions.
-    "SEBI": "Sebee",
+    # Said "see-bee"; "Sebee" came out closer to "seh-bee".
+    "SEBI": "See bee",
     "SELF": "self",
     "MOM": "M O M",
     "NSE": "N S E",
@@ -26,9 +27,9 @@ PRONUNCIATION_MAP = {
     "PAN": "P A N",
     "KYC": "K Y C",
     "Aadhaar": "Aadhaar",
-    # Compliance and anti-money-laundering. Letter-by-letter "A M L" is read as "am L",
-    # so these are spelled out as sounds.
-    "AML": "ay em el",
+    # Compliance and anti-money-laundering. "A M L" is read as "am L" and "ay em el" often
+    # blurs into "aym-el"; commas keep the three letters apart (8 of 8 correct in testing).
+    "AML": "A, M, L",
     "FIU-IND": "eff eye you India",
     "FIU‑IND": "eff eye you India",
     "FIU–IND": "eff eye you India",
