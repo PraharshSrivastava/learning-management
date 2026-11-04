@@ -29,7 +29,12 @@ class GenerationState(ApiSchema):
 
 
 class GenerationConfigResponse(ApiSchema):
+    # Engine for courses with no stored choice (made before the Video Engine toggle).
     video_generation_mode: Literal["local", "external"]
+    # Trainers can choose the engine per course on the Blueprint tab.
+    video_engine_toggle_enabled: bool = False
+    # The Video Generator is configured on this server.
+    video_engine_available: bool = False
 
 
 class ModuleVideoServiceState(ApiSchema):

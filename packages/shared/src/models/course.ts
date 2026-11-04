@@ -9,6 +9,8 @@ import {
   isRecord,
   lenient,
   list,
+  optBool,
+  optInt,
   optRecord,
   optStr,
   reparse,
@@ -135,6 +137,9 @@ export const courseSchema = z
     generation: raw(),
     module_count: raw(),
     is_assignable: bool(),
+    video_engine: optBool(),
+    video_engine_recommended: optBool(),
+    meaningful_image_count: optInt(),
   })
   .transform((j) => {
     // Course is assignable when ready or published with a thumbnail and fully built modules.
@@ -177,6 +182,10 @@ export const courseSchema = z
       generationError: generationField('error')(j.generation),
       moduleCount,
       isAssignable: j.is_assignable || inferredAssignable,
+      /** True: Video Generator videos. False: standard generation. Null: older backend. */
+      videoEngine: j.video_engine,
+      videoEngineRecommended: j.video_engine_recommended,
+      meaningfulImageCount: j.meaningful_image_count,
     }
   })
 export type Course = z.output<typeof courseSchema>

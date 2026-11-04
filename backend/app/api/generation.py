@@ -4,6 +4,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response
 
 from app.core.settings import settings
 from app.generation.runtime import PipelineStageError
+from app.generation.video_engine import toggle_enabled, video_engine_available
 from app.schemas.course import CourseResponse
 from app.schemas.generation import GenerationConfigResponse, GenerationJobResponse
 from app.services.auth import current_trainer_from_request
@@ -69,7 +70,11 @@ def create_module_video_job(
 @router.get("/generation/config", response_model=GenerationConfigResponse)
 def get_generation_config(request: Request, authorization: str | None = Header(default=None)):
     current_trainer_from_request(request, authorization)
-    return GenerationConfigResponse(video_generation_mode=settings.video_generation_mode)
+    return GenerationConfigResponse(
+        video_generation_mode=settings.video_generation_mode,
+        video_engine_toggle_enabled=toggle_enabled(),
+        video_engine_available=video_engine_available(),
+    )
 
 
 @router.post("/courses/{course_id}/generate-full-course", response_model=CourseResponse)

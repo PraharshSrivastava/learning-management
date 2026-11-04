@@ -16,6 +16,8 @@ COURSE_METADATA_FIELDS = {
     "document_builder",
     "images",
     "thumbnail_prompt_hash",
+    "video_engine",
+    "video_engine_recommendation",
 }
 MODULE_METADATA_FIELDS = {
     "start_line",

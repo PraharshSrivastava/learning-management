@@ -404,11 +404,13 @@ def test_module_job_times_out(service_env, monkeypatch):
 
 
 def test_external_mode_readiness_ignores_slide_script_and_audio_outputs(monkeypatch):
-    monkeypatch.setattr(settings, "video_generation_mode", "external")
+    # The course's own engine decides, whatever the server-wide default is.
+    monkeypatch.setattr(settings, "video_generation_mode", "local")
     monkeypatch.setattr(runtime, "_thumbnail_output_complete", lambda course: True)
     monkeypatch.setattr(runtime, "_asset_is_nonempty", lambda path: bool(path))
     course = {
         "course_id": "c1",
+        "video_engine": True,
         "modules": [
             {"num_questions": 0, "notes": "Notes", "video_path": "assets/videos/x.mp4"}
         ],
@@ -420,7 +422,8 @@ def test_external_mode_readiness_ignores_slide_script_and_audio_outputs(monkeypa
     course["modules"][0].pop("video_path")
     assert runtime.missing_generation_outputs(course) == ["video"]
 
-    monkeypatch.setattr(settings, "video_generation_mode", "local")
+    monkeypatch.setattr(settings, "video_generation_mode", "external")
+    course["video_engine"] = False
     course["modules"][0]["video_path"] = "assets/videos/x.mp4"
     assert {"slides", "html", "scripts", "tts"} <= set(runtime.missing_generation_outputs(course))
 
@@ -581,7 +584,17 @@ def test_job_manager_passes_module_video_to_worker(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("mode", ["local", "external"])
 def test_module_video_regeneration_follows_video_mode(monkeypatch, mode):
-    monkeypatch.setattr(settings, "video_generation_mode", mode)
+    # The course's engine wins over the opposite server-wide default.
+    monkeypatch.setattr(
+        settings, "video_generation_mode", "local" if mode == "external" else "external"
+    )
+    monkeypatch.setattr(settings, "video_service_base_url", "http://127.0.0.1:8090")
+    monkeypatch.setattr(settings, "video_service_hmac_secret", SECRET)
+    monkeypatch.setattr(
+        runtime,
+        "load_course_for_generation",
+        lambda course_id: {"course_id": course_id, "video_engine": mode == "external"},
+    )
     calls = []
     monkeypatch.setattr(
         "app.generation.video_service.generate_video_for_module_via_service",
@@ -606,3 +619,21 @@ def test_module_response_exposes_video_service_progress():
 
     assert module.video_service.progress == 68
     assert module.video_service.stage == "audio"
+
+
+def test_video_engine_course_fails_early_without_a_configured_service(monkeypatch):
+    monkeypatch.setattr(settings, "video_service_base_url", None)
+    monkeypatch.setattr(
+        runtime,
+        "load_course_for_generation",
+        lambda course_id: {"course_id": course_id, "video_engine": True},
+    )
+    called = []
+    monkeypatch.setattr(
+        "app.generation.video_service.generate_video_for_module_via_service",
+        lambda *args, **kwargs: called.append(args),
+    )
+
+    with pytest.raises(runtime.PipelineStageError, match="Video Engine isn't available"):
+        runtime.run_module_video_generation("course-1", 1)
+    assert called == []

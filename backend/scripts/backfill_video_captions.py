@@ -12,9 +12,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.core.settings import settings
 from app.generation.captions import backfill_module_captions
 from app.generation.runtime import load_course_for_generation
+from app.generation.video_engine import course_uses_video_engine
 
 
 def main() -> int:
@@ -25,9 +25,9 @@ def main() -> int:
         "--apply", action="store_true", help="Generate captions; otherwise inspect only"
     )
     args = parser.parse_args()
-    if settings.video_generation_mode == "external":
-        parser.error("The Video Generator is enabled; it supplies its own subtitles")
     course = load_course_for_generation(args.course_id)
+    if course_uses_video_engine(course):
+        parser.error("This course uses the Video Generator; it supplies its own subtitles")
     modules = [
         module
         for module in course.get("modules", [])

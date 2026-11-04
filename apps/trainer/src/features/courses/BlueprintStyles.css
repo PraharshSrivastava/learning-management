@@ -525,3 +525,19 @@
     --bp-soft: #253956;
   }
 }
+
+/* Video Engine advisory: the bar shrinks over the notice's reading time. */
+@keyframes video-engine-notice-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.video-engine-notice-timer {
+  animation-name: video-engine-notice-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}

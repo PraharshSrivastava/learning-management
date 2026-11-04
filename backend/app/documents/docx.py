@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 from dataclasses import dataclass, field
@@ -13,6 +14,7 @@ from PIL import Image as PILImage
 from app.core.logging import generation_logger
 from app.core.providers import IMAGE_DIR
 from app.core.storage import public_asset_url
+from app.generation.video_engine import classify_docx_images, docx_image_uses
 
 logger = generation_logger(__name__)
 
@@ -213,12 +215,15 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
     image_dir.mkdir(parents=True, exist_ok=True)
     images: list[dict[str, Any]] = []
     seen_rids: set[str] = set()
+    placed_rids: list[str] = []
+    sha_by_rid: dict[str, str] = {}
     image_index = 0
 
     for block_index, block in enumerate(blocks):
         if block.is_metadata_table:
             continue
         for rid in block.image_rids:
+            placed_rids.append(rid)
             if rid in seen_rids:
                 continue
             seen_rids.add(rid)
@@ -232,6 +237,7 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
             filename = f"docx_img_{image_index}.{ext}"
             output_path = image_dir / filename
             output_path.write_bytes(part.blob)
+            sha_by_rid[rid] = hashlib.sha256(part.blob).hexdigest()
 
             width = height = 0
             try:
@@ -263,8 +269,13 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                     "height": height,
                     "aspect_ratio": aspect_ratio,
                     "orientation": orientation,
+                    "sha256": sha_by_rid[rid],
                 }
             )
+
+    # Marks icons and repeated images (logos), which do not count toward the Video Engine
+    # recommendation. Slides still receive every image, as before.
+    classify_docx_images(images, docx_image_uses(placed_rids, sha_by_rid))
 
     logger.info(
         "docx_extraction_completed line_count=%s image_count=%s metadata=%s",

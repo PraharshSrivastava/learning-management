@@ -43,6 +43,7 @@ import {
   parseQuizSubmissionResult,
   parseSavedAssignmentGroup,
   parseTrainer,
+  parseGenerationConfig,
   parseVideoGenerationMode,
   formatPercent,
   formatScore,
@@ -323,6 +324,29 @@ describe('course (trainer)', () => {
     expect(parseVideoGenerationMode({ video_generation_mode: 'local' })).toBe('local')
     expect(parseVideoGenerationMode(null)).toBe('local')
   })
+  it('reads the generation config, treating an older backend as toggle off', () => {
+    expect(
+      parseGenerationConfig({
+        video_generation_mode: 'external',
+        video_engine_toggle_enabled: true,
+        video_engine_available: true,
+      }),
+    ).toEqual({ defaultMode: 'external', toggleEnabled: true, videoEngineAvailable: true })
+    expect(parseGenerationConfig({ video_generation_mode: 'local' })).toEqual({
+      defaultMode: 'local',
+      toggleEnabled: false,
+      videoEngineAvailable: false,
+    })
+  })
+  it('reads the course video engine and its recommendation', () => {
+    expect(
+      parseCourse({
+        video_engine: false,
+        video_engine_recommended: false,
+        meaningful_image_count: 6,
+      }),
+    ).toMatchObject({ videoEngine: false, videoEngineRecommended: false, meaningfulImageCount: 6 })
+  })
   it('defaults every missing field', () => {
     expect(parseCourse({})).toEqual({
       lifecycleState: '',
@@ -350,6 +374,9 @@ describe('course (trainer)', () => {
       generationError: '',
       moduleCount: 0,
       isAssignable: false,
+      videoEngine: null,
+      videoEngineRecommended: null,
+      meaningfulImageCount: null,
     })
     expect(parseCourse({ modules: [{}] }).modules[0]).toMatchObject({
       numQuestions: 3,

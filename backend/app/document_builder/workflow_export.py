@@ -10,6 +10,7 @@ from app.core.settings import settings
 from app.core.storage import public_asset_url
 from app.document_builder.pdf_builder import REQUIRED_METADATA_FIELDS
 from app.generation.runtime import complete_generation, mark_stage, now_iso
+from app.generation.video_engine import apply_outline_recommendation
 from app.repositories.courses import CourseRepository
 from app.repositories.database import advisory_lock
 from app.schemas.document_workflow import (
@@ -313,6 +314,9 @@ class WorkflowExport:
                         "images": images,
                     }
                 )
+            # Builder images are placed deliberately, so each one counts toward the
+            # Video Engine recommendation.
+            apply_outline_recommendation(course)
             mark_stage(course, "blueprint", "completed")
             complete_generation(course, 0)
             self.courses.save_draft(course)
