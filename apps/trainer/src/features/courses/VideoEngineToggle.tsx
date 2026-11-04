@@ -116,7 +116,7 @@ export function useVideoEngineToggle({
   const switchControl = (
     <div
       className={clsx(
-        'video-engine-toggle inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white pr-2.5 pl-3 text-sm text-text-black',
+        'video-engine-toggle inline-flex h-9 items-center gap-2.5 rounded-lg border border-slate-200 bg-white pr-1.5 pl-3 text-sm text-text-black',
         disabled && 'opacity-70',
       )}
     >
@@ -130,7 +130,7 @@ export function useVideoEngineToggle({
         <Icon name="ondemand_video_outlined" size={16} className="text-primary-blue" />
         Video Engine
       </label>
-      <Switch id={id} size="compact" checked={enabled} disabled={disabled} onChange={change} />
+      <Switch id={id} size="labelled" checked={enabled} disabled={disabled} onChange={change} />
     </div>
   )
 

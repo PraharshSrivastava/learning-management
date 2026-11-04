@@ -101,6 +101,9 @@ describe('Video Engine toggle', () => {
     open()
     const control = await toggle()
     expect(control).toHaveAttribute('aria-checked', 'true')
+    // The state is written inside the switch; only the matching word is visible.
+    expect(within(control).getByText('ON')).toHaveClass('opacity-100')
+    expect(within(control).getByText('OFF')).toHaveClass('opacity-0')
     expect(
       screen.getByText('Recommended: On · no images in the source document'),
     ).toBeInTheDocument()
