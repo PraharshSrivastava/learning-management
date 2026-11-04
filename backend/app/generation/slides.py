@@ -34,6 +34,10 @@ from app.schemas.generation.slides import (
 
 logger = generation_logger(__name__)
 
+# Long modules with many images produce plans past 4096 tokens; the client still caps this at
+# LLM_MAX_OUTPUT_TOKENS and the context window.
+SLIDE_PLANNING_MAX_TOKENS = 8192
+
 
 def _slide_image_orientation(image: dict[str, Any]) -> str:
     stored = str(image.get("orientation") or "").lower()
@@ -211,12 +215,15 @@ def plan_slides_for_module(
                 },
             },
             temperature=0.2,
-            default_max_tokens=4096,
+            default_max_tokens=SLIDE_PLANNING_MAX_TOKENS,
             course_id=course_id,
             stage="slide_planning",
             module_number=module.get("module_number"),
         )
 
+        if response.choices[0].finish_reason == "length":
+            # A cut-off reply is invalid JSON; say why instead of reporting a parse error.
+            raise ValueError("The slide plan was cut off at the output token limit")
         raw_content = response.choices[0].message.content
         parsed = ModuleSlidesSchema.model_validate_json(raw_content)
 
@@ -476,6 +483,14 @@ def assign_layouts_to_module(
     return module
 
 def _module_slides_are_valid(mod_copy: dict) -> bool:
+    if not mod_copy.get("planned_slides") and str(mod_copy.get("source_text") or "").strip():
+        # A failed plan is stored as an empty list; without this it would count as valid
+        # and the module would ship as a cover-only video.
+        logger.info(
+            "slide_validation_failed module=%s reason=no_slides",
+            mod_copy.get("module_number"),
+        )
+        return False
     for slide in mod_copy.get("planned_slides", []):
         content = slide.get("content", [])
         layout = slide.get("layout_type", "")
@@ -606,6 +621,14 @@ def _generate_slides_for_module(
 
     if not is_valid:
         best_module_state = _apply_slide_fallbacks(best_module_state)
+    if not best_module_state.get("planned_slides") and str(
+        best_module_state.get("source_text") or ""
+    ).strip():
+        raise ValueError(
+            f"Module {module_number} slide planning failed after {max_retries} attempts "
+            f"({str(best_module_state.get('chain_of_thought') or 'no slides returned')[:200]}). "
+            "Retry generation."
+        )
 
     ensure_module_cover_slide(course, best_module_state, index + 1, len(course.get("modules", [])))
     best_module_state = _expand_mapped_image_slides(best_module_state)
@@ -617,6 +640,35 @@ def _generate_slides_for_module(
         elapsed=f"{time.perf_counter() - started:.1f}s",
     )
     return index, best_module_state
+
+
+def module_is_cover_only(module: dict) -> bool:
+    """True when a module with source text has no slide besides its cover."""
+    if not str(module.get("source_text") or "").strip():
+        return False
+    return not any(
+        not (slide.get("is_cover_slide") or str(slide.get("layout_type", "")).lower() == "cover")
+        for slide in module.get("slides") or []
+    )
+
+
+def generate_slides_for_single_module(course_id: str, module_number: int) -> Dict[str, Any]:
+    """Plan one module's slides again, leaving every other module untouched."""
+    course = load_course_for_generation(course_id)
+    modules = course.get("modules", [])
+    index = module_number - 1
+    if index < 0 or index >= len(modules):
+        raise ValueError(f"Module number {module_number} out of range.")
+    base_url, model_name = get_llm_endpoint("slides")
+    _, modules[index] = _generate_slides_for_module(
+        course=course,
+        module=modules[index],
+        index=index,
+        base_url=base_url,
+        model_name=model_name,
+    )
+    save_generated_course(course_id, course, module_fields=("planned_slides", "slides"))
+    return course
 
 
 def generate_slides_for_course(course_id: str) -> Dict[str, Any]:
