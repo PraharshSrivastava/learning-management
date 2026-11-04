@@ -116,3 +116,94 @@ def test_retitles_module_named_after_the_course_with_its_label() -> None:
     _normalize_labelled_modules(modules, lines)
 
     assert [m["title"] for m in modules] == ["Module 1: Hazards", "Module 2: Extinguishers"]
+
+
+GUIDE_LINES = [
+    "Module 1: Why Saving Alone Is Not Enough",
+    "Most of us are taught to save.",
+    "Key takeaway: saving alone loses value.",
+    "Module 2: The Power of Compounding",
+    "Compounding means earning returns on returns.",
+    "Key takeaway: start early.",
+    "Module 3: Asset Classes",
+    "Equity, debt, gold and real estate.",
+    "Key takeaway: each asset has a role.",
+]
+
+
+def test_labelled_document_is_split_exactly_at_its_headings() -> None:
+    from app.generation.blueprint import modules_from_labels
+
+    modules = modules_from_labels(GUIDE_LINES)
+
+    assert [(m["module_number"], m["title"], m["start_line"]) for m in modules] == [
+        (1, "Module 1: Why Saving Alone Is Not Enough", 1),
+        (2, "Module 2: The Power of Compounding", 4),
+        (3, "Module 3: Asset Classes", 7),
+    ]
+
+
+def test_labelled_document_skips_the_llm(monkeypatch) -> None:
+    from app.generation import blueprint
+
+    def fail(*args, **kwargs):
+        raise AssertionError("the LLM must not be asked to split a labelled document")
+
+    monkeypatch.setattr(blueprint, "safe_chat_completion", fail)
+
+    modules = blueprint.extract_modules_with_llm(GUIDE_LINES)
+
+    assert [m["start_line"] for m in modules] == [1, 4, 7]
+
+
+def test_short_preamble_joins_the_first_labelled_module() -> None:
+    from app.generation.blueprint import modules_from_labels
+
+    modules = modules_from_labels(["Fire Safety Course", "For branch staff."] + GUIDE_LINES)
+
+    assert [m["start_line"] for m in modules] == [1, 6, 9]
+
+
+def test_labels_fall_back_to_the_llm_when_they_are_not_a_clean_sequence() -> None:
+    from app.generation.blueprint import modules_from_labels
+
+    two_labels = GUIDE_LINES[:6]
+    gap = [line.replace("Module 3", "Module 4") for line in GUIDE_LINES]
+    table_of_contents = ["Module 1: A", "Module 2: B", "Module 3: C"] + GUIDE_LINES
+    nested = ["Chapter 1: Basics", "Unit 1: Saving", "Text.", "Unit 2: Spending", "Text.", "Chapter 2: More", "Text."]
+    long_opening = ["Overview " + "of the policy. " * 60] + GUIDE_LINES
+    sentence = GUIDE_LINES[:6] + ["Module 3 " + "covers asset classes in depth and more " * 5]
+
+    for lines in (two_labels, gap, table_of_contents, nested, long_opening, sentence):
+        assert modules_from_labels(lines) is None
+
+
+def test_bare_label_line_takes_the_next_line_as_its_title() -> None:
+    from app.generation.blueprint import modules_from_labels
+
+    lines = ["Module 1.", "Intro", "Text.", "Module 2.", "Rules", "Text.", "Module 3:", "Review", "Text."]
+
+    assert [m["title"] for m in modules_from_labels(lines)] == [
+        "Module 1: Intro",
+        "Module 2: Rules",
+        "Module 3: Review",
+    ]
+
+
+def test_header_adjustment_keeps_a_module_that_starts_on_its_label() -> None:
+    from app.generation.blueprint import adjust_start_lines_for_headers
+
+    # The previous module ends with a short line that shares words with the next title,
+    # which the fuzzy header match used to pull into the next module.
+    lines = [
+        "Module 1: Saving",
+        "Text about saving.",
+        "Compounding is powerful.",
+        "Module 2: The Power of Compounding",
+        "More text.",
+    ]
+    modules = [_module(1, lines[0], 1), _module(2, lines[3], 4)]
+
+    adjust_start_lines_for_headers(modules, lines)
+
+    assert modules[1]["start_line"] == 4
