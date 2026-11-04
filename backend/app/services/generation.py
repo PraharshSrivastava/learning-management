@@ -10,7 +10,12 @@ from app.core.exceptions import ConflictError
 from app.core.langfuse_tracing import trace_scope
 from app.core.settings import Settings
 from app.generation.blueprint import generate_course_outline
-from app.generation.runtime import generation_state, run_full_course_generation
+from app.generation.runtime import (
+    VIDEO_ENGINE_UNAVAILABLE,
+    generation_state,
+    run_full_course_generation,
+)
+from app.generation.video_engine import course_uses_video_engine, video_engine_available
 from app.repositories.courses import CourseRepository
 from app.repositories.documents import get_document
 from app.repositories.jobs import GenerationJobRepository
@@ -104,8 +109,14 @@ class GenerationService:
             with generation_queue.run(course_id=course_id, operation="full_course"):
                 return run_full_course_generation(course_id, restart_from_blueprint=True)
 
+    @staticmethod
+    def _require_video_engine(course: dict) -> None:
+        """Refuse a job up front when the course needs a Video Generator this server lacks."""
+        if course_uses_video_engine(course) and not video_engine_available():
+            raise ConflictError(VIDEO_ENGINE_UNAVAILABLE)
+
     def start_full_course_job(self, course_id: str, trainer_id: str | None = None):
-        self.draft(course_id, trainer_id)
+        self._require_video_engine(self.draft(course_id, trainer_id))
         try:
             return self.jobs.submit_process(
                 course_id,
@@ -121,6 +132,7 @@ class GenerationService:
         course = self.draft(course_id, trainer_id)
         if module_number < 1 or module_number > len(course.get("modules") or []):
             raise ValueError(f"Module number {module_number} out of range.")
+        self._require_video_engine(course)
         try:
             return self.jobs.submit_process(
                 course_id,
@@ -137,12 +149,14 @@ class GenerationService:
         Blueprint checkpoints keep the synchronous continue route, which owns the
         document re-extraction rules.
         """
-        state = generation_state(self.draft(course_id, trainer_id))
+        course = self.draft(course_id, trainer_id)
+        state = generation_state(course)
         checkpoint = state.get("failed_checkpoint") or state.get("current_checkpoint")
         if not checkpoint:
             raise ValueError("This course has no generation checkpoint to continue")
         if checkpoint == "blueprint":
             raise ValueError("Blueprint checkpoints must be continued with continue-generation")
+        self._require_video_engine(course)
         try:
             return self.jobs.submit_process(
                 course_id,

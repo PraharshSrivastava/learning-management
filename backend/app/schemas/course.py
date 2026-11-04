@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.schemas.common import ApiSchema, RequestSchema
 from app.schemas.generation import GenerationState, ModuleVideoServiceState
@@ -64,6 +64,8 @@ class CourseUpdateRequest(RequestSchema):
     language: str | None = None
     target_audience: str | None = None
     modules: list[ModuleUpdate | str] | None = None
+    # True: module videos come from the Video Generator. False: standard generation.
+    video_engine: bool | None = None
 
 
 class GenerateCourseRequest(RequestSchema):
@@ -106,6 +108,20 @@ class CourseResponse(ApiSchema):
     modules: list[ModuleResponse] = Field(default_factory=list)
     thumbnail_prompt_hash: str | None = None
     generation: GenerationState | None = None
+    # True: module videos come from the Video Generator. False: standard generation.
+    video_engine: bool | None = None
+    video_engine_recommended: bool | None = None
+    meaningful_image_count: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _video_engine_fields(cls, data: Any) -> Any:
+        """Resolve the course's engine and recommendation on every course response."""
+        if not isinstance(data, dict) or "course_id" not in data:
+            return data
+        from app.generation.video_engine import video_engine_fields
+
+        return {**data, **video_engine_fields(data)}
 
 
 class CourseSummaryResponse(ApiSchema):

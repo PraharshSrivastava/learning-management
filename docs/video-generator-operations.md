@@ -1,8 +1,25 @@
 # Video Generator operations
 
-The LMS can make module videos itself (`VIDEO_GENERATION_MODE=local`) or send each
-module to the Video Generator API (`external`). The production LMS on big-coding
-(`/home/karphi/intelligence_layer`) uses `external` since 2026-10-29.
+The LMS can make module videos itself (standard generation) or send each module to the
+Video Generator API. The production LMS on big-coding (`/home/karphi/intelligence_layer`)
+has used the Video Generator since 2026-10-29.
+
+## Who chooses the engine
+
+Trainers choose it per course with the **Video Engine** toggle on the Blueprint tab (on:
+Video Generator, off: standard generation). The LMS sets the default from the source
+document: off when it has images or screenshots, on when it has none. No `.env` change
+is needed to use either flow.
+
+- `VIDEO_GENERATION_MODE` now only decides courses made before the toggle existed.
+- `VIDEO_ENGINE_TOGGLE_ENABLED` is on when unset. Set it to `false` only as an emergency
+  off switch; every course then follows `VIDEO_GENERATION_MODE` again.
+- Both flows must work on every server: the Video Generator settings below, and the
+  narration service (`TTS_ENDPOINT`) for standard generation.
+- If the Video Generator settings are missing, the toggle shows Video Engine as
+  unavailable and courses use standard generation.
+
+See `docs/video-engine-toggle-implementation-plan.md` for the details.
 
 ## What production needs
 
@@ -59,9 +76,10 @@ secret; `401` means the secret does not match.
 
 ## Switching back
 
-Set `VIDEO_GENERATION_MODE=local` (or restore the dated `.env` backup) and restart the
-backend. Stored module videos stay attached either way; only new or regenerated
-modules use the selected mode.
+Trainers switch a course with the Blueprint toggle. To turn the toggle off for everyone,
+set `VIDEO_ENGINE_TOGGLE_ENABLED=false` and restart the backend; every course then follows
+`VIDEO_GENERATION_MODE`. Stored module videos stay attached either way; only new or
+regenerated modules use the selected mode.
 
 ## Video Generator side
 

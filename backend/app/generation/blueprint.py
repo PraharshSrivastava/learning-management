@@ -19,6 +19,7 @@ from app.documents.docx import extract_docx_blueprint_source
 from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
+from app.generation.video_engine import apply_outline_recommendation, classify_pdf_images
 from app.repositories.courses import delete_course, get_all_courses, get_course, save_course
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.generation.blueprint import BlueprintExtractionResult, ModuleListSchema
@@ -619,9 +620,11 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
     os.makedirs(course_image_dir, exist_ok=True)
 
     total_pages = len(doc)
+    page_sizes: dict[int, tuple[float, float]] = {}
 
     for page_num in range(total_pages):
         page = doc[page_num]
+        page_sizes[page_num + 1] = (float(page.rect.width), float(page.rect.height))
 
         # Get image positions in visible reading order. PyMuPDF's internal
         # image order can differ from the way images appear on the page, which
@@ -754,6 +757,7 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                         "file_path": relative_path,
                         "page": page_num + 1,
                         "bbox": bbox,
+                        "xref": xref,
                         "source_order": len(extracted) + 1,
                         # Keep the source dimensions so the slide renderer can
                         # choose an appropriate composition instead of treating
@@ -784,6 +788,9 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                     e,
                 )
 
+    # Marks logos, letterheads and icons, which do not count toward the Video Engine
+    # recommendation. Slides still receive every image, as before.
+    classify_pdf_images(extracted, page_sizes, total_pages)
     return extracted
 
 
@@ -1299,6 +1306,7 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
     outline["course_id"] = course_id
     outline["trainer_id"] = trainer_id
     outline["created_at"] = now_iso()
+    apply_outline_recommendation(outline, checkpoint_course.get("video_engine"))
     mark_stage(outline, "blueprint", "completed")
     complete_generation(outline, time.perf_counter() - blueprint_start)
 

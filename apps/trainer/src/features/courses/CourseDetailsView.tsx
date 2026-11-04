@@ -1,6 +1,6 @@
 import { assetUrl, videoAssetUrl } from '@lms/shared/api/client'
 import { useHasMediaTicket } from '@lms/shared/api/useMediaTicket'
-import type { Course, CourseImage } from '@lms/shared/models'
+import { isVideoServiceActive, type Course, type CourseImage } from '@lms/shared/models'
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
 import { Spinner } from '@lms/shared/ui/Spinner'
 import { useToast } from '@lms/shared/ui/Toast'
@@ -20,6 +20,7 @@ import {
 } from 'react'
 import { videoDownloadFilename } from '../training/trainingData'
 import { useDownloadVideo } from '../training/useDownloadVideo'
+import { useGenerationConfig } from '../training/videoMode'
 import { CourseActionsMenu } from './CourseActionsMenu'
 import {
   DIFFICULTIES,
@@ -35,6 +36,7 @@ import {
 } from './courseLogic'
 import { updateErrorMessage, useUpdateCourse } from './courseQueries'
 import { useFullCourseGeneration } from './useFullCourseGeneration'
+import { useVideoEngineToggle } from './VideoEngineToggle'
 
 interface CourseDetailsViewProps {
   course: Course
@@ -142,6 +144,15 @@ function BlueprintEditor({ course }: { course: Course }) {
   const generation = useFullCourseGeneration()
   const toast = useToast()
   const generate = generateButtonState(course, draft.modules.length, generation.running)
+  const videoEngine = useVideoEngineToggle({
+    course,
+    config: useGenerationConfig(),
+    generating:
+      generation.running ||
+      course.generationStatus === 'running' ||
+      course.modules.some((module) => isVideoServiceActive(module.videoService)),
+    saving: update.isPending,
+  })
 
   const patch = (fields: Partial<BlueprintDraft>) => {
     dirtyRef.current = true
@@ -183,7 +194,7 @@ function BlueprintEditor({ course }: { course: Course }) {
     <PillButton
       icon={generate.icon}
       background={generate.complete ? '#616161' : '#153c83'}
-      disabled={!generate.enabled || update.isPending}
+      disabled={!generate.enabled || update.isPending || videoEngine.pending}
       onClick={() => void startGeneration()}
     >
       {generate.label}
@@ -231,6 +242,7 @@ function BlueprintEditor({ course }: { course: Course }) {
               <Icon name="save" size={16} />
               {update.isPending ? 'Saving…' : 'Save Changes'}
             </button>
+            {videoEngine.control}
             {generate.tooltip ? (
               <Tooltip content={generate.tooltip}>{generateButton}</Tooltip>
             ) : (
@@ -238,6 +250,7 @@ function BlueprintEditor({ course }: { course: Course }) {
             )}
           </div>
         </div>
+        {videoEngine.details}
         <NameField value={draft.name} invalid={nameInvalid} onChange={(name) => patch({ name })} />
         <p
           role="status"

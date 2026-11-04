@@ -136,6 +136,29 @@ export function useUpdateCourse() {
 }
 
 /**
+ * PUT /api/courses/{id} with only the Video Engine choice. Unlike the blueprint save it does not
+ * block the app: the toggle shows its own pending state.
+ */
+export function useUpdateVideoEngine() {
+  const storeCourse = useStoreCourse()
+  const refreshCourses = useRefreshCourses()
+  return useMutation({
+    mutationKey: ['course-video-engine'],
+    mutationFn: async ({ courseId, videoEngine }: { courseId: string; videoEngine: boolean }) =>
+      parseCourse(
+        await apiRequest(coursePath(courseId), {
+          method: 'PUT',
+          json: { video_engine: videoEngine },
+        }),
+      ),
+    onSuccess: async (course) => {
+      storeCourse(course)
+      await refreshCourses()
+    },
+  })
+}
+
+/**
  * Shows the blocking overlay from shell level, so it stays up across a tab or course change that
  * unmounts BlueprintEditor while the save keeps running.
  */

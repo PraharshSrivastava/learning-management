@@ -340,12 +340,29 @@ def _html_output_complete(course: dict) -> bool:
     )
 
 
-def uses_external_video_service() -> bool:
-    return settings.video_generation_mode == "external"
+VIDEO_ENGINE_UNAVAILABLE = (
+    "Video Engine isn't available on this server. Turn Video Engine off on the Blueprint "
+    "tab and generate again."
+)
+
+
+def uses_external_video_service(course: dict) -> bool:
+    """True when this course's module videos come from the Video Generator service."""
+    from app.generation.video_engine import course_uses_video_engine
+
+    return course_uses_video_engine(course)
+
+
+def require_video_engine_available(course: dict) -> None:
+    """Stop before any work when the course needs a Video Generator this server lacks."""
+    from app.generation.video_engine import video_engine_available
+
+    if uses_external_video_service(course) and not video_engine_available():
+        raise PipelineStageError("video", VIDEO_ENGINE_UNAVAILABLE)
 
 
 def missing_generation_outputs(course: dict) -> list[str]:
-    if uses_external_video_service():
+    if uses_external_video_service(course):
         # The service produces finished videos; slide, script and audio stages never run.
         checks = (
             ("thumbnail", _thumbnail_output_complete),
@@ -452,8 +469,10 @@ def recover_interrupted_generations() -> None:
 
 
 def run_module_video_generation(course_id: str, module_number: int) -> str:
-    """Regenerate one module's video with the configured video mode."""
-    if uses_external_video_service():
+    """Regenerate one module's video with the course's video engine."""
+    course = load_course_for_generation(course_id)
+    require_video_engine_available(course)
+    if uses_external_video_service(course):
         from app.generation.video_service import generate_video_for_module_via_service
 
         # A trainer-requested regeneration always asks the service for a new video.
@@ -478,7 +497,9 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
 
     pipeline_start = time.perf_counter()
     repository = CourseRepository()
-    external_video = uses_external_video_service()
+    starting_course = load_course_for_generation(course_id)
+    require_video_engine_available(starting_course)
+    external_video = uses_external_video_service(starting_course)
     wave_stage_order = (
         ("thumbnail", "quiz", "notes") if external_video else ("thumbnail", "quiz", "notes", "slides")
     )
