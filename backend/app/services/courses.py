@@ -98,7 +98,11 @@ class CourseService:
             engine_changed = self._apply_video_engine(course, bool(updated_fields["video_engine"]))
             # Videos from the other engine no longer match the course, so it is generated
             # again from its blueprint, as after a blueprint edit.
-            if engine_changed and self._has_generated_content(course):
+            # A checkpoint left by the other engine is cleared too, so Continue cannot
+            # resume a run that was planned for a different pipeline.
+            if engine_changed and (
+                self._has_generated_content(course) or self._has_generation_progress(course)
+            ):
                 blueprint_changed = True
 
         if blueprint_changed:
@@ -130,6 +134,16 @@ class CourseService:
             raise DomainValidationError("Video Engine isn't available on this server.")
         course["video_engine"] = requested
         return True
+
+    @staticmethod
+    def _has_generation_progress(course: dict) -> bool:
+        """True when generation went past the blueprint (any later stage or checkpoint)."""
+        state = course.get("generation") or {}
+        if state.get("failed_checkpoint") not in (None, "blueprint"):
+            return True
+        if state.get("current_checkpoint") not in (None, "blueprint"):
+            return True
+        return any(stage != "blueprint" for stage in (state.get("stages") or {}))
 
     @staticmethod
     def _has_generated_content(course: dict) -> bool:
