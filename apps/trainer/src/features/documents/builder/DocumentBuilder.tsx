@@ -262,7 +262,7 @@ export function DocumentBuilder({ mobile }: { mobile: boolean }) {
         </FieldLabel>
         <FieldLabel htmlFor={`${id}-courseDescription`} label="Course description">
           <BuilderTextArea
-            placeholder="Short LMS-facing course description"
+            placeholder="Short course description shown in PhillipAcademy"
             {...field('courseDescription')}
           />
         </FieldLabel>

@@ -111,7 +111,7 @@ def _footer_notes(pdf: canvas.Canvas) -> None:
     issuer = settings.certificate_issuer_name
     _centered(
         pdf,
-        f"This is a computer-generated certificate issued by {issuer} through its Learning Management System.",
+        f"This is a computer-generated certificate issued by {issuer} through PhillipAcademy.",
         58,
         "Helvetica",
         7.5,

@@ -84,8 +84,11 @@ export function TrainerShell() {
   return (
     <div className="page-gradient flex h-full min-w-0 flex-col">
       <header className="box-content flex h-[72px] shrink-0 items-center border-b border-light-gray bg-white/94 pr-4 pl-4">
-        <span className="font-inter text-xl font-bold tracking-[-0.5px] text-primary-blue">
-          PhillipCapital
+        <span className="flex flex-col leading-tight">
+          <span className="font-inter text-xl font-bold tracking-[-0.5px] text-primary-blue">
+            PhillipCapital
+          </span>
+          <span className="font-inter text-xs font-semibold text-text-secondary">PhillipAcademy</span>
         </span>
         <span className="mr-3 ml-2 h-6 w-px bg-light-gray" aria-hidden />
         <nav className="flex min-w-0 flex-1 gap-2 overflow-x-auto" aria-label="Trainer sections">
