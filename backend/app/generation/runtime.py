@@ -384,6 +384,23 @@ def missing_generation_outputs(course: dict) -> list[str]:
     return [stage for stage, check in checks if not check(course)]
 
 
+def wave_stages_to_resume(course: dict, wave_stage_order: tuple[str, ...]) -> tuple[str, ...]:
+    """Wave 1 stages a Continue must run: the ones that failed, plus any whose output is missing.
+
+    The checkpoint alone is not enough. After an engine switch, a restart or a partial
+    clear, a course can fail at a later stage while its thumbnail, quiz, notes or slides
+    are gone; skipping them would render videos from stale slides and fail at publish.
+    """
+    state = generation_state(course)
+    failed = (
+        set(state.get("failed_stages") or [])
+        if state.get("failed_checkpoint") == "wave_1"
+        else set()
+    )
+    missing = set(missing_generation_outputs(course))
+    return tuple(stage for stage in wave_stage_order if stage in failed or stage in missing)
+
+
 def is_course_generation_complete(course: dict) -> bool:
     if not course.get("modules"):
         return False
@@ -623,16 +640,7 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         repository.save_draft(fresh_course)
         wave_stages = wave_stage_order
     else:
-        state = generation_state(load_course())
-        if state.get("failed_checkpoint") == "wave_1":
-            wave_stages = tuple(
-                stage for stage in state.get("failed_stages", []) if stage in wave_stage_order
-            )
-        elif state.get("failed_checkpoint") == "publish":
-            missing_outputs = set(missing_generation_outputs(load_course()))
-            wave_stages = tuple(stage for stage in wave_stage_order if stage in missing_outputs)
-        else:
-            wave_stages = ()
+        wave_stages = wave_stages_to_resume(load_course(), wave_stage_order)
         for stage in wave_stages:
             clear_wave_stage_output(stage)
 

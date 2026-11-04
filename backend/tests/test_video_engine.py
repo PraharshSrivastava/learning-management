@@ -340,3 +340,82 @@ def test_blueprint_re_extraction_keeps_the_trainers_choice(engine_on):
 
     assert course["video_engine"] is False
     assert course["video_engine_recommendation"]["recommended"] is True
+
+
+# --- Continue after a switch or a later-stage failure ---------------------------------------
+
+LOCAL_WAVE = ("thumbnail", "quiz", "notes", "slides")
+SERVICE_WAVE = ("thumbnail", "quiz", "notes")
+
+
+def _resumable(generation, **module):
+    course = _course(video_engine=False, generation=generation)
+    course["modules"][0].update({"num_questions": 3, **module})
+    return course
+
+
+def test_continue_reruns_missing_wave_outputs_after_a_later_failure(engine_on):
+    # The big-coding case: slides, scripts and audio survived, thumbnail/quiz/notes did not,
+    # and the course failed at video. Continue used to skip Wave 1 and fail at publish.
+    from app.generation.runtime import wave_stages_to_resume
+
+    course = _resumable(
+        {"status": "failed", "failed_checkpoint": "video"},
+        slides=[{"slide_number": 1, "title": "One"}],
+    )
+
+    assert wave_stages_to_resume(course, LOCAL_WAVE) == ("thumbnail", "quiz", "notes")
+
+
+def test_continue_reruns_failed_wave_stages_even_if_output_exists(engine_on, monkeypatch):
+    from app.generation import runtime
+
+    monkeypatch.setattr(runtime, "missing_generation_outputs", lambda course: [])
+    course = _resumable(
+        {"status": "failed", "failed_checkpoint": "wave_1", "failed_stages": ["quiz"]}
+    )
+
+    assert runtime.wave_stages_to_resume(course, LOCAL_WAVE) == ("quiz",)
+
+
+def test_continue_with_complete_wave_outputs_skips_wave_1(engine_on, monkeypatch):
+    from app.generation import runtime
+
+    monkeypatch.setattr(runtime, "missing_generation_outputs", lambda course: ["video"])
+    course = _resumable({"status": "failed", "failed_checkpoint": "video"})
+
+    assert runtime.wave_stages_to_resume(course, LOCAL_WAVE) == ()
+
+
+def test_video_engine_course_never_resumes_slides(engine_on):
+    from app.generation.runtime import wave_stages_to_resume
+
+    course = _resumable({"status": "failed", "failed_checkpoint": "video"})
+    course["video_engine"] = True
+
+    assert wave_stages_to_resume(course, SERVICE_WAVE) == SERVICE_WAVE
+
+
+def test_switching_clears_a_checkpoint_from_the_other_engine(engine_on):
+    # No generated files yet, but a failed run planned for the Video Engine is on record.
+    stale = _course(
+        generation={
+            "status": "failed",
+            "failed_checkpoint": "wave_1",
+            "failed_stages": ["thumbnail"],
+            "stages": {"blueprint": {"status": "completed"}, "thumbnail": {"status": "failed"}},
+        }
+    )
+    course = _switch(FakeRepository(stale), False)
+
+    assert course["generation"]["status"] == "pending"
+    assert "failed_checkpoint" not in course["generation"]
+    assert course["generation"]["stages"] == {"blueprint": {"status": "completed"}}
+    assert course["modules"][0]["title"] == "M1"
+
+
+def test_switching_a_fresh_blueprint_keeps_its_state(engine_on):
+    fresh = _course(generation={"status": "completed", "stages": {"blueprint": {"status": "completed"}}})
+    course = _switch(FakeRepository(fresh), False)
+
+    assert course["generation"]["status"] == "completed"
