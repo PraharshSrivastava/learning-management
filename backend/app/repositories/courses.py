@@ -81,6 +81,15 @@ def _module_to_record(course_id: str, index: int, module: dict) -> dict:
     }
 
 
+def generation_job_active(status: str | None, worker_id: str | None) -> bool:
+    """True while a generation job holds the course.
+
+    A blueprint edit resets the status to "pending" (generate again) without a worker; only a
+    pending or running status with a claimed worker means a job is actually queued or running.
+    """
+    return status in ("pending", "running") and bool(worker_id)
+
+
 def _lifecycle_fields(row, connection=None):
     if "rule_published_at" not in row:
         if connection is None:
@@ -89,7 +98,7 @@ def _lifecycle_fields(row, connection=None):
         fields = connection.execute("""SELECT ar.is_active AS rule_active,
             ar.published_at AS rule_published_at,
             EXISTS(SELECT 1 FROM course_assignments ca WHERE ca.course_id=c.course_id) AS has_history,
-            g.status AS generation_status
+            g.status AS generation_status, g.worker_id AS generation_worker_id
             FROM courses c LEFT JOIN assignment_rules ar ON ar.course_id=c.course_id
             LEFT JOIN course_generation_status g ON g.course_id=c.course_id WHERE c.course_id=?""",
             (row["course_id"],)).fetchone()
@@ -98,9 +107,10 @@ def _lifecycle_fields(row, connection=None):
     lifecycle = "archived" if status == "archived" else (
         "active" if status == "published" and row["rule_published_at"] and row["rule_active"] else
         "disabled" if status == "published" and row["rule_published_at"] else status)
+    active = generation_job_active(row["generation_status"], row.get("generation_worker_id"))
     return {"lifecycle_state": lifecycle, "lifecycle_revision": row.get("lifecycle_revision", 0),
-            "can_delete": status in ("draft", "ready") and not row["has_history"] and
-                row["generation_status"] not in ("pending", "running")}
+            "can_delete": status in ("draft", "ready") and not row["has_history"] and not active,
+            "generation_active": active}
 
 
 def _row_to_course(connection, row) -> dict:
@@ -257,6 +267,7 @@ def list_course_summaries_for_trainer(trainer_id: str) -> list[dict]:
                     )
                 ) FILTER (WHERE cm.module_id IS NOT NULL) AS modules_publishable,
                 g.status AS generation_status,
+                g.worker_id AS generation_worker_id,
                 g.checkpoint AS generation_checkpoint,
                 g.stages_json AS generation_stages_json,
                 g.error AS generation_error,
@@ -278,7 +289,8 @@ def list_course_summaries_for_trainer(trainer_id: str) -> list[dict]:
             LEFT JOIN course_modules cm ON cm.course_id = c.course_id
             LEFT JOIN course_generation_status g ON g.course_id = c.course_id
             WHERE c.trainer_id = ?
-            GROUP BY c.course_id, ar.course_id, g.status, g.checkpoint, g.stages_json, g.error, g.updated_at
+            GROUP BY c.course_id, ar.course_id, g.status, g.worker_id, g.checkpoint, g.stages_json,
+                g.error, g.updated_at
             ORDER BY c.created_at
             """,
             (trainer_id,),
@@ -708,7 +720,7 @@ def delete_course_for_trainer(course_id: str, trainer_id: str, expected_revision
         course = connection.execute(
             """
             SELECT c.course_id, c.course_name, c.status, c.lifecycle_revision, c.thumbnail_path,
-                   g.status AS generation_status
+                   g.status AS generation_status, g.worker_id AS generation_worker_id
             FROM courses c
             LEFT JOIN course_generation_status g ON g.course_id = c.course_id
             WHERE c.course_id = ? AND c.trainer_id = ?
@@ -723,7 +735,7 @@ def delete_course_for_trainer(course_id: str, trainer_id: str, expected_revision
             from app.core.exceptions import ConflictError
             raise ConflictError("Course availability changed. Refresh before continuing.")
         result = dict(course)
-        if result.get("generation_status") in {"pending", "running"}:
+        if generation_job_active(result.get("generation_status"), result.get("generation_worker_id")):
             result["deleted"] = False
             return result
 

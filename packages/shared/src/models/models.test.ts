@@ -352,6 +352,7 @@ describe('course (trainer)', () => {
       lifecycleState: '',
       lifecycleRevision: 0,
       canDelete: false,
+      generationActive: null,
       courseId: '',
       trainerId: '',
       documentId: null,
@@ -398,6 +399,7 @@ describe('course (trainer)', () => {
     expect(course).toMatchObject({
       lifecycleRevision: 0,
       canDelete: false,
+      generationActive: null,
       modules: [],
       generationStatus: '',
       moduleCount: 0,

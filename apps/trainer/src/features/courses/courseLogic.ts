@@ -70,8 +70,16 @@ export function courseActions(
   return actions
 }
 
-export const isGenerationBusy = (course: Pick<Course, 'generationStatus'>): boolean =>
-  course.generationStatus === 'pending' || course.generationStatus === 'running'
+/**
+ * A generation job is queued or running. A "pending" status alone is not enough: a blueprint
+ * edit resets it to pending (generate again) with no job, so the server's answer is used when
+ * it gives one.
+ */
+export const isGenerationBusy = (
+  course: Pick<Course, 'generationStatus'> & Partial<Pick<Course, 'generationActive'>>,
+): boolean =>
+  course.generationActive ??
+  (course.generationStatus === 'pending' || course.generationStatus === 'running')
 
 const moduleIsBuilt = (module: CourseModule): boolean =>
   !!module.videoPath &&
