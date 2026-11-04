@@ -22,7 +22,7 @@ export async function fetchHubSession(): Promise<HubSession> {
     // A 5xx is a server fault, not a missing session. Say so instead of sending the user to the Hub.
     if (error instanceof ApiError && error.status !== 0 && error.status < 500)
       throw new Error(OPEN_FROM_HUB, { cause: error })
-    throw new Error('The LMS server is not available. Try again in a moment.', { cause: error })
+    throw new Error('PhillipAcademy is not available. Try again in a moment.', { cause: error })
   }
   const body = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
   const authenticated = body.authenticated === true

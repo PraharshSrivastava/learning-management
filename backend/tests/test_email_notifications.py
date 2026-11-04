@@ -244,7 +244,7 @@ def test_approved_assignment_template_contains_details_and_no_reply_footer(monke
     assert "Please do not reply to this email." in body_text
     assert "https://hub.example.com/login" in body_html
     assert "course_id=" not in body_html
-    assert "Open LMS" in body_html
+    assert "Open PhillipAcademy" in body_html
 
 
 def test_completion_timing_uses_full_twenty_four_hour_periods():
@@ -1138,7 +1138,7 @@ def test_journey_completed_email_announces_the_attached_certificate(monkeypatch)
     assert "Your certificate of completion is attached to this email." in body_text
     assert "Certificate number: PCIL-LJ-AAAA-BBBB-CCCC" in body_text
     assert "Completion date: 28 Oct 2026" in body_text
-    assert "Open LMS: https://hub.example.com/login" in body_text
+    assert "Open PhillipAcademy: https://hub.example.com/login" in body_text
     assert "download your certificate from Learning Journeys" in body_text
     assert "<!--[if mso]><v:roundrect" in body_html
 

@@ -59,7 +59,7 @@ export function AppBar({
         </Tooltip>
       )}
       <div className="min-w-0 flex-1">
-        <p className="m-0 text-[18px] font-bold">Learning Management System</p>
+        <p className="m-0 text-[18px] font-bold">PhillipAcademy</p>
         <p className="m-0 mt-0.5 text-[13px] text-[#667085]">{DESTINATIONS[active].label}</p>
       </div>
       <Tooltip content={notificationsLabel}>

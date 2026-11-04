@@ -1,4 +1,4 @@
-"""Approved LMS course-notification email templates."""
+"""Approved course-notification email templates. Learners and trainers know the LMS as PhillipAcademy."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from app.core.settings import settings
 
-FOOTER = "This is an automated LMS notification. Please do not reply to this email."
+FOOTER = "This is an automated PhillipAcademy notification. Please do not reply to this email."
 DIGEST_ROW_LIMIT = 25
 
 
@@ -57,12 +57,12 @@ def first_name(value: str | None, fallback: str) -> str:
 def _absolute_url(base: str | None, **query: str) -> str:
     resolved = (base or settings.lms_public_url or "").rstrip("/")
     if not resolved:
-        return "Open the LMS from the Hub dashboard"
+        return "Open PhillipAcademy from the Hub dashboard"
     return f"{resolved}/?{urlencode(query)}" if query else resolved
 
 
 def course_link(context: dict) -> str:
-    return settings.lms_hub_login_url or "Open the LMS from the Hub dashboard"
+    return settings.lms_hub_login_url or "Open PhillipAcademy from the Hub dashboard"
 
 
 def hod_report_link(event_type: str) -> str:
@@ -70,7 +70,7 @@ def hod_report_link(event_type: str) -> str:
 
 
 def trainer_report_link(event_type: str, course_id: str | None = None) -> str:
-    return settings.lms_hub_login_url or "Open the LMS from the Hub dashboard"
+    return settings.lms_hub_login_url or "Open PhillipAcademy from the Hub dashboard"
 
 
 def completion_timing(context: dict) -> tuple[str, str]:
@@ -187,7 +187,7 @@ def _html_document(title: str, paragraphs: list[str], details: list[tuple[str, o
         "<table role='presentation' width='100%' style='border-collapse:collapse'><tr><td align='center' style='padding:24px 12px'>"
         "<table role='presentation' width='100%' style='max-width:660px;border-collapse:collapse;background:#fff;border-top:5px solid #173b8f'>"
         "<tr><td style='padding:24px 28px;border-bottom:1px solid #e5e9ef'><strong style='font-size:20px;color:#173b8f'>PhillipCapital</strong><br>"
-        "<span style='font-size:13px;color:#667085'>Learning Management System</span></td></tr>"
+        "<span style='font-size:13px;color:#667085'>PhillipAcademy</span></td></tr>"
         f"<tr><td style='padding:28px;font-size:16px'><h2 style='font-size:22px;color:#173b8f;margin:0 0 22px'>{html.escape(title)}</h2>{paragraph_html}"
         f"<table role='presentation' style='font-size:14px;border-collapse:collapse'>{details_html}</table>"
         f"{table or ''}{link_html}{guidance_html}</td></tr>"
@@ -208,7 +208,7 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
 
     if event_type == "assigned" and role == "employee":
         subject = f"Course assignment: {course}"
-        paragraphs = [f"Dear {employee_first},", "You have been assigned a new course in the Learning Management System.", "Please complete the course by the stated deadline."]
+        paragraphs = [f"Dear {employee_first},", "You have been assigned a new course in PhillipAcademy.", "Please complete the course by the stated deadline."]
         details = [("Course", course), ("Assigned on", assigned), ("Deadline", deadline), ("Trainer", trainer)]
         link_label = "Start course"
     elif event_type == "assigned" and role == "hod":
@@ -257,8 +257,8 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
         details.insert(1, ("Learning journey", f"{journey} ({step})"))
 
     if role != "hod":
-        link_label = "Open LMS"
-    guidance = "Sign in to the LMS and open My Courses to access this course." if role != "hod" else ""
+        link_label = "Open PhillipAcademy"
+    guidance = "Sign in to PhillipAcademy and open My Courses to access this course." if role != "hod" else ""
     text_lines = []
     for paragraph in paragraphs:
         text_lines.extend([paragraph, ""])
@@ -276,18 +276,18 @@ def render_journey_assigned(context: dict) -> tuple[str, str, str]:
     count = int(context.get("required_course_count") or 0)
     courses = f"{count} course{'s' if count != 1 else ''}" if count else "a series of courses"
     subject = f"Learning journey assigned: {journey}"
-    paragraphs = [f"Dear {employee_first},", f"You have been enrolled in the learning journey {journey}.", f"This journey consists of {courses}. Each course becomes available in the LMS as you progress through the journey."]
+    paragraphs = [f"Dear {employee_first},", f"You have been enrolled in the learning journey {journey}.", f"This journey consists of {courses}. Each course becomes available in PhillipAcademy as you progress through the journey."]
     if context.get("certificate_enabled"):
         paragraphs.append("On completing the journey, you will receive a certificate of completion by email.")
-    details = [("Learning journey", journey), ("Courses", count or "See the LMS"), ("Target completion date", format_date(context.get("deadline")))]
+    details = [("Learning journey", journey), ("Courses", count or "See PhillipAcademy"), ("Target completion date", format_date(context.get("deadline")))]
     link = course_link(context)
-    guidance = "Sign in to the LMS and open Learning Journeys to begin."
+    guidance = "Sign in to PhillipAcademy and open Learning Journeys to begin."
     text_lines = []
     for paragraph in paragraphs:
         text_lines.extend([paragraph, ""])
     text_lines.extend(_details_text(details))
-    text_lines.extend(["", f"Open LMS: {link}", "", guidance, "", FOOTER])
-    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, "Open LMS", link, guidance=guidance)
+    text_lines.extend(["", f"Open PhillipAcademy: {link}", "", guidance, "", FOOTER])
+    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, "Open PhillipAcademy", link, guidance=guidance)
 
 
 def render_journey_completed(context: dict) -> tuple[str, str, str]:
@@ -300,13 +300,13 @@ def render_journey_completed(context: dict) -> tuple[str, str, str]:
     paragraphs = [f"Dear {employee_first},", f"Congratulations on successfully completing the learning journey {journey}.", f"You have completed {courses} in this journey. Your certificate of completion is attached to this email.", "Thank you for your commitment to your learning and development. Your learning record has been updated accordingly."]
     details = [("Learning journey", journey), ("Courses completed", count or "All"), ("Completion date", format_date(context.get("completed_at"))), ("Certificate number", context.get("certificate_number") or "")]
     link = course_link(context)
-    guidance = "You can also download your certificate from Learning Journeys in the LMS."
+    guidance = "You can also download your certificate from Learning Journeys in PhillipAcademy."
     text_lines = []
     for paragraph in paragraphs:
         text_lines.extend([paragraph, ""])
     text_lines.extend(_details_text(details))
-    text_lines.extend(["", f"Open LMS: {link}", "", guidance, "", FOOTER])
-    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, "Open LMS", link, guidance=guidance)
+    text_lines.extend(["", f"Open PhillipAcademy: {link}", "", guidance, "", FOOTER])
+    return subject, "\n".join(text_lines), _html_document(subject, paragraphs, details, "Open PhillipAcademy", link, guidance=guidance)
 
 
 def _digest_table(rows: list[dict], event_type: str) -> tuple[str, str]:
@@ -388,7 +388,7 @@ def render_digest(event_type: str, role: str, rows: list[dict], summary: dict, r
     visible_rows = rows if role == "hod" else rows[:DIGEST_ROW_LIMIT]
     if role != "hod" and len(rows) > DIGEST_ROW_LIMIT:
         paragraphs.append(
-            f"Showing the first {DIGEST_ROW_LIMIT} assignments. Open the LMS and select Performance to review all {len(rows)} assignments."
+            f"Showing the first {DIGEST_ROW_LIMIT} assignments. Open PhillipAcademy and select Performance to review all {len(rows)} assignments."
         )
     table_text, table_html = _digest_table(visible_rows, event_type)
     report_link = hod_report_link(event_type) if role == "hod" else trainer_report_link(event_type, rows[0].get("course_id") if event_type == "overdue" and rows else None)
@@ -399,10 +399,10 @@ def render_digest(event_type: str, role: str, rows: list[dict], summary: dict, r
     text_parts.extend(["", table_text])
     guidance = ""
     if role != "hod":
-        guidance = "Sign in to the trainer LMS and open Performance to review learner progress."
-        text_parts.extend(["", f"Open LMS: {report_link}", "", guidance])
+        guidance = "Sign in to PhillipAcademy and open Performance to review learner progress."
+        text_parts.extend(["", f"Open PhillipAcademy: {report_link}", "", guidance])
     text_parts.extend(["", FOOTER])
-    return subject, "\n".join(text_parts), _html_document(subject, paragraphs, details, "Open LMS" if role != "hod" else None, report_link, table_html, guidance=guidance)
+    return subject, "\n".join(text_parts), _html_document(subject, paragraphs, details, "Open PhillipAcademy" if role != "hod" else None, report_link, table_html, guidance=guidance)
 
 
 __all__ = [

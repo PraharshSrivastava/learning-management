@@ -174,7 +174,7 @@ class Settings(BaseModel):
     email_subject_prefix: str = ""
     email_recipient_allowlist: tuple[str, ...] = ()
     email_from_email: str | None = None
-    email_from_name: str = "Learning Management System"
+    email_from_name: str = "PhillipAcademy"
     smtp_host: str | None = None
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = None
@@ -564,7 +564,7 @@ class Settings(BaseModel):
                 "email_subject_prefix": values.get("EMAIL_SUBJECT_PREFIX", ""),
                 "email_recipient_allowlist": values.get("EMAIL_RECIPIENT_ALLOWLIST", ""),
                 "email_from_email": values.get("EMAIL_FROM_EMAIL") or None,
-                "email_from_name": values.get("EMAIL_FROM_NAME", "Learning Management System"),
+                "email_from_name": values.get("EMAIL_FROM_NAME", "PhillipAcademy"),
                 "smtp_host": values.get("SMTP_HOST") or None,
                 "smtp_port": values.get("SMTP_PORT", "587"),
                 "smtp_username": values.get("SMTP_USERNAME") or None,
