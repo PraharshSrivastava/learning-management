@@ -72,7 +72,11 @@ export function useVideoEngineToggle({
   const [notice, setNotice] = useState<{ key: number; message: string } | null>(null)
   const [confirming, setConfirming] = useState<boolean | null>(null)
 
-  if (!config.toggleEnabled) return { control: null, details: null, pending: false }
+  // Wait for the course detail, which carries the course's own engine: the list summary alone
+  // would briefly show the server default instead of the trainer's choice.
+  if (!config.toggleEnabled || course.videoEngine == null) {
+    return { control: null, details: null, pending: false }
+  }
 
   const enabled = courseVideoMode(course, config) === 'external'
   const recommended = course.videoEngineRecommended
@@ -112,7 +116,7 @@ export function useVideoEngineToggle({
   const switchControl = (
     <div
       className={clsx(
-        'video-engine-toggle inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white pr-2.5 pl-3 text-sm text-text-black',
+        'video-engine-toggle inline-flex h-9 items-center gap-2.5 rounded-lg border border-slate-200 bg-white pr-1.5 pl-3 text-sm text-text-black',
         disabled && 'opacity-70',
       )}
     >
@@ -126,7 +130,7 @@ export function useVideoEngineToggle({
         <Icon name="ondemand_video_outlined" size={16} className="text-primary-blue" />
         Video Engine
       </label>
-      <Switch id={id} size="compact" checked={enabled} disabled={disabled} onChange={change} />
+      <Switch id={id} size="labelled" checked={enabled} disabled={disabled} onChange={change} />
     </div>
   )
 

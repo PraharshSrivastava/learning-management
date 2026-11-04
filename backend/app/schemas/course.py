@@ -102,6 +102,8 @@ class CourseResponse(ApiSchema):
     lifecycle_state: str = ""
     lifecycle_revision: int = 0
     can_delete: bool = False
+    # A generation job is queued or running for this course.
+    generation_active: bool = False
     created_at: str = ""
     updated_at: str = ""
     published_at: str | None = None
@@ -139,6 +141,8 @@ class CourseSummaryResponse(ApiSchema):
     lifecycle_state: str = ""
     lifecycle_revision: int = 0
     can_delete: bool = False
+    # A generation job is queued or running for this course.
+    generation_active: bool = False
     created_at: str = ""
     updated_at: str = ""
     published_at: str | None = None

@@ -118,6 +118,7 @@ export const courseSchema = z
     lifecycle_state: str(),
     lifecycle_revision: int(),
     can_delete: bool(),
+    generation_active: optBool(),
     course_id: str(),
     trainer_id: str(),
     document_id: optStr(),
@@ -160,6 +161,8 @@ export const courseSchema = z
       lifecycleState: j.lifecycle_state,
       lifecycleRevision: j.lifecycle_revision,
       canDelete: j.can_delete,
+      /** A generation job is queued or running. Null: an older backend that does not say. */
+      generationActive: j.generation_active,
       courseId: j.course_id,
       trainerId: j.trainer_id,
       documentId: j.document_id,
