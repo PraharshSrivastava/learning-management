@@ -3,7 +3,7 @@
 import type { AssignmentGroup, Employee, SavedAssignmentGroup } from '@lms/shared/models'
 import { Dialog } from '@lms/shared/ui/Dialog'
 import { useState, type ReactNode } from 'react'
-import { ActionButton, CheckboxRow, SearchBox } from './controls'
+import { ActionButton, CheckboxRow, MoreRowsHint, PICKER_ROW_LIMIT, SearchBox } from './controls'
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
@@ -161,7 +161,10 @@ function EmployeePickerBody({ employees, onPick, onOpenChange }: EmployeePickerP
     <Body height={460}>
       <SearchBox value={query} onChange={setQuery} placeholder="Search employees" />
       <div className="mt-3 min-h-0 flex-1 overflow-auto">
-        {filtered.map((employee) => (
+        {filtered.length === 0 && (
+          <p className="p-4 text-sm text-[#5b6980]">No employees match your search.</p>
+        )}
+        {filtered.slice(0, PICKER_ROW_LIMIT).map((employee) => (
           <ListRow
             key={employee.employeeId}
             title={employee.name}
@@ -172,6 +175,7 @@ function EmployeePickerBody({ employees, onPick, onOpenChange }: EmployeePickerP
             }}
           />
         ))}
+        <MoreRowsHint shown={PICKER_ROW_LIMIT} total={filtered.length} />
       </div>
     </Body>
   )
@@ -278,7 +282,7 @@ function EmployeeMultiPickerBody({
           {filtered.length === 0 && (
             <p className="p-4 text-sm text-[#5b6980]">No employees match your search.</p>
           )}
-          {filtered.map((employee) => (
+          {filtered.slice(0, PICKER_ROW_LIMIT).map((employee) => (
             <CheckboxRow
               key={employee.employeeId}
               dense
@@ -300,6 +304,7 @@ function EmployeeMultiPickerBody({
               </span>
             </CheckboxRow>
           ))}
+          <MoreRowsHint shown={PICKER_ROW_LIMIT} total={filtered.length} />
         </div>
       </Body>
       <div className="mt-6 flex justify-end gap-2">
