@@ -1111,6 +1111,18 @@ def test_open_lms_button_is_outlook_safe(monkeypatch):
     assert "<o:PixelsPerInch>96</o:PixelsPerInch>" in body_html
 
 
+def test_outlook_button_is_wide_enough_for_its_label(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings, "lms_hub_login_url", "https://hub.example.com/login"
+    )
+
+    _, _, body_html = render_individual(_overdue_context(), "overdue", "employee")
+
+    # "Open PhillipAcademy" wrapped and was cut off in a fixed 150 px shape.
+    assert "width:238px" in body_html
+    assert "white-space:nowrap'>Open PhillipAcademy</center>" in body_html
+
+
 def test_overdue_cap_must_leave_room_for_a_reminder():
     with pytest.raises(ValueError):
         _production_settings(email_overdue_max_notices=1)
