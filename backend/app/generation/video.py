@@ -343,7 +343,24 @@ def _render_video_for_module(course: dict, course_id: str, module_number: int) -
 def generate_video_for_module(course_id: str, module_number: int) -> str:
     from app.generation.html import compile_slides_for_course
     from app.generation.runtime import load_course_for_generation, save_generated_course
+    from app.generation.slides import module_is_cover_only
+    from app.generation.tts import generate_tts_for_course
 
+    course = load_course_for_generation(course_id)
+    modules = course.get("modules", [])
+    if 1 <= module_number <= len(modules) and module_is_cover_only(modules[module_number - 1]):
+        # A failed slide plan left only the cover; rendering it again would give the same
+        # few-second video, so rebuild this module's slides and narration first.
+        from app.generation.scripts import generate_scripts_for_single_module
+        from app.generation.slides import generate_slides_for_single_module
+
+        logger.info(
+            "cover_only_module_rebuild_started course_id=%s module=%s", course_id, module_number
+        )
+        generate_slides_for_single_module(course_id, module_number)
+        generate_scripts_for_single_module(course_id, module_number)
+    # Remakes only audio whose spoken text changed (e.g. a pronunciation fix); valid audio is kept.
+    generate_tts_for_course(course_id, {module_number})
     course = load_course_for_generation(course_id)
     compile_slides_for_course(course_id)
     video_path = render_video_for_module(course, course_id, module_number)

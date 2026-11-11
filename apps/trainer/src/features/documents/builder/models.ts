@@ -150,7 +150,7 @@ export const focusOptions = [
 
 export const builderText = {
   intro:
-    'Save metadata separately if you need it for the LMS. Apply builder settings when you want them to affect future AI edits. Type normally in the draft and paste or drag images where you want them.',
+    'Save metadata separately if you need it for PhillipAcademy. Apply builder settings when you want them to affect future AI edits. Type normally in the draft and paste or drag images where you want them.',
   metadataSaved: 'Metadata saved separately. It will not be sent to the AI document writer.',
   settingsApplied: 'Builder settings applied for future AI drafts and edits.',
   questions:

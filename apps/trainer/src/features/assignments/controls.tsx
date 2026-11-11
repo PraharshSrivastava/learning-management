@@ -1,4 +1,4 @@
-// Local primitives for the Assign tab. Shared UI has no Switch, Checkbox or compact buttons.
+// Local primitives for the Assign tab. Shared UI has no Checkbox or compact buttons.
 import { Icon, type IconName } from '@lms/shared/ui/icons/Icon'
 import clsx from 'clsx'
 import {
@@ -48,41 +48,8 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(fun
   )
 })
 
-interface SwitchProps {
-  checked: boolean
-  onChange: (checked: boolean) => void
-  disabled?: boolean
-  label?: string
-  id?: string
-}
-
-/** Material 3 Switch (52x32) with the primary-blue scheme. */
-export function Switch({ checked, onChange, disabled, label, id }: SwitchProps) {
-  return (
-    <button
-      id={id}
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={clsx(
-        'group relative inline-flex h-8 w-[52px] shrink-0 items-center rounded-full border-2 transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue-light disabled:opacity-40',
-        checked ? 'border-primary-blue bg-primary-blue' : 'border-[#757780] bg-[#e2e2e9]',
-      )}
-    >
-      <span
-        aria-hidden
-        className={clsx(
-          'absolute top-1/2 -translate-y-1/2 rounded-full transition-all',
-          checked ? 'left-[22px] size-6 bg-white' : 'left-[6px] size-4 bg-[#757780]',
-        )}
-      />
-    </button>
-  )
-}
+// The Switch moved to shared UI so the Blueprint toolbar can use its compact size.
+export { Switch } from '@lms/shared/ui/Switch'
 
 interface CheckboxRowProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   checked: boolean
@@ -209,6 +176,23 @@ export function ObserverNotice({ text, warning }: { text: string; warning: boole
       <Icon name={warning ? 'warning_amber_rounded' : 'info_outline'} size={20} />
       <span className="min-w-0 flex-1">{text}</span>
     </div>
+  )
+}
+
+/**
+ * Most rows an employee picker renders at once. Search and counts still use the full list, so a
+ * person beyond this many is found by typing; this only keeps big lists fast to open and filter.
+ */
+export const PICKER_ROW_LIMIT = 100
+
+/** Note under a capped picker list. Renders nothing when every match is shown. */
+export function MoreRowsHint({ shown, total }: { shown: number; total: number }) {
+  if (total <= shown) return null
+  return (
+    <p className="px-1 py-3 text-center text-xs text-[#5b6980]">
+      Showing the first {shown.toLocaleString('en-IN')} of {total.toLocaleString('en-IN')}. Type to
+      narrow the list.
+    </p>
   )
 }
 

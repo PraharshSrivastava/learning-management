@@ -61,7 +61,7 @@ export function Sidebar({
       </div>
       {expanded ? (
         <p className="m-0 px-[22px] pb-5 text-[12px] font-semibold text-[#d0dbf4]">
-          Learning Management System
+          PhillipAcademy
         </p>
       ) : (
         <div className="flex justify-center">

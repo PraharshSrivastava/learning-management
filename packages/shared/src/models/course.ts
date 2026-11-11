@@ -9,6 +9,8 @@ import {
   isRecord,
   lenient,
   list,
+  optBool,
+  optInt,
   optRecord,
   optStr,
   reparse,
@@ -116,6 +118,7 @@ export const courseSchema = z
     lifecycle_state: str(),
     lifecycle_revision: int(),
     can_delete: bool(),
+    generation_active: optBool(),
     course_id: str(),
     trainer_id: str(),
     document_id: optStr(),
@@ -135,6 +138,9 @@ export const courseSchema = z
     generation: raw(),
     module_count: raw(),
     is_assignable: bool(),
+    video_engine: optBool(),
+    video_engine_recommended: optBool(),
+    meaningful_image_count: optInt(),
   })
   .transform((j) => {
     // Course is assignable when ready or published with a thumbnail and fully built modules.
@@ -155,6 +161,8 @@ export const courseSchema = z
       lifecycleState: j.lifecycle_state,
       lifecycleRevision: j.lifecycle_revision,
       canDelete: j.can_delete,
+      /** A generation job is queued or running. Null: an older backend that does not say. */
+      generationActive: j.generation_active,
       courseId: j.course_id,
       trainerId: j.trainer_id,
       documentId: j.document_id,
@@ -177,6 +185,10 @@ export const courseSchema = z
       generationError: generationField('error')(j.generation),
       moduleCount,
       isAssignable: j.is_assignable || inferredAssignable,
+      /** True: Video Generator videos. False: standard generation. Null: older backend. */
+      videoEngine: j.video_engine,
+      videoEngineRecommended: j.video_engine_recommended,
+      meaningfulImageCount: j.meaningful_image_count,
     }
   })
 export type Course = z.output<typeof courseSchema>

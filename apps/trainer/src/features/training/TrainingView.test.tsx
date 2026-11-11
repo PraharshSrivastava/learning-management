@@ -606,3 +606,51 @@ describe('TrainingView download', () => {
     expect(clicked[0]!.href).toContain('assets/videos/c1/m1.mp4')
   })
 })
+
+describe('TrainingView video engine', () => {
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
+  function stubConfig(config: Record<string, unknown>) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(json(String(input).includes('/api/generation/config') ? config : null)),
+      ),
+    )
+  }
+  const withoutVideo = (overrides: Record<string, unknown>) =>
+    course({
+      modules: [{ ...courseJson().modules[0], video_path: null }],
+      ...overrides,
+    })
+
+  it("follows the course's own engine over the server default and shows its badge", async () => {
+    stubConfig({
+      video_generation_mode: 'local',
+      video_engine_toggle_enabled: true,
+      video_engine_available: true,
+    })
+    await renderView(<TrainingView course={withoutVideo({ video_engine: true })} />)
+    expect(await screen.findByText('Video Engine')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Generate Module Video' })).toBeInTheDocument()
+  })
+
+  it('shows standard generation for a course with Video Engine off', async () => {
+    stubConfig({
+      video_generation_mode: 'external',
+      video_engine_toggle_enabled: true,
+      video_engine_available: true,
+    })
+    await renderView(<TrainingView course={withoutVideo({ video_engine: false })} />)
+    expect(await screen.findByText('Standard generation')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Compile Module Video' })).toBeInTheDocument()
+  })
+
+  it('hides the badge when the server has the toggle switched off', async () => {
+    stubConfig({ video_generation_mode: 'local' })
+    await renderView(<TrainingView course={withoutVideo({ video_engine: true })} />)
+    await screen.findByRole('button', { name: 'Compile Module Video' })
+    expect(screen.queryByText('Standard generation')).not.toBeInTheDocument()
+    expect(screen.queryByText('Video Engine')).not.toBeInTheDocument()
+  })
+})

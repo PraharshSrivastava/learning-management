@@ -120,7 +120,8 @@ def synthesize_speech_for_slide(text: str, output_path: str, language: str = "En
         logger.exception("tts_request_failed voice=%s output=%s", voice, output_path)
         return False
 
-def generate_tts_for_course(course_id: str) -> dict:
+def generate_tts_for_course(course_id: str, module_numbers: set[int] | None = None) -> dict:
+    """Synthesize narration whose audio is missing or stale, optionally for some modules only."""
     from pathlib import Path
 
     from app.generation.captions import module_lock, narration_matches, record_narration_source
@@ -131,6 +132,8 @@ def generate_tts_for_course(course_id: str) -> dict:
     slide_jobs = []
     for module_index, module in enumerate(modules):
         module_number = int(module.get("module_number", module_index + 1))
+        if module_numbers is not None and module_number not in module_numbers:
+            continue
         for slide_index, slide in enumerate(module.get("slides", []), start=1):
             slide_jobs.append((module_index, module_number, slide_index, slide))
 

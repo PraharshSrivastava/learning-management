@@ -19,6 +19,7 @@ from app.documents.docx import extract_docx_blueprint_source
 from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
+from app.generation.video_engine import apply_outline_recommendation, classify_pdf_images
 from app.repositories.courses import delete_course, get_all_courses, get_course, save_course
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.generation.blueprint import BlueprintExtractionResult, ModuleListSchema
@@ -301,7 +302,19 @@ def extract_modules_with_llm(body_lines: List[str], course_id: str = "blueprint"
     """
     Number every line of the document body, send to LLM, and get back
     a structured list of modules with integer start_line numbers.
+
+    A document that numbers its own modules ("Module 1:" to "Module N:", in order) is
+    split at those headings directly, so the LLM cannot move, merge or add boundaries.
     """
+    labelled = modules_from_labels(body_lines)
+    if labelled:
+        logger.info(
+            "blueprint_modules_from_labels module_count=%s start_lines=%s",
+            len(labelled),
+            [m["start_line"] for m in labelled],
+        )
+        return labelled
+
     logger.info("Numbering document lines for LLM...")
 
     numbered_lines = [f"[LINE {i + 1}] {line}" for i, line in enumerate(body_lines)]
@@ -392,6 +405,60 @@ def _validate_start_lines(modules: List[dict], total_lines: int):
 _MODULE_LABEL = re.compile(r"\b(?:module|chapter|unit|lesson)\s+\d+\b", re.IGNORECASE)
 # A leading title page, subtitle or audience line; anything longer is real teaching text.
 _MAX_PREAMBLE_CHARS = 600
+# Labelled splitting is used only for documents that label at least this many modules;
+# fewer labels go to the LLM, which may split long sections further.
+_MIN_LABELLED_MODULES = 3
+# A "Module 4: ..." line longer than this is a sentence that happens to start with a
+# label, not a heading.
+_MAX_LABEL_HEADING_CHARS = 150
+_LABEL_PARTS = re.compile(r"^(module|chapter|unit|lesson)\s+(\d+)\b", re.IGNORECASE)
+
+
+def modules_from_labels(body_lines: List[str]) -> List[dict] | None:
+    """
+    Return modules split exactly at the document's own label headings, or None.
+
+    Used only when every label line uses the same word and the labels run 1, 2, ... N
+    in order with N >= 3, and any text before the first label is a short preamble that
+    belongs to the first module. Anything else (a table of contents repeating the labels,
+    nested chapters and units, a gap in the numbering, a long opening section) returns
+    None so the LLM decides.
+    """
+    labels = []
+    for number, line in enumerate(body_lines, start=1):
+        match = _LABEL_PARTS.match(line.strip())
+        if match:
+            labels.append((number, match.group(1).lower(), int(match.group(2)), line.strip()))
+
+    if len(labels) < _MIN_LABELLED_MODULES:
+        return None
+    if len({word for _, word, _, _ in labels}) != 1:
+        return None
+    if [value for _, _, value, _ in labels] != list(range(1, len(labels) + 1)):
+        return None
+    if any(len(text) > _MAX_LABEL_HEADING_CHARS for _, _, _, text in labels):
+        return None
+    preamble = body_lines[: labels[0][0] - 1]
+    if len(" ".join(line.strip() for line in preamble)) > _MAX_PREAMBLE_CHARS:
+        return None
+
+    modules = []
+    for index, (line_number, _, value, text) in enumerate(labels):
+        bare_label = _LABEL_PARTS.match(text)
+        if not text[bare_label.end():].strip(" .:-") and line_number < len(body_lines):
+            # "Module 2. Title" is split into "Module 2." and "Title": rejoin them.
+            following = body_lines[line_number].strip()
+            if following and not _LABEL_PARTS.match(following) and len(following) <= _MAX_LABEL_HEADING_CHARS:
+                text = f"{bare_label.group(0)}: {following}"
+        modules.append(
+            {
+                "module_number": value,
+                "title": text,
+                "start_line": 1 if index == 0 else line_number,
+                "num_questions": 3,
+            }
+        )
+    return modules
 
 
 def _normalize_labelled_modules(modules: List[dict], body_lines: List[str]):
@@ -469,6 +536,13 @@ def adjust_start_lines_for_headers(modules: List[dict], original_lines: List[str
         curr_start = m["start_line"]
         title = m["title"].strip().lower()
         num = m["module_number"]
+
+        # A module that already starts on its "Module N" heading has its header; looking
+        # further back would only pull in the end of the previous module.
+        if 0 < curr_start <= len(original_lines) and _MODULE_LABEL.match(
+            original_lines[curr_start - 1].strip()
+        ):
+            continue
 
         # Clean title for fuzzy comparison
         clean_title = re.sub(r"[^\w\s]", "", title)
@@ -619,9 +693,11 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
     os.makedirs(course_image_dir, exist_ok=True)
 
     total_pages = len(doc)
+    page_sizes: dict[int, tuple[float, float]] = {}
 
     for page_num in range(total_pages):
         page = doc[page_num]
+        page_sizes[page_num + 1] = (float(page.rect.width), float(page.rect.height))
 
         # Get image positions in visible reading order. PyMuPDF's internal
         # image order can differ from the way images appear on the page, which
@@ -754,6 +830,7 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                         "file_path": relative_path,
                         "page": page_num + 1,
                         "bbox": bbox,
+                        "xref": xref,
                         "source_order": len(extracted) + 1,
                         # Keep the source dimensions so the slide renderer can
                         # choose an appropriate composition instead of treating
@@ -784,6 +861,9 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                     e,
                 )
 
+    # Marks logos, letterheads and icons, which do not count toward the Video Engine
+    # recommendation. Slides still receive every image, as before.
+    classify_pdf_images(extracted, page_sizes, total_pages)
     return extracted
 
 
@@ -1299,6 +1379,7 @@ def generate_course_outline(filename, course_id: str | None = None, trainer_id: 
     outline["course_id"] = course_id
     outline["trainer_id"] = trainer_id
     outline["created_at"] = now_iso()
+    apply_outline_recommendation(outline, checkpoint_course.get("video_engine"))
     mark_stage(outline, "blueprint", "completed")
     complete_generation(outline, time.perf_counter() - blueprint_start)
 

@@ -340,12 +340,29 @@ def _html_output_complete(course: dict) -> bool:
     )
 
 
-def uses_external_video_service() -> bool:
-    return settings.video_generation_mode == "external"
+VIDEO_ENGINE_UNAVAILABLE = (
+    "Video Engine isn't available on this server. Turn Video Engine off on the Blueprint "
+    "tab and generate again."
+)
+
+
+def uses_external_video_service(course: dict) -> bool:
+    """True when this course's module videos come from the Video Generator service."""
+    from app.generation.video_engine import course_uses_video_engine
+
+    return course_uses_video_engine(course)
+
+
+def require_video_engine_available(course: dict) -> None:
+    """Stop before any work when the course needs a Video Generator this server lacks."""
+    from app.generation.video_engine import video_engine_available
+
+    if uses_external_video_service(course) and not video_engine_available():
+        raise PipelineStageError("video", VIDEO_ENGINE_UNAVAILABLE)
 
 
 def missing_generation_outputs(course: dict) -> list[str]:
-    if uses_external_video_service():
+    if uses_external_video_service(course):
         # The service produces finished videos; slide, script and audio stages never run.
         checks = (
             ("thumbnail", _thumbnail_output_complete),
@@ -365,6 +382,23 @@ def missing_generation_outputs(course: dict) -> list[str]:
             ("video", _video_output_complete),
         )
     return [stage for stage, check in checks if not check(course)]
+
+
+def wave_stages_to_resume(course: dict, wave_stage_order: tuple[str, ...]) -> tuple[str, ...]:
+    """Wave 1 stages a Continue must run: the ones that failed, plus any whose output is missing.
+
+    The checkpoint alone is not enough. After an engine switch, a restart or a partial
+    clear, a course can fail at a later stage while its thumbnail, quiz, notes or slides
+    are gone; skipping them would render videos from stale slides and fail at publish.
+    """
+    state = generation_state(course)
+    failed = (
+        set(state.get("failed_stages") or [])
+        if state.get("failed_checkpoint") == "wave_1"
+        else set()
+    )
+    missing = set(missing_generation_outputs(course))
+    return tuple(stage for stage in wave_stage_order if stage in failed or stage in missing)
 
 
 def is_course_generation_complete(course: dict) -> bool:
@@ -452,8 +486,10 @@ def recover_interrupted_generations() -> None:
 
 
 def run_module_video_generation(course_id: str, module_number: int) -> str:
-    """Regenerate one module's video with the configured video mode."""
-    if uses_external_video_service():
+    """Regenerate one module's video with the course's video engine."""
+    course = load_course_for_generation(course_id)
+    require_video_engine_available(course)
+    if uses_external_video_service(course):
         from app.generation.video_service import generate_video_for_module_via_service
 
         # A trainer-requested regeneration always asks the service for a new video.
@@ -478,7 +514,9 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
 
     pipeline_start = time.perf_counter()
     repository = CourseRepository()
-    external_video = uses_external_video_service()
+    starting_course = load_course_for_generation(course_id)
+    require_video_engine_available(starting_course)
+    external_video = uses_external_video_service(starting_course)
     wave_stage_order = (
         ("thumbnail", "quiz", "notes") if external_video else ("thumbnail", "quiz", "notes", "slides")
     )
@@ -602,16 +640,7 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
         repository.save_draft(fresh_course)
         wave_stages = wave_stage_order
     else:
-        state = generation_state(load_course())
-        if state.get("failed_checkpoint") == "wave_1":
-            wave_stages = tuple(
-                stage for stage in state.get("failed_stages", []) if stage in wave_stage_order
-            )
-        elif state.get("failed_checkpoint") == "publish":
-            missing_outputs = set(missing_generation_outputs(load_course()))
-            wave_stages = tuple(stage for stage in wave_stage_order if stage in missing_outputs)
-        else:
-            wave_stages = ()
+        wave_stages = wave_stages_to_resume(load_course(), wave_stage_order)
         for stage in wave_stages:
             clear_wave_stage_output(stage)
 

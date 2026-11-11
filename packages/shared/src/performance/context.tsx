@@ -45,6 +45,8 @@ export interface LinkedReportInput {
   journeyId?: string | null
   /** Course availability to open with; a disabled journey is only in the history choices. */
   courseStatus?: string | null
+  /** Opens the Emails tab on the course instead of its assignment list. */
+  view?: 'emails' | null
 }
 
 export interface ReportContextValue {
@@ -97,6 +99,7 @@ export function ReportProvider({
         status: linkedReport.status,
         journeyId: linkedReport.journeyId ?? null,
         courseStatus: linkedReport.courseStatus ?? null,
+        view: linkedReport.view ?? null,
       })
     }
   }

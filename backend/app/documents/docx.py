@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 from dataclasses import dataclass, field
@@ -13,6 +14,7 @@ from PIL import Image as PILImage
 from app.core.logging import generation_logger
 from app.core.providers import IMAGE_DIR
 from app.core.storage import public_asset_url
+from app.generation.video_engine import classify_docx_images, docx_image_uses
 
 logger = generation_logger(__name__)
 
@@ -32,6 +34,7 @@ class DocxBlock:
     text: str = ""
     rows: list[str] = field(default_factory=list)
     image_rids: list[str] = field(default_factory=list)
+    image_alt: dict[str, str] = field(default_factory=dict)
     is_table: bool = False
     is_metadata_table: bool = False
     start_line: int | None = None
@@ -69,6 +72,40 @@ def _image_rids(element: Any) -> list[str]:
         if rid and rid not in rids:
             rids.append(rid)
     return rids
+
+
+_GENERIC_ALT_TEXT = re.compile(
+    r"^(?:picture|image|graphic|figure|diagram|chart|photo)\s*\d*$|\.\w{3,4}$"
+    r"|automatically generated",
+    re.I,
+)
+
+
+def _image_alt_texts(element: Any) -> dict[str, str]:
+    """Map each embedded image to the alt text or title the author gave it in Word."""
+    alt_by_rid: dict[str, str] = {}
+    for node in element.iter():
+        if not (str(node.tag).endswith("}inline") or str(node.tag).endswith("}anchor")):
+            continue
+        properties = next((n for n in node.iter() if str(n.tag).endswith("}docPr")), None)
+        if properties is None:
+            continue
+        alt = next(
+            (
+                text
+                for text in (
+                    re.sub(r"\s+", " ", properties.attrib.get(key) or "").strip()
+                    for key in ("descr", "title")
+                )
+                if text and not _GENERIC_ALT_TEXT.search(text)
+            ),
+            "",
+        )
+        if not alt:
+            continue
+        for rid in _image_rids(node):
+            alt_by_rid.setdefault(rid, alt)
+    return alt_by_rid
 
 
 def _iter_body_blocks(document: Any) -> Iterable[Any]:
@@ -187,6 +224,7 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                 is_table=True,
                 is_metadata_table=parsed_metadata is not None,
                 image_rids=_image_rids(block._element),
+                image_alt=_image_alt_texts(block._element),
             )
             if parsed_metadata is not None and metadata is None:
                 metadata = parsed_metadata
@@ -196,6 +234,7 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                 DocxBlock(
                     text=_clean_text(block.text or ""),
                     image_rids=_image_rids(block._element),
+                    image_alt=_image_alt_texts(block._element),
                 )
             )
 
@@ -213,12 +252,15 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
     image_dir.mkdir(parents=True, exist_ok=True)
     images: list[dict[str, Any]] = []
     seen_rids: set[str] = set()
+    placed_rids: list[str] = []
+    sha_by_rid: dict[str, str] = {}
     image_index = 0
 
     for block_index, block in enumerate(blocks):
         if block.is_metadata_table:
             continue
         for rid in block.image_rids:
+            placed_rids.append(rid)
             if rid in seen_rids:
                 continue
             seen_rids.add(rid)
@@ -232,6 +274,7 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
             filename = f"docx_img_{image_index}.{ext}"
             output_path = image_dir / filename
             output_path.write_bytes(part.blob)
+            sha_by_rid[rid] = hashlib.sha256(part.blob).hexdigest()
 
             width = height = 0
             try:
@@ -241,6 +284,10 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                 pass
 
             raw_caption, line = _nearest_caption(blocks, block_index)
+            if not _looks_like_caption(raw_caption) and block.image_alt.get(rid):
+                # Without a "Figure ..." caption the nearest line is just neighbouring text,
+                # so the narration would describe that text instead of the image.
+                raw_caption = block.image_alt[rid]
             caption = _caption_body(raw_caption)
             aspect_ratio = width / height if width > 0 and height > 0 else None
             orientation = (
@@ -263,8 +310,13 @@ def extract_docx_blueprint_source(docx_path: str, course_id: str) -> tuple[dict[
                     "height": height,
                     "aspect_ratio": aspect_ratio,
                     "orientation": orientation,
+                    "sha256": sha_by_rid[rid],
                 }
             )
+
+    # Marks icons and repeated images (logos), which do not count toward the Video Engine
+    # recommendation. Slides still receive every image, as before.
+    classify_docx_images(images, docx_image_uses(placed_rids, sha_by_rid))
 
     logger.info(
         "docx_extraction_completed line_count=%s image_count=%s metadata=%s",

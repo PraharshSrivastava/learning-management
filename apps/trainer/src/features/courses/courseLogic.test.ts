@@ -7,6 +7,7 @@ import {
   editorDifficulty,
   filterCourses,
   generateButtonState,
+  isGenerationBusy,
   lifecycleBadge,
   moveItem,
   moduleNumberForImage,
@@ -129,5 +130,19 @@ describe('courseLogic', () => {
       const state = generateButtonState(parseCourse(courseJson()), 2, true)
       expect(state).toMatchObject({ label: 'Generating...', enabled: false })
     })
+  })
+})
+
+describe('isGenerationBusy', () => {
+  it("follows the server's job flag, so a blueprint edit's pending reset is not busy", () => {
+    expect(isGenerationBusy({ generationStatus: 'pending', generationActive: false })).toBe(false)
+    expect(isGenerationBusy({ generationStatus: 'pending', generationActive: true })).toBe(true)
+    expect(isGenerationBusy({ generationStatus: 'completed', generationActive: true })).toBe(true)
+  })
+
+  it('falls back to the status for an older backend', () => {
+    expect(isGenerationBusy({ generationStatus: 'pending', generationActive: null })).toBe(true)
+    expect(isGenerationBusy({ generationStatus: 'running' })).toBe(true)
+    expect(isGenerationBusy({ generationStatus: 'completed' })).toBe(false)
   })
 })

@@ -122,8 +122,13 @@ class Settings(BaseModel):
     thumbnail_read_timeout: float = Field(default=500, gt=0)
     thumbnails_enabled: bool = True
     generation_max_concurrency: int = Field(default=1, ge=1, le=8)
-    # "external" hands module video production to the Video Generator service.
+    # "external" hands module video production to the Video Generator service. With the
+    # Video Engine toggle on, this only decides courses made before the toggle existed;
+    # trainers choose the engine per course.
     video_generation_mode: Literal["local", "external"] = "local"
+    # Lets trainers choose the engine per course on the Blueprint tab. On by default; set
+    # VIDEO_ENGINE_TOGGLE_ENABLED=false only as an emergency off switch.
+    video_engine_toggle_enabled: bool = True
     video_service_base_url: str | None = None
     video_service_hmac_secret: str | None = None
     video_service_max_concurrency: int = Field(default=2, ge=1, le=8)
@@ -174,7 +179,7 @@ class Settings(BaseModel):
     email_subject_prefix: str = ""
     email_recipient_allowlist: tuple[str, ...] = ()
     email_from_email: str | None = None
-    email_from_name: str = "Learning Management System"
+    email_from_name: str = "PhillipAcademy"
     smtp_host: str | None = None
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = None
@@ -340,7 +345,10 @@ class Settings(BaseModel):
             missing.append("CORS_ALLOWED_ORIGINS (explicit origins required)")
         if not self.llm_base_url:
             missing.append("LLM_BASE_URL")
-        if self.video_generation_mode == "local" and not self.tts_endpoint:
+        # Any course can use standard generation while trainers can choose the engine.
+        if (
+            self.video_generation_mode == "local" or self.video_engine_toggle_enabled
+        ) and not self.tts_endpoint:
             missing.append("TTS_ENDPOINT")
         if not self.hub_launch_dev_mode:
             if not self.hub_launch_secret:
@@ -466,6 +474,7 @@ class Settings(BaseModel):
                 "thumbnails_enabled": values.get("COURSE_THUMBNAILS_ENABLED", "true"),
                 "generation_max_concurrency": values.get("GENERATION_MAX_CONCURRENCY", "1"),
                 "video_generation_mode": values.get("VIDEO_GENERATION_MODE", "local"),
+                "video_engine_toggle_enabled": values.get("VIDEO_ENGINE_TOGGLE_ENABLED", "true"),
                 "video_service_base_url": values.get("VIDEO_SERVICE_BASE_URL") or None,
                 "video_service_hmac_secret": values.get("VIDEO_SERVICE_HMAC_SECRET") or None,
                 "video_service_max_concurrency": values.get("VIDEO_SERVICE_MAX_CONCURRENCY", "2"),
@@ -564,7 +573,7 @@ class Settings(BaseModel):
                 "email_subject_prefix": values.get("EMAIL_SUBJECT_PREFIX", ""),
                 "email_recipient_allowlist": values.get("EMAIL_RECIPIENT_ALLOWLIST", ""),
                 "email_from_email": values.get("EMAIL_FROM_EMAIL") or None,
-                "email_from_name": values.get("EMAIL_FROM_NAME", "Learning Management System"),
+                "email_from_name": values.get("EMAIL_FROM_NAME", "PhillipAcademy"),
                 "smtp_host": values.get("SMTP_HOST") or None,
                 "smtp_port": values.get("SMTP_PORT", "587"),
                 "smtp_username": values.get("SMTP_USERNAME") or None,

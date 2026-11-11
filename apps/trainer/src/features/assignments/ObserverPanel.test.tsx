@@ -186,4 +186,93 @@ describe('ObserverPanel', () => {
     expect(screen.getByText(/^Saved\./)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Employees (1)' })).toBeTruthy()
   })
+
+  describe('Employees and Departments to observe search', () => {
+    const person = (id: string, name: string, department: string): Employee =>
+      parseEmployee({ employee_id: id, name, department, status: 'active' })
+    const staff = [
+      person('observer', 'observer', 'Admin'),
+      person('E1', 'Ravi Kumar', 'Sales'),
+      person('E2', 'Rita Shah', 'Sales'),
+      person('E3', 'Mohan Das', 'Operations'),
+    ]
+    const request =
+      (departments: unknown[] = []): Requester =>
+      async (path) =>
+        path.endsWith('/options')
+          ? { status: 200, body: { departments } }
+          : { status: 200, body: config(1, false) }
+
+    it('Select all shown adds only the matches, and hidden picks stay picked', async () => {
+      const user = userEvent.setup()
+      render(panel(request(), staff))
+      await user.click(await screen.findByRole('button', { name: 'Employees (1)' }))
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByText('1 selected')).toBeTruthy()
+
+      await user.type(within(dialog).getByRole('searchbox', { name: 'Search employees' }), 'sales')
+      expect(within(dialog).getByText('2 of 4 shown')).toBeTruthy()
+      expect(within(dialog).queryByRole('checkbox', { name: /Mohan Das/ })).toBeNull()
+      expect(within(dialog).queryByRole('button', { name: 'Select all' })).toBeNull()
+      await user.click(within(dialog).getByRole('button', { name: 'Select all shown' }))
+      // The pending 'a' (not in the list) plus the two Sales matches; Mohan is not added.
+      expect(within(dialog).getByText('3 selected')).toBeTruthy()
+
+      await user.click(within(dialog).getByRole('button', { name: 'Clear search' }))
+      expect(within(dialog).getByRole('checkbox', { name: /Mohan Das/ })).not.toBeChecked()
+      expect(within(dialog).getByRole('checkbox', { name: /Ravi Kumar/ })).toBeChecked()
+      expect(within(dialog).getByRole('button', { name: 'Select all' })).toBeTruthy()
+
+      await user.type(within(dialog).getByRole('searchbox'), 'nobody here')
+      expect(within(dialog).getByText('No employees match your search.')).toBeTruthy()
+      expect(within(dialog).getByRole('button', { name: 'Select all shown' })).toBeDisabled()
+
+      await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(screen.getByRole('button', { name: 'Employees (3)' })).toBeTruthy()
+
+      // Reopening starts with an empty search.
+      await user.click(screen.getByRole('button', { name: 'Employees (3)' }))
+      const again = await screen.findByRole('dialog')
+      expect(within(again).getByRole('searchbox', { name: 'Search employees' })).toHaveValue('')
+      expect(within(again).getByRole('checkbox', { name: /Mohan Das/ })).toBeTruthy()
+    })
+
+    it('searches departments', async () => {
+      const user = userEvent.setup()
+      const departments = [
+        { department_id: 'd1', name: 'Sales' },
+        { department_id: 'd2', name: 'Operations' },
+      ]
+      render(panel(request(departments), staff))
+      await user.click(await screen.findByRole('button', { name: 'Departments (0)' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.type(within(dialog).getByRole('searchbox', { name: 'Search departments' }), 'oper')
+      expect(within(dialog).queryByRole('checkbox', { name: 'Sales' })).toBeNull()
+      await user.click(within(dialog).getByRole('checkbox', { name: 'Operations' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Done' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      expect(screen.getByRole('button', { name: 'Departments (1)' })).toBeTruthy()
+    })
+
+    it('shows the first 100 rows of a big directory and finds the rest by search', async () => {
+      const user = userEvent.setup()
+      const many = [
+        person('observer', 'observer', 'Admin'),
+        ...Array.from({ length: 150 }, (_, i) => person(`E${i + 1}`, `Person ${i + 1}`, 'Ops')),
+      ]
+      render(panel(request(), many))
+      await user.click(await screen.findByRole('button', { name: 'Employees (1)' }))
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getAllByRole('checkbox')).toHaveLength(100)
+      expect(within(dialog).getByText(/Showing the first 100 of 151/)).toBeTruthy()
+      // Select all still covers every employee, not only the rows on screen.
+      await user.click(within(dialog).getByRole('button', { name: 'Select all' }))
+      expect(within(dialog).getByText('152 selected')).toBeTruthy()
+
+      await user.type(within(dialog).getByRole('searchbox'), 'Person 150')
+      expect(within(dialog).getAllByRole('checkbox')).toHaveLength(1)
+      expect(within(dialog).queryByText(/Showing the first/)).toBeNull()
+    })
+  })
 })

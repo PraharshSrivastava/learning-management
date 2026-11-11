@@ -27,7 +27,7 @@ import {
 import { useDownloadVideo } from './useDownloadVideo'
 import { useMediaQuery } from './useMediaQuery'
 import { useModuleGeneration } from './useModuleGeneration'
-import { useVideoGenerationMode } from './videoMode'
+import { courseVideoMode, useGenerationConfig } from './videoMode'
 
 const EMPTY_NOTES = 'Learner notes appear here after course generation.'
 
@@ -84,7 +84,8 @@ interface TrainingBodyProps {
 function TrainingBody({ course, readOnly, activeIndex, onSelect }: TrainingBodyProps) {
   const isMobile = useMediaQuery('(max-width: 899.98px)')
   const [answers, setAnswers] = useState<QuizAnswers>({ selected: {}, submitted: {} })
-  const mode = useVideoGenerationMode()
+  const config = useGenerationConfig()
+  const mode = courseVideoMode(course, config)
   const generation = useModuleGeneration(course.courseId, {
     videoActive: course.modules.some((item) => isVideoServiceActive(item.videoService)),
   })
@@ -104,6 +105,7 @@ function TrainingBody({ course, readOnly, activeIndex, onSelect }: TrainingBodyP
         course={course}
         module={module}
         status={status}
+        engineBadge={config.toggleEnabled ? mode : null}
         regenerateDisabled={videoDisabled}
         onRegenerate={compile}
       />
@@ -261,6 +263,8 @@ interface HeaderSectionProps {
   course: Course
   module: CourseModule
   status: VideoStatus | null
+  /** The course's video engine, shown while trainers can choose it; null hides the badge. */
+  engineBadge: VideoGenerationMode | null
   regenerateDisabled: boolean
   onRegenerate: () => void
 }
@@ -269,6 +273,7 @@ function HeaderSection({
   course,
   module,
   status,
+  engineBadge,
   regenerateDisabled,
   onRegenerate,
 }: HeaderSectionProps) {
@@ -277,9 +282,20 @@ function HeaderSection({
   return (
     <header>
       <div className="flex items-center justify-between">
-        <span className="rounded bg-primary-blue/8 px-2.5 py-1 font-barlow text-[11px] font-bold tracking-[1px] text-primary-blue">
-          MODULE {module.moduleNumber}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded bg-primary-blue/8 px-2.5 py-1 font-barlow text-[11px] font-bold tracking-[1px] text-primary-blue">
+            MODULE {module.moduleNumber}
+          </span>
+          {engineBadge && (
+            <span
+              className="inline-flex items-center gap-1 rounded border border-light-gray px-2 py-[3px] font-barlow text-[11px] font-semibold text-text-secondary"
+              title="Set on the Blueprint tab"
+            >
+              <Icon name="ondemand_video_outlined" size={13} />
+              {engineBadge === 'external' ? 'Video Engine' : 'Standard generation'}
+            </span>
+          )}
+        </div>
         {hasVideo(module) && (
           <div className="flex items-center gap-2">
             <ActionButton

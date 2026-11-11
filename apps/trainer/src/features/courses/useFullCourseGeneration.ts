@@ -6,7 +6,7 @@ import { useBlockingOverlay } from '../../shell/overlay'
 import { trainerKeys } from '../../shell/queryKeys'
 import { useUpdateTrainerSearch, type TrainerTab } from '../../shell/search'
 import { generationErrorMessage } from '../training/trainingData'
-import { moduleVideoProgress, useVideoGenerationMode } from '../training/videoMode'
+import { courseVideoMode, moduleVideoProgress, useGenerationConfig } from '../training/videoMode'
 import { isCourseFullyGenerated } from './courseLogic'
 import { useCourseDetail, useStoreCourse } from './courseQueries'
 
@@ -153,13 +153,15 @@ export function useFullCourseGeneration() {
  */
 export function useFullCourseGenerationOverlay(): void {
   const running = useIsMutating({ mutationKey: FULL_GENERATION_KEY }) > 0
-  const external = useVideoGenerationMode() === 'external'
+  const config = useGenerationConfig()
   const courseId = useMutationState({
     filters: { mutationKey: FULL_GENERATION_KEY, status: 'pending' },
     select: (mutation) => (mutation.state.variables as { courseId: string } | undefined)?.courseId,
   }).at(-1)
   // The job polling reloads this course, so module video progress updates under the overlay.
-  const course = useCourseDetail(external && running ? courseId : undefined).data
+  // Each course has its own engine, so the course is loaded to pick the overlay text.
+  const course = useCourseDetail(running ? courseId : undefined).data
+  const external = courseVideoMode(course, config) === 'external'
   useBlockingOverlay(
     running,
     external ? 'Generating course content with module videos' : 'Generating course content',

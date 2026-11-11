@@ -59,7 +59,16 @@ export function useSelectedCourse() {
 
 /** Fields that the list summary carries. Modules and images stay from the detail. */
 function summaryFields(summary: Course): Partial<Course> {
-  const { modules: _modules, images: _images, creatorName: _creator, ...fields } = summary
+  const {
+    modules: _modules,
+    images: _images,
+    creatorName: _creator,
+    // The list summary has no Video Engine fields; its nulls must not hide the detail's values.
+    videoEngine: _videoEngine,
+    videoEngineRecommended: _recommended,
+    meaningfulImageCount: _imageCount,
+    ...fields
+  } = summary
   return fields
 }
 
@@ -133,6 +142,29 @@ export function useUpdateCourse() {
     },
   })
   return mutation
+}
+
+/**
+ * PUT /api/courses/{id} with only the Video Engine choice. Unlike the blueprint save it does not
+ * block the app: the toggle shows its own pending state.
+ */
+export function useUpdateVideoEngine() {
+  const storeCourse = useStoreCourse()
+  const refreshCourses = useRefreshCourses()
+  return useMutation({
+    mutationKey: ['course-video-engine'],
+    mutationFn: async ({ courseId, videoEngine }: { courseId: string; videoEngine: boolean }) =>
+      parseCourse(
+        await apiRequest(coursePath(courseId), {
+          method: 'PUT',
+          json: { video_engine: videoEngine },
+        }),
+      ),
+    onSuccess: async (course) => {
+      storeCourse(course)
+      await refreshCourses()
+    },
+  })
 }
 
 /**

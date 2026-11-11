@@ -37,7 +37,7 @@ def test_employee_greetings_and_general_login_link(monkeypatch, event):
     monkeypatch.setattr(notifications.settings, "lms_hub_login_url", "https://hub.example.com/login")
     _, text, markup = render_individual({"employee_name": "Ananya Mehta", "course_id": "private-id"}, event, "employee")
     assert ("Congratulations, Ananya!" if event == "completed" else "Dear Ananya,") in text
-    assert "Open LMS: https://hub.example.com/login" in text
+    assert "Open PhillipAcademy: https://hub.example.com/login" in text
     assert "private-id" not in markup
     if event == "overdue":
         assert "Reminders will be sent every 48 hours. If the course remains incomplete after the fourth reminder" in text
@@ -47,14 +47,14 @@ def test_missing_login_url_omits_button(monkeypatch):
     monkeypatch.setattr(notifications.settings, "lms_hub_login_url", None)
     _, text, markup = render_individual({}, "assigned", "employee")
     assert "href=" not in markup
-    assert "Open the LMS from the Hub dashboard" in text
+    assert "Open PhillipAcademy from the Hub dashboard" in text
 
 
 def test_trainer_digest_uses_general_login_and_greeting(monkeypatch):
     monkeypatch.setattr(notifications.settings, "lms_hub_login_url", "https://hub.example.com/login")
     _, text, markup = render_digest("due_soon", "trainer", [], {}, recipient_name="Kiran Shah")
     assert "Dear Kiran," in text
-    assert "Open LMS: https://hub.example.com/login" in text
+    assert "Open PhillipAcademy: https://hub.example.com/login" in text
     assert "open Performance" in text
     assert "view=performance" not in markup
 

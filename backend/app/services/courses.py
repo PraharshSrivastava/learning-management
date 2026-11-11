@@ -5,11 +5,16 @@ from __future__ import annotations
 import logging
 from uuid import uuid4
 
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.langfuse_tracing import trace_scope
 from app.generation.blueprint import generate_course_outline
 from app.generation.quiz import ModuleQuiz
 from app.generation.runtime import now_iso
+from app.generation.video_engine import (
+    course_uses_video_engine,
+    toggle_enabled,
+    video_engine_available,
+)
 from app.repositories.courses import CourseRepository
 from app.schemas.course import CourseUpdateRequest
 from app.schemas.quiz import ManualQuizRequest
@@ -88,12 +93,67 @@ class CourseService:
                 course.get("modules", []), updated_fields["modules"]
             )
 
+        engine_changed = False
+        if updated_fields.get("video_engine") is not None:
+            engine_changed = self._apply_video_engine(course, bool(updated_fields["video_engine"]))
+            # Videos from the other engine no longer match the course, so it is generated
+            # again from its blueprint, as after a blueprint edit.
+            # A checkpoint left by the other engine is cleared too, so Continue cannot
+            # resume a run that was planned for a different pipeline.
+            if engine_changed and (
+                self._has_generated_content(course) or self._has_generation_progress(course)
+            ):
+                blueprint_changed = True
+
         if blueprint_changed:
             self._invalidate_generated_content(course)
-        self.repository.save_draft(
-            course, release_generation_worker=blueprint_changed
-        )
+        try:
+            # Releasing the worker refuses the save while a generation job runs, which
+            # also stops an engine switch in the middle of a run.
+            self.repository.save_draft(
+                course, release_generation_worker=blueprint_changed or engine_changed
+            )
+        except ConflictError as exc:
+            if engine_changed and str(exc).startswith("Course generation is already running"):
+                raise ConflictError(
+                    "Wait for the current generation to finish before switching engines."
+                ) from exc
+            raise
         return course
+
+    @staticmethod
+    def _apply_video_engine(course: dict, requested: bool) -> bool:
+        """Store the trainer's engine choice; True when it changes the course's engine."""
+        if not toggle_enabled():
+            raise ConflictError("Video Engine selection is not enabled.")
+        if requested == course_uses_video_engine(course):
+            # Record an explicit choice for an older course, without changing its engine.
+            course["video_engine"] = requested
+            return False
+        if requested and not video_engine_available():
+            raise DomainValidationError("Video Engine isn't available on this server.")
+        course["video_engine"] = requested
+        return True
+
+    @staticmethod
+    def _has_generation_progress(course: dict) -> bool:
+        """True when generation went past the blueprint (any later stage or checkpoint)."""
+        state = course.get("generation") or {}
+        if state.get("failed_checkpoint") not in (None, "blueprint"):
+            return True
+        if state.get("current_checkpoint") not in (None, "blueprint"):
+            return True
+        return any(stage != "blueprint" for stage in (state.get("stages") or {}))
+
+    @staticmethod
+    def _has_generated_content(course: dict) -> bool:
+        if course.get("thumbnail_path"):
+            return True
+        return any(
+            module.get(field)
+            for module in course.get("modules", [])
+            for field in ("quiz", "notes", "slides", "planned_slides", "video_path", "video_service")
+        )
 
     def update_module_quiz(
         self,
