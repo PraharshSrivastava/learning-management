@@ -1,5 +1,6 @@
 // The journey's courses: their order, optional sections, and which courses open without waiting.
 import { assetUrl } from '@lms/shared/api/client'
+import { matchesWords } from '@lms/shared/performance/format'
 import { useHasMediaTicket } from '@lms/shared/api/useMediaTicket'
 import { Icon } from '@lms/shared/ui/icons/Icon'
 import clsx from 'clsx'
@@ -26,11 +27,26 @@ export function JourneyCourses({
 }) {
   const [picking, setPicking] = useState<number | null>(null)
   const [pick, setPick] = useState('')
+  const [courseFilter, setCourseFilter] = useState('')
   const [dragging, setDragging] = useState<StepAt | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const used = new Set(stages.flatMap((stage) => stage.steps.map((step) => step.courseId)))
   const available = options.filter((option) => option.eligible && !used.has(option.courseId))
   const unavailable = options.filter((option) => !option.eligible && !used.has(option.courseId))
+  // The filter only narrows the "Course to add" list; it never changes the journey.
+  const matchesFilter = (option: CourseOption) =>
+    matchesWords(courseFilter, `${option.courseName} ${option.courseId}`)
+  const shownAvailable = available.filter(matchesFilter)
+  const shownUnavailable = unavailable.filter(matchesFilter)
+  const filterCourses = (text: string) => {
+    setCourseFilter(text)
+    // A picked course that the new filter hides is dropped, so Add never adds a hidden course.
+    const still = available.some(
+      (option) =>
+        option.courseId === pick && matchesWords(text, `${option.courseName} ${option.courseId}`),
+    )
+    if (!still) setPick('')
+  }
   const total = stages.reduce((sum, stage) => sum + stage.steps.length, 0)
   const sectioned = stages.length > 1
   // Step numbers run across the whole journey: a section continues from the one before.
@@ -273,14 +289,33 @@ export function JourneyCourses({
           )}
           {picking === stageIndex ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-brand-blue-light bg-white p-2.5">
+              <label className="relative block basis-full">
+                <Icon
+                  name="search"
+                  size={17}
+                  className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[#5b6980]"
+                />
+                <input
+                  type="search"
+                  aria-label="Filter courses"
+                  placeholder="Filter courses…"
+                  value={courseFilter}
+                  onChange={(event) => filterCourses(event.target.value)}
+                  className="w-full rounded-lg border border-input-border bg-white py-1.5 pr-2 pl-9 text-sm text-[#19273e] focus-visible:outline-2 focus-visible:outline-brand-blue-light"
+                />
+              </label>
               <select
                 aria-label="Course to add"
                 className="min-w-0 flex-1 rounded-lg border border-input-border bg-white px-2 py-1.5 text-sm"
                 value={pick}
                 onChange={(event) => setPick(event.target.value)}
               >
-                <option value="">Choose a course</option>
-                {available.map((option) => (
+                <option value="">
+                  {courseFilter.trim() && shownAvailable.length + shownUnavailable.length === 0
+                    ? 'No courses match the filter'
+                    : 'Choose a course'}
+                </option>
+                {shownAvailable.map((option) => (
                   <option key={option.courseId} value={option.courseId}>
                     {option.courseName} ({option.moduleCount} modules)
                     {option.journeys.length > 0
@@ -288,7 +323,7 @@ export function JourneyCourses({
                       : ''}
                   </option>
                 ))}
-                {unavailable.map((option) => (
+                {shownUnavailable.map((option) => (
                   <option key={option.courseId} value={option.courseId} disabled>
                     {option.courseName}: {option.reason}
                   </option>
@@ -298,7 +333,7 @@ export function JourneyCourses({
                 variant="filled"
                 disabled={!pick}
                 onClick={() => {
-                  const option = available.find((item) => item.courseId === pick)
+                  const option = shownAvailable.find((item) => item.courseId === pick)
                   if (!option) return
                   setStage(stageIndex, {
                     ...stage,
@@ -320,12 +355,19 @@ export function JourneyCourses({
                     ],
                   })
                   setPick('')
+                  setCourseFilter('')
                   setPicking(null)
                 }}
               >
                 Add
               </ActionButton>
-              <ActionButton variant="text" onClick={() => setPicking(null)}>
+              <ActionButton
+                variant="text"
+                onClick={() => {
+                  setCourseFilter('')
+                  setPicking(null)
+                }}
+              >
                 Cancel
               </ActionButton>
             </div>
@@ -336,6 +378,7 @@ export function JourneyCourses({
               className="mt-1"
               onClick={() => {
                 setPick('')
+                setCourseFilter('')
                 setPicking(stageIndex)
               }}
             >

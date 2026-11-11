@@ -179,6 +179,23 @@ export function ObserverNotice({ text, warning }: { text: string; warning: boole
   )
 }
 
+/**
+ * Most rows an employee picker renders at once. Search and counts still use the full list, so a
+ * person beyond this many is found by typing; this only keeps big lists fast to open and filter.
+ */
+export const PICKER_ROW_LIMIT = 100
+
+/** Note under a capped picker list. Renders nothing when every match is shown. */
+export function MoreRowsHint({ shown, total }: { shown: number; total: number }) {
+  if (total <= shown) return null
+  return (
+    <p className="px-1 py-3 text-center text-xs text-[#5b6980]">
+      Showing the first {shown.toLocaleString('en-IN')} of {total.toLocaleString('en-IN')}. Type to
+      narrow the list.
+    </p>
+  )
+}
+
 /** Search box used inside picker dialogs (Flutter TextField with a search prefix). */
 export function SearchBox({
   value,

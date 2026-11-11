@@ -83,6 +83,8 @@ interface Call {
 
 let calls: Call[] = []
 let detail: Record<string, unknown> = draftDetail
+/** More sidebar journeys after j1, for the sidebar search tests. */
+let otherJourneys: Record<string, unknown>[] = []
 
 const sent = (method: string, suffix: string) =>
   calls.filter((call) => call.method === method && call.path.endsWith(suffix))
@@ -90,6 +92,7 @@ const sent = (method: string, suffix: string) =>
 beforeEach(() => {
   calls = []
   detail = draftDetail
+  otherJourneys = []
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -100,7 +103,10 @@ beforeEach(() => {
       if (path.endsWith('/api/learning-journeys')) {
         if (method === 'POST')
           return json({ ...draftDetail, journey_id: 'j2', title: 'Wealth basics', stages: [] })
-        return json({ enabled: true, journeys: [{ ...summary, status: detail.status }] })
+        return json({
+          enabled: true,
+          journeys: [{ ...summary, status: detail.status }, ...otherJourneys],
+        })
       }
       if (path.endsWith('/course-options')) return json(courseOptions)
       if (path.endsWith('/preview'))
@@ -271,5 +277,65 @@ describe('JourneysTab', () => {
       journeyId: 'j1',
       courseStatus: 'active',
     })
+  })
+
+  it('filters the Course to add list and never adds a course the filter hides', async () => {
+    const user = userEvent.setup()
+    renderCourses(JourneysTab, { url: '/?tab=journeys&journey=j1' })
+    const courses = await screen.findByRole('region', { name: 'Courses' })
+    await user.click(within(courses).getByRole('button', { name: 'Add existing course' }))
+    const picker = within(courses).getByRole('combobox', { name: 'Course to add' })
+    const filter = within(courses).getByRole('searchbox', { name: 'Filter courses' })
+
+    await user.type(filter, 'draft')
+    expect(within(picker).queryByRole('option', { name: /Equity Basics/ })).toBeNull()
+    expect(within(picker).getByRole('option', { name: /Draft course/ })).toBeDisabled()
+
+    await user.clear(filter)
+    await user.type(filter, 'equity')
+    await user.selectOptions(picker, 'c2')
+    const add = within(courses).getByRole('button', { name: 'Add' })
+    expect(add).toBeEnabled()
+    // A filter that hides the picked course clears the pick, so Add cannot add it unseen.
+    await user.type(filter, ' zzz')
+    expect(within(picker).getByRole('option', { name: 'No courses match the filter' })).toBeTruthy()
+    expect(add).toBeDisabled()
+
+    await user.clear(filter)
+    await user.type(filter, 'equity')
+    await user.selectOptions(picker, 'c2')
+    await user.click(add)
+    expect(within(courses).getByText('Equity Basics')).toBeInTheDocument()
+    // The filter starts empty the next time the picker opens.
+    await user.click(within(courses).getByRole('button', { name: 'Add existing course' }))
+    expect(within(courses).getByRole('searchbox', { name: 'Filter courses' })).toHaveValue('')
+  })
+
+  it('searches the journey list without closing the open journey', async () => {
+    const user = userEvent.setup()
+    otherJourneys = [
+      { ...summary, journey_id: 'j7', title: 'Wealth Management Track', status: 'published' },
+      { ...summary, journey_id: 'j8', title: 'Compliance Refresher', status: 'draft' },
+    ]
+    renderCourses(JourneysTab, { url: '/?tab=journeys&journey=j1' })
+    const list = await screen.findByRole('list', { name: 'Learning journeys' })
+    expect(within(list).getAllByRole('button')).toHaveLength(3)
+    const search = screen.getByRole('searchbox', { name: 'Search learning journeys' })
+
+    await user.type(search, 'wealth track')
+    expect(within(list).getAllByRole('button')).toHaveLength(1)
+    expect(within(list).getByRole('button', { name: /Wealth Management Track/ })).toBeTruthy()
+    // The open journey stays open on the right, with no unsaved-changes prompt.
+    expect(await screen.findByRole('region', { name: 'Courses' })).toBeInTheDocument()
+
+    await user.clear(search)
+    await user.type(search, 'nothing like this')
+    expect(screen.queryByRole('list', { name: 'Learning journeys' })).toBeNull()
+    expect(screen.getByText('No matching journeys. Try a different search.')).toBeInTheDocument()
+
+    await user.clear(search)
+    expect(
+      within(screen.getByRole('list', { name: 'Learning journeys' })).getAllByRole('button'),
+    ).toHaveLength(3)
   })
 })

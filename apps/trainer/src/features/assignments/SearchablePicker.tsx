@@ -3,7 +3,7 @@ import { Dialog } from '@lms/shared/ui/Dialog'
 import { Icon } from '@lms/shared/ui/icons/Icon'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
 import { useState } from 'react'
-import { ActionButton, SearchBox } from './controls'
+import { ActionButton, MoreRowsHint, PICKER_ROW_LIMIT, SearchBox } from './controls'
 import { ListRow } from './pickers'
 
 interface SearchablePickerProps {
@@ -106,7 +106,7 @@ function PickerBody({
         <p className="m-auto text-[#191c20]">No matching options.</p>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          {results.map(([id, name]) => (
+          {results.slice(0, PICKER_ROW_LIMIT).map(([id, name]) => (
             <ListRow
               key={id}
               title={name}
@@ -116,6 +116,7 @@ function PickerBody({
               onClick={() => onPick(id)}
             />
           ))}
+          <MoreRowsHint shown={PICKER_ROW_LIMIT} total={results.length} />
         </div>
       )}
     </div>

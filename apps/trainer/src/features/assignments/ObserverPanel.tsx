@@ -1,11 +1,19 @@
 // Performance Observers section body (Flutter ObserverIncludePanel).
 import type { Course, Employee } from '@lms/shared/models'
+import { matchesWords } from '@lms/shared/performance/format'
 import { Dialog } from '@lms/shared/ui/Dialog'
 import { IconButton } from '@lms/shared/ui/Button'
 import { ProgressBar } from '@lms/shared/ui/ProgressBar'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { ObserverAccess, ObserverDepartment, ObserverSelection, Requester } from './api'
-import { ActionButton, CheckboxRow, ObserverNotice } from './controls'
+import {
+  ActionButton,
+  CheckboxRow,
+  MoreRowsHint,
+  ObserverNotice,
+  PICKER_ROW_LIMIT,
+  SearchBox,
+} from './controls'
 import { ObserverStore } from './observerStore'
 import { SearchablePicker } from './SearchablePicker'
 
@@ -226,12 +234,6 @@ function ScopeDialog({
   onClose: () => void
 }) {
   const field = choosing?.field
-  const picked = choosing?.picked ?? []
-  const options =
-    field === 'employees'
-      ? employees.map((e) => ({ id: e.employeeId, label: `${e.name} (${e.department})` }))
-      : departments.map((d) => ({ id: d.id, label: d.name }))
-  const allPicked = options.every((o) => picked.includes(o.id))
   return (
     <Dialog
       open={choosing != null}
@@ -246,39 +248,97 @@ function ScopeDialog({
         </ActionButton>
       }
     >
-      <div className="flex h-[380px] flex-col">
-        {field === 'employees' && (
-          // Flutter Wrap in a centered Column: the row is centered and its items align to the top.
-          <div className="flex flex-wrap items-start justify-center gap-2">
-            <ActionButton
-              variant="text"
-              icon="done_all"
-              disabled={options.length === 0 || allPicked}
-              onClick={() => onPick([...new Set([...picked, ...options.map((o) => o.id)])])}
-            >
-              Select all
-            </ActionButton>
-            <ActionButton variant="text" disabled={picked.length === 0} onClick={() => onPick([])}>
-              Clear all
-            </ActionButton>
-            <span>{picked.length} selected</span>
-          </div>
-        )}
-        <div className="min-h-0 flex-1 overflow-auto [scrollbar-width:none]">
-          {options.map((option) => (
-            <CheckboxRow
-              key={option.id}
-              checked={picked.includes(option.id)}
-              onChange={(checked) =>
-                onPick(checked ? [...picked, option.id] : picked.filter((id) => id !== option.id))
-              }
-            >
-              {option.label}
-            </CheckboxRow>
-          ))}
-        </div>
-      </div>
+      {/* Mounted only while open, so the search clears each time the dialog opens. */}
+      {choosing != null && (
+        <ScopeDialogBody
+          field={choosing.field}
+          picked={choosing.picked}
+          employees={employees}
+          departments={departments}
+          onPick={onPick}
+        />
+      )}
     </Dialog>
+  )
+}
+
+function ScopeDialogBody({
+  field,
+  picked,
+  employees,
+  departments,
+  onPick,
+}: {
+  field: Field
+  picked: string[]
+  employees: Employee[]
+  departments: ObserverDepartment[]
+  onPick: (picked: string[]) => void
+}) {
+  const [search, setSearch] = useState('')
+  const searching = search.trim() !== ''
+  const noun = field === 'employees' ? 'employees' : 'departments'
+  const options =
+    field === 'employees'
+      ? employees.map((e) => ({ id: e.employeeId, label: `${e.name} (${e.department})` }))
+      : departments.map((d) => ({ id: d.id, label: d.name }))
+  // Searching only hides rows: picks that are out of view stay picked.
+  const shown = searching
+    ? options.filter((o) => matchesWords(search, `${o.label} ${o.id}`))
+    : options
+  const allShownPicked = shown.every((o) => picked.includes(o.id))
+  return (
+    <div className="flex h-[380px] flex-col">
+      <SearchBox
+        value={search}
+        onChange={setSearch}
+        onClear={() => setSearch('')}
+        placeholder={`Search ${noun}`}
+        autoFocus
+      />
+      {field === 'employees' && (
+        // Flutter Wrap in a centered Column: the row is centered and its items align to the top.
+        <div className="mt-2 flex flex-wrap items-start justify-center gap-2">
+          <ActionButton
+            variant="text"
+            icon="done_all"
+            disabled={shown.length === 0 || allShownPicked}
+            onClick={() => onPick([...new Set([...picked, ...shown.map((o) => o.id)])])}
+          >
+            {/* With a search, only the matches are added, never the whole directory. */}
+            {searching ? 'Select all shown' : 'Select all'}
+          </ActionButton>
+          <ActionButton variant="text" disabled={picked.length === 0} onClick={() => onPick([])}>
+            Clear all
+          </ActionButton>
+          <span>{picked.length} selected</span>
+        </div>
+      )}
+      {searching && (
+        <p className="mt-2 px-1 text-xs text-[#5b6980]">
+          {shown.length} of {options.length} shown
+        </p>
+      )}
+      <div className="mt-2 min-h-0 flex-1 overflow-auto [scrollbar-width:none]">
+        {shown.length === 0 && (
+          <p className="p-4 text-sm text-[#5b6980]">
+            {options.length === 0 ? `No ${noun} available.` : `No ${noun} match your search.`}
+          </p>
+        )}
+        {shown.slice(0, PICKER_ROW_LIMIT).map((option) => (
+          <CheckboxRow
+            key={option.id}
+            checked={picked.includes(option.id)}
+            onChange={(checked) =>
+              onPick(checked ? [...picked, option.id] : picked.filter((id) => id !== option.id))
+            }
+          >
+            {option.label}
+          </CheckboxRow>
+        ))}
+        <MoreRowsHint shown={PICKER_ROW_LIMIT} total={shown.length} />
+      </div>
+    </div>
   )
 }
 

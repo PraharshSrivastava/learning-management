@@ -1,6 +1,7 @@
 // Trainer Journeys tab: build a Learning Journey from existing courses, choose who gets it,
 // publish it and follow progress. Laid out like the Assign desk and reusing its controls.
 import { errorMessage } from '@lms/shared/api/client'
+import { matchesWords } from '@lms/shared/performance/format'
 import { useSession } from '@lms/shared/auth/session'
 import type { AssignmentOptions } from '@lms/shared/models'
 import { Dialog } from '@lms/shared/ui/Dialog'
@@ -79,6 +80,9 @@ export function JourneysTab() {
     enabled: person != null,
   })
   const journeys = list.data?.journeys ?? []
+  // Hides sidebar rows only: the open journey (?journey=) stays open while it is filtered out.
+  const [journeySearch, setJourneySearch] = useState('')
+  const shownJourneys = journeys.filter((journey) => matchesWords(journeySearch, journey.title))
   const selected = journeys.find((j) => j.journeyId === selectedId) ?? null
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
@@ -145,6 +149,16 @@ export function JourneysTab() {
                 New
               </ActionButton>
             </div>
+            <label className="assign-course-search">
+              <Icon name="search" size={17} />
+              <input
+                type="search"
+                aria-label="Search learning journeys"
+                placeholder="Search journeys…"
+                value={journeySearch}
+                onChange={(event) => setJourneySearch(event.target.value)}
+              />
+            </label>
             <div className="assign-course-scroll">
               {list.isPending && person != null ? (
                 <div className="flex h-full items-center justify-center p-8">
@@ -162,9 +176,13 @@ export function JourneysTab() {
                     Create one, then add your published or ready courses in order.
                   </p>
                 </div>
+              ) : shownJourneys.length === 0 ? (
+                <p className="p-6 text-center text-sm text-[#5b6980]">
+                  No matching journeys. Try a different search.
+                </p>
               ) : (
                 <ul aria-label="Learning journeys">
-                  {journeys.map((journey) => (
+                  {shownJourneys.map((journey) => (
                     <li key={journey.journeyId}>
                       <button
                         type="button"
