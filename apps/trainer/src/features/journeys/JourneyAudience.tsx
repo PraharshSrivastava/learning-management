@@ -18,6 +18,8 @@ export interface MatchPreviewState {
   error: unknown
   matchCount: number
   employees: PreviewEmployee[]
+  /** Matching employees who are also Observers. */
+  blockedCount: number
 }
 
 export function JourneyAudience({
@@ -180,8 +182,13 @@ function MatchCount({ preview }: { preview: MatchPreviewState }) {
       ) : (
         <>
           <span className="min-w-0 flex-1">
-            <b>{pluralEmployees(preview.matchCount)}</b> match this selection. Observers are never
-            counted.
+            <b>{pluralEmployees(preview.matchCount)}</b> match this selection.
+            {preview.blockedCount > 0 && (
+              <span className="block text-[#805300]">
+                {preview.blockedCount} matching employees are also Observers. Resolve these
+                conflicts before saving.
+              </span>
+            )}
           </span>
           {preview.matchCount > 0 && (
             <ActionButton variant="text" onClick={() => setOpen(true)}>

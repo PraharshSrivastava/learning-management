@@ -254,12 +254,19 @@ export async function fetchCourseOptions(): Promise<CourseOption[]> {
   return Array.isArray(body) ? body.map(parseCourseOption) : []
 }
 
+export interface JourneyPreview {
+  matchCount: number
+  employees: PreviewEmployee[]
+  /** Matching employees who are also Observers. As for a course, they block saving. */
+  blockedCount: number
+}
+
 /** Who would get the journey with the unsaved rule and Observers (the first 50 are listed). */
 export async function fetchPreview(
   id: string,
   rule: JourneyRule,
   observerEmployeeIds: string[],
-): Promise<{ matchCount: number; employees: PreviewEmployee[] }> {
+): Promise<JourneyPreview> {
   const body = await apiRequest(`${one(id)}/preview`, {
     method: 'POST',
     json: { rule: rulePayload(rule), observer_employee_ids: observerEmployeeIds },
@@ -273,53 +280,15 @@ export async function fetchPreview(
       department: text(row.department),
       jobTitle: text(row.job_title),
     })),
+    blockedCount: count(data.blocked_employee_count),
   }
 }
 
-export interface JourneyObserver {
-  observerEmployeeId: string
-  employeeIds: string[]
-  departmentIds: string[]
-}
-
-export interface ObserverDepartment {
-  id: string
-  name: string
-}
-
-const ids = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : [])
-
-export async function fetchJourneyObservers(id: string): Promise<JourneyObserver[]> {
-  const body = await apiRequest(`${one(id)}/observers`)
-  const data = isRecord(body) ? body : {}
-  return records(data.observers).map((row) => ({
-    observerEmployeeId: text(row.observer_employee_id),
-    employeeIds: ids(row.employee_ids),
-    departmentIds: ids(row.department_ids),
-  }))
-}
-
-export async function saveJourneyObservers(id: string, observers: JourneyObserver[]) {
-  await apiRequest(`${one(id)}/observers`, {
-    method: 'PUT',
-    json: {
-      observers: observers.map((o) => ({
-        observer_employee_id: o.observerEmployeeId,
-        employee_ids: o.employeeIds,
-        department_ids: o.departmentIds,
-      })),
-    },
-  })
-}
-
-export async function fetchObserverDepartments(): Promise<ObserverDepartment[]> {
-  const body = await apiRequest('/api/observer/options')
-  const data = isRecord(body) ? body : {}
-  return records(data.departments).map((row) => ({
-    id: text(row.department_id),
-    name: text(row.name),
-  }))
-}
+/** The journey Observer endpoints, shaped like a course's so the Assign tab's panel serves both. */
+export const journeyObserverPaths = (id: string) => ({
+  config: `${one(id)}/observers`,
+  apply: `${one(id)}/observers/apply`,
+})
 
 export const fetchAssignmentOptions = async (): Promise<AssignmentOptions> =>
   parseAssignmentOptions(await apiRequest('/api/assignment/options'))

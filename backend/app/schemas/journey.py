@@ -74,6 +74,9 @@ class JourneyObserverSelection(RequestSchema):
 
 
 class JourneyObserversRequest(RequestSchema):
+    """The pending selection. Like course Observers, additions take effect only on Apply."""
+
+    revision: int = Field(ge=0)
     observers: list[JourneyObserverSelection] = Field(default_factory=list, max_length=100)
 
     @model_validator(mode="after")
@@ -82,6 +85,10 @@ class JourneyObserversRequest(RequestSchema):
         if len(ids) != len(set(ids)):
             raise ValueError("An observer can only appear once per journey")
         return self
+
+
+class JourneyObserverApplyRequest(RequestSchema):
+    revision: int = Field(ge=0)
 
 
 class JourneyPreviewRequest(RequestSchema):

@@ -1,5 +1,6 @@
-// Performance Observers section body (Flutter ObserverIncludePanel).
-import type { Course, Employee } from '@lms/shared/models'
+// Performance Observers section body (Flutter ObserverIncludePanel). Learning Journeys use the
+// same panel against their own endpoints.
+import type { Employee } from '@lms/shared/models'
 import { matchesWords } from '@lms/shared/performance/format'
 import { Dialog } from '@lms/shared/ui/Dialog'
 import { IconButton } from '@lms/shared/ui/Button'
@@ -14,14 +15,19 @@ import {
   PICKER_ROW_LIMIT,
   SearchBox,
 } from './controls'
-import { ObserverStore } from './observerStore'
+import { ObserverStore, type ObserverEndpoints } from './observerStore'
 import { SearchablePicker } from './SearchablePicker'
 
 interface ObserverPanelProps {
-  course: Course
+  endpoints: ObserverEndpoints
   employees: Employee[]
   refreshGeneration: number
-  isAssignmentActive: boolean
+  /** Apply needs a published, assigned course or a published journey. */
+  canApply: boolean
+  /** Shown while Apply is unavailable. */
+  notReadyText: string
+  /** Who the reports cover, after the pending count. */
+  reportScope: string
   request: Requester
   onDraftObservers: (ids: string[]) => void
 }
@@ -47,15 +53,17 @@ export function previewCount(
 }
 
 export function ObserverPanel({
-  course,
+  endpoints,
   employees,
   refreshGeneration,
-  isAssignmentActive,
+  canApply,
+  notReadyText,
+  reportScope,
   request,
   onDraftObservers,
 }: ObserverPanelProps) {
-  // The parent keys this panel by course, trainer and permissions, so one store per mount.
-  const [store] = useState(() => new ObserverStore(course.courseId, request, onDraftObservers))
+  // The parent keys this panel by course or journey, trainer and permissions: one store per mount.
+  const [store] = useState(() => new ObserverStore(endpoints, request, onDraftObservers))
   const state = useSyncExternalStore(store.subscribe, store.getState)
   useEffect(() => store.attach(), [store])
   useEffect(() => store.syncGeneration(refreshGeneration), [store, refreshGeneration])
@@ -63,7 +71,7 @@ export function ObserverPanel({
   const [confirmReload, setConfirmReload] = useState(false)
 
   const candidates = employees.filter((e) => e.status === 'active')
-  const notPublished = course.status !== 'published' || !isAssignmentActive
+  const notPublished = !canApply
   const { busy, dirty, message, selections } = state
 
   return (
@@ -75,9 +83,7 @@ export function ObserverPanel({
       {dirty && (
         <ObserverNotice text="Save your changes before applying Observer access." warning />
       )}
-      {notPublished && (
-        <ObserverNotice text="Publish and assign the course before applying observers." warning />
-      )}
+      {notPublished && <ObserverNotice text={notReadyText} warning />}
       {busy && <ProgressBar label="Loading observers" />}
       {message && <ObserverNotice text={message.text} warning={message.warning} />}
       {dirty && message?.text.includes('changed') && (
@@ -127,7 +133,7 @@ export function ObserverPanel({
           />
           <span>
             Pending selection: {previewCount(selection, state.departments, employees)} active
-            directory employees; reports include only assigned learners on this course.
+            directory employees; {reportScope}
           </span>
           <IconButton
             icon="close"

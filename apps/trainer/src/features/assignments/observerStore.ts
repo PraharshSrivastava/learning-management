@@ -13,6 +13,16 @@ import {
   type Requester,
 } from './api'
 
+export interface ObserverEndpoints {
+  config: string
+  apply: string
+}
+
+export const courseObserverEndpoints = (courseId: string): ObserverEndpoints => ({
+  config: paths.observers(courseId),
+  apply: paths.applyObservers(courseId),
+})
+
 export interface ObserverMessage {
   text: string
   /** Success text shows as info; failures and conflicts show as warnings. */
@@ -54,7 +64,8 @@ export class ObserverStore {
   private generation: number | undefined
 
   constructor(
-    private readonly courseId: string,
+    /** A course's or a journey's Observer endpoints: the configuration and its Apply. */
+    private readonly endpoints: ObserverEndpoints,
     private readonly http: Requester,
     private readonly onDraftObservers: (ids: string[]) => void,
   ) {}
@@ -118,7 +129,7 @@ export class ObserverStore {
     this.set({ busy: true, message: null })
     try {
       const [configReply, optionsReply] = await Promise.all([
-        this.http(paths.observers(this.courseId)),
+        this.http(this.endpoints.config),
         this.http(paths.observerOptions),
       ])
       const config = parseObserverConfig(this.response(configReply))
@@ -179,11 +190,11 @@ export class ObserverStore {
     this.set({ busy: true, message: null })
     try {
       const reply = apply
-        ? await this.http(paths.applyObservers(this.courseId), {
+        ? await this.http(this.endpoints.apply, {
             method: 'POST',
             json: { revision },
           })
-        : await this.http(paths.observers(this.courseId), {
+        : await this.http(this.endpoints.config, {
             method: 'PUT',
             json: { revision, observers: selections.map(observerSelectionToJson) },
           })

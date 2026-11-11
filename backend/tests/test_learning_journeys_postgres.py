@@ -20,6 +20,7 @@ from app.repositories.assignments import (
 )
 from app.repositories.courses import delete_course_for_trainer
 from app.repositories.employees import list_employees
+from app.repositories.journeys import create_journey_tables
 from app.repositories.progress import ProgressRepository
 from app.repositories.report_access import report_roles
 from app.schemas.assignment import AssignmentRuleRequest
@@ -141,6 +142,20 @@ def journey_row(journey_id, employee_id):
 
 
 SEQUENCE = [("c1", "after_previous"), ("c2", "after_previous"), ("c3", "after_previous")]
+# Everyone except "obs": as for a course, an Observer cannot match the rule.
+WITHOUT_OBS = {"include_all": True, "exclude_groups": [{"employee_ids": ["obs"]}], "deadline_days": 30}
+
+
+def save_observers(journey_id, observers):
+    revision = journeys.api_get_journey_observers(journey_id, "creator")["revision"]
+    return journeys.api_save_journey_observers(
+        journey_id, "creator", JourneyObserversRequest(revision=revision, observers=observers)
+    )
+
+
+def apply_observers(journey_id):
+    revision = journeys.api_get_journey_observers(journey_id, "creator")["revision"]
+    return journeys.api_apply_journey_observers(journey_id, "creator", revision)
 
 
 def report(journey_id, scope=None, **filters):
@@ -406,49 +421,148 @@ def observed_rows(employee_id):
 
 
 def test_journey_observer_sees_every_journey_course_for_the_people_they_watch(journey_db):
-    journey_id = make_journey(
-        "Foundation", SEQUENCE,
-        rule={"include_all": True, "exclude_groups": [], "deadline_days": 30},
-    )
-    # Observers are set before publishing, so "obs" is never enrolled in the journey.
-    journeys.api_save_journey_observers(
-        journey_id, "creator",
-        JourneyObserversRequest(observers=[{"observer_employee_id": "obs", "employee_ids": ["old"]}]),
-    )
+    journey_id = make_journey("Foundation", SEQUENCE, rule=WITHOUT_OBS)
+    save_observers(journey_id, [{"observer_employee_id": "obs", "employee_ids": ["old"]}])
     assert journeys.api_preview_journey(journey_id, "creator")["match_count"] == 2
-    assert report_roles(list_employees_by_id()["obs"]) == set()  # not live until published
+    # As for a course: Apply needs a published journey, and saved Observers wait for it.
+    with pytest.raises(DomainValidationError):
+        apply_observers(journey_id)
     journeys.api_publish_journey(journey_id, "creator")
     assert journey_row(journey_id, "obs") is None
     assert active_courses("obs") == []
+    assert report_roles(list_employees_by_id()["obs"]) == set()
+    assert observed_rows("obs") == []
+    applied = apply_observers(journey_id)
+    assert applied["observers"][0]["is_active"] is True
+    assert applied["observers"][0]["active"] == {"employee_ids": ["old"], "department_ids": []}
     assert report_roles(list_employees_by_id()["obs"]) == {"observer"}
     assert observed_rows("obs") == [("old", "c1")]
     complete("old", "c1")
     complete("new", "c1")
     # Each newly unlocked course shows up without any per-course Observer setup; "new" is not watched.
     assert observed_rows("obs") == [("old", "c1"), ("old", "c2")]
+    # Disabling suspends the Observers, as for a course: publishing again needs a new Apply.
     journeys.api_disable_journey(journey_id, "creator")
     assert observed_rows("obs") == []
     assert report_roles(list_employees_by_id()["obs"]) == set()
+    suspended = journeys.api_get_journey_observers(journey_id, "creator")["observers"][0]
+    assert suspended["is_active"] is False
+    assert suspended["pending"] == {"employee_ids": ["old"], "department_ids": []}
 
 
 def test_a_journey_learner_cannot_also_observe_it(journey_db):
     journey_id = make_journey("Foundation", SEQUENCE)
     journeys.api_publish_journey(journey_id, "creator")
     with pytest.raises(ConflictError):
-        journeys.api_save_journey_observers(
-            journey_id, "creator",
-            JourneyObserversRequest(observers=[{"observer_employee_id": "old", "employee_ids": ["new"]}]),
-        )
+        save_observers(journey_id, [{"observer_employee_id": "old", "employee_ids": ["new"]}])
     assert journeys.api_get_journey_observers(journey_id, "creator")["observers"] == []
 
 
-def test_journey_observers_are_hidden_when_the_feature_is_off(journey_db, monkeypatch):
+def test_an_observer_cannot_match_the_rule_even_before_publishing(journey_db):
     journey_id = make_journey("Foundation", SEQUENCE)
-    journeys.api_save_journey_observers(
-        journey_id, "creator",
-        JourneyObserversRequest(observers=[{"observer_employee_id": "obs", "department_ids": ["sales"]}]),
-    )
+    with pytest.raises(ConflictError, match="both an employee and an Observer"):
+        save_observers(journey_id, [{"observer_employee_id": "obs", "employee_ids": ["old"]}])
+    resave(journey_id, SEQUENCE, rule=WITHOUT_OBS)
+    save_observers(journey_id, [{"observer_employee_id": "obs", "employee_ids": ["old"]}])
+    # Widening the rule to take in the Observer is refused, as for a course.
+    with pytest.raises(ConflictError, match="both an employee and an Observer"):
+        resave(journey_id, SEQUENCE, rule={"include_all": True, "deadline_days": 30})
+    assert journeys.api_get_journey(journey_id, "creator")["rule"]["exclude_groups"]
+
+
+def test_saving_removes_access_at_once_but_adds_only_on_apply(journey_db):
+    journey_id = make_journey("Foundation", [("c1", "open")], rule=WITHOUT_OBS)
     journeys.api_publish_journey(journey_id, "creator")
+    save_observers(journey_id, [{"observer_employee_id": "obs", "employee_ids": ["old", "new"]}])
+    apply_observers(journey_id)
+    assert observed_rows("obs") == [("new", "c1"), ("old", "c1")]
+    saved = save_observers(
+        journey_id, [{"observer_employee_id": "obs", "employee_ids": ["old"], "department_ids": ["sales"]}]
+    )
+    # "new" is gone at once; the Sales department waits for Apply.
+    assert observed_rows("obs") == [("old", "c1")]
+    assert saved["observers"][0]["active"] == {"employee_ids": ["old"], "department_ids": []}
+    assert saved["observers"][0]["pending"] == {"employee_ids": ["old"], "department_ids": ["sales"]}
+    apply_observers(journey_id)
+    assert observed_rows("obs") == [("new", "c1"), ("old", "c1")]
+    # Removing the Observer takes effect without Apply.
+    save_observers(journey_id, [])
+    assert observed_rows("obs") == []
+    assert journeys.api_get_journey_observers(journey_id, "creator")["observers"] == []
+
+
+def test_an_older_revision_cannot_overwrite_observers(journey_db):
+    journey_id = make_journey("Foundation", SEQUENCE, rule=WITHOUT_OBS)
+    save_observers(journey_id, [{"observer_employee_id": "obs", "employee_ids": ["old"]}])
+    stale = JourneyObserversRequest(revision=0, observers=[])
+    with pytest.raises(ConflictError, match="changed"):
+        journeys.api_save_journey_observers(journey_id, "creator", stale)
+    with pytest.raises(ConflictError, match="changed"):
+        journeys.api_apply_journey_observers(journey_id, "creator", 0)
+    with pytest.raises(NotFoundError):
+        journeys.api_get_journey_observers(journey_id, "other")
+    with database.get_connection() as db:
+        actions = [r["action"] for r in db.execute(
+            "SELECT action FROM lms_report_access_audit WHERE course_id IS NULL"
+        ).fetchall()]
+    assert actions == ["journey_observers_save"]
+
+
+def test_observers_saved_before_apply_existed_stay_live_after_the_upgrade(journey_db):
+    journey_id = make_journey("Foundation", [("c1", "open")], rule=WITHOUT_OBS)
+    journeys.api_publish_journey(journey_id, "creator")
+    draft_id = make_journey("Draft", [("c2", "open")], rule=WITHOUT_OBS)
+    with database.get_connection() as db:
+        # The tables as they were: a selection was live as soon as its journey was published.
+        for table in ("learning_journey_observer_departments", "learning_journey_observer_employees",
+                      "learning_journey_observers", "learning_journey_observer_configs"):
+            db.execute(f"DROP TABLE {table}")
+        db.execute("""CREATE TABLE learning_journey_observers (journey_id TEXT NOT NULL,
+            observer_employee_id TEXT NOT NULL, identity_key TEXT NOT NULL,
+            granted_by_trainer_id TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (now()::text),
+            PRIMARY KEY (journey_id, observer_employee_id))""")
+        db.execute("""CREATE TABLE learning_journey_observer_employees (journey_id TEXT NOT NULL,
+            observer_employee_id TEXT NOT NULL, employee_id TEXT NOT NULL, identity_key TEXT NOT NULL,
+            PRIMARY KEY (journey_id, observer_employee_id, employee_id),
+            FOREIGN KEY (journey_id, observer_employee_id) REFERENCES learning_journey_observers ON DELETE CASCADE)""")
+        db.execute("""CREATE TABLE learning_journey_observer_departments (journey_id TEXT NOT NULL,
+            observer_employee_id TEXT NOT NULL, department_id TEXT NOT NULL,
+            PRIMARY KEY (journey_id, observer_employee_id, department_id),
+            FOREIGN KEY (journey_id, observer_employee_id) REFERENCES learning_journey_observers ON DELETE CASCADE)""")
+        for saved in (journey_id, draft_id):
+            db.execute(
+                "INSERT INTO learning_journey_observers VALUES (?, 'obs', 'directory:uuid-obs', 'creator')",
+                (saved,),
+            )
+            db.execute(
+                "INSERT INTO learning_journey_observer_employees VALUES (?, 'obs', 'old', 'directory:uuid-old')",
+                (saved,),
+            )
+            db.execute("INSERT INTO learning_journey_observer_departments VALUES (?, 'obs', 'sales')", (saved,))
+        create_journey_tables(db.cursor())
+        create_journey_tables(db.cursor())  # running it again changes nothing
+        db.commit()
+    [observer] = journeys.api_get_journey_observers(journey_id, "creator")["observers"]
+    both = {"employee_ids": ["old"], "department_ids": ["sales"]}
+    assert observer == {"observer_employee_id": "obs", "is_active": True, "active": both, "pending": both}
+    assert observed_rows("obs") == [("new", "c1"), ("old", "c1")]
+    # On a journey that was not published, they wait for Apply after publishing, as for a course.
+    [waiting] = journeys.api_get_journey_observers(draft_id, "creator")["observers"]
+    assert waiting["is_active"] is False and waiting["pending"] == both
+    journeys.api_publish_journey(draft_id, "creator")
+    assert ("old", "c2") not in observed_rows("obs")
+    apply_observers(draft_id)
+    assert ("old", "c2") in observed_rows("obs")
+    # The upgraded journey works as a new one: a save narrows access at once, adds on Apply.
+    save_observers(journey_id, [{"observer_employee_id": "obs", "employee_ids": ["new"]}])
+    assert [row for row in observed_rows("obs") if row[1] == "c1"] == []
+
+
+def test_journey_observers_are_hidden_when_the_feature_is_off(journey_db, monkeypatch):
+    journey_id = make_journey("Foundation", SEQUENCE, rule=WITHOUT_OBS)
+    save_observers(journey_id, [{"observer_employee_id": "obs", "department_ids": ["sales"]}])
+    journeys.api_publish_journey(journey_id, "creator")
+    apply_observers(journey_id)
     assert observed_rows("obs") == [("new", "c1"), ("old", "c1")]
     monkeypatch.setattr(settings, "learning_journeys_enabled", False)
     assert report_roles(list_employees_by_id()["obs"]) == set()
@@ -568,8 +682,11 @@ def test_preview_uses_the_unsaved_rule_and_observers(journey_db):
         observer_employee_ids=["old"],
     )
     preview = journeys.api_preview_journey(journey_id, "creator", draft)
-    assert preview["match_count"] == 1
-    assert [row["employee_id"] for row in preview["preview_employees"]] == ["new"]
+    # As for a course, an unsaved Observer who matches is counted and reported as a conflict.
+    assert preview["match_count"] == 2
+    assert [row["employee_id"] for row in preview["preview_employees"]] == ["new", "old"]
+    assert preview["blocked_employee_count"] == 1
+    assert preview["conflicting_observer_ids"] == ["old"]
 
 
 def test_duplicate_copies_courses_and_rule_but_not_people(journey_db):
@@ -812,12 +929,10 @@ def test_performance_report_shows_journey_progress_like_courses(journey_db):
 
 
 def test_journey_report_for_observers_and_department_heads(journey_db):
-    journey_id = make_journey("Foundation", SEQUENCE)
-    journeys.api_save_journey_observers(
-        journey_id, "creator",
-        JourneyObserversRequest(observers=[{"observer_employee_id": "obs", "employee_ids": ["old"]}]),
-    )
+    journey_id = make_journey("Foundation", SEQUENCE, rule=WITHOUT_OBS)
+    save_observers(journey_id, [{"observer_employee_id": "obs", "employee_ids": ["old"]}])
     journeys.api_publish_journey(journey_id, "creator")
+    apply_observers(journey_id)
     observed = EmployeePerformanceScope("obs", "directory:uuid-obs", "observed")
     [summary] = report_list(observed)
     assert summary["assigned"] == 1

@@ -7,6 +7,7 @@ from app.schemas.journey import (
     JourneyCreateRequest,
     JourneyDetailResponse,
     JourneyListResponse,
+    JourneyObserverApplyRequest,
     JourneyObserversRequest,
     JourneyPreviewRequest,
     JourneySaveRequest,
@@ -123,6 +124,18 @@ def save_journey_observers(
     authorization: str | None = Header(default=None),
 ):
     return journeys.api_save_journey_observers(journey_id, _trainer_id(request, authorization), payload)
+
+
+@router.post("/learning-journeys/{journey_id}/observers/apply", response_model=dict)
+def apply_journey_observers(
+    journey_id: str,
+    payload: JourneyObserverApplyRequest,
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    return journeys.api_apply_journey_observers(
+        journey_id, _trainer_id(request, authorization), payload.revision
+    )
 
 
 @router.get("/me/learning-journeys", response_model=LearnerJourneyListResponse)
