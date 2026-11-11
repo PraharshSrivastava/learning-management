@@ -63,6 +63,9 @@ It does not clear shared-origin cache storage or other apps' workers.
 
 Launch endpoints exchange the Hub launch token for an independently typed LMS session token.
 Session tokens cannot be used as launch tokens.
+Hub can launch the backend endpoint (`/lms/api/hub/launch/employee`, `/lms/trainer/api/hub/launch/trainer`) or the frontend URL (`/lms/`, `/lms/trainer/`, or a direct root).
+When the frontend URL carries `hub_launch_token`, the app removes the token from browser history before render.
+It then sends the token to the launch endpoint of the active mount, which sets the cookie and redirects back to the mount.
 Root mode keeps the cookie names `lms_trainer_hub` and `lms_employee_hub` (or the `HUB_*_COOKIE_NAME` values) with cookie path `/`.
 Shared mounts add a mount suffix to the name: `lms_employee_hub_lms` at `/lms/` and `lms_trainer_hub_lms_trainer` at `/lms/trainer/`.
 Browsers send a `Path=/` cookie to every path, so a distinct name keeps a root session out of a mount.

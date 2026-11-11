@@ -2,6 +2,7 @@ import '@lms/shared/theme.css'
 import { configureApi, runtimeUrls } from '@lms/shared/api/client'
 import { createQueryClient } from '@lms/shared/api/queryClient'
 import { removeLegacyServiceWorker } from '@lms/shared/app/legacyServiceWorker'
+import { consumeHubLaunchToken } from '@lms/shared/auth/hubLaunch'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
   createRootRoute,
@@ -23,6 +24,9 @@ configureApi({
   publicMount: __LMS_PUBLIC_MOUNT__,
   configuredApiBase: import.meta.env.VITE_API_BASE_URL,
 })
+
+// A Hub launch of the frontend URL leaves for the backend launch endpoint before render.
+const launching = consumeHubLaunchToken()
 
 const rootRoute = createRootRoute({ component: Outlet })
 const indexRoute = createRoute({
@@ -46,10 +50,12 @@ declare module '@tanstack/react-router' {
 
 const queryClient = createQueryClient()
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>,
-)
+if (!launching) {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+}
