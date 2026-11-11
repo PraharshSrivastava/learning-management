@@ -108,11 +108,11 @@ def narration_matches(audio: Path, script: str) -> bool:
         return False
 
 
-def atomic_json(path: Path, data: dict) -> None:
-    atomic_text(path, json.dumps(data, ensure_ascii=False, allow_nan=False))
+def atomic_json(path: Path, data: dict, *, served: bool = False) -> None:
+    atomic_text(path, json.dumps(data, ensure_ascii=False, allow_nan=False), served=served)
 
 
-def atomic_text(path: Path, text: str) -> None:
+def atomic_text(path: Path, text: str, *, served: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", newline="\n", dir=path.parent, delete=False
@@ -120,6 +120,9 @@ def atomic_text(path: Path, text: str) -> None:
         temporary = Path(stream.name)
         stream.write(text)
     try:
+        if served:
+            # Temporary files are owner-only, but nginx runs as another user and sends these.
+            os.chmod(temporary, 0o644)
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
@@ -753,7 +756,7 @@ def generate_module_captions(
         content = serialize_vtt(cues)
         fingerprint = hashlib.sha256(content.encode()).hexdigest()
         stat = video.stat()
-        atomic_text(video.with_suffix(".vtt"), content)
+        atomic_text(video.with_suffix(".vtt"), content, served=True)
         atomic_json(
             video.with_suffix(".captions.json"),
             {
@@ -769,6 +772,7 @@ def generate_module_captions(
                 "vtt_sha256": fingerprint,
                 "cue_count": len(cues),
             },
+            served=True,
         )
         return "generated"
     except (FileNotFoundError, KeyError, ValueError, TypeError) as error:
@@ -1014,7 +1018,7 @@ def generate_legacy_module_captions(
     content = serialize_vtt(cues)
     fingerprint = hashlib.sha256(content.encode()).hexdigest()
     stat = video.stat()
-    atomic_text(video.with_suffix(".vtt"), content)
+    atomic_text(video.with_suffix(".vtt"), content, served=True)
     atomic_json(
         video.with_suffix(".captions.json"),
         {
@@ -1030,6 +1034,7 @@ def generate_legacy_module_captions(
             "vtt_sha256": fingerprint,
             "cue_count": len(cues),
         },
+        served=True,
     )
     return "generated"
 

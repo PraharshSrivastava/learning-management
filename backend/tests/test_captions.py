@@ -1,3 +1,5 @@
+import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -115,6 +117,14 @@ def test_overlapping_cues_are_rejected():
         )
 
 
+def _assert_served_by_nginx(video):
+    """nginx runs as another user, so an owner-only sidecar is a 403 and CC stays disabled."""
+    if os.name == "nt":
+        return
+    for suffix in (".vtt", ".captions.json"):
+        assert stat.S_IMODE(video.with_suffix(suffix).stat().st_mode) == 0o644
+
+
 def test_module_assets_are_bound_to_video_and_idempotent(monkeypatch, tmp_path):
     import json
     import sys
@@ -148,6 +158,7 @@ def test_module_assets_are_bound_to_video_and_idempotent(monkeypatch, tmp_path):
     metadata = json.loads(video.with_suffix(".captions.json").read_text())
     assert metadata["video_sha256"] == captions.digest(video)
     assert metadata["vtt_sha256"] == captions.digest(video.with_suffix(".vtt"))
+    _assert_served_by_nginx(video)
     assert captions.generate_module_captions(video, slides) == "skipped_valid_captions"
     assert calls == ["Save."]
     audio.write_bytes(b"changed narration")
@@ -266,6 +277,7 @@ def test_legacy_video_is_captioned_from_its_own_soundtrack(monkeypatch, tmp_path
     calls = []
     _fake_alignment(monkeypatch, calls)
     assert captions.generate_legacy_module_captions(video, slides) == "generated"
+    _assert_served_by_nginx(video)
     assert calls == [2], "all slides of a module go to one aligner run"
     content = video.with_suffix(".vtt").read_text(encoding="utf-8")
     assert "00:00:00.100 --> 00:00:00.900\nSlide 1 speaks." in content
