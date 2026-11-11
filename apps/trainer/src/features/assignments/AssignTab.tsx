@@ -5,6 +5,7 @@ import { parseCourse, type Course } from '@lms/shared/models'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { Trainer } from '../../auth/trainer'
+import { setPendingLinkedReport } from '../../shell/linkedReport'
 import { useBlockingOverlay } from '../../shell/overlay'
 import { trainerKeys } from '../../shell/queryKeys'
 import { useTrainerSearch, useUpdateTrainerSearch } from '../../shell/search'
@@ -117,6 +118,10 @@ export function AssignTab({ request = fetchRequester }: { request?: Requester })
         workspace={workspace}
         request={request}
         onCourseChanged={onCourseChanged}
+        onViewEmails={(id) => {
+          setPendingLinkedReport({ courseId: id, status: null, view: 'emails' })
+          updateSearch({ tab: 'performance' })
+        }}
       />
     )
 

@@ -135,6 +135,7 @@ it('adds a Journeys tab with the course cards layout', async () => {
     'Courses',
     'Journeys',
     'Employees',
+    'Emails',
   ])
   // Journeys are worked out only once their tab opens.
   expect(requested('/performance/journeys')).toHaveLength(0)

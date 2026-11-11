@@ -10,6 +10,7 @@ import { NoAccess } from './AccessGuard'
 import { CoursesView } from './CourseBrowser'
 import { CourseDetailDialog } from './CourseDetailDialog'
 import { ReportProvider, useMainReport, useReport, type LinkedReportInput } from './context'
+import { EmailsView } from './EmailsView'
 import { EmployeeDrawer } from './EmployeeDrawer'
 import { EmployeesView } from './EmployeesView'
 import { FilterCard } from './FilterCard'
@@ -35,6 +36,8 @@ const TABS: { view: ReportTab; label: string }[] = [
   { view: 3, label: 'Journeys' },
   { view: 2, label: 'Employees' },
 ]
+const EMAILS_TAB: { view: ReportTab; label: string } = { view: 4, label: 'Emails' }
+const TRAINER_VIEWS = ['all_courses', 'my_courses']
 
 /** PerformanceReportPortal. A linked report opens the Employees tab with its course and status. */
 export function PerformanceReport({
@@ -52,7 +55,7 @@ export function PerformanceReport({
 }
 
 function Portal() {
-  const { state, dispatch } = useReport()
+  const { app, state, dispatch } = useReport()
   const report = useMainReport()
   const { exportAssignments, exportEmployees } = useCsvExport()
   const [assignmentId, setAssignmentId] = useState<string | null>(null)
@@ -65,6 +68,15 @@ function Portal() {
   useEffect(() => {
     if (journeysOff && state.view === 3) dispatch({ type: 'tab', view: 0 })
   }, [journeysOff, state.view, dispatch])
+  // Email status shows addresses and mail server details, so only trainers' own views get it.
+  const emailsAllowed = app === 'trainer' && TRAINER_VIEWS.includes(state.reportView)
+  useEffect(() => {
+    if (!emailsAllowed && state.view === 4) dispatch({ type: 'tab', view: 0 })
+  }, [emailsAllowed, state.view, dispatch])
+  const tabs = [
+    ...(journeysEnabled ? TABS : TABS.filter((tab) => tab.view !== 3)),
+    ...(emailsAllowed ? [EMAILS_TAB] : []),
+  ]
 
   return (
     <div className="min-h-full bg-[#f5f8fc] p-6">
@@ -87,7 +99,7 @@ function Portal() {
           >
             Refresh
           </Button>
-          {(state.view !== 2 || !state.employeeSummary) && (
+          {state.view !== 4 && (state.view !== 2 || !state.employeeSummary) && (
             <Button
               variant="secondary"
               icon="download_outlined"
@@ -103,7 +115,7 @@ function Portal() {
       <div className="h-4" />
       <ViewTabs
         selected={state.view}
-        tabs={journeysEnabled ? TABS : TABS.filter((tab) => tab.view !== 3)}
+        tabs={tabs}
         onSelect={(view) => dispatch({ type: 'tab', view })}
       />
       <div className="h-4" />
@@ -144,6 +156,7 @@ function Portal() {
           onExportEmployees={exportEmployees}
         />
       )}
+      {state.view === 4 && emailsAllowed && <EmailsView />}
       <AssignmentDetailDialog assignmentId={assignmentId} onClose={() => setAssignmentId(null)} />
       <CourseDetailDialog courseId={courseId} onClose={() => setCourseId(null)} />
       <JourneyDetailDialog
