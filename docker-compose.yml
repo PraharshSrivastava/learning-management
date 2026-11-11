@@ -79,6 +79,7 @@ services:
       VIDEO_SERVICE_BASE_URL: ${VIDEO_SERVICE_BASE_URL:-}
       VIDEO_SERVICE_HMAC_SECRET: ${VIDEO_SERVICE_HMAC_SECRET:-}
       VIDEO_SERVICE_MAX_CONCURRENCY: ${VIDEO_SERVICE_MAX_CONCURRENCY:-2}
+      SLIDE_RENDERER_URL: ${SLIDE_RENDERER_URL:-http://slide-renderer:8080}
       HUB_LAUNCH_SECRET: ${HUB_LAUNCH_SECRET:?HUB_LAUNCH_SECRET is required}
       HUB_TRAINER_APP_KEY: ${HUB_TRAINER_APP_KEY:-lms-trainer}
       HUB_EMPLOYEE_APP_KEY: ${HUB_EMPLOYEE_APP_KEY:-lms-employee}
@@ -145,6 +146,33 @@ services:
           "python",
           "-c",
           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      slide-renderer:
+        condition: service_healthy
+
+  # Headless Chromium that screenshots slides for standard video generation.
+  # Not published on the host; only the backend calls it.
+  slide-renderer:
+    build:
+      context: ./backend/slide_renderer
+    restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SLIDE_RENDERER_MAX_CONCURRENCY: ${SLIDE_RENDERER_MAX_CONCURRENCY:-2}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)",
         ]
       interval: 30s
       timeout: 10s

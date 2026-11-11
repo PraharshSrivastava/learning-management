@@ -74,7 +74,6 @@ FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     IMAGEIO_FFMPEG_EXE=/opt/ffmpeg/bin/ffmpeg
 
 ARG PIP_INDEX_URL=https://pypi.org/simple
@@ -104,8 +103,7 @@ COPY requirements.txt requirements.lock ./
 RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes -r requirements.lock \
     && (cd /tmp/lxml-wheels && sha256sum -c SHA256SUMS) \
     && python -m pip install --no-index --no-deps --force-reinstall /tmp/lxml-wheels/lxml-*.whl \
-    && rm -rf /tmp/lxml-wheels \
-    && python -m playwright install --with-deps chromium
+    && rm -rf /tmp/lxml-wheels
 
 # Validate the installed dependency set, then remove build-only pip and its vendored libraries.
 # Use the verified upstream FFmpeg build; remove the older wheel-bundled executable.
@@ -124,7 +122,7 @@ RUN apt-get update \
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
     && mkdir -p /app/storage \
-    && chown -R app:app /app /ms-playwright
+    && chown -R app:app /app
 
 EXPOSE 8000
 
@@ -239,7 +237,6 @@ COPY --from=util-linux-build /out/*.deb /tmp/util-linux-security/
 RUN apt-get install -y --no-install-recommends /tmp/util-linux-security/*.deb \
     && ldconfig \
     && rm -rf /tmp/util-linux-security \
-    && apt-get purge -y xvfb xserver-common \
     && apt-get check \
     && mount --version && nsenter --version
 USER 10001:10001

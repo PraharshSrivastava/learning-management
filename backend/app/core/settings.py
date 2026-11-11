@@ -136,6 +136,10 @@ class Settings(BaseModel):
     video_service_module_timeout_seconds: float = Field(default=3600, gt=0)
     video_service_request_timeout_seconds: float = Field(default=60, gt=0)
     video_service_max_remote_retries: int = Field(default=2, ge=0, le=5)
+    # Standard generation screenshots slides with the slide renderer service
+    # (backend/slide_renderer), so the API image carries no browser.
+    slide_renderer_url: str | None = None
+    slide_renderer_timeout_seconds: float = Field(default=600, gt=0)
     hub_launch_secret: str | None = None
     hub_trainer_app_key: str = "lms-trainer"
     hub_employee_app_key: str = "lms-employee"
@@ -215,9 +219,9 @@ class Settings(BaseModel):
             raise ValueError("CAPTION_ALIGN_COMMAND must be a JSON list of nonempty command arguments")
         return tuple(value)
 
-    @field_validator("video_service_base_url")
+    @field_validator("video_service_base_url", "slide_renderer_url")
     @classmethod
-    def validate_video_service_base_url(cls, value: str | None) -> str | None:
+    def validate_service_origin(cls, value: str | None, info) -> str | None:
         if value is None:
             return None
         from urllib.parse import urlsplit
@@ -233,7 +237,7 @@ class Settings(BaseModel):
             or parsed.query
         ):
             raise ValueError(
-                "VIDEO_SERVICE_BASE_URL must be an HTTP(S) origin without path or credentials"
+                f"{info.field_name.upper()} must be an HTTP(S) origin without path or credentials"
             )
         return value
 
@@ -346,10 +350,11 @@ class Settings(BaseModel):
         if not self.llm_base_url:
             missing.append("LLM_BASE_URL")
         # Any course can use standard generation while trainers can choose the engine.
-        if (
-            self.video_generation_mode == "local" or self.video_engine_toggle_enabled
-        ) and not self.tts_endpoint:
-            missing.append("TTS_ENDPOINT")
+        if self.video_generation_mode == "local" or self.video_engine_toggle_enabled:
+            if not self.tts_endpoint:
+                missing.append("TTS_ENDPOINT")
+            if not self.slide_renderer_url:
+                missing.append("SLIDE_RENDERER_URL")
         if not self.hub_launch_dev_mode:
             if not self.hub_launch_secret:
                 missing.append("HUB_LAUNCH_SECRET")
@@ -489,6 +494,10 @@ class Settings(BaseModel):
                 ),
                 "video_service_max_remote_retries": values.get(
                     "VIDEO_SERVICE_MAX_REMOTE_RETRIES", "2"
+                ),
+                "slide_renderer_url": values.get("SLIDE_RENDERER_URL") or None,
+                "slide_renderer_timeout_seconds": values.get(
+                    "SLIDE_RENDERER_TIMEOUT_SECONDS", "600"
                 ),
                 "hub_launch_secret": values.get("HUB_LAUNCH_SECRET") or None,
                 "hub_trainer_app_key": values.get("HUB_TRAINER_APP_KEY", "lms-trainer"),

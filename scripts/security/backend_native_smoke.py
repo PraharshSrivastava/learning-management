@@ -14,7 +14,6 @@ import pdfplumber
 import requests
 import urllib3
 from PIL import Image
-from playwright.sync_api import sync_playwright
 
 import importlib.util
 assert importlib.util.find_spec('pip') is None, 'Build-only pip remains installed'
@@ -92,17 +91,12 @@ with tempfile.TemporaryDirectory(prefix='lms-sbom-smoke-') as temp:
         assert 'LMS dependency smoke test' in document.pages[0].extract_text()
     print('PASS: PDF generation and text extraction')
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.set_content('<html><body><h1>LMS slide test</h1></body></html>')
-        screenshot = root / 'slide.png'
-        page.screenshot(path=str(screenshot))
-        print('Chromium:', browser.version)
-        browser.close()
+    # Slide screenshots come from the slide renderer service; this image has no browser.
+    screenshot = root / 'slide.png'
+    Image.new('RGB', (1280, 720), 'white').save(screenshot)
     with Image.open(screenshot) as image:
         assert image.width > 0 and image.height > 0
-    print('PASS: headless browser slide rendering')
+    print('PASS: PNG slide frame generation')
 
     audio = root / 'audio.wav'
     with wave.open(str(audio), 'wb') as output:
@@ -165,19 +159,14 @@ for module in pathlib.Path('/usr/local/lib/python3.12/lib-dynload').glob('*.so')
     linked = subprocess.run(['ldd', str(module)], capture_output=True, text=True, check=False)
     assert 'not found' not in linked.stdout + linked.stderr, (str(module), linked.stdout)
 print('PASS: every CPython native extension has resolved runtime libraries')
-from app.generation.video import capture_slide_frames, encode_slide_clip, concatenate_clips
-from app.generation import video as video_module
-original_inject_assets = video_module._inject_local_slide_assets
-def inject_assets_with_test_fonts(page):
-    # The container is offline: stub only the external font stylesheet, not LMS assets.
-    page.route('https://fonts.googleapis.com/**', lambda route: route.fulfill(status=200, content_type='text/css', body='/* synthetic test font response */'))
-    original_inject_assets(page)
-video_module._inject_local_slide_assets = inject_assets_with_test_fonts
+from app.generation.video import encode_slide_clip, concatenate_clips
 with tempfile.TemporaryDirectory(prefix='lms-real-media-') as tmp:
     root = pathlib.Path(tmp)
-    html = root / 'slides.html'
-    html.write_text('<html><body><div class="slide" id="slide">Slide one</div><script>window.goToSlide = i => document.getElementById("slide").textContent = "Synthetic slide " + i;</script></body></html>')
-    frames = capture_slide_frames(str(html), slide_count=2, output_dir=str(root))
+    frames = []
+    for i in range(2):
+        frame = root / f'slide_{i}.png'
+        Image.new('RGB', (1280, 720), 'white').save(frame)
+        frames.append(str(frame))
     audio = root / 'narration.wav'
     with wave.open(str(audio), 'wb') as output:
         output.setnchannels(1); output.setsampwidth(2); output.setframerate(16000); output.writeframes(b'\0\0' * 16000)
@@ -191,5 +180,5 @@ with tempfile.TemporaryDirectory(prefix='lms-real-media-') as tmp:
     concatenate_clips(clips, str(combined), working_dir=str(root))
     playlist = generate_hls_playlist(combined)
     assert playlist.is_file()
-    print('PASS: actual LMS slide capture, narration encoding, clip concatenation and HLS')
+    print('PASS: actual LMS narration encoding, clip concatenation and HLS')
 print('All candidate dependency smoke checks passed.')

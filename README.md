@@ -54,7 +54,8 @@ flowchart LR
 
     Services --> LLM[LLM Provider]
     Services --> TTS[TTS Provider]
-    Services --> FFmpeg[Playwright + FFmpeg]
+    Services --> FFmpeg[FFmpeg]
+    Services --> SlideRenderer[Slide renderer: headless Chromium]
     Services --> Directory[Hub Directory Export API]
 ```
 
@@ -285,7 +286,7 @@ flowchart TD
 
     G --> H[Generate narration scripts]
     H --> I[Generate TTS audio]
-    I --> J[Render module videos with Playwright screenshots and FFmpeg]
+    I --> J[Render module videos with slide renderer screenshots and FFmpeg]
     J --> K[Validate generated outputs]
     K --> L[Mark course ready]
     L --> M[Trainer publishes assignment]
@@ -481,7 +482,15 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python -m playwright install chromium
+```
+
+Standard video generation needs the slide renderer service
+(`backend/slide_renderer`). For local work, run it on port 8090 and set
+`SLIDE_RENDERER_URL=http://127.0.0.1:8090` in `backend/.env`:
+
+```bash
+docker build -t lms-slide-renderer backend/slide_renderer
+docker run --rm -p 127.0.0.1:8090:8080 lms-slide-renderer
 ```
 
 Important backend paths:
@@ -512,6 +521,7 @@ The root Compose stack is the deployment shape for the current app:
 
 ```text
 backend            FastAPI API and generation pipeline
+slide-renderer     headless Chromium that screenshots slides for module videos
 frontend           trainer/admin React web app (apps/trainer)
 employee_frontend  employee React web app (apps/employee)
 ```
@@ -900,7 +910,7 @@ Course generation is checkpointed and resumable. The main stages are:
 3. Compile slide HTML.
 4. Generate narration scripts.
 5. Synthesize slide audio with TTS.
-6. Render module videos with Playwright screenshots and FFmpeg.
+6. Render module videos with slide renderer screenshots and FFmpeg.
 7. Publish/sync completed course state.
 
 Within a course, several stages use controlled parallelism:
