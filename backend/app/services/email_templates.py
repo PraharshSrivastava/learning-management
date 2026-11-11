@@ -164,12 +164,15 @@ def _html_document(title: str, paragraphs: list[str], details: list[tuple[str, o
         label = html.escape(link_label)
         # Classic Outlook renders with Word, which ignores inline-block, margins and
         # border-radius; it gets a VML button and every other client the padded link.
+        # The VML shape cannot size itself to its text, so its width comes from the label
+        # (about 10 px per character of 15 px bold text, plus side padding), never wrapping.
+        vml_width = max(150, 10 * len(link_label) + 48)
         link_html = (
             "<table role='presentation' border='0' cellspacing='0' cellpadding='0'><tr><td style='height:24px;line-height:24px;font-size:1px'>&nbsp;</td></tr></table>"
             "<!--[if mso]>"
             f"<v:roundrect xmlns:v='urn:schemas-microsoft-com:vml' xmlns:w='urn:schemas-microsoft-com:office:word' href='{href}' "
-            "style='height:44px;v-text-anchor:middle;width:150px' arcsize='10%' stroke='f' fillcolor='#173b8f'>"
-            f"<w:anchorlock/><center style='color:#ffffff;font-family:{font};font-size:15px;font-weight:bold'>{label}</center>"
+            f"style='height:44px;v-text-anchor:middle;width:{vml_width}px' arcsize='10%' stroke='f' fillcolor='#173b8f'>"
+            f"<w:anchorlock/><center style='color:#ffffff;font-family:{font};font-size:15px;font-weight:bold;white-space:nowrap'>{label}</center>"
             "</v:roundrect><![endif]-->"
             "<!--[if !mso]><!-->"
             "<table role='presentation' border='0' cellspacing='0' cellpadding='0'><tr>"
