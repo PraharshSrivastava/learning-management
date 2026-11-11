@@ -34,6 +34,9 @@ TABLES = (
     "lms_schema_migrations",
     "learning_events",
     "module_progress",
+    "email_worker_status",
+    "email_notification_skips",
+    "email_delivery_attempts",
     "email_notification_items",
     "email_notifications",
     "course_generation_status",
@@ -431,6 +434,53 @@ def _create_tables(cursor) -> None:
         )
         """
     )
+    for column in ("cancel_reason", "resent_by", "resent_at"):
+        cursor.execute(f"ALTER TABLE email_notifications ADD COLUMN IF NOT EXISTS {column} TEXT")
+    # One row per real attempt to hand an email over. Written as 'started' before the mail
+    # server is contacted, so a crash leaves evidence that the outcome is unknown.
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS email_delivery_attempts (
+            attempt_id TEXT PRIMARY KEY,
+            notification_id TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            delivery_mode TEXT NOT NULL,
+            recipient_email TEXT NOT NULL,
+            result TEXT NOT NULL DEFAULT 'started',
+            smtp_code INTEGER,
+            smtp_response TEXT,
+            CHECK (result IN ('started', 'accepted', 'logged_only', 'rejected', 'error', 'abandoned')),
+            FOREIGN KEY (notification_id) REFERENCES email_notifications(notification_id) ON DELETE CASCADE
+        )
+        """
+    )
+    # Why no email was created, recorded at that moment rather than inferred later.
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS email_notification_skips (
+            assignment_id TEXT NOT NULL,
+            notification_lifecycle INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            recipient_role TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (assignment_id, notification_lifecycle, event_type, recipient_role),
+            CHECK (reason IN ('missing_email', 'not_allowlisted', 'delivery_disabled', 'journey_only')),
+            FOREIGN KEY (assignment_id) REFERENCES course_assignments(assignment_id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS email_worker_status (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            last_cycle_started_at TEXT NOT NULL,
+            last_cycle_finished_at TEXT NOT NULL,
+            last_cycle_ok BOOLEAN NOT NULL
+        )
+        """
+    )
     # Databases created before journey completion emails have the older list of event types.
     cursor.execute(
         """
@@ -557,6 +607,8 @@ def _create_indexes(cursor) -> None:
         "ON email_notifications(assignment_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_email_notifications_digest_key "
         "ON email_notifications(digest_key) WHERE digest_key IS NOT NULL",
+        "CREATE INDEX IF NOT EXISTS idx_email_delivery_attempts_notification "
+        "ON email_delivery_attempts(notification_id, started_at)",
         "CREATE INDEX IF NOT EXISTS idx_email_notification_items_assignment "
         "ON email_notification_items(assignment_id)",
         "CREATE INDEX IF NOT EXISTS idx_module_progress_assignment ON module_progress(assignment_id)",

@@ -47,6 +47,8 @@ DIGEST_RECIPIENT_ROLES = {
     "completed": {"hod", "trainer"},
     "overdue": {"hod", "trainer"},
 }
+# Events whose "no email was created" reasons feed the Email status report.
+SKIP_TRACKED_EVENTS = {"assigned"}
 
 
 def _now() -> datetime:
@@ -276,7 +278,10 @@ def _journey_context(connection, context: dict) -> dict:
     return dict(row) if row else {}
 
 
-def _recipient_rows(context: dict, event_type: str) -> list[dict]:
+def _recipient_rows(
+    context: dict, event_type: str, skipped: list[tuple[str, str]] | None = None
+) -> list[dict]:
+    """Who gets this email. Anyone left out is added to `skipped` as (role, reason)."""
     recipients = [
         {
             "role": "employee",
@@ -305,6 +310,8 @@ def _recipient_rows(context: dict, event_type: str) -> list[dict]:
                 context.get("assignment_id"),
                 recipient["role"],
             )
+            if skipped is not None:
+                skipped.append((recipient["role"], "missing_email"))
             continue
         if not _recipient_allowed(email):
             logger.info(
@@ -312,6 +319,8 @@ def _recipient_rows(context: dict, event_type: str) -> list[dict]:
                 context.get("assignment_id"),
                 recipient["role"],
             )
+            if skipped is not None:
+                skipped.append((recipient["role"], "not_allowlisted"))
             continue
         recipient["email"] = email
         resolved.append(recipient)
@@ -329,7 +338,9 @@ def _event_is_current(
     lifecycle: int,
     occurrence_key: str = "once",
 ) -> bool:
-    if int(context.get("notification_lifecycle") or 1) != lifecycle:
+    # An assignment email still applies after a deadline change: it is rebuilt with the new
+    # deadline when sent, and otherwise the employee would never hear about the course.
+    if event_type != "assigned" and int(context.get("notification_lifecycle") or 1) != lifecycle:
         return False
     if context.get("journey_only"):
         return False
@@ -375,6 +386,29 @@ def _event_is_current(
     return False
 
 
+def _record_skip(
+    connection,
+    assignment_id: str,
+    lifecycle: int,
+    event_type: str,
+    role: str,
+    reason: str,
+) -> None:
+    """Remember why an email was not created, for the Email status report."""
+    if event_type not in SKIP_TRACKED_EVENTS or role != "employee":
+        return
+    connection.execute(
+        """
+        INSERT INTO email_notification_skips (
+            assignment_id, notification_lifecycle, event_type, recipient_role, reason, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (assignment_id, notification_lifecycle, event_type, recipient_role)
+        DO NOTHING
+        """,
+        (assignment_id, lifecycle, event_type, role, reason, _now().isoformat()),
+    )
+
+
 def enqueue_assignment_notifications(
     assignment_id: str | None,
     event_type: str,
@@ -383,11 +417,10 @@ def enqueue_assignment_notifications(
     connection=None,
 ) -> int:
     """Queue event emails for learner, HOD/superior, and trainer."""
-    if (
-        not assignment_id
-        or event_type not in COURSE_EVENTS
-        or settings.email_delivery_mode == "disabled"
-    ):
+    if not assignment_id or event_type not in COURSE_EVENTS:
+        return 0
+    delivery_disabled = settings.email_delivery_mode == "disabled"
+    if delivery_disabled and event_type not in SKIP_TRACKED_EVENTS:
         return 0
     now = _now().isoformat()
     created = 0
@@ -397,6 +430,18 @@ def enqueue_assignment_notifications(
         if not context:
             return 0
         lifecycle = int(context.get("notification_lifecycle") or 1)
+        if delivery_disabled or context.get("journey_only"):
+            _record_skip(
+                active_connection,
+                assignment_id,
+                lifecycle,
+                event_type,
+                "employee",
+                "delivery_disabled" if delivery_disabled else "journey_only",
+            )
+            if connection is None:
+                active_connection.commit()
+            return 0
         if occurrence_key is None:
             deadline = _parse_datetime(context.get("deadline"))
             if event_type == "overdue" and deadline:
@@ -409,7 +454,11 @@ def enqueue_assignment_notifications(
             active_connection, context, lifecycle, occurrence_key
         ):
             return 0
-        for recipient in _recipient_rows(context, event_type):
+        skipped: list[tuple[str, str]] = []
+        recipients = _recipient_rows(context, event_type, skipped)
+        for role, reason in skipped:
+            _record_skip(active_connection, assignment_id, lifecycle, event_type, role, reason)
+        for recipient in recipients:
             subject, body_text, body_html = _message_for(context, event_type, recipient["role"])
             row = active_connection.execute(
                 """
@@ -868,7 +917,7 @@ def cancel_assignment_notifications(
         row = active_connection.execute(
             f"""
             UPDATE email_notifications
-            SET status = 'cancelled', updated_at = ?
+            SET status = 'cancelled', cancel_reason = 'assignment_changed', updated_at = ?
             WHERE assignment_id = ?
               AND event_type IN ({placeholders})
               AND status IN ('pending', 'failed')
@@ -908,7 +957,7 @@ def migrate_pending_digest_notifications() -> int:
         connection.execute(
             """
             UPDATE email_notifications
-            SET status = 'cancelled', updated_at = ?
+            SET status = 'cancelled', cancel_reason = 'moved_to_digest', updated_at = ?
             WHERE message_kind = 'individual'
               AND recipient_role IN ('hod', 'trainer')
               AND event_type IN ('assigned', 'due_soon', 'completed', 'overdue')
@@ -1097,13 +1146,101 @@ def _send_smtp(notification: dict) -> None:
         client = smtplib.SMTP(
             settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds
         )
-    with client as smtp:
-        if settings.smtp_use_starttls and not settings.smtp_use_ssl:
-            smtp.starttls(context=tls_context)
-            smtp.ehlo()
-        if settings.smtp_username and settings.smtp_password:
-            smtp.login(settings.smtp_username, settings.smtp_password)
-        smtp.send_message(message, from_addr=from_email, to_addrs=[recipient_email])
+    accepted = False
+    try:
+        with client as smtp:
+            if settings.smtp_use_starttls and not settings.smtp_use_ssl:
+                smtp.starttls(context=tls_context)
+                smtp.ehlo()
+            if settings.smtp_username and settings.smtp_password:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+            smtp.send_message(message, from_addr=from_email, to_addrs=[recipient_email])
+            accepted = True
+    except (smtplib.SMTPException, OSError) as exc:
+        if not accepted:
+            raise
+        # The server already has the email. A bad hang-up must not count as a failure,
+        # or the retry would send a duplicate.
+        logger.warning(
+            "course_email_close_failed notification_id=%s error=%s",
+            notification["notification_id"],
+            exc,
+        )
+
+
+def _smtp_failure(error: Exception) -> tuple[str, int | None, str]:
+    """(result, SMTP code, reply text) for a failed attempt."""
+    code: int | None = None
+    response: object = str(error)
+    if isinstance(error, smtplib.SMTPRecipientsRefused) and error.recipients:
+        code, response = next(iter(error.recipients.values()))
+    elif isinstance(error, smtplib.SMTPResponseException):
+        code, response = error.smtp_code, error.smtp_error
+    if isinstance(response, bytes):
+        response = response.decode("utf-8", "replace")
+    return ("rejected" if code else "error"), code, str(response)[:500]
+
+
+def _start_attempt(notification: dict) -> str:
+    """Commit a 'started' attempt before any contact with the mail server."""
+    attempt_id = str(uuid.uuid4())
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO email_delivery_attempts (
+                attempt_id, notification_id, started_at, delivery_mode, recipient_email
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                attempt_id,
+                notification["notification_id"],
+                _now().isoformat(),
+                settings.email_delivery_mode,
+                notification["recipient_email"],
+            ),
+        )
+        connection.commit()
+    return attempt_id
+
+
+def _finish_attempt(
+    attempt_id: str, result: str, smtp_code: int | None = None, smtp_response: str | None = None
+) -> None:
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE email_delivery_attempts
+            SET result = ?, finished_at = ?, smtp_code = ?, smtp_response = ?
+            WHERE attempt_id = ?
+            """,
+            (result, _now().isoformat(), smtp_code, smtp_response, attempt_id),
+        )
+        connection.commit()
+
+
+def _deliver(notification: dict) -> None:
+    """Hand one email over, keeping a record of what really happened."""
+    attempt_id = _start_attempt(notification)
+    try:
+        _send_notification(notification)
+    except Exception as exc:
+        try:
+            _finish_attempt(attempt_id, *_smtp_failure(exc))
+        except Exception:
+            logger.exception(
+                "course_email_failure_not_recorded notification_id=%s",
+                notification["notification_id"],
+            )
+        raise
+    result = "logged_only" if settings.email_delivery_mode == "log" else "accepted"
+    try:
+        _finish_attempt(attempt_id, result)
+    except Exception:
+        # Left as 'started' on purpose: the report then says the outcome is unknown.
+        logger.exception(
+            "course_email_accepted_not_recorded notification_id=%s",
+            notification["notification_id"],
+        )
 
 
 def _send_notification(notification: dict) -> None:
@@ -1140,6 +1277,16 @@ def _claim_pending_notifications(limit: int) -> list[dict]:
                   )
                   AND next_attempt_at <= ?
                   AND attempts < ?
+                  -- The mail server may already have this one, and a trainer can resend it
+                  -- from Email status. Other emails have no resend, so they retry as before.
+                  AND NOT (
+                      event_type = 'assigned' AND recipient_role = 'employee'
+                      AND EXISTS (
+                          SELECT 1 FROM email_delivery_attempts unfinished
+                          WHERE unfinished.notification_id = email_notifications.notification_id
+                            AND unfinished.result = 'started'
+                      )
+                  )
                 ORDER BY next_attempt_at, created_at
                 LIMIT ?
                 FOR UPDATE SKIP LOCKED
@@ -1204,20 +1351,54 @@ def _mark_failed(notification: dict, error: Exception) -> None:
         connection.commit()
 
 
-def _cancel_stale(notification_id: str) -> None:
+def _cancel_stale(notification_id: str, reason: str) -> None:
     now = _now().isoformat()
     with get_connection() as connection:
         connection.execute(
             """
             UPDATE email_notifications
             SET status = 'cancelled',
+                cancel_reason = ?,
                 locked_at = NULL,
                 updated_at = ?
             WHERE notification_id = ?
             """,
-            (now, notification_id),
+            (reason, now, notification_id),
         )
         connection.commit()
+
+
+def _record_sent(notification: dict) -> None:
+    """Mark an accepted email sent. A database error must not abort the rest of the batch."""
+    try:
+        _mark_sent(notification["notification_id"])
+    except Exception:
+        logger.exception(
+            "course_email_accepted_not_recorded notification_id=%s",
+            notification["notification_id"],
+        )
+
+
+def _stale_reason(context: dict | None, notification: dict, within_overdue_cap: bool) -> str:
+    """Why a queued course email no longer applies."""
+    if not context:
+        return "assignment_removed"
+    if context.get("journey_only"):
+        return "journey_course"
+    if context.get("revoked_at"):
+        return "assignment_withdrawn"
+    if context.get("course_status") not in {None, "published"} or (
+        context.get("assignment_rule_active") is False
+    ):
+        return "course_unavailable"
+    if not within_overdue_cap:
+        return "overdue_limit"
+    if notification["event_type"] == "assigned":
+        if context.get("assignment_status") == "completed":
+            return "already_completed"
+        if context.get("assignment_status") == "overdue":
+            return "already_overdue"
+    return "assignment_changed"
 
 
 def _digest_contexts(connection, notification: dict) -> list[dict]:
@@ -1345,7 +1526,7 @@ def _send_journey_email(notification: dict) -> int:
             event_type,
             notification["recipient_email"],
         )
-        _cancel_stale(notification["notification_id"])
+        _cancel_stale(notification["notification_id"], "not_applicable")
         return 0
     subject, body_text, body_html = _render_journey_email(context, event_type)
     notification.update(subject=_email_subject(subject), body_text=body_text, body_html=body_html)
@@ -1354,7 +1535,7 @@ def _send_journey_email(notification: dict) -> int:
             notification["attachments"] = [
                 learner_certificate(context["employee_id"], context["journey_id"])
             ]
-        _send_notification(notification)
+        _deliver(notification)
     except Exception as exc:
         logger.warning(
             "course_email_send_failed notification_id=%s event=%s to=%s error=%s",
@@ -1365,7 +1546,7 @@ def _send_journey_email(notification: dict) -> int:
         )
         _mark_failed(notification, exc)
         return 0
-    _mark_sent(notification["notification_id"])
+    _record_sent(notification)
     logger.info(
         "course_email_sent notification_id=%s event=%s role=employee to=%s",
         notification["notification_id"],
@@ -1373,6 +1554,20 @@ def _send_journey_email(notification: dict) -> int:
         notification["recipient_email"],
     )
     return 1
+
+
+def _adopt_current_lifecycle(notification: dict, context: dict) -> None:
+    """An assignment email sent after a deadline change describes the new deadline."""
+    lifecycle = int(context.get("notification_lifecycle") or 1)
+    if int(notification["notification_lifecycle"]) == lifecycle:
+        return
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE email_notifications SET notification_lifecycle = ? WHERE notification_id = ?",
+            (lifecycle, notification["notification_id"]),
+        )
+        connection.commit()
+    notification["notification_lifecycle"] = lifecycle
 
 
 def process_pending_notifications(limit: int | None = None) -> int:
@@ -1387,7 +1582,7 @@ def process_pending_notifications(limit: int | None = None) -> int:
                 notification["recipient_role"],
                 notification["recipient_email"],
             )
-            _cancel_stale(notification["notification_id"])
+            _cancel_stale(notification["notification_id"], "not_allowlisted")
             continue
         notification["subject"] = _email_subject(notification["subject"])
         if notification.get("message_kind") == "digest":
@@ -1401,7 +1596,7 @@ def process_pending_notifications(limit: int | None = None) -> int:
                     notification["event_type"],
                     notification["recipient_role"],
                 )
-                _cancel_stale(notification["notification_id"])
+                _cancel_stale(notification["notification_id"], "not_applicable")
                 continue
             subject, body_text, body_html = render_digest(
                 notification["event_type"],
@@ -1416,7 +1611,7 @@ def process_pending_notifications(limit: int | None = None) -> int:
                 body_html=body_html,
             )
             try:
-                _send_notification(notification)
+                _deliver(notification)
             except Exception as exc:
                 logger.warning(
                     "course_email_send_failed notification_id=%s event=%s role=%s to=%s error=%s",
@@ -1428,7 +1623,7 @@ def process_pending_notifications(limit: int | None = None) -> int:
                 )
                 _mark_failed(notification, exc)
                 continue
-            _mark_sent(notification["notification_id"])
+            _record_sent(notification)
             logger.info(
                 "course_email_sent notification_id=%s event=%s role=%s to=%s items=%s",
                 notification["notification_id"],
@@ -1473,15 +1668,20 @@ def process_pending_notifications(limit: int | None = None) -> int:
                 notification["recipient_role"],
                 notification["recipient_email"],
             )
-            _cancel_stale(notification["notification_id"])
+            _cancel_stale(
+                notification["notification_id"],
+                _stale_reason(context, notification, within_overdue_cap),
+            )
             continue
         # Refresh queued messages after upgrades and show current assignment details.
         subject, body_text, body_html = _message_for(
             context, notification["event_type"], notification["recipient_role"]
         )
         notification.update(subject=subject, body_text=body_text, body_html=body_html)
+        if notification["event_type"] == "assigned":
+            _adopt_current_lifecycle(notification, context)
         try:
-            _send_notification(notification)
+            _deliver(notification)
         except Exception as exc:
             logger.warning(
                 "course_email_send_failed notification_id=%s event=%s role=%s to=%s error=%s",
@@ -1493,7 +1693,7 @@ def process_pending_notifications(limit: int | None = None) -> int:
             )
             _mark_failed(notification, exc)
             continue
-        _mark_sent(notification["notification_id"])
+        _record_sent(notification)
         logger.info(
             "course_email_sent notification_id=%s event=%s role=%s to=%s",
             notification["notification_id"],
@@ -1505,20 +1705,47 @@ def process_pending_notifications(limit: int | None = None) -> int:
     return processed
 
 
+def _record_worker_cycle(started_at: str, ok: bool) -> None:
+    """Heartbeat for the Email status report. Never lets reporting break the worker."""
+    try:
+        with get_connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO email_worker_status (
+                    id, last_cycle_started_at, last_cycle_finished_at, last_cycle_ok
+                ) VALUES (1, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE
+                SET last_cycle_started_at = excluded.last_cycle_started_at,
+                    last_cycle_finished_at = excluded.last_cycle_finished_at,
+                    last_cycle_ok = excluded.last_cycle_ok
+                """,
+                (started_at, _now().isoformat(), ok),
+            )
+            connection.commit()
+    except Exception:
+        logger.exception("course_email_worker_status_not_recorded")
+
+
 def run_notification_cycle() -> dict[str, int]:
-    with advisory_lock("email-notification-cycle"):
-        migrated = migrate_pending_digest_notifications()
-        overdue = enqueue_overdue_notifications()
-        assignment_reminder = enqueue_assignment_reminders()
-        due_soon = enqueue_due_soon_notifications()
-        sent = process_pending_notifications()
-        return {
-            "assignment_reminder": assignment_reminder,
-            "due_soon": due_soon,
-            "overdue": overdue,
-            "migrated": migrated,
-            "sent": sent,
-        }
+    started_at = _now().isoformat()
+    try:
+        with advisory_lock("email-notification-cycle"):
+            migrated = migrate_pending_digest_notifications()
+            overdue = enqueue_overdue_notifications()
+            assignment_reminder = enqueue_assignment_reminders()
+            due_soon = enqueue_due_soon_notifications()
+            sent = process_pending_notifications()
+    except Exception:
+        _record_worker_cycle(started_at, ok=False)
+        raise
+    _record_worker_cycle(started_at, ok=True)
+    return {
+        "assignment_reminder": assignment_reminder,
+        "due_soon": due_soon,
+        "overdue": overdue,
+        "migrated": migrated,
+        "sent": sent,
+    }
 
 
 async def _run_loop() -> None:

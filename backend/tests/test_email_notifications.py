@@ -192,11 +192,21 @@ def test_event_is_stale_when_assignment_lifecycle_changes():
     context = {
         "assignment_status": "pending",
         "notification_lifecycle": 3,
-        "completed_at": None,
+        "completed_at": "2026-11-01T10:00:00",
     }
+    completed = {**context, "assignment_status": "completed"}
 
-    assert not email_notifications._event_is_current(context, "assigned", 2)
-    assert email_notifications._event_is_current(context, "assigned", 3)
+    assert not email_notifications._event_is_current(completed, "completed", 2)
+    assert email_notifications._event_is_current(completed, "completed", 3)
+
+
+def test_assignment_email_survives_a_deadline_change_while_queued():
+    context = {"assignment_status": "pending", "notification_lifecycle": 3, "completed_at": None}
+
+    assert email_notifications._event_is_current(context, "assigned", 2)
+    assert not email_notifications._event_is_current(
+        {**context, "revoked_at": "2026-11-01T10:00:00"}, "assigned", 2
+    )
 
 
 def test_recipient_matrix_matches_course_notification_policy():
@@ -1215,7 +1225,9 @@ def _patch_journey_send(monkeypatch, context):
         email_notifications, "_send_notification", lambda notification: calls.update(sent=notification)
     )
     monkeypatch.setattr(email_notifications, "_mark_sent", lambda notification_id: calls.update(marked=notification_id))
-    monkeypatch.setattr(email_notifications, "_cancel_stale", lambda notification_id: calls.update(cancelled=notification_id))
+    monkeypatch.setattr(email_notifications, "_cancel_stale", lambda notification_id, reason: calls.update(cancelled=notification_id))
+    monkeypatch.setattr(email_notifications, "_start_attempt", lambda notification: "attempt-1")
+    monkeypatch.setattr(email_notifications, "_finish_attempt", lambda *args: None)
     return calls
 
 

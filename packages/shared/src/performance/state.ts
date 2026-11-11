@@ -2,8 +2,9 @@
 // frontend/lib/state/trainer/performance_report_providers.dart.
 
 export type ReportApp = 'trainer' | 'employee'
-// 3 is Journeys. It comes last in the numbering so links to the other tabs keep working.
-export type ReportTab = 0 | 1 | 2 | 3
+// 3 is Journeys and 4 is Emails. They come last in the numbering so links to the other tabs keep
+// working.
+export type ReportTab = 0 | 1 | 2 | 3 | 4
 
 export interface ReportFilter {
   courseStatus: string
@@ -80,9 +81,13 @@ export function initialReportState(
     courseId: string | null
     status: string | null
     journeyId?: string | null
+    view?: 'emails' | null
   } | null,
 ): ReportState {
   const state = baseState(defaultReportView(app), 0)
+  if (linked?.view === 'emails' && app === 'trainer') {
+    return { ...state, filter: { ...state.filter, courseId: linked.courseId }, view: 4 }
+  }
   const journeyId = linked?.journeyId?.trim() || null
   // A journey link opens the Journeys tab with that journey's detail.
   if (journeyId != null) {
@@ -129,6 +134,7 @@ export type ReportAction =
       status: string | null
       journeyId?: string | null
       courseStatus?: string | null
+      view?: 'emails' | null
     }
   | { type: 'openJourney'; journeyId: string | null }
 
@@ -183,6 +189,18 @@ export function reportReducer(state: ReportState, action: ReportAction): ReportS
     case 'openJourney':
       return { ...state, openJourneyId: action.journeyId }
     case 'openLinked':
+      if (action.view === 'emails') {
+        return {
+          ...state,
+          filter: {
+            ...defaultFilter,
+            courseStatus: state.filter.courseStatus,
+            courseId: action.courseId,
+          },
+          status: null,
+          view: 4,
+        }
+      }
       if (action.journeyId) {
         return {
           ...state,

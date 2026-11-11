@@ -26,6 +26,8 @@ interface RuleViewProps {
   request: Requester
   /** Reloads course lists and reports after a course action. */
   onCourseChanged: (deleted: boolean) => Promise<void>
+  /** Opens this course in Performance > Emails. */
+  onViewEmails?: (courseId: string) => void
 }
 
 const publishLabel = (course: Course) =>
@@ -44,7 +46,13 @@ export function publishConfirmText(state: AssignmentState): string {
   return `${state.matchCount} employees match the selection. Deadline: ${deadline}. Excluded employees lose access; completed results and progress are retained. Review the selected deadline. Apply Observers separately after this operation.`
 }
 
-export function RuleView({ course, workspace, request, onCourseChanged }: RuleViewProps) {
+export function RuleView({
+  course,
+  workspace,
+  request,
+  onCourseChanged,
+  onViewEmails,
+}: RuleViewProps) {
   const state = useSyncExternalStore(workspace.subscribe, workspace.getState)
   const { person } = useSession<Trainer>()
   const { access } = useLmsAccess()
@@ -148,6 +156,15 @@ export function RuleView({ course, workspace, request, onCourseChanged }: RuleVi
               isError={false}
               onDismiss={() => workspace.dismissMessage()}
             />
+            {onViewEmails && state.message.startsWith('Course published and assigned') && (
+              <ActionButton
+                icon="send_outlined"
+                className="assign-button mt-2"
+                onClick={() => onViewEmails(course.courseId)}
+              >
+                View email status
+              </ActionButton>
+            )}
           </div>
         )}
         <div className="assign-grid">

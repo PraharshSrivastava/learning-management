@@ -10,6 +10,7 @@ from app.api.courses import router as course_router
 from app.api.directory import router as directory_router
 from app.api.document_builder import router as document_builder_router
 from app.api.document_drafts import router as document_drafts_router
+from app.api.email_status import router as email_status_router
 from app.api.employees import router as employee_router
 from app.api.generation import router as generation_router
 from app.api.hub import router as hub_router
@@ -36,6 +37,7 @@ api_router.include_router(assignment_router)
 api_router.include_router(learning_router)
 api_router.include_router(journey_router)
 api_router.include_router(analytics_router)
+api_router.include_router(email_status_router)
 api_router.include_router(static_router)
 
 api_router.include_router(lms_access_router)
