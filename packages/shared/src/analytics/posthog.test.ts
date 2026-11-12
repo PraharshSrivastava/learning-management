@@ -73,6 +73,9 @@ describe('startAnalytics', () => {
     await vi.waitFor(() => expect(sdk.init).toHaveBeenCalled())
     const { maskAttributeFn } = initCall()[1].session_recording
     expect(maskAttributeFn('aria-label', 'Resend to Priya')).toBe('***************')
+    expect(maskAttributeFn('download', 'Priya.pdf')).toBe('*********')
+    expect(maskAttributeFn('href', 'mailto:priya@x.in')).toBe('*****************')
     expect(maskAttributeFn('class', 'flex gap-2')).toBe('flex gap-2')
+    expect(maskAttributeFn('viewBox', '0 0 24 24')).toBe('0 0 24 24')
   })
 })

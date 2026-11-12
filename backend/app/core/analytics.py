@@ -34,14 +34,19 @@ def capture_event(
     distinct_id: str | None,
     event: str,
     properties: dict[str, Any] | None = None,
+    *,
+    session_id: str | None = None,
 ) -> None:
-    """Send one event. Properties hold ids, counts, flags and durations, never personal data."""
+    """Send one event. Properties hold ids, counts, flags and durations, never personal data.
+
+    ``session_id`` defaults to the browser session of the current request.
+    """
     client = _client
     if client is None or not distinct_id:
         return
     try:
         event_properties = dict(properties or {})
-        session_id = posthog_session_id.get()
+        session_id = session_id or posthog_session_id.get()
         if session_id:
             event_properties["$session_id"] = session_id
         client.capture(event, distinct_id=distinct_id, properties=event_properties)

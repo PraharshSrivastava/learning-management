@@ -108,3 +108,44 @@ def test_stop_flushes_and_clears_client() -> None:
 
     assert client.stopped == ["flush", "shutdown"]
     assert analytics._client is None
+
+
+def test_capture_prefers_explicit_session_id() -> None:
+    client = _FakeClient()
+    analytics._client = client
+    posthog_session_id.set("request-session")
+
+    analytics.capture_event("trainer-1", "x", session_id="job-session")
+
+    assert client.events[0][1]["properties"] == {"$session_id": "job-session"}
+
+
+def test_process_job_outcome_keeps_the_submitting_session(monkeypatch, tmp_path) -> None:
+    from app.services import jobs as jobs_module
+
+    class _DoneProcess:
+        returncode = 0
+
+        def wait(self) -> int:
+            return 0
+
+    monkeypatch.setattr(jobs_module.subprocess, "Popen", lambda *a, **k: _DoneProcess())
+    client = _FakeClient()
+    analytics._client = client
+    manager = jobs_module.GenerationJobManager()
+    posthog_session_id.set("browser-session")
+
+    try:
+        job = manager.submit_process(
+            "course-1", backend_dir=tmp_path, restart_from_blueprint=True, trainer_id="trainer-1"
+        )
+    finally:
+        manager.shutdown()
+        # shutdown() stops the shared generation queue; later tests need it running.
+        jobs_module.generation_queue.start()
+
+    event, kwargs = client.events[0]
+    assert event == "generation_job_completed"
+    assert kwargs["distinct_id"] == "trainer-1"
+    assert kwargs["properties"]["job_id"] == job.id
+    assert kwargs["properties"]["$session_id"] == "browser-session"
