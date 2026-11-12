@@ -5,17 +5,17 @@ from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
-from app.api import analytics
 from app.core.settings import settings
 from app.main import app
-from app.repositories import performance_reporting as repository
-from app.schemas.performance_reporting import (
+from app.modules.reporting import api as analytics
+from app.modules.reporting import performance as performance_reporting
+from app.modules.reporting import repository
+from app.modules.reporting.schemas import (
     AssignmentListReport,
     EmployeeDetailReport,
     EmployeeListReport,
     PerformanceOverview,
 )
-from app.services import performance_reporting
 
 
 def _row(identifier, now, *, status="pending", deadline_days=1, learner_days=None, failed=0):

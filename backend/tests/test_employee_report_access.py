@@ -4,11 +4,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api import analytics
 from app.core.exceptions import install_exception_handlers
 from app.modules.access import report_access
 from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
 from app.modules.auth import service as auth
+from app.modules.reporting import api as analytics
 
 
 @pytest.fixture

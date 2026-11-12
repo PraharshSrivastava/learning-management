@@ -17,7 +17,7 @@ from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
 from app.modules.access.reporting_scope import TrainerPerformanceScope
 from app.modules.learning.progress_repository import ProgressRepository
-from app.repositories import performance_reporting
+from app.modules.reporting import repository as performance_reporting
 from app.services import email_notifications as outbox
 from app.services import email_status
 

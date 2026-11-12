@@ -27,8 +27,8 @@ from app.modules.learning.progress_repository import (
 )
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
-from app.repositories import performance_reporting
-from app.services import performance_reporting as reports
+from app.modules.reporting import performance as reports
+from app.modules.reporting import repository as performance_reporting
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"

@@ -2,7 +2,6 @@
 
 from fastapi import APIRouter
 
-from app.api.analytics import router as analytics_router
 from app.api.document_builder import router as document_builder_router
 from app.api.document_drafts import router as document_drafts_router
 from app.api.email_status import router as email_status_router
@@ -20,6 +19,7 @@ from app.modules.journeys.api import router as journey_router
 from app.modules.learning.api import router as learning_router
 from app.modules.learning.media_api import router as media_router
 from app.modules.observers.api import router as observers_router
+from app.modules.reporting.api import router as analytics_router
 from app.modules.uploads.api import router as upload_router
 
 api_router = APIRouter()

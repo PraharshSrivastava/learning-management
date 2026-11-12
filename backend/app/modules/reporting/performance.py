@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from app.core.settings import settings
 from app.modules.access.reporting_scope import TrainerReportScope
 from app.modules.courses.access import parse_datetime
-from app.repositories import performance_reporting as reports
+from app.modules.reporting import repository as reports
 
 INACTIVE_DAYS = 14
 FAILURE_THRESHOLD = 2

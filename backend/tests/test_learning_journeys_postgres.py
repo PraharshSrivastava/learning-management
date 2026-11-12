@@ -36,7 +36,7 @@ from app.modules.learning import service as learning
 from app.modules.learning.progress_repository import ProgressRepository
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
-from app.repositories import performance_reporting
+from app.modules.reporting import repository as performance_reporting
 from app.services import email_notifications
 
 pytestmark = pytest.mark.skipif(

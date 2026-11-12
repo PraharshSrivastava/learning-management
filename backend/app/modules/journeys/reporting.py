@@ -22,8 +22,8 @@ from app.modules.journeys.service import (
     _journeys,
     journeys_enabled,
 )
-from app.repositories import performance_reporting as course_reports
-from app.services.performance_reporting import INACTIVE_DAYS, _local_datetime
+from app.modules.reporting import repository as course_reports
+from app.modules.reporting.performance import INACTIVE_DAYS, _local_datetime
 
 # Report course availability → the journeys it shows. A disabled journey removes its learners,
 # so it only appears with the history choices.

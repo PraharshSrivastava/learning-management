@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from app.core.settings import settings
 from app.db.database import get_connection
 from app.modules.access.reporting_scope import TrainerReportScope
-from app.repositories.performance_reporting import _assignment_scope, _decorated_assignments
+from app.modules.reporting.repository import _assignment_scope, _decorated_assignments
 
 ATTEMPT_FACTS = """
     SELECT COUNT(*) FILTER (

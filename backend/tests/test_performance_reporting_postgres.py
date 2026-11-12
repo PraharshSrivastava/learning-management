@@ -11,8 +11,8 @@ from datetime import datetime
 
 import pytest
 
-from app.repositories import performance_reporting as repository
-from app.services import performance_reporting as service
+from app.modules.reporting import performance as service
+from app.modules.reporting import repository
 
 pytestmark = pytest.mark.skipif(
     os.getenv("PERFORMANCE_READONLY_INTEGRATION") != "true",

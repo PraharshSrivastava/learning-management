@@ -6,11 +6,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api import analytics
 from app.core.exceptions import install_exception_handlers
 from app.modules.access.reporting_scope import TrainerPerformanceScope, owner_filter
 from app.modules.auth import service as auth
-from app.repositories import performance_reporting as repository
+from app.modules.reporting import api as analytics
+from app.modules.reporting import repository
 
 
 @pytest.fixture
@@ -133,8 +133,8 @@ def test_same_title_courses_remain_separate_in_all_course_overview(monkeypatch):
 
     from test_performance_reporting import _row
 
-    from app.schemas.performance_reporting import PerformanceOverview
-    from app.services import performance_reporting as reports
+    from app.modules.reporting import performance as reports
+    from app.modules.reporting.schemas import PerformanceOverview
 
     now = datetime.now()
     first = _row("first", now, status="completed")

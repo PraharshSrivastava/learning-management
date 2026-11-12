@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 import pytest
 from starlette.requests import Request
 
-from app.api import analytics as analytics_api
 from app.core.exceptions import AuthenticationError
 from app.modules.auth import service as auth
-from app.services import analytics
+from app.modules.reporting import analytics
+from app.modules.reporting import api as analytics_api
 
 
 class _Employees:

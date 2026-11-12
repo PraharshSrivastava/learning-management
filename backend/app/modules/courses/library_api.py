@@ -14,9 +14,9 @@ from app.modules.auth.service import current_trainer_from_request
 from app.modules.courses import repository as courses
 from app.modules.courses.library_schemas import CourseLibraryResponse
 from app.modules.courses.schemas import CourseStatus
+from app.modules.reporting import performance as reports
+from app.modules.reporting.schemas import AssignmentListReport
 from app.schemas.generation import GenerationStatus
-from app.schemas.performance_reporting import AssignmentListReport
-from app.services import performance_reporting as reports
 
 router = APIRouter(prefix="/api/trainer", tags=["course-library"])
 
