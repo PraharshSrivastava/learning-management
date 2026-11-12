@@ -14,13 +14,14 @@ from datetime import datetime, timedelta
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.settings import settings
 from app.db.database import advisory_lock, get_connection
+from app.modules.courses.access import course_is_publishable
+from app.modules.courses.repository import get_course, update_course_status
 from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories.assignments import (
     employee_matches_assignment_rule,
     get_assignment_rule,
     matching_employees_for_assignment_rule,
 )
-from app.repositories.courses import get_course, update_course_status
 from app.repositories.journeys import JourneyRepository, assignment_changed
 from app.repositories.progress import ProgressRepository
 from app.schemas.journey import (
@@ -31,7 +32,6 @@ from app.schemas.journey import (
 )
 from app.services.assignment_conflicts import observer_ids
 from app.services.assignment_deadlines import deadline_expired, resolve_deadline, validate_deadline
-from app.services.course_access import course_is_publishable
 from app.services.journey_certificates import certificate_number, issue_certificate
 from app.services.journey_state import (
     CourseState,
@@ -847,8 +847,8 @@ def _publish_ready_courses(journey: dict, trainer_id: str) -> None:
     kept as the draft; only the applied (live) rule matches nobody.
     """
     from app.db.database import course_transaction
+    from app.modules.courses.lifecycle import record_action
     from app.repositories.assignments import get_assignment_rule, save_assignment_rule
-    from app.services.course_lifecycle import record_action
 
     for step in journey["steps"]:
         if step["course_trainer_id"] != trainer_id:

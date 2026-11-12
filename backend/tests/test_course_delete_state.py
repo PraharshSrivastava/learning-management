@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.repositories.courses import _lifecycle_fields, generation_job_active
+from app.modules.courses.repository import _lifecycle_fields, generation_job_active
 
 
 def _row(generation_status, worker_id=None, *, status="draft", has_history=False):

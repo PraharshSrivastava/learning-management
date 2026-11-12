@@ -6,9 +6,9 @@ import pytest
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.settings import settings
-from app.services import courses as course_service_module
-from app.services.course_artifacts import delete_course_artifacts
-from app.services.courses import CourseService
+from app.modules.courses import service as course_service_module
+from app.modules.courses.artifacts import delete_course_artifacts
+from app.modules.courses.service import CourseService
 
 
 class _DeletionRepository:

@@ -11,9 +11,9 @@ from app.modules.access.course_authorization import (
     is_admin_trainer,
 )
 from app.modules.auth.service import current_trainer_from_request
-from app.repositories import courses
-from app.schemas.course import CourseStatus
-from app.schemas.course_library import CourseLibraryResponse
+from app.modules.courses import repository as courses
+from app.modules.courses.library_schemas import CourseLibraryResponse
+from app.modules.courses.schemas import CourseStatus
 from app.schemas.generation import GenerationStatus
 from app.schemas.performance_reporting import AssignmentListReport
 from app.services import performance_reporting as reports

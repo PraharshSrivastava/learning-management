@@ -24,7 +24,7 @@ from app.generation.runtime import (
     log_event,
     save_generated_course,
 )
-from app.schemas.course import ModuleResponse
+from app.modules.courses.schemas import ModuleResponse
 from app.schemas.generation.slides import (
     ArtDirectorResponse,
     ImageMappingResult,

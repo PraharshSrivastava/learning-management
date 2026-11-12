@@ -207,9 +207,9 @@ def test_shared_report_still_excludes_revoked_and_disabled_assignments(shared_re
 
 def test_shared_reporting_does_not_grant_course_edit_or_assignment_rights(monkeypatch):
     from app.core.exceptions import NotFoundError
-    from app.schemas.course import CourseUpdateRequest
+    from app.modules.courses.schemas import CourseUpdateRequest
+    from app.modules.courses.service import CourseService
     from app.services import assignments
-    from app.services.courses import CourseService
 
     class ForeignCourseRepository:
         def get_draft_for_trainer(self, course_id, trainer_id):

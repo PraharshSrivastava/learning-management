@@ -30,7 +30,7 @@ def test_fresh_builder_course_uses_normal_full_generation_reset(monkeypatch):
 
 
 def test_builder_blueprint_recovery_does_not_reextract_uploaded_pdf(monkeypatch):
-    from app.repositories import courses
+    from app.modules.courses import repository as courses
 
     calls = []
     course = {"course_id": "c", "document_builder": {"origin": "accepted_revision"}}

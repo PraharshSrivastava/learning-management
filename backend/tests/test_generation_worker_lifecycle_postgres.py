@@ -7,10 +7,10 @@ from test_assignment_workspace_postgres import workspace_db as workspace_db
 
 from app.core.exceptions import ConflictError
 from app.db import database
+from app.modules.courses.schemas import CourseUpdateRequest
+from app.modules.courses.service import CourseService
 from app.repositories.jobs import GenerationJobRepository
-from app.schemas.course import CourseUpdateRequest
 from app.schemas.generation import GenerationJobResponse
-from app.services.courses import CourseService
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"

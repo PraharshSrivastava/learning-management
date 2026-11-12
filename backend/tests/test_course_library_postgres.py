@@ -5,7 +5,7 @@ import os
 import pytest
 from test_lms_access_postgres import access_db as access_db  # pytest fixture re-export
 
-from app.repositories import courses
+from app.modules.courses import repository as courses
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true",

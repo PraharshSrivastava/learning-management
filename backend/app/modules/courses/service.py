@@ -15,10 +15,10 @@ from app.generation.video_engine import (
     toggle_enabled,
     video_engine_available,
 )
-from app.repositories.courses import CourseRepository
-from app.schemas.course import CourseUpdateRequest
-from app.schemas.quiz import ManualQuizRequest
-from app.services.course_artifacts import delete_course_artifacts
+from app.modules.courses.artifacts import delete_course_artifacts
+from app.modules.courses.quiz_schemas import ManualQuizRequest
+from app.modules.courses.repository import CourseRepository
+from app.modules.courses.schemas import CourseUpdateRequest
 from app.services.generation_queue import generation_queue
 from app.services.notifications import schedule_employee_broadcast
 

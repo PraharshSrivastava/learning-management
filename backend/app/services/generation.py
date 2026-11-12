@@ -16,7 +16,7 @@ from app.generation.runtime import (
     run_full_course_generation,
 )
 from app.generation.video_engine import course_uses_video_engine, video_engine_available
-from app.repositories.courses import CourseRepository
+from app.modules.courses.repository import CourseRepository
 from app.repositories.documents import get_document
 from app.repositories.jobs import GenerationJobRepository
 from app.services.generation_queue import generation_queue
@@ -183,7 +183,7 @@ class GenerationService:
                 # Builder inputs already are the trainer-approved blueprint;
                 # recovery must not re-extract their exported PDF.
                 from app.generation.runtime import mark_stage
-                from app.repositories.courses import save_course
+                from app.modules.courses.repository import save_course
                 mark_stage(course, "blueprint", "completed")
                 save_course(course, "draft")
                 with generation_queue.run(course_id=course_id, operation="continue:accepted_blueprint"):

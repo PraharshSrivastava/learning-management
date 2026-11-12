@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, Query, Request, Response
 from app.core.schemas import MessageResponse
 from app.modules.access.course_authorization import course_owner_for_read, require_course_creator
 from app.modules.auth.service import current_trainer_from_request
+from app.modules.courses.schemas import CourseResponse
 from app.schemas.assignment import (
     AssignmentOptionsResponse,
     AssignmentPreviewRequest,
@@ -15,7 +16,6 @@ from app.schemas.assignment import (
     SavedAssignmentGroupRequest,
     SavedAssignmentGroupResponse,
 )
-from app.schemas.course import CourseResponse
 from app.services.assignments import (
     api_assignable_courses,
     api_assignment_options,

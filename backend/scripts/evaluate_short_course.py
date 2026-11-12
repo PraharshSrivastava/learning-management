@@ -68,7 +68,8 @@ def main():
     from app.core.logging import configure_logging
     from app.core.settings import settings
     from app.db import database
-    from app.repositories import courses, documents
+    from app.modules.courses import repository as courses
+    from app.repositories import documents
 
     configure_logging("INFO")
     warnings = []

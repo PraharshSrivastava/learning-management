@@ -14,6 +14,7 @@ from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
 from app.modules.access.report_access_repository import report_roles
 from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
+from app.modules.courses.repository import delete_course_for_trainer
 from app.modules.directory.employees_repository import list_employees
 from app.repositories import observers, performance_reporting
 from app.repositories.assignments import (
@@ -22,7 +23,6 @@ from app.repositories.assignments import (
     get_assignment_rule,
     save_assignment_rule,
 )
-from app.repositories.courses import delete_course_for_trainer
 from app.repositories.journeys import create_journey_tables
 from app.repositories.progress import ProgressRepository
 from app.schemas.assignment import AssignmentRuleRequest

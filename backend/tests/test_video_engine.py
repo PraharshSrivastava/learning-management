@@ -14,8 +14,8 @@ from app.core.exceptions import ConflictError, DomainValidationError
 from app.core.settings import Settings, settings
 from app.generation import video_engine
 from app.generation.blueprint import extract_images_from_pdf
-from app.schemas.course import CourseResponse, CourseUpdateRequest
-from app.services.courses import CourseService
+from app.modules.courses.schemas import CourseResponse, CourseUpdateRequest
+from app.modules.courses.service import CourseService
 
 SECRET = "s" * 40
 

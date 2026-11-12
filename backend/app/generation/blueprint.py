@@ -20,7 +20,7 @@ from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
 from app.generation.video_engine import apply_outline_recommendation, classify_pdf_images
-from app.repositories.courses import delete_course, get_all_courses, get_course, save_course
+from app.modules.courses.repository import delete_course, get_all_courses, get_course, save_course
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.generation.blueprint import BlueprintExtractionResult, ModuleListSchema
 

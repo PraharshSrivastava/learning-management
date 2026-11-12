@@ -13,7 +13,7 @@ from app.core.langfuse_tracing import timed_span
 from app.core.settings import settings
 from app.core.storage import resolve_public_asset_path
 from app.db.database import advisory_lock
-from app.repositories.courses import (
+from app.modules.courses.repository import (
     CourseRepository,
     get_all_courses,
     get_course,
@@ -510,7 +510,7 @@ def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) 
     from app.generation.tts import generate_tts_for_course
     from app.generation.video import generate_videos_for_course
     from app.generation.video_service import generate_videos_via_service
-    from app.services.courses import CourseService
+    from app.modules.courses.service import CourseService
 
     pipeline_start = time.perf_counter()
     repository = CourseRepository()

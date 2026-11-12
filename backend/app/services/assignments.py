@@ -6,9 +6,10 @@ from datetime import datetime, timedelta
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.db.database import atomic_course, course_transaction, get_connection
+from app.modules.courses.access import course_is_publishable
+from app.modules.courses.repository import CourseRepository, update_course_status
 from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories.assignments import AssignmentRepository
-from app.repositories.courses import CourseRepository, update_course_status
 from app.repositories.progress import ProgressRepository
 from app.repositories.saved_assignment_groups import SavedAssignmentGroupRepository
 from app.schemas.assignment import AssignmentRuleRequest, SavedAssignmentGroupRequest
@@ -17,7 +18,6 @@ from app.services.assignment_conflicts import (
     validate_separation,
 )
 from app.services.assignment_deadlines import deadline_expired, resolve_deadline, validate_deadline
-from app.services.course_access import course_is_publishable
 
 _assignments = AssignmentRepository()
 _courses = CourseRepository()
@@ -455,7 +455,7 @@ def api_save_course_assignment(
     if trainer_id:
         _owned_draft_course(course_id, trainer_id)
     existing = _assignments.get(course_id)
-    from app.services.course_lifecycle import require_editable_course
+    from app.modules.courses.lifecycle import require_editable_course
     require_editable_course(course_id, payload.expected_lifecycle_revision)
     if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get(
         "updated_at"
@@ -479,7 +479,7 @@ def api_publish_course_assignment(
 ):
     if trainer_id:
         _owned_draft_course(course_id, trainer_id)
-    from app.services.course_lifecycle import require_editable_course
+    from app.modules.courses.lifecycle import require_editable_course
     require_editable_course(course_id, payload.expected_lifecycle_revision)
     existing = _assignments.get(course_id)
     if payload.expected_updated_at is not None and payload.expected_updated_at != existing.get(
@@ -509,7 +509,7 @@ def api_publish_course_assignment(
         )
     rule = _assignments.save(course_id, rule, publish=True)
     update_course_status(course_id, "published")
-    from app.services.course_lifecycle import record_action
+    from app.modules.courses.lifecycle import record_action
     record_action(course_id, trainer_id or "system", "enable" if not existing.get("is_active", True) else "publish_assignments")
     deadline_changed = (
         existing.get("applied_deadline_days") != rule["deadline_days"]
@@ -535,7 +535,7 @@ def api_publish_course_assignment(
 @atomic_course
 def api_disable_course_assignment(course_id: str, trainer_id: str):
     _owned_draft_course(course_id, trainer_id)
-    from app.services.course_lifecycle import require_editable_course
+    from app.modules.courses.lifecycle import require_editable_course
     require_editable_course(course_id)
     rule = _assignments.save(
         course_id,
@@ -547,7 +547,7 @@ def api_disable_course_assignment(course_id: str, trainer_id: str):
     from app.services.notifications import schedule_employee_broadcast
 
     suspend_course(course_id, trainer_id)
-    from app.services.course_lifecycle import record_action
+    from app.modules.courses.lifecycle import record_action
     record_action(course_id, trainer_id, "disable")
     now = datetime.now()
     for employee_id, course_progress in _progress.get_for_course(course_id).items():

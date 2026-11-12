@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.courses import CourseService
+from app.modules.courses.service import CourseService
 
 
 def test_merge_modules_accepts_dict_payload_from_course_update() -> None:

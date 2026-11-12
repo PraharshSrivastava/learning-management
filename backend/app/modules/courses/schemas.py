@@ -7,8 +7,8 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from app.core.schemas import ApiSchema, RequestSchema
+from app.modules.courses.quiz_schemas import Quiz
 from app.schemas.generation import GenerationState, ModuleVideoServiceState
-from app.schemas.quiz import Quiz
 
 CourseStatus = Literal["draft", "ready", "published", "archived"]
 

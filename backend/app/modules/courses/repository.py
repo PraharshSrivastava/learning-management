@@ -10,7 +10,7 @@ from typing import Any
 from psycopg.types.json import Jsonb
 
 from app.db.database import advisory_xact_lock, get_connection
-from app.schemas.course import CourseRecord
+from app.modules.courses.schemas import CourseRecord
 
 COURSE_METADATA_FIELDS = {
     "document_builder",

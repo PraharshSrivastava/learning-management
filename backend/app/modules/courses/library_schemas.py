@@ -1,7 +1,7 @@
 """Bounded authoring library metadata; creator controls are server-derived."""
 
 from app.core.schemas import ApiSchema
-from app.schemas.course import CourseResponse, CourseStatus
+from app.modules.courses.schemas import CourseResponse, CourseStatus
 
 
 class CourseLibraryItem(ApiSchema):

@@ -611,7 +611,7 @@ def test_module_video_regeneration_follows_video_mode(monkeypatch, mode):
 
 
 def test_module_response_exposes_video_service_progress():
-    from app.schemas.course import ModuleResponse
+    from app.modules.courses.schemas import ModuleResponse
 
     module = ModuleResponse.model_validate(
         {"title": "M", "video_service": {"status": "processing", "stage": "audio", "progress": 68}}

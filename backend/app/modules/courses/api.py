@@ -10,18 +10,18 @@ from app.modules.access.course_authorization import (
     require_course_creator,
 )
 from app.modules.auth.service import current_trainer_from_request
-from app.repositories.courses import get_course_creator_name
-from app.repositories.documents import get_document_by_file_name
-from app.schemas.course import (
+from app.modules.courses.library_schemas import CourseInspectionResponse
+from app.modules.courses.quiz_schemas import ManualQuizRequest
+from app.modules.courses.repository import get_course_creator_name
+from app.modules.courses.schemas import (
     CourseLifecycleRequest,
     CourseResponse,
     CourseSummaryResponse,
     CourseUpdateRequest,
     GenerateCourseRequest,
 )
-from app.schemas.course_library import CourseInspectionResponse
-from app.schemas.quiz import ManualQuizRequest
-from app.services.courses import CourseService
+from app.modules.courses.service import CourseService
+from app.repositories.documents import get_document_by_file_name
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 service = CourseService()
@@ -115,5 +115,5 @@ def course_lifecycle(course_id: str, payload: CourseLifecycleRequest, request: R
     authorization: str | None = Header(default=None)):
     trainer = current_trainer_from_request(request, authorization)
     require_course_creator(course_id, trainer)
-    from app.services.course_lifecycle import change_lifecycle
+    from app.modules.courses.lifecycle import change_lifecycle
     return change_lifecycle(course_id, trainer["trainer_id"], payload.action, payload.expected_revision)

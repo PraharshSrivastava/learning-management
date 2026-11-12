@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import html
 import os
-from typing import Any, Dict, List
 from pathlib import Path
+from typing import Any, Dict, List
 
 from PIL import Image as PILImage
 
@@ -13,7 +13,7 @@ from app.core.logging import generation_logger
 from app.core.providers import SLIDE_DIR
 from app.core.settings import settings
 from app.core.storage import resolve_public_asset_path
-from app.repositories.courses import get_all_courses
+from app.modules.courses.repository import get_all_courses
 
 logger = generation_logger(__name__)
 
