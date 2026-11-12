@@ -5,8 +5,12 @@ from fastapi import APIRouter, Header, Request, Response
 from app.modules.access import report_access_repository as report_access
 from app.modules.access.course_authorization import course_owner_for_read, require_course_creator
 from app.modules.auth.service import current_trainer_from_request
-from app.repositories import observers
-from app.schemas.observers import ObserverApplyRequest, ObserverConfigResponse, ObserverSaveRequest
+from app.modules.observers import repository as observers
+from app.modules.observers.schemas import (
+    ObserverApplyRequest,
+    ObserverConfigResponse,
+    ObserverSaveRequest,
+)
 
 router = APIRouter(prefix="/api", tags=["observers"])
 

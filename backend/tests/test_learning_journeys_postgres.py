@@ -24,11 +24,12 @@ from app.modules.assignments.repository import (
 from app.modules.assignments.schemas import AssignmentRuleRequest
 from app.modules.courses.repository import delete_course_for_trainer
 from app.modules.directory.employees_repository import list_employees
-from app.repositories import observers, performance_reporting
+from app.modules.observers import repository as observers
+from app.modules.observers.schemas import ObserverSaveRequest
+from app.repositories import performance_reporting
 from app.repositories.journeys import create_journey_tables
 from app.repositories.progress import ProgressRepository
 from app.schemas.journey import JourneyCreateRequest, JourneyObserversRequest, JourneySaveRequest
-from app.schemas.observers import ObserverSaveRequest
 from app.services import email_notifications, journey_reporting, journeys, learning
 
 pytestmark = pytest.mark.skipif(

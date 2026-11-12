@@ -14,9 +14,9 @@ from app.modules.assignments import service as assignments
 from app.modules.assignments.conflicts import EmployeeObserverConflict
 from app.modules.assignments.repository import get_assignment_rule, save_assignment_rule
 from app.modules.assignments.schemas import AssignmentRuleRequest
-from app.repositories import observers
+from app.modules.observers import repository as observers
+from app.modules.observers.schemas import ObserverSaveRequest
 from app.repositories.progress import save_employee_course_progress
-from app.schemas.observers import ObserverSaveRequest
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"

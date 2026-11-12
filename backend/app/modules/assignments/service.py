@@ -543,7 +543,7 @@ def api_disable_course_assignment(course_id: str, trainer_id: str):
         disable=True,
         disabled_by_trainer_id=trainer_id,
     )
-    from app.repositories.observers import suspend_course
+    from app.modules.observers.repository import suspend_course
     from app.services.notifications import schedule_employee_broadcast
 
     suspend_course(course_id, trainer_id)

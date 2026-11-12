@@ -11,7 +11,7 @@ from psycopg.types.json import Jsonb
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.db.database import get_connection
 from app.modules.access.repository import identity_key
-from app.repositories.observers import _employee
+from app.modules.observers.repository import _employee
 
 
 def _config(db, journey_id):

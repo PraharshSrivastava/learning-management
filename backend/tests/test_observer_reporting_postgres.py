@@ -11,8 +11,9 @@ from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
 from app.modules.access import report_access_repository as report_access
 from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
-from app.repositories import observers, performance_reporting
-from app.schemas.observers import ObserverSaveRequest
+from app.modules.observers import repository as observers
+from app.modules.observers.schemas import ObserverSaveRequest
+from app.repositories import performance_reporting
 from app.services import performance_reporting as reports
 
 pytestmark = pytest.mark.skipif(os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated demo opt-in")

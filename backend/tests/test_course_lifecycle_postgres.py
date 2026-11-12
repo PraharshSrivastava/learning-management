@@ -20,9 +20,10 @@ from app.modules.courses.repository import (
     get_course,
     list_course_summaries_for_trainer,
 )
-from app.repositories import observers, performance_reporting
+from app.modules.observers import repository as observers
+from app.modules.observers.schemas import ObserverSaveRequest
+from app.repositories import performance_reporting
 from app.repositories.progress import get_employee_course_progress, save_employee_course_progress
-from app.schemas.observers import ObserverSaveRequest
 from app.services import learning
 from app.services import performance_reporting as reports
 

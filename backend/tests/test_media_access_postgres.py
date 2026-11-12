@@ -8,8 +8,8 @@ from test_observer_reporting_postgres import report_db as report_db
 
 from app.core.exceptions import NotFoundError
 from app.modules.access import repository as lms_access
-from app.repositories import observers
-from app.schemas.observers import ObserverSaveRequest
+from app.modules.observers import repository as observers
+from app.modules.observers.schemas import ObserverSaveRequest
 from app.services import media_access
 
 pytestmark = pytest.mark.skipif(os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated demo opt-in")
