@@ -14,3 +14,72 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/**/*.py" = ["E402"]
+
+# Import rules for the feature-module layout (docs/ARCHITECTURE.md). Run: lint-imports
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "core, security and db stay feature-free"
+type = "forbidden"
+source_modules = ["app.core", "app.security", "app.db"]
+forbidden_modules = ["app.modules", "app.api", "app.main"]
+# Existing exceptions (known debt, see ARCHITECTURE.md section 7). Do not add more.
+ignore_imports = [
+    "app.core.providers -> app.modules.generation.pipeline.runtime",
+    "app.core.providers -> app.modules.generation.schemas.providers",
+    "app.db.schema -> app.modules.documents.drafts_repository",
+    "app.db.schema -> app.modules.journeys.repository",
+]
+
+[[tool.importlinter.contracts]]
+name = "feature modules do not import the app entry point or router"
+type = "forbidden"
+source_modules = ["app.modules"]
+forbidden_modules = ["app.main", "app.api"]
+
+[[tool.importlinter.contracts]]
+name = "repositories hold SQL only: no routes, no FastAPI"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "app.modules.access.directory_report_access_repository",
+    "app.modules.access.report_access_repository",
+    "app.modules.access.repository",
+    "app.modules.assignments.repository",
+    "app.modules.assignments.saved_groups_repository",
+    "app.modules.courses.repository",
+    "app.modules.directory.employees_repository",
+    "app.modules.directory.trainers_repository",
+    "app.modules.documents.drafts_repository",
+    "app.modules.emails.status_repository",
+    "app.modules.generation.jobs_repository",
+    "app.modules.journeys.observers_repository",
+    "app.modules.journeys.repository",
+    "app.modules.learning.progress_repository",
+    "app.modules.observers.repository",
+    "app.modules.reporting.repository",
+    "app.modules.uploads.repository",
+]
+forbidden_modules = [
+    "fastapi",
+    "app.modules.access.api",
+    "app.modules.assignments.api",
+    "app.modules.auth.api",
+    "app.modules.auth.hub_api",
+    "app.modules.courses.api",
+    "app.modules.courses.library_api",
+    "app.modules.directory.api",
+    "app.modules.directory.employees_api",
+    "app.modules.documents.builder_api",
+    "app.modules.documents.drafts_api",
+    "app.modules.emails.status_api",
+    "app.modules.generation.api",
+    "app.modules.journeys.api",
+    "app.modules.learning.api",
+    "app.modules.learning.media_api",
+    "app.modules.observers.api",
+    "app.modules.reporting.api",
+    "app.modules.uploads.api",
+]

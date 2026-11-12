@@ -1,5 +1,6 @@
 -r requirements.txt
 
 httpx2==2.7.0
+import-linter==2.3
 pytest==9.1.1
 ruff==0.16.0
