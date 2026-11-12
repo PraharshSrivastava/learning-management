@@ -11,7 +11,7 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.db.database import atomic_course, get_connection
-from app.repositories.lms_access import identity_key
+from app.modules.access.repository import identity_key
 
 
 def _config(db, course_id):

@@ -10,7 +10,7 @@ from psycopg.types.json import Jsonb
 
 from app.core.exceptions import DomainValidationError
 from app.db.database import advisory_xact_lock, get_connection
-from app.repositories.lms_access import identity_key
+from app.modules.access.repository import identity_key
 
 
 def reconcile_verified_departments(records, *, source_key, full_snapshot=False):

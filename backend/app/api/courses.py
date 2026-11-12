@@ -4,6 +4,11 @@ from fastapi import APIRouter, Header, Query, Request, Response
 
 from app.core.exceptions import NotFoundError
 from app.core.schemas import MessageResponse
+from app.modules.access.course_authorization import (
+    READ_ONLY_MESSAGE,
+    course_owner_for_read,
+    require_course_creator,
+)
 from app.repositories.courses import get_course_creator_name
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.course import (
@@ -16,11 +21,6 @@ from app.schemas.course import (
 from app.schemas.course_library import CourseInspectionResponse
 from app.schemas.quiz import ManualQuizRequest
 from app.services.auth import current_trainer_from_request
-from app.services.course_authorization import (
-    READ_ONLY_MESSAGE,
-    course_owner_for_read,
-    require_course_creator,
-)
 from app.services.courses import CourseService
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])

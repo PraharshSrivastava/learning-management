@@ -7,7 +7,8 @@ from psycopg.types.json import Jsonb
 from test_observer_reporting_postgres import report_db as report_db
 
 from app.core.exceptions import NotFoundError
-from app.repositories import lms_access, observers
+from app.modules.access import repository as lms_access
+from app.repositories import observers
 from app.schemas.observers import ObserverSaveRequest
 from app.services import media_access
 
@@ -17,7 +18,7 @@ pytestmark = pytest.mark.skipif(os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true"
 def test_asset_lookup_and_normal_trainer_cannot_use_all_performance_as_playback(report_db, monkeypatch):
     monkeypatch.setattr(media_access, "get_connection", observers.get_connection)
     monkeypatch.setattr(lms_access, "get_connection", observers.get_connection)
-    from app.services import course_authorization
+    from app.modules.access import course_authorization
     monkeypatch.setattr(course_authorization, "_employee_for_trainer", lambda *_: dict(report_db.execute("SELECT * FROM employees WHERE employee_id='hod'").fetchone()))
     monkeypatch.setattr(media_access, "_employee_for_trainer", lambda *_: dict(report_db.execute("SELECT * FROM employees WHERE employee_id='hod'").fetchone()))
     report_db.execute("INSERT INTO course_modules(module_id,course_id,module_number,title,video_path,metadata_json) VALUES ('m-1','course-1',1,'Module','assets/videos/module.mp4',?)",

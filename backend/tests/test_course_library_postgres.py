@@ -23,7 +23,7 @@ def library_db(access_db, monkeypatch):
         access_db.execute("INSERT INTO courses VALUES (?, ?, 'Same title', '', ?, '2026-10-06', '2026-10-06')",
                           (course_id, owner, status))
     access_db.execute("INSERT INTO course_generation_status VALUES ('c-2', 'completed')")
-    from app.repositories import lms_access
+    from app.modules.access import repository as lms_access
     monkeypatch.setattr(courses, "get_connection", lms_access.get_connection)
     return access_db
 

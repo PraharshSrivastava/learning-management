@@ -12,6 +12,8 @@ from app.core.exceptions import ConflictError, DomainValidationError, NotFoundEr
 from app.core.settings import settings
 from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
+from app.modules.access.report_access_repository import report_roles
+from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
 from app.modules.directory.employees_repository import list_employees
 from app.repositories import observers, performance_reporting
 from app.repositories.assignments import (
@@ -23,11 +25,9 @@ from app.repositories.assignments import (
 from app.repositories.courses import delete_course_for_trainer
 from app.repositories.journeys import create_journey_tables
 from app.repositories.progress import ProgressRepository
-from app.repositories.report_access import report_roles
 from app.schemas.assignment import AssignmentRuleRequest
 from app.schemas.journey import JourneyCreateRequest, JourneyObserversRequest, JourneySaveRequest
 from app.schemas.observers import ObserverSaveRequest
-from app.schemas.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
 from app.services import assignments, email_notifications, journey_reporting, journeys, learning
 
 pytestmark = pytest.mark.skipif(

@@ -10,6 +10,7 @@ from test_assignment_workspace_postgres import workspace_db as workspace_db
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.db import database
+from app.modules.access.reporting_scope import TrainerPerformanceScope
 from app.repositories import observers, performance_reporting
 from app.repositories.assignments import get_applied_assignment_rule, get_assignment_rule
 from app.repositories.courses import (
@@ -20,7 +21,6 @@ from app.repositories.courses import (
 from app.repositories.progress import get_employee_course_progress, save_employee_course_progress
 from app.schemas.assignment import AssignmentRuleRequest
 from app.schemas.observers import ObserverSaveRequest
-from app.schemas.reporting_scope import TrainerPerformanceScope
 from app.services import assignments, learning
 from app.services import performance_reporting as reports
 from app.services.course_lifecycle import change_lifecycle

@@ -6,7 +6,7 @@ Full reporting integration remains covered by test_observer_reporting_postgres.
 import sqlite3
 import unittest
 
-from app.schemas.reporting_scope import EmployeePerformanceScope, owner_filter
+from app.modules.access.reporting_scope import EmployeePerformanceScope, owner_filter
 
 
 class CombinedScopeTests(unittest.TestCase):

@@ -7,6 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 
+from app.modules.access.report_access import current_report_scope
 from app.schemas.analytics import TrainerPerformanceResponse
 from app.schemas.performance_reporting import (
     AssignmentDetailReport,
@@ -24,7 +25,6 @@ from app.services import journey_reporting as journey_reports
 from app.services import performance_reporting as reports
 from app.services.analytics import api_trainer_performance
 from app.services.auth import current_trainer_from_request
-from app.services.report_access import current_report_scope
 
 router = APIRouter(prefix="/api", tags=["analytics"])
 
@@ -120,7 +120,6 @@ def performance_overview(
 @router.get("/trainer/performance/options", response_model=PerformanceReportOptions)
 def performance_options(request: Request, authorization: str | None = Header(default=None)):
     from app.repositories.performance_reporting import list_scope_options
-
     from app.services.journeys import journeys_enabled
 
     return {

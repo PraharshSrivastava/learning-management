@@ -9,9 +9,10 @@ import pytest
 from app.core.exceptions import AuthorizationError, ConflictError, DomainValidationError
 from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
-from app.repositories import observers, performance_reporting, report_access
+from app.modules.access import report_access_repository as report_access
+from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
+from app.repositories import observers, performance_reporting
 from app.schemas.observers import ObserverSaveRequest
-from app.schemas.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
 from app.services import performance_reporting as reports
 
 pytestmark = pytest.mark.skipif(os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated demo opt-in")
@@ -171,7 +172,7 @@ def test_hod_cannot_be_inferred_from_own_department_or_manager(report_db):
 
 
 def test_verified_directory_adapter_partial_revoke_rename_and_full_reconciliation(report_db, monkeypatch):
-    from app.repositories import directory_report_access
+    from app.modules.access import directory_report_access_repository as directory_report_access
 
     monkeypatch.setattr(directory_report_access, "get_connection", observers.get_connection)
     directory_report_access.reconcile_verified_departments([

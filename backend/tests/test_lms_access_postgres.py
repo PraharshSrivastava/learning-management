@@ -9,7 +9,7 @@ import pytest
 from app.core.exceptions import DomainValidationError
 from app.db import database
 from app.db.migrations.access import VERSION, apply_access_migrations
-from app.repositories import lms_access
+from app.modules.access import repository as lms_access
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true",
@@ -57,7 +57,7 @@ def access_db(monkeypatch):
                     yield transaction
 
             monkeypatch.setattr(lms_access, "get_connection", connection)
-            from app.repositories import report_access
+            from app.modules.access import report_access_repository as report_access
             monkeypatch.setattr(report_access, "get_connection", connection)
             apply_access_migrations(transaction)
             yield transaction
@@ -162,8 +162,8 @@ def test_audit_failure_rolls_back_grant_and_version(access_db, monkeypatch):
 def test_persistent_grant_changes_capabilities_for_existing_trainer_session(access_db, monkeypatch):
     from starlette.requests import Request
 
+    from app.modules.access import service
     from app.services import auth
-    from app.services import lms_access as service
 
     monkeypatch.setattr(auth.settings, "hub_launch_dev_mode", True)
     monkeypatch.setattr(auth, "_hub_session", lambda *_: None)

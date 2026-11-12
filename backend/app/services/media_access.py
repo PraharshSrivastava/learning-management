@@ -11,12 +11,12 @@ from dataclasses import dataclass
 from app.core.exceptions import AuthenticationError, NotFoundError
 from app.core.settings import settings
 from app.db.database import get_connection
+from app.modules.access.course_authorization import is_admin_trainer
+from app.modules.access.repository import identity_key
+from app.modules.access.service import _employee_for_trainer
 from app.modules.directory.employees_repository import EmployeeRepository
 from app.modules.directory.trainers_repository import get_trainer
-from app.repositories.lms_access import identity_key
 from app.services.auth import current_employee_from_request, current_trainer_from_request
-from app.services.course_authorization import is_admin_trainer
-from app.services.lms_access import _employee_for_trainer
 
 _dev_key = secrets.token_bytes(32)
 _employees = EmployeeRepository()

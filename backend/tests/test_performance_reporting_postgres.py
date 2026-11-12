@@ -135,7 +135,7 @@ def test_employee_sql_search_attention_and_scope(report_data, attention):
 
 
 def test_shared_reporting_reads_other_creators_without_widening_content(report_data):
-    from app.schemas.reporting_scope import TrainerPerformanceScope
+    from app.modules.access.reporting_scope import TrainerPerformanceScope
 
     trainer, now, raw = report_data
     other = "unrelated-reporting-trainer"

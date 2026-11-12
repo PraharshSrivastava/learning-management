@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.core.exceptions import AuthorizationError
-from app.schemas.reporting_scope import EmployeePerformanceScope
+from app.modules.access.reporting_scope import EmployeePerformanceScope
 from app.services import email_notifications, email_status
 from app.services.email_status import LABELS, derive_email_state
 

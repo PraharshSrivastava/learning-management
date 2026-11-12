@@ -3,7 +3,7 @@
 from uuid import uuid4
 
 from app.db.database import get_connection
-from app.repositories.lms_access import identity_key
+from app.modules.access.repository import identity_key
 
 
 def department_options():

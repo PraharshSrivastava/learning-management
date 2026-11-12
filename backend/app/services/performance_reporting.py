@@ -8,8 +8,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.core.settings import settings
+from app.modules.access.reporting_scope import TrainerReportScope
 from app.repositories import performance_reporting as reports
-from app.schemas.reporting_scope import TrainerReportScope
 from app.services.course_access import parse_datetime
 
 INACTIVE_DAYS = 14

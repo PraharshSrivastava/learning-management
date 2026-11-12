@@ -8,10 +8,11 @@ from fastapi.testclient import TestClient
 
 from app.api import assignments, course_library, courses, generation
 from app.core.exceptions import install_exception_handlers
+from app.modules.access import repository as grants
+from app.modules.access import service as lms_access
+from app.modules.access.course_authorization import READ_ONLY_MESSAGE
 from app.repositories import courses as repository
-from app.repositories import lms_access as grants
-from app.services import auth, lms_access
-from app.services.course_authorization import READ_ONLY_MESSAGE
+from app.services import auth
 
 
 @pytest.fixture

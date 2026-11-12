@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter, Header, Request
 
-from app.schemas.lms_access import LmsAccessResponse
+from app.modules.access.schemas import LmsAccessResponse
+from app.modules.access.service import current_lms_access
 from app.security.hub_launch import HubApp
-from app.services.lms_access import current_lms_access
 
 router = APIRouter(prefix="/api/lms", tags=["lms-access"])
 

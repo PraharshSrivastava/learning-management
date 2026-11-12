@@ -1,11 +1,11 @@
 """Validate the requested contribution; SQL intersects it with each row."""
 
 from app.core.exceptions import AuthenticationError, AuthorizationError
-from app.repositories.lms_access import identity_key
-from app.repositories.report_access import report_roles
-from app.schemas.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
+from app.modules.access.report_access_repository import report_roles
+from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
+from app.modules.access.repository import identity_key
+from app.modules.access.service import _employee_for_trainer
 from app.services.auth import current_employee_from_request, current_trainer_from_request
-from app.services.lms_access import _employee_for_trainer
 
 
 def current_report_scope(request, authorization, *, app):

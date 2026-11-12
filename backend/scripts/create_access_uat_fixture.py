@@ -10,7 +10,7 @@ from app.core.settings import settings
 from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
 from app.generation.thumbnails import course_thumbnail_signature
-from app.repositories.lms_access import identity_key
+from app.modules.access.repository import identity_key
 
 
 def main():

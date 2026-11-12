@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from app.core.settings import settings
 from app.db.database import get_connection
-from app.schemas.reporting_scope import TrainerReportScope, owner_filter
+from app.modules.access.reporting_scope import TrainerReportScope, owner_filter
 
 
 def _availability_filter(scope: TrainerReportScope) -> str:

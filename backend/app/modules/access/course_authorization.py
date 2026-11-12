@@ -1,8 +1,9 @@
 """Course content oversight is distinct from all-course performance access."""
 
 from app.core.exceptions import AuthorizationError, NotFoundError
-from app.repositories import courses, lms_access
-from app.services.lms_access import _employee_for_trainer
+from app.modules.access import repository as lms_access
+from app.modules.access.service import _employee_for_trainer
+from app.repositories import courses
 
 READ_ONLY_MESSAGE = (
     "This course was created by another trainer. You can view it and its "

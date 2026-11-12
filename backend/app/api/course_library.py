@@ -5,6 +5,11 @@ from typing import Literal
 from fastapi import APIRouter, Header, Query, Request, Response
 
 from app.core.exceptions import AuthorizationError
+from app.modules.access.course_authorization import (
+    READ_ONLY_MESSAGE,
+    course_owner_for_read,
+    is_admin_trainer,
+)
 from app.repositories import courses
 from app.schemas.course import CourseStatus
 from app.schemas.course_library import CourseLibraryResponse
@@ -12,11 +17,6 @@ from app.schemas.generation import GenerationStatus
 from app.schemas.performance_reporting import AssignmentListReport
 from app.services import performance_reporting as reports
 from app.services.auth import current_trainer_from_request
-from app.services.course_authorization import (
-    READ_ONLY_MESSAGE,
-    course_owner_for_read,
-    is_admin_trainer,
-)
 
 router = APIRouter(prefix="/api/trainer", tags=["course-library"])
 

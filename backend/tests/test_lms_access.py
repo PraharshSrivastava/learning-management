@@ -4,10 +4,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.lms_access import router
 from app.core.exceptions import install_exception_handlers
-from app.repositories import lms_access as grants
-from app.services import auth, lms_access
+from app.modules.access import repository as grants
+from app.modules.access import service as lms_access
+from app.modules.access.api import router
+from app.services import auth
 
 
 @pytest.fixture

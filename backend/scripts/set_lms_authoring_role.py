@@ -4,8 +4,8 @@ import argparse
 import json
 
 from app.core.exceptions import ApplicationError
+from app.modules.access.repository import access_snapshot, identity_key, set_admin_grant
 from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.lms_access import access_snapshot, identity_key, set_admin_grant
 
 
 def main(argv=None) -> int:
