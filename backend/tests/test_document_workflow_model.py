@@ -7,13 +7,13 @@ import pytest
 
 from app.core.exceptions import ProviderError
 from app.core.settings import Settings
-from app.document_builder.workflow_model import (
+from app.modules.documents.builder.workflow_model import (
     InvalidModelResponse,
     ModelContextLimit,
     WorkflowModel,
 )
+from app.modules.documents.workflow_schemas import DraftMetadata, SourceReference, WritingSettings
 from app.modules.generation.pipeline.runtime import PipelineStageError
-from app.schemas.document_workflow import DraftMetadata, SourceReference, WritingSettings
 
 
 def completion(value, reason="stop"):

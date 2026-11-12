@@ -14,8 +14,8 @@ from pathlib import Path
 
 from app.core.exceptions import ProviderError
 from app.core.settings import _load_dotenv_values, settings
-from app.document_builder.workflow_model import WorkflowModel
-from app.schemas.document_workflow import DraftMetadata, SourceReference, WritingSettings
+from app.modules.documents.builder.workflow_model import WorkflowModel
+from app.modules.documents.workflow_schemas import DraftMetadata, SourceReference, WritingSettings
 
 
 def scenarios():

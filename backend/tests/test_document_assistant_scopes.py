@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.document_builder.workflow_jobs import WorkflowJobs
-from app.schemas.document_workflow import (
+from app.modules.documents.builder.workflow_jobs import WorkflowJobs
+from app.modules.documents.workflow_schemas import (
     DraftContent,
     DraftModule,
     EditResponse,

@@ -7,8 +7,11 @@ from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.settings import settings
-from app.documents.conversion import DocumentConversionError, convert_office_to_pdf
 from app.modules.auth.service import current_trainer_from_request
+from app.modules.documents.extraction.conversion import (
+    DocumentConversionError,
+    convert_office_to_pdf,
+)
 from app.modules.learning.media_access import authorize_document, media_principal
 from app.modules.uploads.repository import get_document_by_file_name
 from app.modules.uploads.schemas import StoredFileResponse, UploadResponse

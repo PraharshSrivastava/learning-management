@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.db.database import get_connection
-from app.repositories.document_drafts import create_draft_tables
+from app.modules.documents.drafts_repository import create_draft_tables
 
 TABLES = (
     "learning_journey_observer_configs",

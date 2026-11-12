@@ -18,9 +18,8 @@ from pydantic import ValidationError
 from app.core.exceptions import ProviderError
 from app.core.providers import LLMClient
 from app.core.settings import Settings
-from app.document_builder.workflow_prompts import PROMPT_VERSION, SYSTEM, TASKS
-from app.modules.generation.pipeline.runtime import PipelineStageError
-from app.schemas.document_workflow import (
+from app.modules.documents.builder.workflow_prompts import PROMPT_VERSION, SYSTEM, TASKS
+from app.modules.documents.workflow_schemas import (
     AnswerResponse,
     DraftMetadata,
     EditResponse,
@@ -31,6 +30,7 @@ from app.schemas.document_workflow import (
     StrictModel,
     WritingSettings,
 )
+from app.modules.generation.pipeline.runtime import PipelineStageError
 
 Task = Literal["outline", "module", "edit", "answer", "revise", "insert"]
 RESPONSES = {

@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.db.database import get_connection
-from app.schemas.document_workflow import DraftContent, DraftRecord, outline_fingerprint
+from app.modules.documents.workflow_schemas import DraftContent, DraftRecord, outline_fingerprint
 
 
 def create_draft_tables(cursor):

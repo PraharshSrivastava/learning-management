@@ -6,9 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.exceptions import ConflictError
-from app.document_builder.workflow_export import WorkflowExport
-from app.document_builder.workflow_jobs import WorkflowJobs
-from app.schemas.document_workflow import (
+from app.modules.documents.builder.workflow_export import WorkflowExport
+from app.modules.documents.builder.workflow_jobs import WorkflowJobs
+from app.modules.documents.workflow_schemas import (
     AcceptProposal,
     DraftContent,
     DraftMetadata,
@@ -104,7 +104,7 @@ def test_reviewed_outline_accepts_edited_titles_order_and_objectives(repo):
             ]
         },
     )
-    from app.api import document_drafts
+    from app.modules.documents import drafts_api as document_drafts
 
     monkey_owner = document_drafts._owner
     monkey_repo = document_drafts.repository

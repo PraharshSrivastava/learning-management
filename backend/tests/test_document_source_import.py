@@ -8,8 +8,13 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from app.core.settings import settings
-from app.document_builder import import_source
-from app.schemas.document_workflow import DraftContent, ImageBlock, ImportRequest, TableBlock
+from app.modules.documents.builder import import_source
+from app.modules.documents.workflow_schemas import (
+    DraftContent,
+    ImageBlock,
+    ImportRequest,
+    TableBlock,
+)
 
 pytest_plugins = ["test_document_draft_repository"]
 

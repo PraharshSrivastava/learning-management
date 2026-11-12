@@ -2,8 +2,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.core.exceptions import ProviderError
-from app.document_builder.workflow_jobs import WorkflowJobs
-from app.schemas.document_workflow import (
+from app.modules.documents.builder.workflow_jobs import WorkflowJobs
+from app.modules.documents.workflow_schemas import (
     DraftContent,
     DraftMetadata,
     DraftModule,
@@ -219,7 +219,7 @@ def test_cancelled_operation_is_never_claimed_or_written(repo):
 
 
 def test_drafted_module_drops_a_heading_that_repeats_its_title():
-    from app.document_builder.workflow_jobs import without_title_heading
+    from app.modules.documents.builder.workflow_jobs import without_title_heading
 
     heading = {"type": "heading", "text": " Active  Listening "}
     body = {"type": "paragraph", "text": "Listen first."}

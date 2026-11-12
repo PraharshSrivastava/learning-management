@@ -44,8 +44,8 @@ async def lifespan(_: FastAPI):
     generation_queue.start()
     init_db()
     if settings.document_builder_workflow_enabled:
-        from app.api.document_drafts import jobs, repository
-        from app.document_builder.workflow_jobs import executor
+        from app.modules.documents.builder.workflow_jobs import executor
+        from app.modules.documents.drafts_api import jobs, repository
 
         for draft_id, owner, operation_id in repository.recover_operations():
             executor.submit(jobs.run, draft_id, owner, operation_id)
@@ -59,7 +59,7 @@ async def lifespan(_: FastAPI):
         await stop_directory_sync_scheduler()
         generation_jobs.shutdown()
         if settings.document_builder_workflow_enabled:
-            from app.document_builder.workflow_jobs import executor, stopping
+            from app.modules.documents.builder.workflow_jobs import executor, stopping
 
             stopping.set()
             executor.shutdown(wait=True, cancel_futures=True)

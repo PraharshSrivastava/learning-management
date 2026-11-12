@@ -7,14 +7,14 @@ from docx import Document
 from docx.shared import Inches
 from PIL import Image
 
-from app.documents.docx import extract_docx_blueprint_source
+from app.modules.documents.extraction.docx import extract_docx_blueprint_source
 
 ALT = "A typical money laundering scheme: placement, layering and integration"
 
 
 @pytest.fixture(autouse=True)
 def image_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.documents.docx.IMAGE_DIR", str(tmp_path / "images"))
+    monkeypatch.setattr("app.modules.documents.extraction.docx.IMAGE_DIR", str(tmp_path / "images"))
 
 
 def _png() -> BytesIO:

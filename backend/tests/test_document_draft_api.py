@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api import document_drafts
 from app.core.exceptions import install_exception_handlers
 from app.core.settings import settings
+from app.modules.documents import drafts_api as document_drafts
 
 
 def client(monkeypatch, enabled):

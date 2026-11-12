@@ -10,8 +10,7 @@ from uuid import uuid4
 
 from app.core.exceptions import NotFoundError
 from app.core.settings import settings
-from app.modules.uploads.repository import get_document
-from app.schemas.document_workflow import (
+from app.modules.documents.workflow_schemas import (
     DraftModule,
     ExtractedSource,
     ImageBlock,
@@ -20,6 +19,7 @@ from app.schemas.document_workflow import (
     TableBlock,
     TextBlock,
 )
+from app.modules.uploads.repository import get_document
 
 
 class SourceImporter:
@@ -141,7 +141,7 @@ class SourceImporter:
             from docx.table import Table
             from docx.text.paragraph import Paragraph
 
-            from app.documents.docx import _table_metadata
+            from app.modules.documents.extraction.docx import _table_metadata
 
             document = Document(snapshot)
             for number, element in enumerate(document.element.body, 1):

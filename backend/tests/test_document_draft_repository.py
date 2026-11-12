@@ -11,8 +11,13 @@ from contextlib import contextmanager
 import pytest
 
 from app.core.exceptions import ConflictError, NotFoundError
-from app.repositories import document_drafts
-from app.schemas.document_workflow import DraftContent, DraftMetadata, DraftModule, TextBlock
+from app.modules.documents import drafts_repository as document_drafts
+from app.modules.documents.workflow_schemas import (
+    DraftContent,
+    DraftMetadata,
+    DraftModule,
+    TextBlock,
+)
 
 
 class Connection:
@@ -158,7 +163,7 @@ def test_separate_copy_remaps_owned_source_references(repo):
         },
     )
     edited = original.content.model_copy(deep=True)
-    from app.schemas.document_workflow import SourceReference
+    from app.modules.documents.workflow_schemas import SourceReference
 
     edited.modules[0].sourceReferences = [SourceReference(sourceId="source1", spanId="span1")]
     edited.modules[0].blocks[0].sourceReferences = [

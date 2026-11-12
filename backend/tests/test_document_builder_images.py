@@ -5,15 +5,15 @@ from types import SimpleNamespace
 
 from PIL import Image
 
-from app.document_builder import workflow_export
-from app.modules.generation.pipeline.html import render_image_slide
-from app.schemas.document_workflow import (
+from app.modules.documents.builder import workflow_export
+from app.modules.documents.workflow_schemas import (
     DraftContent,
     DraftMetadata,
     DraftModule,
     ImageBlock,
     TextBlock,
 )
+from app.modules.generation.pipeline.html import render_image_slide
 
 pytest_plugins = ["test_document_draft_repository"]
 

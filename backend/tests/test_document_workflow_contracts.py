@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.document_workflow import (
+from app.modules.documents.workflow_schemas import (
     AnswerResponse,
     DraftContent,
     DraftMetadata,

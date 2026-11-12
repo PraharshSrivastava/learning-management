@@ -6,12 +6,12 @@ import json
 from io import BytesIO
 
 from app.core.providers import get_llm_endpoint, safe_chat_completion
-from app.document_builder.pdf_builder import (
+from app.modules.documents.builder.pdf_builder import (
     REQUIRED_METADATA_FIELDS,
     render_pdf,
     safe_filename,
 )
-from app.document_builder.prompts import (
+from app.modules.documents.builder.prompts import (
     BOOLEAN_SETTING_SNIPPETS,
     DETAIL_LEVEL_SNIPPETS,
     SYSTEM_PROMPT,

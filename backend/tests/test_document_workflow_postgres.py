@@ -12,11 +12,11 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.core.settings import settings
 from app.db.database import get_connection
 from app.db.schema import init_db
-from app.document_builder.import_source import SourceImporter
-from app.document_builder.workflow_export import WorkflowExport
-from app.document_builder.workflow_jobs import WorkflowJobs
-from app.repositories.document_drafts import DocumentDraftRepository
-from app.schemas.document_workflow import (
+from app.modules.documents.builder.import_source import SourceImporter
+from app.modules.documents.builder.workflow_export import WorkflowExport
+from app.modules.documents.builder.workflow_jobs import WorkflowJobs
+from app.modules.documents.drafts_repository import DocumentDraftRepository
+from app.modules.documents.workflow_schemas import (
     DraftContent,
     DraftMetadata,
     DraftModule,

@@ -14,10 +14,13 @@ from app.core.logging import generation_logger
 from app.core.providers import IMAGE_DIR, UPLOAD_DIR, get_llm_endpoint, safe_chat_completion
 from app.core.settings import settings
 from app.core.storage import public_asset_url
-from app.documents.conversion import convert_office_to_pdf
-from app.documents.docx import extract_docx_blueprint_source
-from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
 from app.modules.courses.repository import delete_course, get_all_courses, get_course, save_course
+from app.modules.documents.extraction.conversion import convert_office_to_pdf
+from app.modules.documents.extraction.docx import extract_docx_blueprint_source
+from app.modules.documents.extraction.pptx import (
+    extract_pptx_metadata_with_llm,
+    extract_text_from_pptx,
+)
 from app.modules.generation.pipeline.prompts import MODULE_EXTRACTION_PROMPT
 from app.modules.generation.pipeline.runtime import (
     complete_generation,

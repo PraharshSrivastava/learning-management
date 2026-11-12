@@ -36,7 +36,7 @@ def engine_on(monkeypatch):
 @pytest.fixture
 def image_dir(tmp_path, monkeypatch):
     monkeypatch.setattr("app.modules.generation.pipeline.blueprint.IMAGE_DIR", str(tmp_path / "images"))
-    monkeypatch.setattr("app.documents.docx.IMAGE_DIR", str(tmp_path / "images"))
+    monkeypatch.setattr("app.modules.documents.extraction.docx.IMAGE_DIR", str(tmp_path / "images"))
     return tmp_path
 
 
@@ -101,7 +101,7 @@ def test_pdf_classification_rules():
 
 
 def test_docx_marks_small_and_repeated_images_decorative(image_dir):
-    from app.documents.docx import extract_docx_blueprint_source
+    from app.modules.documents.extraction.docx import extract_docx_blueprint_source
 
     path = image_dir / "guide.docx"
     document = Document()
@@ -124,7 +124,7 @@ def test_docx_marks_small_and_repeated_images_decorative(image_dir):
 
 
 def test_docx_without_images_recommends_video_engine(image_dir):
-    from app.documents.docx import extract_docx_blueprint_source
+    from app.modules.documents.extraction.docx import extract_docx_blueprint_source
 
     path = image_dir / "text.docx"
     document = Document()

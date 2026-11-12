@@ -9,12 +9,9 @@ from app.core.exceptions import ConflictError
 from app.core.settings import settings
 from app.core.storage import public_asset_url
 from app.db.database import advisory_lock
-from app.document_builder.pdf_builder import REQUIRED_METADATA_FIELDS
 from app.modules.courses.repository import CourseRepository
-from app.modules.generation.pipeline.runtime import complete_generation, mark_stage, now_iso
-from app.modules.generation.pipeline.video_engine import apply_outline_recommendation
-from app.modules.uploads.service import UploadService
-from app.schemas.document_workflow import (
+from app.modules.documents.builder.pdf_builder import REQUIRED_METADATA_FIELDS
+from app.modules.documents.workflow_schemas import (
     DraftContent,
     ImageBlock,
     ListBlock,
@@ -23,6 +20,9 @@ from app.schemas.document_workflow import (
     module_text,
     outline_fingerprint,
 )
+from app.modules.generation.pipeline.runtime import complete_generation, mark_stage, now_iso
+from app.modules.generation.pipeline.video_engine import apply_outline_recommendation
+from app.modules.uploads.service import UploadService
 
 
 def owned_path(resource):

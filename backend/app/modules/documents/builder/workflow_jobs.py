@@ -8,8 +8,8 @@ from uuid import uuid4
 
 from app.core.exceptions import ConflictError, ProviderError
 from app.core.settings import settings
-from app.document_builder.workflow_model import WorkflowModel
-from app.schemas.document_workflow import (
+from app.modules.documents.builder.workflow_model import WorkflowModel
+from app.modules.documents.workflow_schemas import (
     DraftModule,
     ModuleResponse,
     OperationRequest,
@@ -121,7 +121,7 @@ class WorkflowJobs:
                 raise ConflictError("Draft changed before generation started")
             self.repository.update_operation(draft_id, owner, operation_id, status="running")
             if request.task == "import":
-                from app.document_builder.import_source import SourceImporter
+                from app.modules.documents.builder.import_source import SourceImporter
 
                 last_heartbeat = 0
 
