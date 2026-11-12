@@ -28,12 +28,12 @@ from reportlab.pdfgen import canvas
 from app.core.exceptions import NotFoundError
 from app.core.settings import settings
 from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.journeys import JourneyRepository
+from app.modules.journeys.repository import JourneyRepository
 
 _journeys = JourneyRepository()
 _employees = EmployeeRepository()
 
-LOGO_PATH = Path(__file__).resolve().parents[1] / "static" / "brand" / "phillipcapital-new-brand-logo.png"
+LOGO_PATH = Path(__file__).resolve().parents[2] / "static" / "brand" / "phillipcapital-new-brand-logo.png"
 BRAND_BLUE = HexColor("#00317A")
 ACCENT_GOLD = HexColor("#B8892B")
 INK = HexColor("#172033")

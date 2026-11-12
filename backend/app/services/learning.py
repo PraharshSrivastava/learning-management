@@ -17,16 +17,16 @@ from app.modules.assignments.service import (
 from app.modules.auth.service import current_employee_from_request
 from app.modules.courses.repository import CourseRepository
 from app.modules.directory.employees_repository import EmployeeRepository
+from app.modules.journeys.service import (
+    journey_held_courses,
+    journeys_enabled,
+    learner_course_journeys,
+)
 from app.repositories.progress import ProgressRepository
 from app.schemas.progress import (
     CourseStatusUpdateRequest,
     CourseStatusUpdateResponse,
     ModuleProgressUpdateRequest,
-)
-from app.services.journeys import (
-    journey_held_courses,
-    journeys_enabled,
-    learner_course_journeys,
 )
 from app.services.notifications import (
     broadcast_employee_courses,

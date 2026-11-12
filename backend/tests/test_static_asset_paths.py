@@ -5,7 +5,7 @@ moves, the lookup must still find the file, or the feature silently degrades
 (for example a certificate without its logo).
 """
 
-from app.services.journey_certificates import LOGO_PATH
+from app.modules.journeys.certificates import LOGO_PATH
 
 
 def test_journey_certificate_logo_exists():

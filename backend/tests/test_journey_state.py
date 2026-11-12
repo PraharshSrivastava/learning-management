@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from app.services.journey_state import (
+from app.modules.journeys.state import (
     CourseState,
     StepInput,
     evaluate_steps,

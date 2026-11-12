@@ -9,6 +9,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app.modules.access.report_access import current_report_scope
 from app.modules.auth.service import current_trainer_from_request
+from app.modules.journeys import reporting as journey_reports
 from app.schemas.analytics import TrainerPerformanceResponse
 from app.schemas.performance_reporting import (
     AssignmentDetailReport,
@@ -22,7 +23,6 @@ from app.schemas.performance_reporting import (
     PerformanceOverview,
     PerformanceReportOptions,
 )
-from app.services import journey_reporting as journey_reports
 from app.services import performance_reporting as reports
 from app.services.analytics import api_trainer_performance
 
@@ -119,8 +119,8 @@ def performance_overview(
 
 @router.get("/trainer/performance/options", response_model=PerformanceReportOptions)
 def performance_options(request: Request, authorization: str | None = Header(default=None)):
+    from app.modules.journeys.service import journeys_enabled
     from app.repositories.performance_reporting import list_scope_options
-    from app.services.journeys import journeys_enabled
 
     return {
         **list_scope_options(_trainer_scope(request, authorization)),

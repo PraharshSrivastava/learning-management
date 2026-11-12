@@ -24,13 +24,19 @@ from app.modules.assignments.repository import (
 from app.modules.assignments.schemas import AssignmentRuleRequest
 from app.modules.courses.repository import delete_course_for_trainer
 from app.modules.directory.employees_repository import list_employees
+from app.modules.journeys import reporting as journey_reporting
+from app.modules.journeys import service as journeys
+from app.modules.journeys.repository import create_journey_tables
+from app.modules.journeys.schemas import (
+    JourneyCreateRequest,
+    JourneyObserversRequest,
+    JourneySaveRequest,
+)
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
 from app.repositories import performance_reporting
-from app.repositories.journeys import create_journey_tables
 from app.repositories.progress import ProgressRepository
-from app.schemas.journey import JourneyCreateRequest, JourneyObserversRequest, JourneySaveRequest
-from app.services import email_notifications, journey_reporting, journeys, learning
+from app.services import email_notifications, learning
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"
@@ -676,7 +682,7 @@ def test_live_save_applies_at_once_and_rechecks_learners_only_when_needed(journe
 
 
 def test_preview_uses_the_unsaved_rule_and_observers(journey_db):
-    from app.schemas.journey import JourneyPreviewRequest
+    from app.modules.journeys.schemas import JourneyPreviewRequest
 
     journey_id = make_journey("Preview", [("c1", "open")])
     assert journeys.api_preview_journey(journey_id, "creator")["match_count"] == 3
@@ -721,7 +727,7 @@ def test_a_damaged_course_does_not_break_the_journeys_tab(journey_db, monkeypatc
 
 
 def test_completion_certificate_pdf_and_verification(journey_db):
-    from app.services import journey_certificates
+    from app.modules.journeys import certificates as journey_certificates
 
     journey_id = make_journey("Markets Foundation", [("c1", "open")])
     journeys.api_publish_journey(journey_id, "creator")
@@ -758,7 +764,7 @@ def test_completion_certificate_pdf_and_verification(journey_db):
 def test_certificate_is_stored_at_completion_and_never_changes(journey_db):
     import fitz
 
-    from app.services import journey_certificates
+    from app.modules.journeys import certificates as journey_certificates
 
     journey_id = make_journey("Markets Foundation", [("c1", "open")])
     journeys.api_publish_journey(journey_id, "creator")
@@ -789,7 +795,7 @@ def test_certificate_is_stored_at_completion_and_never_changes(journey_db):
 
 
 def test_a_completion_from_before_stored_certificates_is_issued_on_first_check(journey_db):
-    from app.services import journey_certificates
+    from app.modules.journeys import certificates as journey_certificates
 
     journey_id = make_journey("Markets Foundation", [("c1", "open")])
     journeys.api_publish_journey(journey_id, "creator")
@@ -807,7 +813,7 @@ def test_a_completion_from_before_stored_certificates_is_issued_on_first_check(j
 def test_certificate_text_names_the_issuing_team_without_a_signatory():
     import fitz
 
-    from app.services import journey_certificates
+    from app.modules.journeys import certificates as journey_certificates
 
     pdf = journey_certificates.render_certificate_pdf(
         learner_name="Asha Verma",
@@ -838,7 +844,7 @@ def test_certificate_text_names_the_issuing_team_without_a_signatory():
 def test_a_long_course_list_moves_to_a_course_record_page():
     import fitz
 
-    from app.services import journey_certificates
+    from app.modules.journeys import certificates as journey_certificates
 
     courses = [f"A fairly long course name about markets, number {n}" for n in range(1, 41)]
     pdf = journey_certificates.render_certificate_pdf(
@@ -1070,7 +1076,7 @@ def test_learners_see_the_cover_image_of_every_course_in_their_journey(journey_d
 
 
 def test_a_completed_journey_and_its_certificate_stay_with_the_learner(journey_db):
-    from app.services import journey_certificates
+    from app.modules.journeys import certificates as journey_certificates
 
     journey_id = make_journey("Compliance", [("c1", "open"), ("c2", "open")])
     journeys.api_publish_journey(journey_id, "creator")

@@ -574,7 +574,7 @@ def _create_tables(cursor) -> None:
 
     from app.db.migrations.course_lifecycle import apply_course_lifecycle_migration
     apply_course_lifecycle_migration(cursor)
-    from app.repositories.journeys import create_journey_tables
+    from app.modules.journeys.repository import create_journey_tables
     create_journey_tables(cursor)
 
 

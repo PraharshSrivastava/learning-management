@@ -24,16 +24,15 @@ from app.modules.assignments.repository import (
 from app.modules.courses.access import course_is_publishable
 from app.modules.courses.repository import get_course, update_course_status
 from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.journeys import JourneyRepository, assignment_changed
-from app.repositories.progress import ProgressRepository
-from app.schemas.journey import (
+from app.modules.journeys.certificates import certificate_number, issue_certificate
+from app.modules.journeys.repository import JourneyRepository, assignment_changed
+from app.modules.journeys.schemas import (
     JourneyCreateRequest,
     JourneyObserversRequest,
     JourneyPreviewRequest,
     JourneySaveRequest,
 )
-from app.services.journey_certificates import certificate_number, issue_certificate
-from app.services.journey_state import (
+from app.modules.journeys.state import (
     CourseState,
     JourneyState,
     StepInput,
@@ -41,6 +40,7 @@ from app.services.journey_state import (
     journey_status,
     prerequisite_met,
 )
+from app.repositories.progress import ProgressRepository
 
 logger = logging.getLogger(__name__)
 _journeys = JourneyRepository()
@@ -927,7 +927,7 @@ def api_disable_journey(journey_id: str, trainer_id: str) -> dict:
             raise ConflictError("Only a published journey can be disabled.")
         _journeys.disable(journey_id)
         # As for a disabled course: its Observers stop seeing it until they are applied again.
-        from app.repositories.journey_observers import suspend_journey
+        from app.modules.journeys.observers_repository import suspend_journey
 
         suspend_journey(journey_id, trainer_id)
         now = datetime.now()
@@ -968,7 +968,7 @@ def _reconcile_journey_employees(journey_id: str) -> dict[str, int]:
 
 def _designated_observers(journey_id: str) -> set[str]:
     """Observers saved for the journey, applied or pending, as course Observers count them."""
-    from app.repositories import journey_observers
+    from app.modules.journeys import observers_repository as journey_observers
 
     return {
         item["observer_employee_id"] for item in journey_observers.get_config(journey_id)["observers"]
@@ -1006,7 +1006,7 @@ def _validate_separation(journey: dict, rule: dict | None = None, observers: set
 
 
 def api_get_journey_observers(journey_id: str, trainer_id: str) -> dict:
-    from app.repositories import journey_observers
+    from app.modules.journeys import observers_repository as journey_observers
 
     _require_enabled()
     _owned_journey(journey_id, trainer_id)
@@ -1018,7 +1018,7 @@ def api_save_journey_observers(
 ) -> dict:
     """Saves the pending Observers, as for a course: removals take effect at once, additions
     only on Apply. Nobody can observe a journey they match or already have as a learner."""
-    from app.repositories import journey_observers
+    from app.modules.journeys import observers_repository as journey_observers
 
     _require_enabled()
     with advisory_lock(f"learning_journey:{journey_id}"):
@@ -1033,7 +1033,7 @@ def api_save_journey_observers(
 
 def api_apply_journey_observers(journey_id: str, trainer_id: str, revision: int) -> dict:
     """Gives the saved Observers access. The journey must be published."""
-    from app.repositories import journey_observers
+    from app.modules.journeys import observers_repository as journey_observers
 
     _require_enabled()
     with advisory_lock(f"learning_journey:{journey_id}"):

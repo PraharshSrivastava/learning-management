@@ -104,7 +104,7 @@ def _revoked_progress(progress: dict, now: datetime, reason: str) -> dict:
 
 
 def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False) -> dict[str, int]:
-    from app.services.journeys import (
+    from app.modules.journeys.service import (
         email_journeys_assigned,
         journey_held_courses,
         journey_wanted_courses,
@@ -316,7 +316,7 @@ def assign_published_course_to_matching_employees(
     reactivated = 0
     deadline_updates = 0
 
-    from app.services.journeys import journeys_hold_course
+    from app.modules.journeys.service import journeys_hold_course
 
     for employee_id, course_progress in list(existing_progress.items()):
         if employee_id not in matched_by_id and not course_progress.get("revoked_at") and course_progress.get("status") != "revoked":

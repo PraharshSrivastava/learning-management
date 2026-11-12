@@ -15,9 +15,14 @@ from app.core.exceptions import NotFoundError
 from app.core.settings import settings
 from app.modules.access.reporting_scope import TrainerPerformanceScope, TrainerReportScope
 from app.modules.assignments.conflicts import observer_ids
+from app.modules.journeys.certificates import _certificate_for, certificate_number
+from app.modules.journeys.service import (
+    _course_availability,
+    _evaluate,
+    _journeys,
+    journeys_enabled,
+)
 from app.repositories import performance_reporting as course_reports
-from app.services.journey_certificates import _certificate_for, certificate_number
-from app.services.journeys import _course_availability, _evaluate, _journeys, journeys_enabled
 from app.services.performance_reporting import INACTIVE_DAYS, _local_datetime
 
 # Report course availability → the journeys it shows. A disabled journey removes its learners,
