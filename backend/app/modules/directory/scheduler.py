@@ -8,9 +8,9 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.settings import settings
+from app.modules.assignments.service import reconcile_time_based_assignments
 from app.modules.directory.employees_repository import get_sync_state
 from app.modules.directory.sync import sync_directory_changes
-from app.services.assignments import reconcile_time_based_assignments
 
 logger = logging.getLogger(__name__)
 _task: asyncio.Task | None = None

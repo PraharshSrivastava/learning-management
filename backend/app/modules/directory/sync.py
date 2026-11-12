@@ -15,6 +15,7 @@ from app.core.dates import normalize_date_like
 from app.core.exceptions import DomainValidationError, ProviderError
 from app.core.settings import settings
 from app.db.database import advisory_lock
+from app.modules.assignments.service import reconcile_assignments_for_employee
 from app.modules.directory.employees_repository import (
     EmployeeRepository,
     get_sync_state,
@@ -23,7 +24,6 @@ from app.modules.directory.employees_repository import (
     update_sync_state,
 )
 from app.modules.directory.trainers_repository import TrainerRepository
-from app.services.assignments import reconcile_assignments_for_employee
 
 logger = logging.getLogger(__name__)
 

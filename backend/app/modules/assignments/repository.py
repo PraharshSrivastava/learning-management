@@ -9,8 +9,8 @@ from psycopg.types.json import Jsonb
 
 from app.core.dates import parse_date_like
 from app.db.database import get_connection
+from app.modules.assignments.schemas import AssignmentRuleRecord
 from app.modules.directory.employees_repository import list_employees
-from app.schemas.assignment import AssignmentRuleRecord
 
 
 def _filters(

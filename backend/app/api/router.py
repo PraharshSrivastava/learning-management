@@ -3,7 +3,6 @@
 from fastapi import APIRouter
 
 from app.api.analytics import router as analytics_router
-from app.api.assignments import router as assignment_router
 from app.api.document_builder import router as document_builder_router
 from app.api.document_drafts import router as document_drafts_router
 from app.api.email_status import router as email_status_router
@@ -14,6 +13,7 @@ from app.api.media import router as media_router
 from app.api.observers import router as observers_router
 from app.api.static_assets import router as static_router
 from app.modules.access.api import router as lms_access_router
+from app.modules.assignments.api import router as assignment_router
 from app.modules.auth.api import router as auth_router
 from app.modules.auth.hub_api import router as hub_router
 from app.modules.courses.api import router as course_router

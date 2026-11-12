@@ -1,8 +1,8 @@
 from contextlib import nullcontext
 from datetime import datetime
 
-from app.repositories.assignments import employee_matches_assignment_rule
-from app.services import assignments as assignment_service
+from app.modules.assignments import service as assignment_service
+from app.modules.assignments.repository import employee_matches_assignment_rule
 from app.services import journeys as journey_service
 
 

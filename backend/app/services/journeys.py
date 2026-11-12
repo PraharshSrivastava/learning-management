@@ -14,14 +14,16 @@ from datetime import datetime, timedelta
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.settings import settings
 from app.db.database import advisory_lock, get_connection
-from app.modules.courses.access import course_is_publishable
-from app.modules.courses.repository import get_course, update_course_status
-from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.assignments import (
+from app.modules.assignments.conflicts import observer_ids
+from app.modules.assignments.deadlines import deadline_expired, resolve_deadline, validate_deadline
+from app.modules.assignments.repository import (
     employee_matches_assignment_rule,
     get_assignment_rule,
     matching_employees_for_assignment_rule,
 )
+from app.modules.courses.access import course_is_publishable
+from app.modules.courses.repository import get_course, update_course_status
+from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories.journeys import JourneyRepository, assignment_changed
 from app.repositories.progress import ProgressRepository
 from app.schemas.journey import (
@@ -30,8 +32,6 @@ from app.schemas.journey import (
     JourneyPreviewRequest,
     JourneySaveRequest,
 )
-from app.services.assignment_conflicts import observer_ids
-from app.services.assignment_deadlines import deadline_expired, resolve_deadline, validate_deadline
 from app.services.journey_certificates import certificate_number, issue_certificate
 from app.services.journey_state import (
     CourseState,
@@ -847,8 +847,8 @@ def _publish_ready_courses(journey: dict, trainer_id: str) -> None:
     kept as the draft; only the applied (live) rule matches nobody.
     """
     from app.db.database import course_transaction
+    from app.modules.assignments.repository import get_assignment_rule, save_assignment_rule
     from app.modules.courses.lifecycle import record_action
-    from app.repositories.assignments import get_assignment_rule, save_assignment_rule
 
     for step in journey["steps"]:
         if step["course_trainer_id"] != trainer_id:
@@ -944,7 +944,7 @@ def api_disable_journey(journey_id: str, trainer_id: str) -> dict:
 
 def _reconcile_journey_employees(journey_id: str) -> dict[str, int]:
     """Reconcile everyone the journey may now affect: rule matches and current or past assignees."""
-    from app.services.assignments import reconcile_assignments_for_employee
+    from app.modules.assignments.service import reconcile_assignments_for_employee
 
     journey = _journeys.get(journey_id)
     employee_ids = {row["employee_id"] for row in _journeys.assignments_for_journey(journey_id)}
@@ -990,7 +990,7 @@ def _observer_conflicts(journey: dict, rule: dict, observers: set[str]) -> list[
 
 def _validate_separation(journey: dict, rule: dict | None = None, observers: set[str] | None = None) -> None:
     """The course rule for journeys: nobody is both a learner and an Observer of one journey."""
-    from app.services.assignment_conflicts import EmployeeObserverConflict
+    from app.modules.assignments.conflicts import EmployeeObserverConflict
 
     if observers is None:
         observers = _designated_observers(journey["journey_id"])
@@ -1154,7 +1154,7 @@ def learner_journeys(employee_id: str) -> dict:
 def api_my_journeys(employee: dict) -> dict:
     if not journeys_enabled():
         return {"enabled": False, "journeys": []}
-    from app.services.assignments import ensure_assignments_for_employee
+    from app.modules.assignments.service import ensure_assignments_for_employee
 
     ensure_assignments_for_employee(employee["employee_id"])
     return learner_journeys(employee["employee_id"])

@@ -248,7 +248,7 @@ def _journey_only(connection, context: dict) -> bool:
     ).fetchone()
     if not in_journey:
         return False
-    from app.services.assignments import course_rule_assigns
+    from app.modules.assignments.service import course_rule_assigns
 
     return not course_rule_assigns(context["employee_id"], context["course_id"])
 

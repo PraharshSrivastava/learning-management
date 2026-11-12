@@ -6,18 +6,18 @@ from datetime import datetime, timedelta
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.db.database import atomic_course, course_transaction, get_connection
-from app.modules.courses.access import course_is_publishable
-from app.modules.courses.repository import CourseRepository, update_course_status
-from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.assignments import AssignmentRepository
-from app.repositories.progress import ProgressRepository
-from app.repositories.saved_assignment_groups import SavedAssignmentGroupRepository
-from app.schemas.assignment import AssignmentRuleRequest, SavedAssignmentGroupRequest
-from app.services.assignment_conflicts import (
+from app.modules.assignments.conflicts import (
     observer_ids,
     validate_separation,
 )
-from app.services.assignment_deadlines import deadline_expired, resolve_deadline, validate_deadline
+from app.modules.assignments.deadlines import deadline_expired, resolve_deadline, validate_deadline
+from app.modules.assignments.repository import AssignmentRepository
+from app.modules.assignments.saved_groups_repository import SavedAssignmentGroupRepository
+from app.modules.assignments.schemas import AssignmentRuleRequest, SavedAssignmentGroupRequest
+from app.modules.courses.access import course_is_publishable
+from app.modules.courses.repository import CourseRepository, update_course_status
+from app.modules.directory.employees_repository import EmployeeRepository
+from app.repositories.progress import ProgressRepository
 
 _assignments = AssignmentRepository()
 _courses = CourseRepository()

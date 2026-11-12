@@ -78,7 +78,7 @@ def current_employee_from_request(
         employee = _employees.get_by_hub_user_id(int(session["sub"]))
         if not employee or employee.get("status") != "active":
             raise AuthenticationError("Employee is not active or not synced from Hub")
-        from app.services.assignments import ensure_assignments_for_employee
+        from app.modules.assignments.service import ensure_assignments_for_employee
 
         ensure_assignments_for_employee(employee["employee_id"])
         return employee
@@ -117,7 +117,7 @@ def current_trainer_from_request(
 
 
 def local_employee_login(payload: LocalEmployeeLoginRequest):
-    from app.services.assignments import ensure_assignments_for_employee
+    from app.modules.assignments.service import ensure_assignments_for_employee
 
     _require_local_auth_enabled()
     employee = _employees.get(payload.employee_id)

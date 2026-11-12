@@ -9,19 +9,19 @@ from fastapi import Request
 
 from app.core.exceptions import DomainValidationError, NotFoundError
 from app.db.database import course_transaction
+from app.modules.assignments.repository import AssignmentRepository
+from app.modules.assignments.service import (
+    ensure_assignments_for_employee,
+    reconcile_assignments_for_employee,
+)
 from app.modules.auth.service import current_employee_from_request
 from app.modules.courses.repository import CourseRepository
 from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.assignments import AssignmentRepository
 from app.repositories.progress import ProgressRepository
 from app.schemas.progress import (
     CourseStatusUpdateRequest,
     CourseStatusUpdateResponse,
     ModuleProgressUpdateRequest,
-)
-from app.services.assignments import (
-    ensure_assignments_for_employee,
-    reconcile_assignments_for_employee,
 )
 from app.services.journeys import (
     journey_held_courses,

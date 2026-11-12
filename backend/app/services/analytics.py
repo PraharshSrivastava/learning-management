@@ -7,10 +7,10 @@ from typing import Any
 
 from app.core.dates import parse_date_like
 from app.core.settings import settings
+from app.modules.assignments.repository import AssignmentRepository
 from app.modules.courses.access import course_title, parse_datetime
 from app.modules.courses.repository import CourseRepository
 from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.assignments import AssignmentRepository
 from app.repositories.progress import ProgressRepository
 
 _courses = CourseRepository()

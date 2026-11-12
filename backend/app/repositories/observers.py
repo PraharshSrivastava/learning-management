@@ -75,7 +75,7 @@ def save_config(course_id, trainer_id, payload):
         existing = db.execute("SELECT observer_employee_id FROM course_observer_grants WHERE course_id = ?", (course_id,)).fetchall()
         affected = {r["observer_employee_id"] for r in existing}
         incoming = {s.observer_employee_id for s in payload.observers}
-        from app.services.assignment_conflicts import validate_separation
+        from app.modules.assignments.conflicts import validate_separation
         validate_separation(course_id, proposed_observers=incoming, db=db)
         for employee_id in affected - incoming:
             db.execute("DELETE FROM course_observer_employees WHERE course_id = ? AND observer_employee_id = ?", (course_id, employee_id))
@@ -118,7 +118,7 @@ def apply_config(course_id, trainer_id, revision):
         rule = db.execute("SELECT is_active, published_at FROM assignment_rules WHERE course_id = ?", (course_id,)).fetchone()
         if course["status"] != "published" or not rule or not rule["is_active"] or not rule["published_at"]:
             raise DomainValidationError("Publish and assign the course before applying observers")
-        from app.services.assignment_conflicts import validate_separation
+        from app.modules.assignments.conflicts import validate_separation
         validate_separation(course_id, db=db)
         before = _config(db, course_id)
         affected = set()

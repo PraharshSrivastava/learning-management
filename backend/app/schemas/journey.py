@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.core.schemas import ApiSchema, RequestSchema
-from app.schemas.assignment import AssignmentGroup, _validate_new_assignment_groups
+from app.modules.assignments.schemas import AssignmentGroup, _validate_new_assignment_groups
 
 
 class JourneyCreateRequest(RequestSchema):

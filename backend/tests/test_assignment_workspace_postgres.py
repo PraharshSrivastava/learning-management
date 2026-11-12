@@ -10,13 +10,13 @@ import pytest
 
 from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
+from app.modules.assignments import service as assignments
+from app.modules.assignments.conflicts import EmployeeObserverConflict
+from app.modules.assignments.repository import get_assignment_rule, save_assignment_rule
+from app.modules.assignments.schemas import AssignmentRuleRequest
 from app.repositories import observers
-from app.repositories.assignments import get_assignment_rule, save_assignment_rule
 from app.repositories.progress import save_employee_course_progress
-from app.schemas.assignment import AssignmentRuleRequest
 from app.schemas.observers import ObserverSaveRequest
-from app.services import assignments
-from app.services.assignment_conflicts import EmployeeObserverConflict
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"
@@ -226,7 +226,7 @@ def test_fixed_date_roundtrip_and_direct_assignment_guard(workspace_db):
 
 
 def test_unsaved_observer_preview_checks_full_matching_set(workspace_db):
-    from app.schemas.assignment import AssignmentPreviewRequest
+    from app.modules.assignments.schemas import AssignmentPreviewRequest
 
     result = assignments.assignment_employee_page(
         "course",
@@ -262,7 +262,7 @@ def test_publish_race_with_observer_save_cannot_enrol_observer(workspace_db):
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(lambda f: f(), [publish, save_observer]))
     assert sorted(results) == ["conflict", "saved"]
-    from app.services.assignment_conflicts import observer_ids
+    from app.modules.assignments.conflicts import observer_ids
 
     assert not (observer_ids("course") and assignments.assignment_total("course") == 3)
 
@@ -319,7 +319,7 @@ def test_stale_observer_identity_does_not_block_replacement_employee(workspace_d
             "UPDATE employees SET directory_uuid='replacement-uuid' WHERE employee_id='observer'"
         )
         db.commit()
-    from app.services.assignment_conflicts import observer_ids
+    from app.modules.assignments.conflicts import observer_ids
 
     assert observer_ids("course") == set()
 

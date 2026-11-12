@@ -207,7 +207,7 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
             (employee_id, storage_course_id),
         ).fetchone()
         if not data.get("revoked_at") and data.get("status", "pending") != "revoked" and (not existing or existing.get("revoked_at") or existing["status"] == "revoked"):
-            from app.services.assignment_conflicts import EmployeeObserverConflict, observer_ids
+            from app.modules.assignments.conflicts import EmployeeObserverConflict, observer_ids
             if employee_id in observer_ids(course_id, connection):
                 raise EmployeeObserverConflict("This employee is an Observer for this course. Resolve the role conflict before assigning the course.")
         assignment_id = existing["assignment_id"] if existing else str(uuid.uuid4())

@@ -2,8 +2,8 @@
 
 from app.core.exceptions import ConflictError
 from app.db.database import get_connection
+from app.modules.assignments.repository import employee_matches_assignment_rule, get_assignment_rule
 from app.modules.directory.employees_repository import list_employees
-from app.repositories.assignments import employee_matches_assignment_rule, get_assignment_rule
 
 
 class EmployeeObserverConflict(ConflictError):

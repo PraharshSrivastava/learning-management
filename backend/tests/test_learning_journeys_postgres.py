@@ -14,21 +14,22 @@ from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
 from app.modules.access.report_access_repository import report_roles
 from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
-from app.modules.courses.repository import delete_course_for_trainer
-from app.modules.directory.employees_repository import list_employees
-from app.repositories import observers, performance_reporting
-from app.repositories.assignments import (
+from app.modules.assignments import service as assignments
+from app.modules.assignments.repository import (
     employee_matches_assignment_rule,
     get_applied_assignment_rule,
     get_assignment_rule,
     save_assignment_rule,
 )
+from app.modules.assignments.schemas import AssignmentRuleRequest
+from app.modules.courses.repository import delete_course_for_trainer
+from app.modules.directory.employees_repository import list_employees
+from app.repositories import observers, performance_reporting
 from app.repositories.journeys import create_journey_tables
 from app.repositories.progress import ProgressRepository
-from app.schemas.assignment import AssignmentRuleRequest
 from app.schemas.journey import JourneyCreateRequest, JourneyObserversRequest, JourneySaveRequest
 from app.schemas.observers import ObserverSaveRequest
-from app.services import assignments, email_notifications, journey_reporting, journeys, learning
+from app.services import email_notifications, journey_reporting, journeys, learning
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"
@@ -609,7 +610,7 @@ def test_removing_a_live_course_keeps_it_for_learners_who_started_it(journey_db)
 
 
 def test_a_new_deadline_on_a_live_journey_reaches_learners_and_their_courses(journey_db):
-    from app.services.assignment_deadlines import resolve_deadline
+    from app.modules.assignments.deadlines import resolve_deadline
 
     journey_id = make_journey("Markets Foundation", SEQUENCE[:2])
     journeys.api_publish_journey(journey_id, "creator")

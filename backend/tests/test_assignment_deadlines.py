@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 
 from app.core.exceptions import DomainValidationError
-from app.services.assignment_deadlines import fixed_cutoff, resolve_deadline, validate_deadline
+from app.modules.assignments.deadlines import fixed_cutoff, resolve_deadline, validate_deadline
 
 
 def test_fixed_date_is_end_of_day_in_kolkata():

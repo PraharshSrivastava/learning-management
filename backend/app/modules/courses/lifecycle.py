@@ -43,9 +43,9 @@ def change_lifecycle(course_id, trainer_id, action, expected_revision):
 
 
 def _change_lifecycle(course_id, trainer_id, action, expected_revision):
+    from app.modules.assignments.repository import get_assignment_rule
+    from app.modules.assignments.service import api_disable_course_assignment
     from app.modules.courses.repository import get_course
-    from app.repositories.assignments import get_assignment_rule
-    from app.services.assignments import api_disable_course_assignment
 
     with get_connection() as db:
         course = db.execute(
