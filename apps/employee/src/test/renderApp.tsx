@@ -14,8 +14,8 @@ import {
 import { render } from '@testing-library/react'
 import { vi } from 'vitest'
 import { parseEmployee } from '../auth/employee'
-import { EmployeeDashboard } from '../dashboard/EmployeeDashboard'
-import { employeeSearchSchema } from '../dashboard/search'
+import { EmployeeDashboard } from '../features/dashboard/EmployeeDashboard'
+import { employeeSearchSchema } from '../features/dashboard/search'
 
 type Handler = (url: URL, init: RequestInit | undefined) => unknown
 

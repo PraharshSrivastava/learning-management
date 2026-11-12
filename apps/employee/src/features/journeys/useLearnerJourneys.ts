@@ -2,7 +2,7 @@ import { errorMessage } from '@lms/shared/api/client'
 import { useSession } from '@lms/shared/auth/session'
 import type { EmployeeCourse } from '@lms/shared/models'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import type { Employee } from '../auth/employee'
+import type { Employee } from '../../auth/employee'
 import { fetchMyJourneys } from './api'
 
 /**

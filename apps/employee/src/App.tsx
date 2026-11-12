@@ -4,7 +4,7 @@ import { ToastProvider } from '@lms/shared/ui/Toast'
 import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { EmployeeLoginPage } from './auth/EmployeeLoginPage'
 import { parseEmployee, type Employee } from './auth/employee'
-import { EmployeeDashboard } from './dashboard/EmployeeDashboard'
+import { EmployeeDashboard } from './features/dashboard/EmployeeDashboard'
 
 function EmployeeAuthGate() {
   const { person } = useSession<Employee>()

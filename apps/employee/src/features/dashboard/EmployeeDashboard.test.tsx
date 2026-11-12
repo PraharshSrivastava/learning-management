@@ -1,8 +1,8 @@
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { courseJson, moduleJson } from '../test/fixtures'
-import { FakeSocket, renderDashboard, stubFetch, stubSocket } from '../test/renderApp'
+import { courseJson, moduleJson } from '../../test/fixtures'
+import { FakeSocket, renderDashboard, stubFetch, stubSocket } from '../../test/renderApp'
 import { RECONNECT_BASE_MS } from './useEmployeeCourses'
 
 // Each link object the report got. A new object opens the link again.

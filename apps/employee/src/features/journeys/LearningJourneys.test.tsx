@@ -1,8 +1,8 @@
 import { cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { courseJson, moduleJson } from '../test/fixtures'
-import { renderDashboard, stubFetch, stubSocket } from '../test/renderApp'
+import { courseJson, moduleJson } from '../../test/fixtures'
+import { renderDashboard, stubFetch, stubSocket } from '../../test/renderApp'
 
 vi.mock('@lms/shared/video/HlsVideoPlayer', () => ({
   HlsVideoPlayer: () => <div data-testid="player" />,

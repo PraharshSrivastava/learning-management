@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { employeeCourse, moduleJson } from '../test/fixtures'
+import { employeeCourse, moduleJson } from '../../test/fixtures'
 import { applyModuleProgress, assignedDateLabel, dueDateLabel, percentLabel } from './progress'
 
 describe('applyModuleProgress', () => {

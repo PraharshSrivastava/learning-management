@@ -10,7 +10,7 @@ import {
 } from '@lms/shared/models'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Employee } from '../auth/employee'
+import type { Employee } from '../../auth/employee'
 import { applyModuleProgress, type ModuleProgressPatch } from './progress'
 
 export const employeeKeys = {

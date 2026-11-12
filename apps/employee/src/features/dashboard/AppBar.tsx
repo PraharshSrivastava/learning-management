@@ -1,7 +1,7 @@
 import { Icon } from '@lms/shared/ui/icons/Icon'
 import { Tooltip } from '@lms/shared/ui/Tooltip'
 import clsx from 'clsx'
-import type { Employee } from '../auth/employee'
+import type { Employee } from '../../auth/employee'
 import type { Destination } from './search'
 import { DESTINATIONS } from './Sidebar'
 
