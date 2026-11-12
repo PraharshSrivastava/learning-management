@@ -14,8 +14,14 @@ COPY packages packages
 COPY apps apps
 ARG APP
 ARG API_BASE_URL=
+# An empty PostHog project token builds the app without analytics.
+ARG POSTHOG_TOKEN=
+ARG POSTHOG_HOST=
 RUN test "$APP" = trainer || test "$APP" = employee
-RUN VITE_API_BASE_URL="$API_BASE_URL" pnpm --filter "@lms/$APP" build
+RUN VITE_API_BASE_URL="$API_BASE_URL" \
+    VITE_PUBLIC_POSTHOG_TOKEN="$POSTHOG_TOKEN" \
+    VITE_PUBLIC_POSTHOG_HOST="$POSTHOG_HOST" \
+    pnpm --filter "@lms/$APP" build
 
 FROM nginxinc/nginx-unprivileged:1.31.6-alpine3.24@sha256:6a23acdfca2b9cfbcec61419e3f1426bcbedb91362f2f19306a8567423bb4612
 USER root

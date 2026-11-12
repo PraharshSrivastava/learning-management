@@ -103,6 +103,10 @@ class Settings(BaseModel):
     langfuse_capture_max_chars: int = Field(default=12000, ge=100, le=100000)
     langfuse_timeout_seconds: int = Field(default=5, ge=1, le=60)
 
+    # Product analytics stay off, and the posthog package is never imported, without a key.
+    posthog_api_key: str = ""
+    posthog_host: str = "https://us.i.posthog.com"
+
     tts_endpoint: str = "http://35.238.33.238:8081"
     tts_model_name: str = Field(default="qwen3-tts", min_length=1)
     tts_voice: str = "priyanka"
@@ -443,6 +447,8 @@ class Settings(BaseModel):
                     "12000",
                 ),
                 "langfuse_timeout_seconds": values.get("LANGFUSE_TIMEOUT_SECONDS", "5"),
+                "posthog_api_key": values.get("POSTHOG_API_KEY", "").strip(),
+                "posthog_host": values.get("POSTHOG_HOST") or "https://us.i.posthog.com",
                 "tts_endpoint": values.get(
                     "TTS_ENDPOINT",
                     "http://35.238.33.238:8081",

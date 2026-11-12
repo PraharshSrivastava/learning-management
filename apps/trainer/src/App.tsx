@@ -3,7 +3,7 @@ import { SessionProvider, useSession } from '@lms/shared/auth/session'
 import { ToastProvider } from '@lms/shared/ui/Toast'
 import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { TrainerLoginPage } from './auth/TrainerLoginPage'
-import { parseTrainer, type Trainer } from './auth/trainer'
+import { parseTrainer, trainerAnalytics, type Trainer } from './auth/trainer'
 import { OverlayProvider } from './shell/overlay'
 import { TrainerShell } from './shell/TrainerShell'
 
@@ -18,6 +18,7 @@ export function App() {
       {(session) => (
         <SessionProvider<Trainer>
           initialPerson={session.person ? parseTrainer(session.person) : null}
+          analyticsPerson={trainerAnalytics}
         >
           <TooltipProvider>
             <ToastProvider>

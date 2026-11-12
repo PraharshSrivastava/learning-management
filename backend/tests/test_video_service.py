@@ -528,6 +528,7 @@ def test_module_video_job_runs_in_background_worker():
                 "backend_dir": settings.backend_dir,
                 "restart_from_blueprint": False,
                 "module_video": 1,
+                "trainer_id": "trainer-1",
             },
         )
     ]

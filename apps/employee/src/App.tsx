@@ -3,7 +3,7 @@ import { SessionProvider, useSession } from '@lms/shared/auth/session'
 import { ToastProvider } from '@lms/shared/ui/Toast'
 import { TooltipProvider } from '@lms/shared/ui/Tooltip'
 import { EmployeeLoginPage } from './auth/EmployeeLoginPage'
-import { parseEmployee, type Employee } from './auth/employee'
+import { employeeAnalytics, parseEmployee, type Employee } from './auth/employee'
 import { EmployeeDashboard } from './dashboard/EmployeeDashboard'
 
 function EmployeeAuthGate() {
@@ -17,6 +17,7 @@ export function App() {
       {(session) => (
         <SessionProvider<Employee>
           initialPerson={session.person ? parseEmployee(session.person) : null}
+          analyticsPerson={employeeAnalytics}
         >
           <TooltipProvider>
             <ToastProvider>

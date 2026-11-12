@@ -1,3 +1,4 @@
+import { captureEvent } from '@lms/shared/analytics/posthog'
 import { ApiError, apiRequest } from '@lms/shared/api/client'
 import { parseCourse, parseGenerationJob, type Course } from '@lms/shared/models'
 import { useToast } from '@lms/shared/ui/Toast'
@@ -52,6 +53,11 @@ export function useModuleGeneration(courseId: string, { videoActive = false } = 
           { method: 'POST' },
         ),
       )
+      captureEvent('module_video_generation_started', {
+        course_id: id,
+        module_number: moduleNumber,
+        job_id: job.id,
+      })
       for (;;) {
         await wait(POLL_INTERVAL_MS)
         const current = parseGenerationJob(
@@ -85,6 +91,7 @@ export function useModuleGeneration(courseId: string, { videoActive = false } = 
         }),
       ),
     onSuccess: async (course: Course) => {
+      captureEvent('course_quiz_generated', { course_id: course.courseId })
       storeCourse(course)
       await refreshCourses()
     },

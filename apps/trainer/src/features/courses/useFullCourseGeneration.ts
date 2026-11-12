@@ -1,3 +1,4 @@
+import { captureEvent } from '@lms/shared/analytics/posthog'
 import { apiRequest } from '@lms/shared/api/client'
 import { parseCourse, parseGenerationJob, type Course } from '@lms/shared/models'
 import { useToast } from '@lms/shared/ui/Toast'
@@ -56,6 +57,7 @@ export function useFullCourseGeneration() {
         ),
       )
       jobId = job.id
+      captureEvent('course_generation_started', { course_id: courseId, job_id: jobId, resuming })
     } catch (error) {
       const found = await refreshCourse(courseId)
       throw new GenerationFailure(

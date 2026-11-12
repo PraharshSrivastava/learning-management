@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.generation import generation_jobs
 from app.api.media import PrivateCourseStaticFiles
 from app.api.router import api_router
+from app.core.analytics import start_analytics, stop_analytics
 from app.core.exceptions import install_exception_handlers
 from app.core.logging import configure_logging
 from app.core.request_context import request_context_middleware
@@ -40,6 +41,7 @@ mimetypes.add_type("image/webp", ".webp")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     configure_logging(settings.log_level)
+    start_analytics()
     ensure_storage_directories(settings)
     generation_queue.start()
     init_db()
@@ -63,6 +65,7 @@ async def lifespan(_: FastAPI):
 
             stopping.set()
             executor.shutdown(wait=True, cancel_futures=True)
+        stop_analytics()
         close_pool()
 
 

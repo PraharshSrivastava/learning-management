@@ -272,3 +272,57 @@ def test_quiz_submission_requires_completed_video(monkeypatch) -> None:
                 ModuleProgressUpdateRequest(selected_answers={"0": "A", "1": "A", "2": "B"}),
             )
         )
+
+
+def test_module_progress_captures_quiz_graded_event(monkeypatch) -> None:
+    course = {"course_id": "course-1", "status": "published", "modules": [_module(3)]}
+    course_progress = {
+        "status": "started",
+        "modules": {"1": {"video_watched": True}},
+        "attempts": {},
+    }
+    events: list[tuple] = []
+
+    monkeypatch.setattr(learning, "ensure_assignments_for_employee", lambda _: None)
+    monkeypatch.setattr(
+        learning,
+        "current_employee_from_request",
+        lambda request, authorization: {"employee_id": "employee-1"},
+    )
+    monkeypatch.setattr(
+        learning,
+        "_assigned_progress_for_employee",
+        lambda employee, course_id, now: course_progress,
+    )
+    monkeypatch.setattr(learning, "_courses", _Courses(course))
+    monkeypatch.setattr(learning, "_progress", _Progress())
+    monkeypatch.setattr(learning, "capture_event", lambda *args: events.append(args))
+
+    async def no_broadcast(employee_id: str) -> None:
+        pass
+
+    monkeypatch.setattr(learning, "broadcast_employee_courses", no_broadcast)
+
+    asyncio.run(
+        learning.update_module_progress(
+            "course-1",
+            "1",
+            ModuleProgressUpdateRequest(selected_answers={"0": "A", "1": "B", "2": "B"}),
+        )
+    )
+
+    assert events == [
+        (
+            "employee-1",
+            "quiz_graded",
+            {
+                "course_id": "course-1",
+                "module_number": "1",
+                "passed": False,
+                "score": pytest.approx(1 / 3),
+                "correct_count": 1,
+                "total_questions": 3,
+                "attempt_count": 1,
+            },
+        )
+    ]

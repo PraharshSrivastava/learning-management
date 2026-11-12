@@ -1,3 +1,4 @@
+import { captureEvent } from '@lms/shared/analytics/posthog'
 import { ApiError, apiRequest, errorDetail } from '@lms/shared/api/client'
 import { useSession } from '@lms/shared/auth/session'
 import type { Course } from '@lms/shared/models'
@@ -161,6 +162,7 @@ export function CourseActionsMenu({
     try {
       await runAction(action, target)
       changed = true
+      captureEvent('course_action_completed', { course_id: target.courseId, action })
       if (!sameUser(captured)) return
       if (action === 'Delete') {
         queryClient.removeQueries({ queryKey: trainerKeys.course(target.courseId), exact: true })

@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess  # nosec B404
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,8 @@ from threading import Lock
 from typing import Callable
 from uuid import uuid4
 
+from app.core.analytics import capture_event
+from app.core.request_context import posthog_session_id
 from app.repositories.jobs import GenerationJobRepository
 from app.schemas.generation import GenerationJobResponse
 from app.services.generation_queue import GenerationQueueTicket, generation_queue
@@ -35,6 +38,9 @@ class GenerationJobManager:
         self._jobs: dict[str, GenerationJobResponse] = {}
         self._queue_tickets: dict[str, GenerationQueueTicket] = {}
         self._active_course_jobs: set[str] = set()
+        # Analytics context per job: (trainer id, job kind, browser session id). Not persisted.
+        # The session id is read here because worker threads do not see the request context.
+        self._job_analytics: dict[str, tuple[str | None, str, str | None]] = {}
         self._lock = Lock()
 
     def submit(self, course_id: str, operation: Callable[[], object]) -> GenerationJobResponse:
@@ -57,9 +63,15 @@ class GenerationJobManager:
         backend_dir: Path,
         restart_from_blueprint: bool,
         module_video: int | None = None,
+        trainer_id: str | None = None,
     ) -> GenerationJobResponse:
+        if module_video is not None:
+            kind = "module_video"
+        else:
+            kind = "full_course" if restart_from_blueprint else "continue"
         with self._lock:
             job = self._create_job(course_id)
+            self._job_analytics[job.id] = (trainer_id, kind, posthog_session_id.get())
             executor = self._executor_for_submit()
 
         command = [
@@ -192,7 +204,24 @@ class GenerationJobManager:
         if self._repository:
             self._repository.save(job)
 
+    def _capture_outcome(
+        self, job: GenerationJobResponse, started: float, exc: Exception | None
+    ) -> None:
+        trainer_id, kind, session_id = self._job_analytics.pop(job.id, (None, "callable", None))
+        properties = {
+            "job_id": job.id,
+            "course_id": job.course_id,
+            "job_kind": kind,
+            "duration_seconds": round(time.monotonic() - started, 1),
+        }
+        if exc is None:
+            capture_event(trainer_id, "generation_job_completed", properties, session_id=session_id)
+        else:
+            properties["error_type"] = type(exc).__name__
+            capture_event(trainer_id, "generation_job_failed", properties, session_id=session_id)
+
     def _run(self, job_id: str, operation: Callable[[], object]) -> None:
+        started = time.monotonic()
         try:
             with self._lock:
                 job = self._jobs[job_id]
@@ -209,11 +238,13 @@ class GenerationJobManager:
                 job.error = str(exc)
                 job.completed_at = _now()
                 self._save(job)
+            self._capture_outcome(job, started, exc)
         else:
             with self._lock:
                 job.status = "completed"
                 job.completed_at = _now()
                 self._save(job)
+            self._capture_outcome(job, started, None)
         finally:
             with self._lock:
                 self._active_course_jobs.discard(job.course_id)
