@@ -13,6 +13,8 @@ services:
     build:
       context: ./backend
     env_file: .env.pilot
+    environment:
+      SLIDE_RENDERER_URL: http://slide-renderer:8080
     volumes:
       - pilot-storage:/app/storage
     ports:
@@ -20,11 +22,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      slide-renderer:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
       interval: 10s
       timeout: 5s
       retries: 20
+  slide-renderer:
+    build:
+      context: ./backend/slide_renderer
   frontend:
     build:
       context: .

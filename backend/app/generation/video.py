@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import base64
 import re
 import shutil
 import subprocess  # nosec B404
 import tempfile
 import time
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import unquote, urljoin, urlsplit
 
 import imageio_ffmpeg
+import requests
 
 from app.core.logging import generation_logger
 from app.core.settings import settings
@@ -17,6 +21,8 @@ from app.core.storage import public_asset_url, resolve_public_asset_path
 
 logger = generation_logger(__name__)
 SLIDE_TRANSITION_PAUSE_SECONDS = settings.slide_transition_pause_seconds
+# Resolves a deck's relative links to /assets/ paths; any origin works.
+_DECK_LINK_ORIGIN = "http://deck.invalid"
 
 
 def _generate_captions_if_available(
@@ -32,38 +38,51 @@ def _generate_captions_if_available(
         logger.warning("captions_unavailable video=%s reason=%s", video_path, error)
 
 
-def _inject_local_slide_assets(page) -> None:
-    """Load slide template assets when Playwright opens generated HTML via file://."""
-    css_files = [
-        settings.template_dir / "slides.css",
-        settings.template_dir / "layouts" / "cover.css",
-        settings.template_dir / "layouts" / "comparison.css",
-        settings.template_dir / "layouts" / "bullets.css",
-        settings.template_dir / "layouts" / "steps.css",
-        settings.template_dir / "layouts" / "grid.css",
-    ]
-    for css_file in css_files:
-        if css_file.is_file():
-            page.add_style_tag(path=str(css_file))
+class _SlideLinkCollector(HTMLParser):
+    """Collect the src and href values of a compiled slide deck."""
 
-    brand_base = (settings.static_dir / "brand").resolve().as_uri().rstrip("/") + "/"
-    image_base = settings.image_dir.resolve().as_uri().rstrip("/") + "/"
-    page.evaluate(
-        """
-        ({ brandBase, imageBase }) => {
-          document.querySelectorAll('img[src]').forEach((image) => {
-            const source = image.getAttribute('src') || '';
-            if (source.startsWith('../../brand/')) {
-              image.src = brandBase + source.slice('../../brand/'.length);
-            }
-            if (source.startsWith('../../images/')) {
-              image.src = imageBase + source.slice('../../images/'.length);
-            }
-          });
-        }
-        """,
-        {"brandBase": brand_base, "imageBase": image_base},
-    )
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.links.extend(value for name, value in attrs if name in {"src", "href"} and value)
+
+
+def _public_asset_file(asset_path: str) -> Path | None:
+    """Map a /assets/ URL path to its file, as the API's /assets/ mounts do."""
+    relative = asset_path.removeprefix("/assets/")
+    if relative == "slides.css":
+        return settings.template_dir / "slides.css"
+    mount, _, name = relative.partition("/")
+    directory = {
+        "brand": settings.static_dir / "brand",
+        "images": settings.image_dir,
+        "layouts": settings.template_dir / "layouts",
+    }.get(mount)
+    if directory is None or not name:
+        return None
+    path = (directory / unquote(name)).resolve()
+    return path if path.is_relative_to(directory.resolve()) else None
+
+
+def slide_deck_files(html_file: Path) -> tuple[str, dict[str, bytes]]:
+    """Return the deck's /assets/ path and every local file it links to, by URL path."""
+    relative = html_file.resolve().relative_to(settings.slide_dir.resolve()).as_posix()
+    document = f"/assets/slides/{relative}"
+    html = html_file.read_bytes()
+    collector = _SlideLinkCollector()
+    collector.feed(html.decode("utf-8"))
+    files = {document: html}
+    for link in collector.links:
+        parts = urlsplit(urljoin(_DECK_LINK_ORIGIN + document, link))
+        if f"{parts.scheme}://{parts.netloc}" != _DECK_LINK_ORIGIN or parts.path in files:
+            continue
+        path = _public_asset_file(parts.path)
+        # A missing file is left out; the renderer then reports any image it could not load.
+        if path is not None and path.is_file():
+            files[parts.path] = path.read_bytes()
+    return document, files
 
 
 def capture_slide_frames(
@@ -72,35 +91,33 @@ def capture_slide_frames(
     slide_count: int,
     output_dir: str,
 ) -> list[str]:
-    from playwright.sync_api import sync_playwright
-
-    frame_paths: list[str] = []
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+    """Screenshot every slide of a compiled deck with the slide renderer service."""
+    if not settings.slide_renderer_url:
+        raise RuntimeError("SLIDE_RENDERER_URL is not set; standard video generation needs it.")
+    document, files = slide_deck_files(Path(html_file))
+    response = requests.post(
+        f"{settings.slide_renderer_url}/render",
+        json={
+            "document": document,
+            "files": {path: base64.b64encode(body).decode() for path, body in files.items()},
+            "slide_count": slide_count,
+        },
+        timeout=settings.slide_renderer_timeout_seconds,
+    )
+    if response.status_code != 200:
         try:
-            page = browser.new_page(viewport={"width": 1280, "height": 720})
-            page.goto(Path(html_file).resolve().as_uri())
-            page.wait_for_load_state("networkidle")
-            _inject_local_slide_assets(page)
-            page.wait_for_function(
-                "Array.from(document.images).every(image => image.complete)", timeout=15000
-            )
-            broken_images = page.evaluate(
-                "Array.from(document.images).filter(image => image.naturalWidth === 0).map(image => image.getAttribute('src') || '(empty image source)')"
-            )
-            if broken_images:
-                raise RuntimeError("Slide images could not be loaded: " + ", ".join(broken_images))
-            page.evaluate("document.fonts.ready")
-            page.add_style_tag(
-                content=".slide { animation: none !important; transition: none !important; }"
-            )
-            for index in range(slide_count):
-                frame_path = str(Path(output_dir) / f"slide_{index}.png")
-                page.evaluate(f"window.goToSlide({index})")
-                page.screenshot(path=frame_path)
-                frame_paths.append(frame_path)
-        finally:
-            browser.close()
+            detail = response.json().get("error") or response.text
+        except ValueError:
+            detail = response.text
+        raise RuntimeError(f"Slide renderer failed with HTTP {response.status_code}: {detail}")
+    frames = response.json().get("frames")
+    if not isinstance(frames, list) or len(frames) != slide_count:
+        raise RuntimeError(f"Slide renderer returned no frame for some of the {slide_count} slides.")
+    frame_paths: list[str] = []
+    for index, frame in enumerate(frames):
+        frame_path = Path(output_dir) / f"slide_{index}.png"
+        frame_path.write_bytes(base64.b64decode(frame, validate=True))
+        frame_paths.append(str(frame_path))
     return frame_paths
 
 

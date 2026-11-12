@@ -57,7 +57,7 @@ def needed(path):
 
 count = 0
 violations = []
-for root in ['/usr','/opt','/ms-playwright']:
+for root in ['/usr','/opt']:
     for directory, _, names in os.walk(root):
         for name in names:
             path = Path(directory)/name

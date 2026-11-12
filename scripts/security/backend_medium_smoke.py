@@ -44,7 +44,9 @@ for symbol in ['avahi_server_new','avahi_s_record_browser_prepare','avahi_s_reco
     assert not hasattr(avahi_client,symbol), symbol
 alsa_topology_paths = list(Path('/usr/lib').rglob('libatopology*'))
 assert not alsa_topology_paths, alsa_topology_paths
-assert not hasattr(ctypes.CDLL('libasound.so.2'),'snd_tplg_decode')
+# ALSA was removed with Chromium, its only user, so snd_tplg_decode cannot be exported.
+alsa_paths = list(Path('/usr/lib').rglob('libasound*'))
+assert not alsa_paths, alsa_paths
 subprocess.run(['apt-get','-s','check'],check=True,stdout=subprocess.DEVNULL)
 libraries = ['libX11.so.6','libX11-xcb.so.1','libXi.so.6','libexpat.so.1','libfreetype.so.6','libp11-kit.so.0']
 paths = [(Path('/usr/lib/x86_64-linux-gnu')/p).resolve() for p in libraries]
@@ -54,7 +56,7 @@ assert all(x in p11_bytes for x in [b'/etc/pkcs11',b'/usr/share/p11-kit/modules'
 print(json.dumps(dict(versions=versions,abi=proofs,gnutls_initialization='PASS',
                       architecture=platform.machine(),size_t_bits=ctypes.sizeof(ctypes.c_size_t)*8,
                       absent_tools=absent_tools,avahi_core_paths=[],avahi_client_has_server_api=False,
-                      alsa_topology_paths=[],libasound_exports_snd_tplg_decode=False,
+                      alsa_topology_paths=[],libasound_exports_snd_tplg_decode=False,alsa_paths=[],
                       p11_configuration_paths='Ubuntu paths preserved',
                       certificate_store='PASS',xml_version=pyexpat.EXPAT_VERSION,
                       tiff_version=features.version('libtiff'),freetype_version=features.version('freetype2'),

@@ -22,6 +22,7 @@ def _production_settings(**overrides):
         "llm_base_url": "https://llm.example.com/v1",
         "llm_api_key": TEST_LLM_VALUE,
         "tts_endpoint": TEST_TTS_URL,
+        "slide_renderer_url": "http://slide-renderer:8080",
         "hub_launch_secret": TEST_HUB_SIGNING_VALUE,
         "directory_sync_enabled": False,
     }

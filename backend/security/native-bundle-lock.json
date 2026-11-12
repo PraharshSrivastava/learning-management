@@ -3,8 +3,7 @@
   "reference_image": "sha256:8a7cf064b26ead5b381d7a1ebf478a010780e1d42739df4c3c476e8d6659ed04",
   "security_disposition": "Identity baseline only. Six inherited High bundled-code coverage assessments remain OPEN. This lock does not authenticate source or declare these binaries vulnerability-free.",
   "review_roots": [
-    "/usr/local/lib/python3.12/site-packages",
-    "/ms-playwright"
+    "/usr/local/lib/python3.12/site-packages"
   ],
   "files": {
     "/usr/local/lib/python3.12/site-packages/_cffi_backend.cpython-312-x86_64-linux-gnu.so": {
@@ -229,12 +228,6 @@
         "python:psycopg-binary==3.3.4"
       ]
     },
-    "/usr/local/lib/python3.12/site-packages/playwright/driver/node": {
-      "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
-      "owners": [
-        "python:playwright==1.63.0"
-      ]
-    },
     "/usr/local/lib/python3.12/site-packages/cryptography/hazmat/bindings/_rust.abi3.so": {
       "sha256": "3d6423664bffe926fd91d1913d1c5ddda5c31ee7ff1cae06fc8b71c47c9501a1",
       "owners": [
@@ -318,80 +311,6 @@
       "owners": [
         "python:PyYAML==6.0.3"
       ]
-    },
-    "/usr/local/lib/python3.12/site-packages/greenlet/_greenlet.cpython-312-x86_64-linux-gnu.so": {
-      "sha256": "962f25455d5489cfba56b5f9ae9938ffa2ef4be1f86e7e496eed8d0aece4a2cc",
-      "owners": [
-        "python:greenlet==3.5.5"
-      ]
-    },
-    "/usr/local/lib/python3.12/site-packages/greenlet/tests/_test_extension_cpp.cpython-312-x86_64-linux-gnu.so": {
-      "sha256": "5574792528bf90908081403d515deb6cc6a84df292cc674aafb6774587054e18",
-      "owners": [
-        "python:greenlet==3.5.5"
-      ]
-    },
-    "/usr/local/lib/python3.12/site-packages/greenlet/tests/_test_extension.cpython-312-x86_64-linux-gnu.so": {
-      "sha256": "d866ac9629ca31687d31a95637df13ad2eb8400db52da6c729341d4be10d74f9",
-      "owners": [
-        "python:greenlet==3.5.5"
-      ]
-    },
-    "/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell": {
-      "sha256": "ded93a9c9a53a1ae040f08124badcca95c938e9d5015ff340c3b5538c41bf39e",
-      "owners": []
-    },
-    "/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/libvk_swiftshader.so": {
-      "sha256": "1d5d7ab9c4c1499041aa44ea7a2ae3da3ca9812cd8bda9b5ac920ae158adb163",
-      "owners": []
-    },
-    "/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/libvulkan.so.1": {
-      "sha256": "c53295a113b0bb075be6624ced1a5056acabefc4d49c2d2ff3fbbc76854880ea",
-      "owners": []
-    },
-    "/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/libGLESv2.so": {
-      "sha256": "17370d7cc22d0bc4048cc851b7f8fdbb5e51c4f4b0f53d6c68b8770fb6a8ab00",
-      "owners": []
-    },
-    "/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/libEGL.so": {
-      "sha256": "532800b1f5882fb0034a72582233edaf50ed6433e3911c43f88cbcfcb24708d1",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/chrome_crashpad_handler": {
-      "sha256": "86248c0ffc3f31f8fd596839ea1cc0319414fba27919d55ef65e001e47766539",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/chrome_sandbox": {
-      "sha256": "c100b678a8c171ad0733e51b6f18d98d936d38ab945681c41da00f2ee22e7571",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/libvk_swiftshader.so": {
-      "sha256": "1d5d7ab9c4c1499041aa44ea7a2ae3da3ca9812cd8bda9b5ac920ae158adb163",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/libvulkan.so.1": {
-      "sha256": "c53295a113b0bb075be6624ced1a5056acabefc4d49c2d2ff3fbbc76854880ea",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/libGLESv2.so": {
-      "sha256": "17370d7cc22d0bc4048cc851b7f8fdbb5e51c4f4b0f53d6c68b8770fb6a8ab00",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/libEGL.so": {
-      "sha256": "532800b1f5882fb0034a72582233edaf50ed6433e3911c43f88cbcfcb24708d1",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/chrome": {
-      "sha256": "8c599d43aec53f2460a31ae2f4af6bd863f8258b34ff519564bc5d4726bfaa1e",
-      "owners": []
-    },
-    "/ms-playwright/chromium-1243/chrome-linux64/WidevineCdm/_platform_specific/linux_x64/libwidevinecdm.so": {
-      "sha256": "cd250e8177183add7029ccc3057217b978779f9c7af800c45083f3cc0139020e",
-      "owners": []
-    },
-    "/ms-playwright/ffmpeg-1011/ffmpeg-linux": {
-      "sha256": "460d44f3416005662f528d4b92e7b94ace924e8a0288106d3803b73c56eaadc8",
-      "owners": []
     }
   },
   "source_builds": {

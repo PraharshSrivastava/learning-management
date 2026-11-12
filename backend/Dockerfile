@@ -74,7 +74,6 @@ FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     IMAGEIO_FFMPEG_EXE=/opt/ffmpeg/bin/ffmpeg
 
 ARG PIP_INDEX_URL=https://pypi.org/simple
@@ -104,8 +103,7 @@ COPY requirements.txt requirements.lock ./
 RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes -r requirements.lock \
     && (cd /tmp/lxml-wheels && sha256sum -c SHA256SUMS) \
     && python -m pip install --no-index --no-deps --force-reinstall /tmp/lxml-wheels/lxml-*.whl \
-    && rm -rf /tmp/lxml-wheels \
-    && python -m playwright install --with-deps chromium
+    && rm -rf /tmp/lxml-wheels
 
 # Validate the installed dependency set, then remove build-only pip and its vendored libraries.
 # Use the verified upstream FFmpeg build; remove the older wheel-bundled executable.
@@ -124,7 +122,7 @@ RUN apt-get update \
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
     && mkdir -p /app/storage \
-    && chown -R app:app /app /ms-playwright
+    && chown -R app:app /app
 
 EXPOSE 8000
 
@@ -239,7 +237,6 @@ COPY --from=util-linux-build /out/*.deb /tmp/util-linux-security/
 RUN apt-get install -y --no-install-recommends /tmp/util-linux-security/*.deb \
     && ldconfig \
     && rm -rf /tmp/util-linux-security \
-    && apt-get purge -y xvfb xserver-common \
     && apt-get check \
     && mount --version && nsenter --version
 USER 10001:10001
@@ -423,22 +420,12 @@ USER 10001:10001
 FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS backlog-native-build
 USER 0:0
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential python3 curl ca-certificates patch pkg-config bzip2 autoconf automake libtool quilt libasound2t64 libcups2t64 \
+    build-essential python3 curl ca-certificates patch pkg-config bzip2 autoconf automake libtool quilt libcups2t64 \
     libgnutls28-dev libavahi-client-dev libkrb5-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-COPY security/alsa-ctlparse.patch security/alsa-sparse-bindings.patch security/cups-utf32.patch /src/
-RUN echo 'fc88545f165594e9e7119b3c934562fcc71a7c8b2f4c78999e85662e669d02af  alsa-ctlparse.patch' | sha256sum -c - \
-    && echo '6f86774595e6ebf2594cab1949bbb9ae66dd90383fb6dffa9f757bd884b6ad7e  alsa-sparse-bindings.patch' | sha256sum -c - \
-    && echo '47eb967434d2dadd11c149245109f267a0016381b6edca4829355b8002f30688  cups-utf32.patch' | sha256sum -c -
-RUN curl --fail --location --retry 2 -o alsa.tar.bz2 https://www.alsa-project.org/files/pub/lib/alsa-lib-1.2.15.3.tar.bz2 \
-    && echo '7b079d614d582cade7ab8db2364e65271d0877a37df8757ac4ac0c8970be861e  alsa.tar.bz2' | sha256sum -c - \
-    && tar -xf alsa.tar.bz2 && cd alsa-lib-1.2.15.3 \
-    && patch --fuzz=0 -p1 < /src/alsa-ctlparse.patch \
-    && patch --fuzz=0 -p1 < /src/alsa-sparse-bindings.patch \
-    && ./configure --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu --sysconfdir=/etc --disable-static --disable-topology \
-        CFLAGS='-O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3 -fPIC' LDFLAGS='-Wl,-z,relro,-z,now' \
-    && make -j2 && make check && make DESTDIR=/backlog-install install
+COPY security/cups-utf32.patch /src/
+RUN echo '47eb967434d2dadd11c149245109f267a0016381b6edca4829355b8002f30688  cups-utf32.patch' | sha256sum -c -
 RUN curl --fail --location --retry 2 -o cups.tar.gz https://archive.ubuntu.com/ubuntu/pool/main/c/cups/cups_2.4.16.orig.tar.gz \
     && echo '0339587204b4f9428dd0592eb301dec0bf9ea6ea8dce5d9690d56be585aba92d  cups.tar.gz' | sha256sum -c - \
     && curl --fail --location --retry 2 -o cups-debian.tar.xz https://archive.ubuntu.com/ubuntu/pool/main/c/cups/cups_2.4.16-1ubuntu1.3.debian.tar.xz \

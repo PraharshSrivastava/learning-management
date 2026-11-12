@@ -62,7 +62,6 @@ def main():
     ffmpeg = root / "backend/.venv/Lib/site-packages/imageio_ffmpeg/binaries/ffmpeg-win-x86_64-v7.1.exe"
     if ffmpeg.is_file():
         os.environ.setdefault("IMAGEIO_FFMPEG_EXE", str(ffmpeg))
-    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(root / "tmp/qwen-short-flow/browsers"))
 
     from app.core.settings import settings
     from app.core.logging import configure_logging
