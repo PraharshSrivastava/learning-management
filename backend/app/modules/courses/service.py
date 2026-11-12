@@ -7,20 +7,20 @@ from uuid import uuid4
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.langfuse_tracing import trace_scope
-from app.generation.blueprint import generate_course_outline
-from app.generation.quiz import ModuleQuiz
-from app.generation.runtime import now_iso
-from app.generation.video_engine import (
-    course_uses_video_engine,
-    toggle_enabled,
-    video_engine_available,
-)
 from app.modules.courses.artifacts import delete_course_artifacts
 from app.modules.courses.quiz_schemas import ManualQuizRequest
 from app.modules.courses.repository import CourseRepository
 from app.modules.courses.schemas import CourseUpdateRequest
+from app.modules.generation.generation_queue import generation_queue
+from app.modules.generation.pipeline.blueprint import generate_course_outline
+from app.modules.generation.pipeline.quiz import ModuleQuiz
+from app.modules.generation.pipeline.runtime import now_iso
+from app.modules.generation.pipeline.video_engine import (
+    course_uses_video_engine,
+    toggle_enabled,
+    video_engine_available,
+)
 from app.modules.learning.notifications import schedule_employee_broadcast
-from app.services.generation_queue import generation_queue
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.generation.html import render_image_slide
-from app.generation.slides import _expand_mapped_image_slides
+from app.modules.generation.pipeline.html import render_image_slide
+from app.modules.generation.pipeline.slides import _expand_mapped_image_slides
 
 
 def _image(image_id: str, orientation: str, caption: str = "Source caption") -> dict:

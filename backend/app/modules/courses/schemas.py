@@ -8,7 +8,7 @@ from pydantic import Field, model_validator
 
 from app.core.schemas import ApiSchema, RequestSchema
 from app.modules.courses.quiz_schemas import Quiz
-from app.schemas.generation import GenerationState, ModuleVideoServiceState
+from app.modules.generation.schemas import GenerationState, ModuleVideoServiceState
 
 CourseStatus = Literal["draft", "ready", "published", "archived"]
 
@@ -121,7 +121,7 @@ class CourseResponse(ApiSchema):
         """Resolve the course's engine and recommendation on every course response."""
         if not isinstance(data, dict) or "course_id" not in data:
             return data
-        from app.generation.video_engine import video_engine_fields
+        from app.modules.generation.pipeline.video_engine import video_engine_fields
 
         return {**data, **video_engine_fields(data)}
 

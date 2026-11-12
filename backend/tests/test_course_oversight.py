@@ -6,7 +6,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api import generation
 from app.core.exceptions import install_exception_handlers
 from app.modules.access import repository as grants
 from app.modules.access import service as lms_access
@@ -16,6 +15,7 @@ from app.modules.auth import service as auth
 from app.modules.courses import api as courses
 from app.modules.courses import library_api as course_library
 from app.modules.courses import repository
+from app.modules.generation import api as generation
 
 
 @pytest.fixture

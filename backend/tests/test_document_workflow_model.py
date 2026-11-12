@@ -12,7 +12,7 @@ from app.document_builder.workflow_model import (
     ModelContextLimit,
     WorkflowModel,
 )
-from app.generation.runtime import PipelineStageError
+from app.modules.generation.pipeline.runtime import PipelineStageError
 from app.schemas.document_workflow import DraftMetadata, SourceReference, WritingSettings
 
 

@@ -5,14 +5,14 @@ import time
 
 from app.core.logging import generation_logger
 from app.core.providers import get_llm_endpoint, safe_chat_completion
-from app.generation.parallel import default_llm_workers, run_parallel_stage_items
-from app.generation.runtime import (
+from app.modules.generation.pipeline.parallel import default_llm_workers, run_parallel_stage_items
+from app.modules.generation.pipeline.runtime import (
     load_course_for_generation,
     log_event,
     retry,
     save_generated_course,
 )
-from app.schemas.generation.notes import ModuleSummarySchema
+from app.modules.generation.schemas.notes import ModuleSummarySchema
 
 logger = generation_logger(__name__)
 

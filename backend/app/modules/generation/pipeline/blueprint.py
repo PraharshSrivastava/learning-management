@@ -17,12 +17,21 @@ from app.core.storage import public_asset_url
 from app.documents.conversion import convert_office_to_pdf
 from app.documents.docx import extract_docx_blueprint_source
 from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
-from app.generation.prompts import MODULE_EXTRACTION_PROMPT
-from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
-from app.generation.video_engine import apply_outline_recommendation, classify_pdf_images
 from app.modules.courses.repository import delete_course, get_all_courses, get_course, save_course
+from app.modules.generation.pipeline.prompts import MODULE_EXTRACTION_PROMPT
+from app.modules.generation.pipeline.runtime import (
+    complete_generation,
+    log_event,
+    mark_stage,
+    now_iso,
+    retry,
+)
+from app.modules.generation.pipeline.video_engine import (
+    apply_outline_recommendation,
+    classify_pdf_images,
+)
+from app.modules.generation.schemas.blueprint import BlueprintExtractionResult, ModuleListSchema
 from app.modules.uploads.repository import get_document_by_file_name
-from app.schemas.generation.blueprint import BlueprintExtractionResult, ModuleListSchema
 
 logger = generation_logger(__name__)
 

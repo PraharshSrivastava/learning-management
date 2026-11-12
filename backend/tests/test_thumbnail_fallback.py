@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 from PIL import Image
 
-from app.generation import thumbnails
+from app.modules.generation.pipeline import thumbnails
 
 
 def _course() -> dict:

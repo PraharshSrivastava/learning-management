@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from app.generation.tts_normalization import clean_text_for_tts, normalize_financial_text
+from app.modules.generation.pipeline.tts_normalization import (
+    clean_text_for_tts,
+    normalize_financial_text,
+)
 
 
 def test_normalize_financial_text_preserves_paragraph_breaks() -> None:

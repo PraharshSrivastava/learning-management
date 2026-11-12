@@ -13,9 +13,9 @@ from threading import Lock
 from typing import Callable
 from uuid import uuid4
 
-from app.repositories.jobs import GenerationJobRepository
-from app.schemas.generation import GenerationJobResponse
-from app.services.generation_queue import GenerationQueueTicket, generation_queue
+from app.modules.generation.generation_queue import GenerationQueueTicket, generation_queue
+from app.modules.generation.jobs_repository import GenerationJobRepository
+from app.modules.generation.schemas import GenerationJobResponse
 
 
 def _now() -> str:

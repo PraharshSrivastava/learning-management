@@ -17,8 +17,8 @@ from app.core.logging import generation_logger
 from app.core.providers import get_llm_endpoint, safe_chat_completion
 from app.core.settings import settings
 from app.core.storage import public_asset_url
-from app.generation.prompts import COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT
-from app.generation.runtime import retry
+from app.modules.generation.pipeline.prompts import COURSE_THUMBNAIL_PROMPT_PLANNER_SYSTEM_PROMPT
+from app.modules.generation.pipeline.runtime import retry
 
 THUMBNAIL_ENDPOINT = settings.thumbnail_endpoint
 THUMBNAIL_MODEL = settings.thumbnail_model

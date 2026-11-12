@@ -227,9 +227,9 @@ def test_archived_course_cannot_be_reopened_by_stale_content_or_generation(works
 
     from app.core.settings import settings
     from app.modules.courses.repository import save_course
-    from app.repositories.jobs import GenerationJobRepository
-    from app.schemas.generation import GenerationJobResponse
-    from app.services.generation import GenerationService
+    from app.modules.generation.jobs_repository import GenerationJobRepository
+    from app.modules.generation.schemas import GenerationJobResponse
+    from app.modules.generation.service import GenerationService
 
     publish()
     stale = get_course("course")

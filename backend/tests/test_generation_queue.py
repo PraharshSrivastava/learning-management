@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from threading import Thread
 
-from app.services.generation_queue import GenerationQueue
+from app.modules.generation.generation_queue import GenerationQueue
 
 
 def test_generation_queue_continues_after_failed_item() -> None:

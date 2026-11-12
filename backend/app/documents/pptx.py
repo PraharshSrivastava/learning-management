@@ -7,9 +7,9 @@ from typing import List
 
 from app.core.logging import generation_logger
 from app.core.providers import get_llm_endpoint, safe_chat_completion
-from app.generation.prompts import load_prompt
-from app.generation.runtime import retry
-from app.schemas.generation.blueprint import CourseMetadataSchema
+from app.modules.generation.pipeline.prompts import load_prompt
+from app.modules.generation.pipeline.runtime import retry
+from app.modules.generation.schemas.blueprint import CourseMetadataSchema
 
 logger = generation_logger(__name__)
 

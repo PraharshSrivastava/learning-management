@@ -7,8 +7,8 @@ from app.core.providers import (
     ChatCompletionMessage,
     ChatCompletionResponse,
 )
-from app.generation import slides as slides_module
-from app.generation import video as video_module
+from app.modules.generation.pipeline import slides as slides_module
+from app.modules.generation.pipeline import video as video_module
 
 SOURCE = "Log in with your employee ID. The dashboard shows leads, meetings and tasks."
 
@@ -114,7 +114,7 @@ def test_cover_only_detection() -> None:
 
 
 def test_regenerate_video_rebuilds_a_cover_only_module(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.generation import html, runtime, scripts, tts
+    from app.modules.generation.pipeline import html, runtime, scripts, tts
 
     state = {"rebuilt": False}
     steps = []
@@ -156,7 +156,7 @@ def test_regenerate_video_rebuilds_a_cover_only_module(monkeypatch: pytest.Monke
 def test_regenerate_video_refreshes_stale_audio_for_that_module_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.generation import html, runtime, tts
+    from app.modules.generation.pipeline import html, runtime, tts
 
     steps = []
     course = {

@@ -14,7 +14,7 @@ from PIL import Image as PILImage
 from app.core.logging import generation_logger
 from app.core.providers import IMAGE_DIR
 from app.core.storage import public_asset_url
-from app.generation.video_engine import classify_docx_images, docx_image_uses
+from app.modules.generation.pipeline.video_engine import classify_docx_images, docx_image_uses
 
 logger = generation_logger(__name__)
 

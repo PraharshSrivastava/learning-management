@@ -10,9 +10,9 @@ from app.core.settings import settings
 from app.core.storage import public_asset_url
 from app.db.database import advisory_lock
 from app.document_builder.pdf_builder import REQUIRED_METADATA_FIELDS
-from app.generation.runtime import complete_generation, mark_stage, now_iso
-from app.generation.video_engine import apply_outline_recommendation
 from app.modules.courses.repository import CourseRepository
+from app.modules.generation.pipeline.runtime import complete_generation, mark_stage, now_iso
+from app.modules.generation.pipeline.video_engine import apply_outline_recommendation
 from app.modules.uploads.service import UploadService
 from app.schemas.document_workflow import (
     DraftContent,

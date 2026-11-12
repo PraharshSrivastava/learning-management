@@ -30,7 +30,7 @@ from pathlib import Path
 from app.core.logging import generation_logger
 from app.core.settings import settings
 from app.core.storage import resolve_public_asset_path
-from app.generation.tts_normalization import clean_text_for_tts
+from app.modules.generation.pipeline.tts_normalization import clean_text_for_tts
 
 logger = generation_logger(__name__)
 VERSION = 1
@@ -693,7 +693,7 @@ def generate_module_captions(
     if not already_locked:
         with module_lock(video):
             return generate_module_captions(video, slides, already_locked=True)
-    from app.generation.video import audio_duration
+    from app.modules.generation.pipeline.video import audio_duration
 
     try:
         if not slides:
@@ -866,7 +866,7 @@ def prepare_legacy_slides(video: Path, slides: list[dict], directory: Path) -> d
 
     ``items`` pair each slide's piece of soundtrack with its script.
     """
-    from app.generation.video import audio_duration
+    from app.modules.generation.pipeline.video import audio_duration
 
     try:
         if not slides:

@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.generation.blueprint import _normalize_labelled_modules
-from app.schemas.generation.narration import batch_script_schema
+from app.modules.generation.pipeline.blueprint import _normalize_labelled_modules
+from app.modules.generation.schemas.narration import batch_script_schema
 
 LINES = [
     "Fire Safety and Evacuation for Branch Staff",
@@ -75,7 +75,7 @@ def test_batch_scripts_carry_slide_anchor() -> None:
 
 
 def test_uncaptioned_pdf_image_joins_module_holding_its_page() -> None:
-    from app.generation.blueprint import assign_images_to_modules
+    from app.modules.generation.pipeline.blueprint import assign_images_to_modules
 
     lines = ["Module 1: A", "Text one.", "Module 2: B", "Text two.", "Module 3: C", "Text three."]
     modules = [_module(1, "Module 1: A", 1), _module(2, "Module 2: B", 3), _module(3, "Module 3: C", 5)]
@@ -132,7 +132,7 @@ GUIDE_LINES = [
 
 
 def test_labelled_document_is_split_exactly_at_its_headings() -> None:
-    from app.generation.blueprint import modules_from_labels
+    from app.modules.generation.pipeline.blueprint import modules_from_labels
 
     modules = modules_from_labels(GUIDE_LINES)
 
@@ -144,7 +144,7 @@ def test_labelled_document_is_split_exactly_at_its_headings() -> None:
 
 
 def test_labelled_document_skips_the_llm(monkeypatch) -> None:
-    from app.generation import blueprint
+    from app.modules.generation.pipeline import blueprint
 
     def fail(*args, **kwargs):
         raise AssertionError("the LLM must not be asked to split a labelled document")
@@ -157,7 +157,7 @@ def test_labelled_document_skips_the_llm(monkeypatch) -> None:
 
 
 def test_short_preamble_joins_the_first_labelled_module() -> None:
-    from app.generation.blueprint import modules_from_labels
+    from app.modules.generation.pipeline.blueprint import modules_from_labels
 
     modules = modules_from_labels(["Fire Safety Course", "For branch staff."] + GUIDE_LINES)
 
@@ -165,7 +165,7 @@ def test_short_preamble_joins_the_first_labelled_module() -> None:
 
 
 def test_labels_fall_back_to_the_llm_when_they_are_not_a_clean_sequence() -> None:
-    from app.generation.blueprint import modules_from_labels
+    from app.modules.generation.pipeline.blueprint import modules_from_labels
 
     two_labels = GUIDE_LINES[:6]
     gap = [line.replace("Module 3", "Module 4") for line in GUIDE_LINES]
@@ -179,7 +179,7 @@ def test_labels_fall_back_to_the_llm_when_they_are_not_a_clean_sequence() -> Non
 
 
 def test_bare_label_line_takes_the_next_line_as_its_title() -> None:
-    from app.generation.blueprint import modules_from_labels
+    from app.modules.generation.pipeline.blueprint import modules_from_labels
 
     lines = ["Module 1.", "Intro", "Text.", "Module 2.", "Rules", "Text.", "Module 3:", "Review", "Text."]
 
@@ -191,7 +191,7 @@ def test_bare_label_line_takes_the_next_line_as_its_title() -> None:
 
 
 def test_header_adjustment_keeps_a_module_that_starts_on_its_label() -> None:
-    from app.generation.blueprint import adjust_start_lines_for_headers
+    from app.modules.generation.pipeline.blueprint import adjust_start_lines_for_headers
 
     # The previous module ends with a short line that shares words with the next title,
     # which the fuzzy header match used to pull into the next module.

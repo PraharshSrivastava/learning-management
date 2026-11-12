@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.generation import video
+from app.modules.generation.pipeline import video
 
 
 def test_generate_hls_playlist_packages_fmp4_segments(

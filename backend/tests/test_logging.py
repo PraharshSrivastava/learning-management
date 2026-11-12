@@ -18,7 +18,7 @@ def _record(name: str, message: str, args: tuple[object, ...]) -> logging.LogRec
 
 
 def test_generation_logger_inherits_configured_level() -> None:
-    logger = generation_logger("app.generation.slides")
+    logger = generation_logger("app.modules.generation.pipeline.slides")
 
     assert logger.level == logging.NOTSET
 

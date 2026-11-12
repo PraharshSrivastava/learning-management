@@ -19,14 +19,14 @@ from app.core.providers import (
 )
 from app.core.settings import settings
 from app.core.storage import public_asset_url
-from app.generation.parallel import run_parallel_stage_items
-from app.generation.runtime import (
+from app.modules.generation.pipeline.parallel import run_parallel_stage_items
+from app.modules.generation.pipeline.runtime import (
     load_course_for_generation,
     log_event,
     retry,
     save_generated_course,
 )
-from app.generation.tts_normalization import clean_text_for_tts
+from app.modules.generation.pipeline.tts_normalization import clean_text_for_tts
 
 logger = generation_logger(__name__)
 
@@ -47,7 +47,7 @@ def narration_speed(duration: float, word_count: int) -> float:
 
 
 def _apply_tts_speed(output_path: str, word_count: int) -> bool:
-    from app.generation.video import audio_duration
+    from app.modules.generation.pipeline.video import audio_duration
 
     if TTS_SPEED <= 0:
         logger.warning("tts_invalid_speed speed=%s", TTS_SPEED)
@@ -124,8 +124,12 @@ def generate_tts_for_course(course_id: str, module_numbers: set[int] | None = No
     """Synthesize narration whose audio is missing or stale, optionally for some modules only."""
     from pathlib import Path
 
-    from app.generation.captions import module_lock, narration_matches, record_narration_source
-    from app.generation.video import audio_duration
+    from app.modules.generation.pipeline.captions import (
+        module_lock,
+        narration_matches,
+        record_narration_source,
+    )
+    from app.modules.generation.pipeline.video import audio_duration
 
     course = load_course_for_generation(course_id)
     modules = copy.deepcopy(course.get("modules", []))

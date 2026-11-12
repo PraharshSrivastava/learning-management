@@ -21,7 +21,7 @@ def test_new_settings_are_loaded_from_environment(monkeypatch):
 
 
 def test_tts_request_uses_configured_model_without_streaming(monkeypatch, tmp_path):
-    from app.generation import tts
+    from app.modules.generation.pipeline import tts
 
     captured = {}
 
@@ -43,7 +43,7 @@ def test_tts_request_uses_configured_model_without_streaming(monkeypatch, tmp_pa
 
 
 def test_narration_speed_slows_only_rushed_slides(monkeypatch):
-    from app.generation import tts
+    from app.modules.generation.pipeline import tts
 
     monkeypatch.setattr(tts, "TTS_SPEED", 0.9)
     monkeypatch.setattr(tts, "TTS_MAX_WORDS_PER_MINUTE", 150)

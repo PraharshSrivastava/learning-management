@@ -456,7 +456,7 @@ class ModuleVideoJob:
         if not output.get("captions_url"):
             return
         try:
-            from app.generation.captions import atomic_text
+            from app.modules.generation.pipeline.captions import atomic_text
 
             atomic_text(video.with_suffix(".srt"), self.client.download_captions(self.record["run_id"]))
         except Exception as error:
@@ -473,8 +473,8 @@ class ModuleVideoJob:
             )
 
     def run(self) -> str:
-        from app.generation.captions import module_lock
-        from app.generation.video import generate_hls_playlist
+        from app.modules.generation.pipeline.captions import module_lock
+        from app.modules.generation.pipeline.video import generate_hls_playlist
 
         status = self._current_status()
         while True:
@@ -532,7 +532,7 @@ def _module_has_video(module: dict) -> bool:
 
 def _module_saver(course_id: str, module: dict, field: str) -> Callable[[Any], None]:
     """Persist one module field without touching sibling modules written in parallel."""
-    from app.generation.runtime import save_generated_course
+    from app.modules.generation.pipeline.runtime import save_generated_course
 
     def save(value: Any) -> None:
         snapshot = {
@@ -556,7 +556,7 @@ def generate_video_for_module_via_service(
     client: VideoServiceClient | None = None,
     force: bool = False,
 ) -> str:
-    from app.generation.runtime import load_course_for_generation
+    from app.modules.generation.pipeline.runtime import load_course_for_generation
 
     course = load_course_for_generation(course_id)
     modules = course.get("modules") or []
@@ -583,8 +583,8 @@ def generate_videos_via_service(
     client: VideoServiceClient | None = None,
 ) -> dict:
     """Generate every module video that is not already stored, bounded by service limits."""
-    from app.generation.parallel import run_parallel_stage_items
-    from app.generation.runtime import load_course_for_generation, log_event
+    from app.modules.generation.pipeline.parallel import run_parallel_stage_items
+    from app.modules.generation.pipeline.runtime import load_course_for_generation, log_event
 
     course = load_course_for_generation(course_id)
     client = client or VideoServiceClient.from_settings()

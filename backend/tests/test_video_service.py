@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from app.core.settings import Settings, settings
-from app.generation import runtime, video_service
-from app.generation.video_service import (
+from app.modules.generation.pipeline import runtime, video_service
+from app.modules.generation.pipeline.video_service import (
     ModuleVideoJob,
     VideoServiceBusy,
     VideoServiceClient,
@@ -238,7 +238,7 @@ def service_env(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "video_service_max_remote_retries", 2)
     hls_calls = []
     monkeypatch.setattr(
-        "app.generation.video.generate_hls_playlist", lambda path: hls_calls.append(path)
+        "app.modules.generation.pipeline.video.generate_hls_playlist", lambda path: hls_calls.append(path)
     )
     return {"hls": hls_calls, "dir": tmp_path / "videos"}
 
@@ -503,7 +503,7 @@ class FakeJobs:
 
 
 def generation_service(course):
-    from app.services.generation import GenerationService
+    from app.modules.generation.service import GenerationService
 
     class Courses:
         def get_draft(self, _course_id):
@@ -550,7 +550,7 @@ def test_continue_job_resumes_failed_checkpoint_but_not_blueprint():
 
 
 def test_job_manager_passes_module_video_to_worker(monkeypatch, tmp_path):
-    from app.services import jobs as jobs_module
+    from app.modules.generation import jobs as jobs_module
 
     commands = []
 
@@ -597,11 +597,11 @@ def test_module_video_regeneration_follows_video_mode(monkeypatch, mode):
     )
     calls = []
     monkeypatch.setattr(
-        "app.generation.video_service.generate_video_for_module_via_service",
+        "app.modules.generation.pipeline.video_service.generate_video_for_module_via_service",
         lambda course_id, number, force: calls.append(("external", number, force)) or "ext",
     )
     monkeypatch.setattr(
-        "app.generation.video.generate_video_for_module",
+        "app.modules.generation.pipeline.video.generate_video_for_module",
         lambda course_id, number: calls.append(("local", number)) or "loc",
     )
 
@@ -630,7 +630,7 @@ def test_video_engine_course_fails_early_without_a_configured_service(monkeypatc
     )
     called = []
     monkeypatch.setattr(
-        "app.generation.video_service.generate_video_for_module_via_service",
+        "app.modules.generation.pipeline.video_service.generate_video_for_module_via_service",
         lambda *args, **kwargs: called.append(args),
     )
 

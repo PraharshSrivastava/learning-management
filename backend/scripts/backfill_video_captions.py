@@ -12,9 +12,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.generation.captions import backfill_module_captions
-from app.generation.runtime import load_course_for_generation
-from app.generation.video_engine import course_uses_video_engine
+from app.modules.generation.pipeline.captions import backfill_module_captions
+from app.modules.generation.pipeline.runtime import load_course_for_generation
+from app.modules.generation.pipeline.video_engine import course_uses_video_engine
 
 
 def main() -> int:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.generation.thumbnails import course_thumbnail_signature
+from app.modules.generation.pipeline.thumbnails import course_thumbnail_signature
 
 
 def course_title(course: dict) -> str:

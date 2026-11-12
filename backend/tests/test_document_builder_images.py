@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from PIL import Image
 
 from app.document_builder import workflow_export
-from app.generation.html import render_image_slide
+from app.modules.generation.pipeline.html import render_image_slide
 from app.schemas.document_workflow import (
     DraftContent,
     DraftMetadata,

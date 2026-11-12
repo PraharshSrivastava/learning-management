@@ -4,7 +4,6 @@ from fastapi import APIRouter
 
 from app.api.document_builder import router as document_builder_router
 from app.api.document_drafts import router as document_drafts_router
-from app.api.generation import router as generation_router
 from app.api.static_assets import router as static_router
 from app.modules.access.api import router as lms_access_router
 from app.modules.assignments.api import router as assignment_router
@@ -15,6 +14,7 @@ from app.modules.courses.library_api import router as course_library_router
 from app.modules.directory.api import router as directory_router
 from app.modules.directory.employees_api import router as employee_router
 from app.modules.emails.status_api import router as email_status_router
+from app.modules.generation.api import router as generation_router
 from app.modules.journeys.api import router as journey_router
 from app.modules.learning.api import router as learning_router
 from app.modules.learning.media_api import router as media_router

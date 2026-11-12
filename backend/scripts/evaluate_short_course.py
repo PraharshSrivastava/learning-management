@@ -212,8 +212,8 @@ def main():
             print(json.dumps({"provider_call": row}), flush=True)
 
     requests.post = observed_post
-    from app.generation import runtime, video
-    from app.generation.blueprint import generate_course_outline
+    from app.modules.generation.pipeline import runtime, video
+    from app.modules.generation.pipeline.blueprint import generate_course_outline
     original_capture = video.capture_slide_frames
 
     def capture_and_keep(html_file, *, slide_count, output_dir):

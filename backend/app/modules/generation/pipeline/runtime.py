@@ -22,7 +22,7 @@ from app.modules.courses.repository import (
     save_all_courses,
     save_course,
 )
-from app.schemas.generation import GenerationState
+from app.modules.generation.schemas import GenerationState
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +276,7 @@ def _asset_is_nonempty(path: object) -> bool:
 
 
 def _thumbnail_output_complete(course: dict) -> bool:
-    from app.generation.thumbnails import course_thumbnail_signature
+    from app.modules.generation.pipeline.thumbnails import course_thumbnail_signature
 
     thumbnail_path = course.get("thumbnail_path")
     return bool(
@@ -348,14 +348,14 @@ VIDEO_ENGINE_UNAVAILABLE = (
 
 def uses_external_video_service(course: dict) -> bool:
     """True when this course's module videos come from the Video Generator service."""
-    from app.generation.video_engine import course_uses_video_engine
+    from app.modules.generation.pipeline.video_engine import course_uses_video_engine
 
     return course_uses_video_engine(course)
 
 
 def require_video_engine_available(course: dict) -> None:
     """Stop before any work when the course needs a Video Generator this server lacks."""
-    from app.generation.video_engine import video_engine_available
+    from app.modules.generation.pipeline.video_engine import video_engine_available
 
     if uses_external_video_service(course) and not video_engine_available():
         raise PipelineStageError("video", VIDEO_ENGINE_UNAVAILABLE)
@@ -476,7 +476,7 @@ def _sync_clean_database(target_course_id: str | None = None):
 def recover_interrupted_generations() -> None:
     """Mark work left running by a process restart as recoverable failure."""
     try:
-        from app.repositories.jobs import GenerationJobRepository
+        from app.modules.generation.jobs_repository import GenerationJobRepository
 
         GenerationJobRepository().fail_interrupted(
             "Generation interrupted because the backend process restarted. Continue from this checkpoint."
@@ -490,27 +490,32 @@ def run_module_video_generation(course_id: str, module_number: int) -> str:
     course = load_course_for_generation(course_id)
     require_video_engine_available(course)
     if uses_external_video_service(course):
-        from app.generation.video_service import generate_video_for_module_via_service
+        from app.modules.generation.pipeline.video_service import (
+            generate_video_for_module_via_service,
+        )
 
         # A trainer-requested regeneration always asks the service for a new video.
         return generate_video_for_module_via_service(course_id, module_number, force=True)
-    from app.generation.video import generate_video_for_module
+    from app.modules.generation.pipeline.video import generate_video_for_module
 
     return generate_video_for_module(course_id, module_number)
 
 
 def run_full_course_generation(course_id: str, *, restart_from_blueprint: bool) -> dict:
     """Run the course pipeline with a barrier and recovery queue for Wave 1."""
-    from app.generation.html import compile_slides_for_course
-    from app.generation.notes import generate_notes_for_course
-    from app.generation.quiz import generate_quiz_for_course
-    from app.generation.scripts import generate_scripts_for_course
-    from app.generation.slides import generate_slides_for_course
-    from app.generation.thumbnails import course_thumbnail_signature, generate_course_thumbnail
-    from app.generation.tts import generate_tts_for_course
-    from app.generation.video import generate_videos_for_course
-    from app.generation.video_service import generate_videos_via_service
     from app.modules.courses.service import CourseService
+    from app.modules.generation.pipeline.html import compile_slides_for_course
+    from app.modules.generation.pipeline.notes import generate_notes_for_course
+    from app.modules.generation.pipeline.quiz import generate_quiz_for_course
+    from app.modules.generation.pipeline.scripts import generate_scripts_for_course
+    from app.modules.generation.pipeline.slides import generate_slides_for_course
+    from app.modules.generation.pipeline.thumbnails import (
+        course_thumbnail_signature,
+        generate_course_thumbnail,
+    )
+    from app.modules.generation.pipeline.tts import generate_tts_for_course
+    from app.modules.generation.pipeline.video import generate_videos_for_course
+    from app.modules.generation.pipeline.video_service import generate_videos_via_service
 
     pipeline_start = time.perf_counter()
     repository = CourseRepository()

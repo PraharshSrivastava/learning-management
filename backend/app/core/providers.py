@@ -13,8 +13,8 @@ from app.core.exceptions import ProviderError
 from app.core.langfuse_tracing import end_generation, start_generation
 from app.core.logging import generation_logger
 from app.core.settings import settings
-from app.generation.runtime import retry
-from app.schemas.generation.providers import ChatCompletionRequest
+from app.modules.generation.pipeline.runtime import retry
+from app.modules.generation.schemas.providers import ChatCompletionRequest
 
 logger = generation_logger(__name__)
 

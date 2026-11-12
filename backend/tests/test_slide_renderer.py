@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.generation import video
+from app.modules.generation.pipeline import video
 from slide_renderer import server
 
 

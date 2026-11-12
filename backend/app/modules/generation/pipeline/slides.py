@@ -11,21 +11,21 @@ from pydantic import ValidationError
 from app.core.exceptions import ProviderError
 from app.core.logging import generation_logger
 from app.core.providers import get_llm_endpoint, safe_chat_completion
-from app.generation.parallel import default_llm_workers, run_parallel_stage_items
-from app.generation.prompts import (
+from app.modules.courses.schemas import ModuleResponse
+from app.modules.generation.pipeline.parallel import default_llm_workers, run_parallel_stage_items
+from app.modules.generation.pipeline.prompts import (
     ART_DIRECTOR_PROMPT,
     IMAGE_SLIDE_MAPPING_PROMPT,
     MODULE_SLIDE_PLANNER_PROMPT,
     SLIDE_TITLES_PROMPT,
 )
-from app.generation.runtime import (
+from app.modules.generation.pipeline.runtime import (
     ensure_module_cover_slide,
     load_course_for_generation,
     log_event,
     save_generated_course,
 )
-from app.modules.courses.schemas import ModuleResponse
-from app.schemas.generation.slides import (
+from app.modules.generation.schemas.slides import (
     ArtDirectorResponse,
     ImageMappingResult,
     ModuleSlidesSchema,

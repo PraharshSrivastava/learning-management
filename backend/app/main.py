@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.generation import generation_jobs
 from app.api.router import api_router
 from app.core.exceptions import install_exception_handlers
 from app.core.logging import configure_logging
@@ -19,7 +18,6 @@ from app.core.settings import settings
 from app.core.storage import ensure_storage_directories
 from app.db.database import close_pool
 from app.db.schema import init_db
-from app.generation.runtime import recover_interrupted_generations
 from app.modules.directory.scheduler import (
     start_directory_sync_scheduler,
     stop_directory_sync_scheduler,
@@ -28,9 +26,11 @@ from app.modules.emails.notifications import (
     start_email_notification_scheduler,
     stop_email_notification_scheduler,
 )
+from app.modules.generation.api import generation_jobs
+from app.modules.generation.generation_queue import generation_queue
+from app.modules.generation.pipeline.runtime import recover_interrupted_generations
 from app.modules.learning.media_api import PrivateCourseStaticFiles
 from app.security.hub_launch import HubLaunchMiddleware
-from app.services.generation_queue import generation_queue
 
 # Slim images ship without /etc/mime.types, so Starlette would serve WebP
 # course thumbnails as text/plain.

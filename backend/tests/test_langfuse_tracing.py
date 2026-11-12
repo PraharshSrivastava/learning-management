@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.core import langfuse_tracing
-from app.generation.parallel import run_parallel_stage_items
+from app.modules.generation.pipeline.parallel import run_parallel_stage_items
 
 
 class FakeContext:

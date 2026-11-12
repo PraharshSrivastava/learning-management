@@ -8,8 +8,8 @@ import pytest
 
 from app.core.exceptions import ProviderError
 from app.core.providers import LLMClient
-from app.generation import blueprint, slides
-from app.generation.runtime import PipelineStageError
+from app.modules.generation.pipeline import blueprint, slides
+from app.modules.generation.pipeline.runtime import PipelineStageError
 from app.modules.uploads.service import UploadService
 
 

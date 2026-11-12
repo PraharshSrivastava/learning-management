@@ -9,8 +9,8 @@ from app.core.exceptions import ConflictError
 from app.db import database
 from app.modules.courses.schemas import CourseUpdateRequest
 from app.modules.courses.service import CourseService
-from app.repositories.jobs import GenerationJobRepository
-from app.schemas.generation import GenerationJobResponse
+from app.modules.generation.jobs_repository import GenerationJobRepository
+from app.modules.generation.schemas import GenerationJobResponse
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"

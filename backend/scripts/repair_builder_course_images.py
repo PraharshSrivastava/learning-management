@@ -146,8 +146,11 @@ def repair_images(apply=False, render=False, resume=None):
                     module["quiz"] == row["quiz_json"] and module["video_path"] == row["video_path"]
                 )
             if render:
-                from app.generation.html import generate_html_slides_for_module
-                from app.generation.video import capture_slide_frames, render_video_for_module
+                from app.modules.generation.pipeline.html import generate_html_slides_for_module
+                from app.modules.generation.pipeline.video import (
+                    capture_slide_frames,
+                    render_video_for_module,
+                )
 
                 for number in affected:
                     module = next(m for m in fresh["modules"] if m["module_number"] == number)
@@ -208,7 +211,10 @@ def repair_images(apply=False, render=False, resume=None):
                     import imageio_ffmpeg
                     from PIL import ImageChops, ImageStat
 
-                    from app.generation.video import SLIDE_TRANSITION_PAUSE_SECONDS, audio_duration
+                    from app.modules.generation.pipeline.video import (
+                        SLIDE_TRANSITION_PAUSE_SECONDS,
+                        audio_duration,
+                    )
 
                     elapsed = 0.0
                     for index, slide in enumerate(module["slides"]):

@@ -4,7 +4,7 @@ from contextlib import nullcontext
 from types import SimpleNamespace
 
 from app.core.settings import Settings
-from app.services import generation
+from app.modules.generation import service as generation
 
 
 def service(course):

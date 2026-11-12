@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from app.generation.captions import CaptionsUnavailable, display_words, group_cues, serialize_vtt
+from app.modules.generation.pipeline.captions import (
+    CaptionsUnavailable,
+    display_words,
+    group_cues,
+    serialize_vtt,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -130,7 +135,7 @@ def test_module_assets_are_bound_to_video_and_idempotent(monkeypatch, tmp_path):
     import sys
     import types
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video = tmp_path / "module.mp4"
     audio = tmp_path / "slide.wav"
@@ -141,7 +146,7 @@ def test_module_assets_are_bound_to_video_and_idempotent(monkeypatch, tmp_path):
     # Exercise the caption pipeline independently of DB/provider initialization.
     monkeypatch.setitem(
         sys.modules,
-        "app.generation.video",
+        "app.modules.generation.pipeline.video",
         types.SimpleNamespace(audio_duration=lambda name: 3 if name.endswith(".mp4") else 2),
     )
     calls = []
@@ -183,7 +188,7 @@ def test_alignment_command_is_validated_as_argv():
 
 
 def test_narration_cache_cannot_reuse_audio_for_changed_script(tmp_path):
-    from app.generation.captions import narration_matches, record_narration_source
+    from app.modules.generation.pipeline.captions import narration_matches, record_narration_source
 
     audio = tmp_path / "slide.wav"
     audio.write_bytes(b"audio")
@@ -196,7 +201,7 @@ def test_narration_cache_cannot_reuse_audio_for_changed_script(tmp_path):
 
 
 def test_module_lock_prevents_render_backfill_conflict(tmp_path):
-    from app.generation.captions import module_lock
+    from app.modules.generation.pipeline.captions import module_lock
 
     video = tmp_path / "module.mp4"
     with module_lock(video):
@@ -228,7 +233,7 @@ def _legacy_module(tmp_path, monkeypatch, narration=(1.0, 1.5), pause=1.0):
 
     import imageio_ffmpeg
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     monkeypatch.setattr(captions, "resolve_public_asset_path", lambda value, config: Path(value))
     slides, inputs = [], []
@@ -250,7 +255,7 @@ def _legacy_module(tmp_path, monkeypatch, narration=(1.0, 1.5), pause=1.0):
 
 
 def _fake_alignment(monkeypatch, calls=None):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     def align(items):
         if calls is not None:
@@ -271,7 +276,7 @@ def _fake_alignment(monkeypatch, calls=None):
 def test_legacy_video_is_captioned_from_its_own_soundtrack(monkeypatch, tmp_path):
     import json
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     calls = []
@@ -296,7 +301,7 @@ def test_legacy_video_is_captioned_from_its_own_soundtrack(monkeypatch, tmp_path
 
 
 def test_legacy_narration_that_does_not_add_up_is_refused(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     _tone(Path(slides[1]["audio_path"]), 6)  # Narration replaced after the video was made.
@@ -308,7 +313,7 @@ def test_legacy_narration_that_does_not_add_up_is_refused(monkeypatch, tmp_path)
 
 
 def test_legacy_boundary_inside_speech_is_refused(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch, narration=(1.0, 2.0))
     # Same total length, but swapped slides no longer match the soundtrack pattern.
@@ -321,7 +326,7 @@ def test_legacy_boundary_inside_speech_is_refused(monkeypatch, tmp_path):
 
 
 def test_legacy_alignment_that_collapses_is_refused(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     _use_aligner(monkeypatch)
@@ -338,7 +343,7 @@ def test_legacy_alignment_that_collapses_is_refused(monkeypatch, tmp_path):
 
 
 def test_backfill_skips_generator_videos_and_reports_each_module(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     _fake_alignment(monkeypatch)
@@ -412,7 +417,7 @@ def test_aligner_worker_loads_the_model_once_per_module(monkeypatch, tmp_path):
 def test_align_slides_round_trips_a_module_request_through_the_worker(monkeypatch, tmp_path):
     import sys
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     worker = tmp_path / "worker.py"
     worker.write_text(
@@ -432,7 +437,7 @@ def test_align_slides_round_trips_a_module_request_through_the_worker(monkeypatc
 
 def test_narration_cache_rejects_audio_made_with_other_pace(tmp_path, monkeypatch):
     from app.core.settings import settings
-    from app.generation.captions import narration_matches, record_narration_source
+    from app.modules.generation.pipeline.captions import narration_matches, record_narration_source
 
     audio = tmp_path / "slide.wav"
     audio.write_bytes(b"audio")
@@ -442,7 +447,7 @@ def test_narration_cache_rejects_audio_made_with_other_pace(tmp_path, monkeypatc
 
 
 def test_captions_show_aml_and_fiu_ind_as_written():
-    from app.generation.captions import display_words
+    from app.modules.generation.pipeline.captions import display_words
 
     _, mapping = display_words("AML reports go to FIU-IND.")
     assert [word for word, _ in mapping] == ["AML", "reports", "go", "to", "FIU-IND."]
@@ -472,7 +477,7 @@ def _speech(path, parts, rate=16000):
 
 
 def _layout(path, tmp_path, duration):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     return captions._speech_layout(captions._to_pcm(path, tmp_path / "pcm.wav"), duration)
 
@@ -512,7 +517,7 @@ def test_caption_timing_setting_is_validated_and_read_from_environment(monkeypat
 
 
 def test_auto_timing_uses_the_aligner_only_when_configured(monkeypatch):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     assert captions.caption_timing() == "narration"
     _use_aligner(monkeypatch)
@@ -523,7 +528,7 @@ def test_auto_timing_uses_the_aligner_only_when_configured(monkeypatch):
 
 
 def test_edge_silence_is_trimmed_without_cutting_speech(tmp_path):
-    from app.generation.captions import narration_cues
+    from app.modules.generation.pipeline.captions import narration_cues
 
     audio = tmp_path / "slide.wav"
     _speech(audio, [("quiet", 0.3), ("tone", 2.0), ("quiet", 0.4)])
@@ -540,7 +545,7 @@ def test_edge_silence_is_trimmed_without_cutting_speech(tmp_path):
 def test_silent_or_unreadable_narration_falls_back_to_the_whole_span(tmp_path):
     import array
 
-    from app.generation.captions import _speech_layout
+    from app.modules.generation.pipeline.captions import _speech_layout
 
     audio = tmp_path / "silent.wav"
     _speech(audio, [("quiet", 1.0)])
@@ -551,7 +556,7 @@ def test_silent_or_unreadable_narration_falls_back_to_the_whole_span(tmp_path):
 def test_narration_cues_follow_phrasing_rules_and_show_terms_as_written():
     import textwrap
 
-    from app.generation.captions import WEAK_ENDINGS, narration_cues
+    from app.modules.generation.pipeline.captions import WEAK_ENDINGS, narration_cues
 
     script = (
         "<b>AML</b> checks protect the firm. "
@@ -576,7 +581,7 @@ def test_narration_cues_follow_phrasing_rules_and_show_terms_as_written():
 
 
 def test_narration_split_never_ends_a_cue_on_a_weak_word():
-    from app.generation.captions import _balanced_pieces, _spoken_words
+    from app.modules.generation.pipeline.captions import _balanced_pieces, _spoken_words
 
     words = _spoken_words(
         "Customers who want to open an account at the branch must provide the original "
@@ -593,7 +598,7 @@ def test_narration_split_never_ends_a_cue_on_a_weak_word():
 
 
 def test_acronyms_get_time_for_how_they_are_spoken(monkeypatch):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     script = "AML KYC NSE. We sat down."
     first, second = script.split(". ")
@@ -611,7 +616,7 @@ def test_acronyms_get_time_for_how_they_are_spoken(monkeypatch):
 
 
 def test_short_phrases_still_get_the_minimum_cue_time():
-    from app.generation.captions import narration_cues
+    from app.modules.generation.pipeline.captions import narration_cues
 
     script = (
         "Yes. The principal officer of the reporting entity is responsible for filing reports "
@@ -626,7 +631,7 @@ def test_short_phrases_still_get_the_minimum_cue_time():
 
 
 def test_sentence_ends_are_pinned_to_audible_pauses(tmp_path):
-    from app.generation.captions import narration_cues
+    from app.modules.generation.pipeline.captions import narration_cues
 
     audio = tmp_path / "slide.wav"
     _speech(audio, [("tone", 2.0), ("quiet", 0.5), ("tone", 1.0), ("quiet", 0.5), ("tone", 2.0)])
@@ -645,7 +650,7 @@ def test_sentence_ends_are_pinned_to_audible_pauses(tmp_path):
 
 
 def test_pauses_far_from_any_sentence_end_are_ignored(tmp_path):
-    from app.generation.captions import narration_cues
+    from app.modules.generation.pipeline.captions import narration_cues
 
     audio = tmp_path / "slide.wav"
     _speech(audio, [("tone", 5.0), ("quiet", 0.5), ("tone", 0.5)])
@@ -661,7 +666,7 @@ def test_pauses_far_from_any_sentence_end_are_ignored(tmp_path):
 def test_pause_matching_is_ordered_and_one_to_one():
     import random
 
-    from app.generation.captions import _match_pauses
+    from app.modules.generation.pipeline.captions import _match_pauses
 
     # 100 units of spoken length over 10 s of speech, plus the pauses: 0.1 s per unit.
     both = [(2.0, 2.4), (6.4, 6.8)]
@@ -693,7 +698,7 @@ def test_pause_matching_is_ordered_and_one_to_one():
 def test_pause_matching_stays_fast_and_accurate_on_a_long_slide():
     import time
 
-    from app.generation.captions import _match_pauses
+    from app.modules.generation.pipeline.captions import _match_pauses
 
     # Ten minutes of narration: 300 phrase ends 2 s apart, each followed by its own pause.
     positions = [20.0 * (index + 1) for index in range(300)]
@@ -714,8 +719,8 @@ def _rendered_module(tmp_path, monkeypatch, slides_spec, pause=1.0):
 
     import imageio_ffmpeg
 
-    from app.generation import captions
-    from app.generation import video as rendering
+    from app.modules.generation.pipeline import captions
+    from app.modules.generation.pipeline import video as rendering
 
     monkeypatch.setattr(captions, "resolve_public_asset_path", lambda value, config: Path(value))
     frame = tmp_path / "frame.png"
@@ -741,7 +746,7 @@ def _rendered_module(tmp_path, monkeypatch, slides_spec, pause=1.0):
 
 def _aligner_from_transcript(monkeypatch, calls=None):
     """A stand-in aligner that times every expected token 0.1 s apart."""
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     def align(items):
         if calls is not None:
@@ -761,8 +766,8 @@ def _aligner_from_transcript(monkeypatch, calls=None):
 def test_rendered_module_gets_narration_timed_captions_without_an_aligner(monkeypatch, tmp_path):
     import json
 
-    from app.generation import captions
-    from app.generation.video import audio_duration
+    from app.modules.generation.pipeline import captions
+    from app.modules.generation.pipeline.video import audio_duration
 
     video, slides, durations = _rendered_module(
         tmp_path,
@@ -821,7 +826,7 @@ def test_rendered_module_gets_narration_timed_captions_without_an_aligner(monkey
 
 
 def test_rendered_module_provenance_is_still_enforced(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides, _ = _rendered_module(
         tmp_path, monkeypatch, [([("tone", 1.0)], "Save the file.")]
@@ -835,7 +840,7 @@ def test_rendered_module_provenance_is_still_enforced(monkeypatch, tmp_path):
 def test_legacy_backfill_uses_narration_timing_without_an_aligner(monkeypatch, tmp_path):
     import json
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
 
@@ -872,7 +877,7 @@ def test_backfill_upgrades_narration_captions_once_an_aligner_is_configured(
 ):
     import json
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     module = {"module_number": 1, "video_path": str(video), "slides": slides}
@@ -895,7 +900,7 @@ def test_backfill_upgrades_narration_captions_once_an_aligner_is_configured(
 
 
 def test_captions_off_writes_nothing(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     monkeypatch.setattr(captions.settings, "caption_timing", "off")
@@ -910,7 +915,7 @@ def test_captions_off_writes_nothing(monkeypatch, tmp_path):
 
 
 def test_aligned_timing_without_an_aligner_fails_as_before(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     monkeypatch.setattr(captions.settings, "caption_timing", "aligned")
@@ -924,7 +929,7 @@ def test_aligned_timing_without_an_aligner_fails_as_before(monkeypatch, tmp_path
 
 def test_a_comma_pause_is_not_taken_for_the_sentence_end(tmp_path):
     # Measured on real narration: "Next," paused, then "...actions." ran on with no pause.
-    from app.generation.captions import narration_cues
+    from app.modules.generation.pipeline.captions import narration_cues
 
     audio = tmp_path / "slide.wav"
     _speech(
@@ -947,7 +952,7 @@ def test_a_comma_pause_is_not_taken_for_the_sentence_end(tmp_path):
 
 
 def test_titles_and_latin_abbreviations_do_not_end_a_sentence():
-    from app.generation.captions import _ends_sentence, narration_cues
+    from app.modules.generation.pipeline.captions import _ends_sentence, narration_cues
 
     for word in ("Mr.", "Mrs.", "Ms.", "Dr.", "e.g.", "i.e.", "vs.", "(e.g.", "Dr.)"):
         assert not _ends_sentence(word), word
@@ -958,7 +963,7 @@ def test_titles_and_latin_abbreviations_do_not_end_a_sentence():
 
 
 def test_weak_word_check_ignores_leading_punctuation():
-    from app.generation.captions import _balanced_pieces, _spoken_words
+    from app.modules.generation.pipeline.captions import _balanced_pieces, _spoken_words
 
     words = _spoken_words(
         "Customers who want to open an account at the branch must provide (the original "
@@ -970,7 +975,7 @@ def test_weak_word_check_ignores_leading_punctuation():
 
 
 def _failing_aligner(monkeypatch, error):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     def align(items):
         raise error
@@ -995,7 +1000,7 @@ def test_auto_falls_back_to_narration_timing_when_alignment_fails(
 ):
     import json
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides, _ = _rendered_module(
         tmp_path, monkeypatch, [([("tone", 1.5)], "Save the file.")]
@@ -1010,7 +1015,7 @@ def test_auto_falls_back_to_narration_timing_when_alignment_fails(
 def test_explicit_aligned_mode_does_not_fall_back(monkeypatch, tmp_path):
     import subprocess
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides, _ = _rendered_module(
         tmp_path, monkeypatch, [([("tone", 1.5)], "Save the file.")]
@@ -1026,7 +1031,7 @@ def test_explicit_aligned_mode_does_not_fall_back(monkeypatch, tmp_path):
 
 
 def test_failed_upgrade_keeps_existing_narration_captions(monkeypatch, tmp_path, caplog):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides, _ = _rendered_module(
         tmp_path, monkeypatch, [([("tone", 1.5)], "Save the file.")]
@@ -1043,7 +1048,7 @@ def test_failed_upgrade_keeps_existing_narration_captions(monkeypatch, tmp_path,
 def test_legacy_auto_fallback_and_failed_upgrade(monkeypatch, tmp_path):
     import subprocess
 
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     module = {"module_number": 1, "video_path": str(video), "slides": slides}
@@ -1059,7 +1064,7 @@ def test_legacy_auto_fallback_and_failed_upgrade(monkeypatch, tmp_path):
 
 
 def test_corrupt_caption_metadata_is_regenerated(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides, _ = _rendered_module(
         tmp_path, monkeypatch, [([("tone", 1.5)], "Save the file.")]
@@ -1076,7 +1081,7 @@ def test_corrupt_caption_metadata_is_regenerated(monkeypatch, tmp_path):
 
 
 def test_backfill_reports_the_method_on_disk_and_planned_upgrades(monkeypatch, tmp_path):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch)
     module = {"module_number": 1, "video_path": str(video), "slides": slides}
@@ -1112,7 +1117,7 @@ def test_backfill_reports_the_method_on_disk_and_planned_upgrades(monkeypatch, t
 def test_legacy_narration_refuses_a_script_edited_after_rendering(
     monkeypatch, tmp_path, repeats, accepted
 ):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     video, slides = _legacy_module(tmp_path, monkeypatch, narration=(6.0, 6.0))
     # 21 spoken characters per sentence: 5 of them over 6 s is 17.5 per second.
@@ -1132,7 +1137,7 @@ def test_legacy_narration_refuses_a_script_edited_after_rendering(
 
 
 def test_short_slides_are_too_short_to_judge_a_rate():
-    from app.generation.captions import _check_narration_length
+    from app.modules.generation.pipeline.captions import _check_narration_length
 
     _check_narration_length(1, "Thank you.", 2.5)  # 10 characters in 2.5 s: 4 per second
     with pytest.raises(CaptionsUnavailable):
@@ -1142,7 +1147,7 @@ def test_short_slides_are_too_short_to_judge_a_rate():
 def test_rendered_videos_skip_the_length_check_their_hashes_already_prove(
     monkeypatch, tmp_path
 ):
-    from app.generation import captions
+    from app.modules.generation.pipeline import captions
 
     # 21 characters over 6 s would fail the legacy check; provenance binds script and audio.
     video, slides, _ = _rendered_module(

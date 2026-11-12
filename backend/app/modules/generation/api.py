@@ -3,13 +3,13 @@
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 
 from app.core.settings import settings
-from app.generation.runtime import PipelineStageError
-from app.generation.video_engine import toggle_enabled, video_engine_available
 from app.modules.access.course_authorization import course_owner_for_read, require_course_creator
 from app.modules.auth.service import current_trainer_from_request
 from app.modules.courses.schemas import CourseResponse
-from app.schemas.generation import GenerationConfigResponse, GenerationJobResponse
-from app.services.generation import build_generation_service
+from app.modules.generation.pipeline.runtime import PipelineStageError
+from app.modules.generation.pipeline.video_engine import toggle_enabled, video_engine_available
+from app.modules.generation.schemas import GenerationConfigResponse, GenerationJobResponse
+from app.modules.generation.service import build_generation_service
 
 router = APIRouter(prefix="/api", tags=["generation"])
 service = build_generation_service(settings)

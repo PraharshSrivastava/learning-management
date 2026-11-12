@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from typing import Callable, Iterable, TypeVar
 
-from app.generation.runtime import PipelineStageError, log_event
+from app.modules.generation.pipeline.runtime import PipelineStageError, log_event
 
 T = TypeVar("T")
 R = TypeVar("R")

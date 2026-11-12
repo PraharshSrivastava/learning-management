@@ -9,18 +9,21 @@ from uuid import uuid4
 from app.core.exceptions import ConflictError
 from app.core.langfuse_tracing import trace_scope
 from app.core.settings import Settings
-from app.generation.blueprint import generate_course_outline
-from app.generation.runtime import (
+from app.modules.courses.repository import CourseRepository
+from app.modules.generation.generation_queue import generation_queue
+from app.modules.generation.jobs import GenerationJobManager
+from app.modules.generation.jobs_repository import GenerationJobRepository
+from app.modules.generation.pipeline.blueprint import generate_course_outline
+from app.modules.generation.pipeline.runtime import (
     VIDEO_ENGINE_UNAVAILABLE,
     generation_state,
     run_full_course_generation,
 )
-from app.generation.video_engine import course_uses_video_engine, video_engine_available
-from app.modules.courses.repository import CourseRepository
+from app.modules.generation.pipeline.video_engine import (
+    course_uses_video_engine,
+    video_engine_available,
+)
 from app.modules.uploads.repository import get_document
-from app.repositories.jobs import GenerationJobRepository
-from app.services.generation_queue import generation_queue
-from app.services.jobs import GenerationJobManager
 
 
 class GenerationService:
@@ -63,7 +66,7 @@ class GenerationService:
         return course
 
     def generate_quiz(self, course_id: str, trainer_id: str | None = None) -> dict:
-        from app.generation.quiz import generate_quiz_for_course
+        from app.modules.generation.pipeline.quiz import generate_quiz_for_course
 
         self.draft(course_id, trainer_id)
         with self._trace_operation("quiz", course_id, trainer_id):
@@ -71,8 +74,8 @@ class GenerationService:
                 return generate_quiz_for_course(course_id)
 
     def generate_slides(self, course_id: str, trainer_id: str | None = None) -> dict:
-        from app.generation.html import compile_slides_for_course
-        from app.generation.slides import generate_slides_for_course
+        from app.modules.generation.pipeline.html import compile_slides_for_course
+        from app.modules.generation.pipeline.slides import generate_slides_for_course
 
         self.draft(course_id, trainer_id)
         with self._trace_operation("slides", course_id, trainer_id):
@@ -82,8 +85,8 @@ class GenerationService:
                 return course
 
     def generate_scripts(self, course_id: str, trainer_id: str | None = None) -> dict:
-        from app.generation.html import compile_slides_for_course
-        from app.generation.scripts import generate_scripts_for_course
+        from app.modules.generation.pipeline.html import compile_slides_for_course
+        from app.modules.generation.pipeline.scripts import generate_scripts_for_course
 
         self.draft(course_id, trainer_id)
         with self._trace_operation("scripts", course_id, trainer_id):
@@ -95,7 +98,7 @@ class GenerationService:
     def generate_video(
         self, course_id: str, module_number: int, trainer_id: str | None = None
     ) -> dict:
-        from app.generation.runtime import run_module_video_generation
+        from app.modules.generation.pipeline.runtime import run_module_video_generation
 
         self.draft(course_id, trainer_id)
         with self._trace_operation("video", course_id, trainer_id):
@@ -182,8 +185,8 @@ class GenerationService:
             if course.get("document_builder", {}).get("origin") == "accepted_revision":
                 # Builder inputs already are the trainer-approved blueprint;
                 # recovery must not re-extract their exported PDF.
-                from app.generation.runtime import mark_stage
                 from app.modules.courses.repository import save_course
+                from app.modules.generation.pipeline.runtime import mark_stage
                 mark_stage(course, "blueprint", "completed")
                 save_course(course, "draft")
                 with generation_queue.run(course_id=course_id, operation="continue:accepted_blueprint"):

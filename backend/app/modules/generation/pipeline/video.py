@@ -28,7 +28,7 @@ _DECK_LINK_ORIGIN = "http://deck.invalid"
 def _generate_captions_if_available(
     video_path: Path, slides: list[dict], *, already_locked: bool = False
 ) -> None:
-    from app.generation.captions import generate_module_captions
+    from app.modules.generation.pipeline.captions import generate_module_captions
 
     try:
         result = generate_module_captions(video_path, slides, already_locked=already_locked)
@@ -266,7 +266,7 @@ VIDEO_STAGE_WORKERS = 2
 
 
 def render_video_for_module(course: dict, course_id: str, module_number: int) -> str:
-    from app.generation.captions import module_lock
+    from app.modules.generation.pipeline.captions import module_lock
 
     path = VIDEO_DIR / f"course_{course_id}" / f"module_{module_number}.mp4"
     with module_lock(path):
@@ -274,7 +274,7 @@ def render_video_for_module(course: dict, course_id: str, module_number: int) ->
 
 
 def _render_video_for_module(course: dict, course_id: str, module_number: int) -> str:
-    from app.generation.captions import source_inputs
+    from app.modules.generation.pipeline.captions import source_inputs
 
     modules = course.get("modules", [])
     if module_number < 1 or module_number > len(modules):
@@ -335,7 +335,7 @@ def _render_video_for_module(course: dict, course_id: str, module_number: int) -
             staged_output.unlink(missing_ok=True)
         generate_hls_playlist(output_path)
 
-    from app.generation.captions import record_video_source
+    from app.modules.generation.pipeline.captions import record_video_source
 
     try:
         record_video_source(output_path, slides, clip_durations, caption_inputs)
@@ -358,18 +358,21 @@ def _render_video_for_module(course: dict, course_id: str, module_number: int) -
 
 
 def generate_video_for_module(course_id: str, module_number: int) -> str:
-    from app.generation.html import compile_slides_for_course
-    from app.generation.runtime import load_course_for_generation, save_generated_course
-    from app.generation.slides import module_is_cover_only
-    from app.generation.tts import generate_tts_for_course
+    from app.modules.generation.pipeline.html import compile_slides_for_course
+    from app.modules.generation.pipeline.runtime import (
+        load_course_for_generation,
+        save_generated_course,
+    )
+    from app.modules.generation.pipeline.slides import module_is_cover_only
+    from app.modules.generation.pipeline.tts import generate_tts_for_course
 
     course = load_course_for_generation(course_id)
     modules = course.get("modules", [])
     if 1 <= module_number <= len(modules) and module_is_cover_only(modules[module_number - 1]):
         # A failed slide plan left only the cover; rendering it again would give the same
         # few-second video, so rebuild this module's slides and narration first.
-        from app.generation.scripts import generate_scripts_for_single_module
-        from app.generation.slides import generate_slides_for_single_module
+        from app.modules.generation.pipeline.scripts import generate_scripts_for_single_module
+        from app.modules.generation.pipeline.slides import generate_slides_for_single_module
 
         logger.info(
             "cover_only_module_rebuild_started course_id=%s module=%s", course_id, module_number
@@ -388,8 +391,12 @@ def generate_video_for_module(course_id: str, module_number: int) -> str:
 
 
 def generate_videos_for_course(course_id: str) -> dict:
-    from app.generation.parallel import run_parallel_stage_items
-    from app.generation.runtime import load_course_for_generation, log_event, save_generated_course
+    from app.modules.generation.pipeline.parallel import run_parallel_stage_items
+    from app.modules.generation.pipeline.runtime import (
+        load_course_for_generation,
+        log_event,
+        save_generated_course,
+    )
 
     course = load_course_for_generation(course_id)
     modules = course.get("modules", [])

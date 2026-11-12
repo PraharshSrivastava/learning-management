@@ -9,15 +9,15 @@ from pydantic import ValidationError
 from app.core.exceptions import ProviderError
 from app.core.logging import generation_logger
 from app.core.providers import get_llm_endpoint, safe_chat_completion
-from app.generation.parallel import default_llm_workers, run_parallel_stage_items
-from app.generation.prompts import QUIZ_GENERATION_PROMPT
-from app.generation.runtime import (
+from app.modules.generation.pipeline.parallel import default_llm_workers, run_parallel_stage_items
+from app.modules.generation.pipeline.prompts import QUIZ_GENERATION_PROMPT
+from app.modules.generation.pipeline.runtime import (
     PipelineStageError,
     load_course_for_generation,
     log_event,
     save_generated_course,
 )
-from app.schemas.generation.quiz import ModuleQuiz
+from app.modules.generation.schemas.quiz import ModuleQuiz
 
 QUIZ_GENERATION_ATTEMPTS = 3
 

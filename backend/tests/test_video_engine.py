@@ -12,10 +12,10 @@ from PIL import Image
 
 from app.core.exceptions import ConflictError, DomainValidationError
 from app.core.settings import Settings, settings
-from app.generation import video_engine
-from app.generation.blueprint import extract_images_from_pdf
 from app.modules.courses.schemas import CourseResponse, CourseUpdateRequest
 from app.modules.courses.service import CourseService
+from app.modules.generation.pipeline import video_engine
+from app.modules.generation.pipeline.blueprint import extract_images_from_pdf
 
 SECRET = "s" * 40
 
@@ -35,7 +35,7 @@ def engine_on(monkeypatch):
 
 @pytest.fixture
 def image_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.generation.blueprint.IMAGE_DIR", str(tmp_path / "images"))
+    monkeypatch.setattr("app.modules.generation.pipeline.blueprint.IMAGE_DIR", str(tmp_path / "images"))
     monkeypatch.setattr("app.documents.docx.IMAGE_DIR", str(tmp_path / "images"))
     return tmp_path
 
@@ -357,7 +357,7 @@ def _resumable(generation, **module):
 def test_continue_reruns_missing_wave_outputs_after_a_later_failure(engine_on):
     # The big-coding case: slides, scripts and audio survived, thumbnail/quiz/notes did not,
     # and the course failed at video. Continue used to skip Wave 1 and fail at publish.
-    from app.generation.runtime import wave_stages_to_resume
+    from app.modules.generation.pipeline.runtime import wave_stages_to_resume
 
     course = _resumable(
         {"status": "failed", "failed_checkpoint": "video"},
@@ -368,7 +368,7 @@ def test_continue_reruns_missing_wave_outputs_after_a_later_failure(engine_on):
 
 
 def test_continue_reruns_failed_wave_stages_even_if_output_exists(engine_on, monkeypatch):
-    from app.generation import runtime
+    from app.modules.generation.pipeline import runtime
 
     monkeypatch.setattr(runtime, "missing_generation_outputs", lambda course: [])
     course = _resumable(
@@ -379,7 +379,7 @@ def test_continue_reruns_failed_wave_stages_even_if_output_exists(engine_on, mon
 
 
 def test_continue_with_complete_wave_outputs_skips_wave_1(engine_on, monkeypatch):
-    from app.generation import runtime
+    from app.modules.generation.pipeline import runtime
 
     monkeypatch.setattr(runtime, "missing_generation_outputs", lambda course: ["video"])
     course = _resumable({"status": "failed", "failed_checkpoint": "video"})
@@ -388,7 +388,7 @@ def test_continue_with_complete_wave_outputs_skips_wave_1(engine_on, monkeypatch
 
 
 def test_video_engine_course_never_resumes_slides(engine_on):
-    from app.generation.runtime import wave_stages_to_resume
+    from app.modules.generation.pipeline.runtime import wave_stages_to_resume
 
     course = _resumable({"status": "failed", "failed_checkpoint": "video"})
     course["video_engine"] = True

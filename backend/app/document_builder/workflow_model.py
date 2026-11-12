@@ -19,7 +19,7 @@ from app.core.exceptions import ProviderError
 from app.core.providers import LLMClient
 from app.core.settings import Settings
 from app.document_builder.workflow_prompts import PROMPT_VERSION, SYSTEM, TASKS
-from app.generation.runtime import PipelineStageError
+from app.modules.generation.pipeline.runtime import PipelineStageError
 from app.schemas.document_workflow import (
     AnswerResponse,
     DraftMetadata,

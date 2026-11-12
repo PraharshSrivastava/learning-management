@@ -7,14 +7,17 @@ from app.core.providers import (
     get_llm_endpoint,
     safe_chat_completion,
 )
-from app.generation.prompts import IMAGE_SCRIPT_GENERATION_PROMPT, SCRIPT_GENERATION_PROMPT
-from app.generation.runtime import (
+from app.modules.generation.pipeline.prompts import (
+    IMAGE_SCRIPT_GENERATION_PROMPT,
+    SCRIPT_GENERATION_PROMPT,
+)
+from app.modules.generation.pipeline.runtime import (
     ensure_module_cover_slide,
     load_course_for_generation,
     retry,
     save_generated_course,
 )
-from app.schemas.generation.narration import SlideScriptSchema, batch_script_schema
+from app.modules.generation.schemas.narration import SlideScriptSchema, batch_script_schema
 
 logger = generation_logger(__name__)
 
