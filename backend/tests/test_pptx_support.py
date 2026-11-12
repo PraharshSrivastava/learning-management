@@ -10,7 +10,7 @@ from app.core.exceptions import ProviderError
 from app.core.providers import LLMClient
 from app.generation import blueprint, slides
 from app.generation.runtime import PipelineStageError
-from app.services.uploads import UploadService
+from app.modules.uploads.service import UploadService
 
 
 def _llm_response(content: dict) -> SimpleNamespace:
@@ -38,8 +38,8 @@ def test_upload_service_accepts_pdf_pptx_and_docx(tmp_path, monkeypatch) -> None
         saved.append(document)
         return document
 
-    monkeypatch.setattr("app.services.uploads.save_document_record", fake_save_document)
-    monkeypatch.setattr("app.services.uploads.list_document_records", lambda trainer_id=None: saved)
+    monkeypatch.setattr("app.modules.uploads.service.save_document_record", fake_save_document)
+    monkeypatch.setattr("app.modules.uploads.service.list_document_records", lambda trainer_id=None: saved)
 
     service = UploadService(tmp_path)
     service.save_document("guide.pdf", io.BytesIO(b"pdf"), "trainer_1")

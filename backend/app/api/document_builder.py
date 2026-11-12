@@ -5,8 +5,8 @@ from fastapi.responses import Response
 
 from app.core.settings import settings
 from app.modules.auth.service import current_trainer_from_request
+from app.modules.uploads.service import UploadService
 from app.services.document_builder import DocumentBuilderService
-from app.services.uploads import UploadService
 
 router = APIRouter(prefix="/api/document-builder", tags=["document-builder"])
 service = DocumentBuilderService(UploadService(settings.upload_dir))

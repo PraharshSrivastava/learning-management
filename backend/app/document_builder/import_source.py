@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from app.core.exceptions import NotFoundError
 from app.core.settings import settings
-from app.repositories.documents import get_document
+from app.modules.uploads.repository import get_document
 from app.schemas.document_workflow import (
     DraftModule,
     ExtractedSource,

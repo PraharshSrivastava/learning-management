@@ -17,7 +17,7 @@ from app.generation.runtime import (
 )
 from app.generation.video_engine import course_uses_video_engine, video_engine_available
 from app.modules.courses.repository import CourseRepository
-from app.repositories.documents import get_document
+from app.modules.uploads.repository import get_document
 from app.repositories.jobs import GenerationJobRepository
 from app.services.generation_queue import generation_queue
 from app.services.jobs import GenerationJobManager

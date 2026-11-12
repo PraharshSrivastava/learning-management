@@ -21,7 +21,7 @@ from app.modules.courses.schemas import (
     GenerateCourseRequest,
 )
 from app.modules.courses.service import CourseService
-from app.repositories.documents import get_document_by_file_name
+from app.modules.uploads.repository import get_document_by_file_name
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 service = CourseService()

@@ -13,7 +13,6 @@ from app.api.learning import router as learning_router
 from app.api.media import router as media_router
 from app.api.observers import router as observers_router
 from app.api.static_assets import router as static_router
-from app.api.uploads import router as upload_router
 from app.modules.access.api import router as lms_access_router
 from app.modules.auth.api import router as auth_router
 from app.modules.auth.hub_api import router as hub_router
@@ -21,6 +20,7 @@ from app.modules.courses.api import router as course_router
 from app.modules.courses.library_api import router as course_library_router
 from app.modules.directory.api import router as directory_router
 from app.modules.directory.employees_api import router as employee_router
+from app.modules.uploads.api import router as upload_router
 
 api_router = APIRouter()
 api_router.include_router(hub_router)

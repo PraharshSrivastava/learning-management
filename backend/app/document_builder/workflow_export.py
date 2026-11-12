@@ -13,6 +13,7 @@ from app.document_builder.pdf_builder import REQUIRED_METADATA_FIELDS
 from app.generation.runtime import complete_generation, mark_stage, now_iso
 from app.generation.video_engine import apply_outline_recommendation
 from app.modules.courses.repository import CourseRepository
+from app.modules.uploads.service import UploadService
 from app.schemas.document_workflow import (
     DraftContent,
     ImageBlock,
@@ -22,7 +23,6 @@ from app.schemas.document_workflow import (
     module_text,
     outline_fingerprint,
 )
-from app.services.uploads import UploadService
 
 
 def owned_path(resource):

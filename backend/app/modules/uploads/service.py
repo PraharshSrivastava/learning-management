@@ -8,10 +8,10 @@ import shutil
 from pathlib import Path
 from typing import BinaryIO
 
-from app.repositories.documents import get_document_by_file_name
-from app.repositories.documents import list_documents as list_document_records
-from app.repositories.documents import save_document as save_document_record
-from app.schemas.files import StoredFileResponse, UploadResponse
+from app.modules.uploads.repository import get_document_by_file_name
+from app.modules.uploads.repository import list_documents as list_document_records
+from app.modules.uploads.repository import save_document as save_document_record
+from app.modules.uploads.schemas import StoredFileResponse, UploadResponse
 
 SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".docx"}
 

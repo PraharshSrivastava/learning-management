@@ -9,10 +9,10 @@ from fastapi.responses import FileResponse
 from app.core.settings import settings
 from app.documents.conversion import DocumentConversionError, convert_office_to_pdf
 from app.modules.auth.service import current_trainer_from_request
-from app.repositories.documents import get_document_by_file_name
-from app.schemas.files import StoredFileResponse, UploadResponse
+from app.modules.uploads.repository import get_document_by_file_name
+from app.modules.uploads.schemas import StoredFileResponse, UploadResponse
+from app.modules.uploads.service import UploadService
 from app.services.media_access import authorize_document, media_principal
-from app.services.uploads import UploadService
 
 # File name Document Builder gives the PDF it saves for each course (workflow_export).
 BUILDER_EXPORT = re.compile(r"^builder-[0-9a-f]{32}-r\d+-source\.pdf$")

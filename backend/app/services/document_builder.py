@@ -17,7 +17,7 @@ from app.document_builder.prompts import (
     SYSTEM_PROMPT,
     WRITING_FOCUS_SNIPPETS,
 )
-from app.services.uploads import UploadService
+from app.modules.uploads.service import UploadService
 
 
 def _builder_skill_snippets(settings: dict) -> list[str]:

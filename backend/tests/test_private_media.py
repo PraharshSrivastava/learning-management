@@ -87,7 +87,7 @@ def test_range_and_hls_playlist_children_preserve_private_delivery(tmp_path, mon
 
 
 def test_preview_authorizes_record_before_conversion(tmp_path, monkeypatch):
-    from app.api import uploads
+    from app.modules.uploads import api as uploads
 
     events = []
     monkeypatch.setattr(uploads, "media_principal", lambda *_: SimpleNamespace())
