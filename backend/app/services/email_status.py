@@ -16,9 +16,9 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.core.settings import is_single_mailbox, settings
+from app.db.database import get_connection
 from app.repositories import courses
 from app.repositories import email_status as repository
-from app.repositories.database import get_connection
 from app.schemas.reporting_scope import TrainerPerformanceScope
 from app.services import email_notifications as outbox
 from app.services.course_authorization import is_admin_trainer

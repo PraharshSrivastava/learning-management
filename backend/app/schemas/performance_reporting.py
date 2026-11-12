@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from app.schemas.common import ApiSchema
+from app.core.schemas import ApiSchema
 
 
 class AssignmentReportRow(ApiSchema):

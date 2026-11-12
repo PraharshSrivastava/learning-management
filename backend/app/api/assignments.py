@@ -4,6 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Header, Query, Request, Response
 
+from app.core.schemas import MessageResponse
 from app.schemas.assignment import (
     AssignmentOptionsResponse,
     AssignmentPreviewRequest,
@@ -12,7 +13,6 @@ from app.schemas.assignment import (
     SavedAssignmentGroupRequest,
     SavedAssignmentGroupResponse,
 )
-from app.schemas.common import MessageResponse
 from app.schemas.course import CourseResponse
 from app.services.assignments import (
     api_assignable_courses,

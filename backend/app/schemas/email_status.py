@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.schemas.common import ApiSchema
+from app.core.schemas import ApiSchema
 
 
 class EmailStatusTile(ApiSchema):

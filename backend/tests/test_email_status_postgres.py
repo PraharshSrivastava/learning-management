@@ -13,8 +13,9 @@ import pytest
 
 from app.core.exceptions import AuthorizationError, ConflictError
 from app.core.settings import settings
-from app.repositories import database, performance_reporting, schema
-from app.repositories.access_migrations import apply_access_migrations
+from app.db import database, schema
+from app.db.migrations.access import apply_access_migrations
+from app.repositories import performance_reporting
 from app.repositories.progress import ProgressRepository
 from app.schemas.reporting_scope import TrainerPerformanceScope
 from app.services import email_notifications as outbox

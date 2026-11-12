@@ -15,7 +15,7 @@ from typing import Iterable
 from zoneinfo import ZoneInfo
 
 from app.core.settings import is_single_mailbox, settings
-from app.repositories.database import advisory_lock, get_connection
+from app.db.database import advisory_lock, get_connection
 from app.services.email_templates import (
     render_digest,
     render_individual,

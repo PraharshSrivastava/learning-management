@@ -9,9 +9,9 @@ import sys
 from app.core.langfuse_tracing import trace_scope
 from app.core.logging import configure_logging
 from app.core.settings import settings
+from app.db.schema import init_db
 from app.generation.runtime import run_full_course_generation, run_module_video_generation
 from app.repositories.courses import CourseRepository
-from app.repositories.schema import init_db
 
 logger = logging.getLogger(__name__)
 

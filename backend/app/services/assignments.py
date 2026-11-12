@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
+from app.db.database import atomic_course, course_transaction, get_connection
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository, update_course_status
-from app.repositories.database import atomic_course, course_transaction, get_connection
 from app.repositories.employees import EmployeeRepository
 from app.repositories.progress import ProgressRepository
 from app.repositories.saved_assignment_groups import SavedAssignmentGroupRepository

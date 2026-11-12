@@ -3,7 +3,7 @@
 from uuid import uuid4
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
-from app.repositories.database import course_transaction, get_connection
+from app.db.database import course_transaction, get_connection
 
 
 def require_editable_course(course_id, expected_revision=None):

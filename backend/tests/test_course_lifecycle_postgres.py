@@ -9,7 +9,8 @@ import pytest
 from test_assignment_workspace_postgres import workspace_db as workspace_db
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
-from app.repositories import database, observers, performance_reporting
+from app.db import database
+from app.repositories import observers, performance_reporting
 from app.repositories.assignments import get_applied_assignment_rule, get_assignment_rule
 from app.repositories.courses import (
     delete_course_for_trainer,
@@ -193,7 +194,7 @@ def test_disabled_learner_and_media_access_are_denied(workspace_db):
 
 
 def test_legacy_revocation_migration_is_evidence_based_and_idempotent(workspace_db):
-    from app.repositories.course_lifecycle_migrations import (
+    from app.db.migrations.course_lifecycle import (
         VERSION,
         apply_course_lifecycle_migration,
     )
@@ -259,7 +260,7 @@ def test_lifecycle_uses_one_pool_connection_and_preserves_lock_order(workspace_d
 
 
 def test_archived_migration_preserves_history_and_never_reopens_access(workspace_db):
-    from app.repositories.availability_migrations import VERSION, apply_availability_migration
+    from app.db.migrations.availability import VERSION, apply_availability_migration
     publish()
     original = completed()
     observers.save_config("course", "creator", ObserverSaveRequest(
@@ -289,7 +290,7 @@ def test_archived_migration_preserves_history_and_never_reopens_access(workspace
 
 
 def test_archived_migration_rejects_missing_publication_evidence(workspace_db):
-    from app.repositories.availability_migrations import apply_availability_migration
+    from app.db.migrations.availability import apply_availability_migration
     with database.get_connection() as db:
         db.execute("UPDATE courses SET status='archived' WHERE course_id='course'")
         with pytest.raises(RuntimeError, match="administrator review"):
@@ -299,8 +300,8 @@ def test_archived_migration_rejects_missing_publication_evidence(workspace_db):
 
 
 def test_normal_startup_records_migration_once_without_changing_active_access(workspace_db):
-    from app.repositories import schema
-    from app.repositories.availability_migrations import VERSION
+    from app.db import schema
+    from app.db.migrations.availability import VERSION
     publish()
     original = completed()
     schema.init_db()

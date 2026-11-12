@@ -15,12 +15,12 @@ from app.api.router import api_router
 from app.core.exceptions import install_exception_handlers
 from app.core.logging import configure_logging
 from app.core.request_context import request_context_middleware
+from app.core.schemas import HealthResponse
 from app.core.settings import settings
 from app.core.storage import ensure_storage_directories
+from app.db.database import close_pool
+from app.db.schema import init_db
 from app.generation.runtime import recover_interrupted_generations
-from app.repositories.database import close_pool
-from app.repositories.schema import init_db
-from app.schemas.common import HealthResponse
 from app.security.hub_launch import HubLaunchMiddleware
 from app.services.directory_scheduler import (
     start_directory_sync_scheduler,

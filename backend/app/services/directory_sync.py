@@ -14,7 +14,7 @@ import requests
 from app.core.dates import normalize_date_like
 from app.core.exceptions import DomainValidationError, ProviderError
 from app.core.settings import settings
-from app.repositories.database import advisory_lock
+from app.db.database import advisory_lock
 from app.repositories.employees import (
     EmployeeRepository,
     get_sync_state,

@@ -18,8 +18,8 @@ from psycopg.types.json import Jsonb
 
 from app.core.settings import settings
 from app.core.storage import public_asset_url, resolve_public_asset_path
+from app.db.database import get_connection
 from app.repositories.courses import get_course
-from app.repositories.database import get_connection
 
 
 def repair_images(apply=False, render=False, resume=None):

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from app.core.exceptions import AuthenticationError, NotFoundError
 from app.core.settings import settings
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.repositories.employees import EmployeeRepository
 from app.repositories.lms_access import identity_key
 from app.repositories.trainers import get_trainer

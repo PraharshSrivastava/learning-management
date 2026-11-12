@@ -3,7 +3,7 @@
 from uuid import uuid4
 
 from app.core.exceptions import DomainValidationError, NotFoundError
-from app.repositories.database import advisory_xact_lock, get_connection
+from app.db.database import advisory_xact_lock, get_connection
 
 
 def identity_key(employee: dict) -> str:

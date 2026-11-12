@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from app.schemas.common import ApiSchema, MessageResponse
+from app.core.schemas import ApiSchema, MessageResponse
 from app.schemas.course import ModuleResponse
 from app.schemas.progress import ModuleProgressRecord, QuizAttemptRecord
 

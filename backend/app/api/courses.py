@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Header, Query, Request, Response
 
 from app.core.exceptions import NotFoundError
+from app.core.schemas import MessageResponse
 from app.repositories.courses import get_course_creator_name
 from app.repositories.documents import get_document_by_file_name
-from app.schemas.common import MessageResponse
 from app.schemas.course import (
     CourseLifecycleRequest,
     CourseResponse,

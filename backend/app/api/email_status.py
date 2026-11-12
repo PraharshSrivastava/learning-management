@@ -10,7 +10,7 @@ import io
 from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import Response
 
-from app.schemas.common import RequestSchema
+from app.core.schemas import RequestSchema
 from app.schemas.email_status import EmailResendResult, EmailStatusReport
 from app.services import email_status as reports
 from app.services.auth import current_trainer_from_request

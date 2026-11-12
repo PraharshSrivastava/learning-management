@@ -8,7 +8,7 @@ from datetime import datetime
 
 from psycopg.types.json import Jsonb
 
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 
 
 def _jsonb(value) -> Jsonb:

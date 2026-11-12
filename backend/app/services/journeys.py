@@ -13,13 +13,13 @@ from datetime import datetime, timedelta
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.settings import settings
+from app.db.database import advisory_lock, get_connection
 from app.repositories.assignments import (
     employee_matches_assignment_rule,
     get_assignment_rule,
     matching_employees_for_assignment_rule,
 )
 from app.repositories.courses import get_course, update_course_status
-from app.repositories.database import advisory_lock, get_connection
 from app.repositories.employees import EmployeeRepository
 from app.repositories.journeys import JourneyRepository, assignment_changed
 from app.repositories.progress import ProgressRepository
@@ -846,8 +846,8 @@ def _publish_ready_courses(journey: dict, trainer_id: str) -> None:
     so people still receive it only through the journey. A trainer's unpublished draft rule is
     kept as the draft; only the applied (live) rule matches nobody.
     """
+    from app.db.database import course_transaction
     from app.repositories.assignments import get_assignment_rule, save_assignment_rule
-    from app.repositories.database import course_transaction
     from app.services.course_lifecycle import record_action
 
     for step in journey["steps"]:

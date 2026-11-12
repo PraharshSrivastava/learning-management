@@ -10,8 +10,9 @@ from pydantic import ValidationError
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.settings import settings
-from app.repositories import database, observers, performance_reporting, schema
-from app.repositories.access_migrations import apply_access_migrations
+from app.db import database, schema
+from app.db.migrations.access import apply_access_migrations
+from app.repositories import observers, performance_reporting
 from app.repositories.assignments import (
     employee_matches_assignment_rule,
     get_applied_assignment_rule,

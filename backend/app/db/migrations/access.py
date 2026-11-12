@@ -1,6 +1,6 @@
 """Additive, transactionally serialized migrations for LMS access metadata."""
 
-from app.repositories.database import advisory_xact_lock
+from app.db.database import advisory_xact_lock
 
 VERSION = "20261006_authoring_access_v1"
 
@@ -52,7 +52,7 @@ def _apply_authoring_migration(connection) -> None:
 
 
 def apply_access_migrations(connection) -> None:
-    from app.repositories.report_access_migrations import apply_report_access_migration
+    from app.db.migrations.report_access import apply_report_access_migration
 
     _apply_authoring_migration(connection)
     apply_report_access_migration(connection)

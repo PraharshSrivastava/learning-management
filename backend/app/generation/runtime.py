@@ -12,6 +12,7 @@ from typing import Any, Callable, TypeVar
 from app.core.langfuse_tracing import timed_span
 from app.core.settings import settings
 from app.core.storage import resolve_public_asset_path
+from app.db.database import advisory_lock
 from app.repositories.courses import (
     CourseRepository,
     get_all_courses,
@@ -21,7 +22,6 @@ from app.repositories.courses import (
     save_all_courses,
     save_course,
 )
-from app.repositories.database import advisory_lock
 from app.schemas.generation import GenerationState
 
 logger = logging.getLogger(__name__)

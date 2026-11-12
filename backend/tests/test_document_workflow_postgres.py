@@ -10,12 +10,12 @@ import pytest
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.settings import settings
+from app.db.database import get_connection
+from app.db.schema import init_db
 from app.document_builder.import_source import SourceImporter
 from app.document_builder.workflow_export import WorkflowExport
 from app.document_builder.workflow_jobs import WorkflowJobs
-from app.repositories.database import get_connection
 from app.repositories.document_drafts import DocumentDraftRepository
-from app.repositories.schema import init_db
 from app.schemas.document_workflow import (
     DraftContent,
     DraftMetadata,

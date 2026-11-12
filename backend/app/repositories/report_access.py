@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.repositories.lms_access import identity_key
 
 

@@ -13,8 +13,8 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.core.settings import settings  # noqa: E402
 from app.core.storage import ensure_storage_directories  # noqa: E402
-from app.repositories.database import close_pool  # noqa: E402
-from app.repositories.schema import recreate_db  # noqa: E402
+from app.db.database import close_pool  # noqa: E402
+from app.db.schema import recreate_db  # noqa: E402
 
 CONFIRMATION = "RECREATE_LMS_DATABASE"
 

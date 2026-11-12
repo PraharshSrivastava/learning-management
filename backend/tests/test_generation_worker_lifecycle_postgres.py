@@ -6,7 +6,7 @@ import pytest
 from test_assignment_workspace_postgres import workspace_db as workspace_db
 
 from app.core.exceptions import ConflictError
-from app.repositories import database
+from app.db import database
 from app.repositories.jobs import GenerationJobRepository
 from app.schemas.course import CourseUpdateRequest
 from app.schemas.generation import GenerationJobResponse

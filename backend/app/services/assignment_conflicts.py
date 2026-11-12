@@ -1,8 +1,8 @@
 """Course-local employee/Observer role separation, evaluated under the course lock."""
 
 from app.core.exceptions import ConflictError
+from app.db.database import get_connection
 from app.repositories.assignments import employee_matches_assignment_rule, get_assignment_rule
-from app.repositories.database import get_connection
 from app.repositories.employees import list_employees
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from app.schemas.common import ApiSchema, RequestSchema
+from app.core.schemas import ApiSchema, RequestSchema
 
 
 class LocalEmployeeLoginRequest(RequestSchema):

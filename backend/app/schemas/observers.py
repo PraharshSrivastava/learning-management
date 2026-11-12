@@ -2,7 +2,7 @@
 
 from pydantic import Field, model_validator
 
-from app.schemas.common import ApiSchema, RequestSchema
+from app.core.schemas import ApiSchema, RequestSchema
 
 
 class ObserverSelection(RequestSchema):

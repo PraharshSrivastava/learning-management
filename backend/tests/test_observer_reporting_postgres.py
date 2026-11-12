@@ -7,8 +7,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.exceptions import AuthorizationError, ConflictError, DomainValidationError
-from app.repositories import database, observers, performance_reporting, report_access, schema
-from app.repositories.access_migrations import apply_access_migrations
+from app.db import database, schema
+from app.db.migrations.access import apply_access_migrations
+from app.repositories import observers, performance_reporting, report_access
 from app.schemas.observers import ObserverSaveRequest
 from app.schemas.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
 from app.services import performance_reporting as reports

@@ -7,8 +7,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.exceptions import DomainValidationError
-from app.repositories import database, lms_access
-from app.repositories.access_migrations import VERSION, apply_access_migrations
+from app.db import database
+from app.db.migrations.access import VERSION, apply_access_migrations
+from app.repositories import lms_access
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true",

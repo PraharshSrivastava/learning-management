@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 
 
 def _loads(value) -> dict:

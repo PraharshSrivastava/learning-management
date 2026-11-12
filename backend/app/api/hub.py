@@ -7,8 +7,8 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from starlette.responses import RedirectResponse
 
+from app.core.schemas import ApiSchema
 from app.core.settings import settings
-from app.schemas.common import ApiSchema
 from app.schemas.employee import EmployeeResponse
 from app.schemas.trainer import TrainerResponse
 from app.security.hub_launch import OPEN_THROUGH_HUB, HubApp, hub_launch_verifier

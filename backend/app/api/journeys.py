@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Header, Request, Response
 
-from app.schemas.common import MessageResponse
+from app.core.schemas import MessageResponse
 from app.schemas.journey import (
     JourneyCreateRequest,
     JourneyDetailResponse,

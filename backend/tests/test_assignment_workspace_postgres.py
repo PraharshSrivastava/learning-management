@@ -8,8 +8,9 @@ from uuid import uuid4
 
 import pytest
 
-from app.repositories import database, observers, schema
-from app.repositories.access_migrations import apply_access_migrations
+from app.db import database, schema
+from app.db.migrations.access import apply_access_migrations
+from app.repositories import observers
 from app.repositories.assignments import get_assignment_rule, save_assignment_rule
 from app.repositories.progress import save_employee_course_progress
 from app.schemas.assignment import AssignmentRuleRequest

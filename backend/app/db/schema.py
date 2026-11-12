@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.repositories.document_drafts import create_draft_tables
 
 TABLES = (
@@ -61,10 +61,10 @@ def init_db() -> None:
         _create_tables(cursor)
         create_draft_tables(cursor)
         _create_indexes(cursor)
-        from app.repositories.access_migrations import apply_access_migrations
+        from app.db.migrations.access import apply_access_migrations
 
         apply_access_migrations(connection)
-        from app.repositories.availability_migrations import apply_availability_migration
+        from app.db.migrations.availability import apply_availability_migration
 
         apply_availability_migration(cursor)
         connection.commit()
@@ -79,10 +79,10 @@ def recreate_db() -> None:
         _create_tables(cursor)
         create_draft_tables(cursor)
         _create_indexes(cursor)
-        from app.repositories.access_migrations import apply_access_migrations
+        from app.db.migrations.access import apply_access_migrations
 
         apply_access_migrations(connection)
-        from app.repositories.availability_migrations import apply_availability_migration
+        from app.db.migrations.availability import apply_availability_migration
 
         apply_availability_migration(cursor)
         connection.commit()
@@ -572,7 +572,7 @@ def _create_tables(cursor) -> None:
         """
     )
 
-    from app.repositories.course_lifecycle_migrations import apply_course_lifecycle_migration
+    from app.db.migrations.course_lifecycle import apply_course_lifecycle_migration
     apply_course_lifecycle_migration(cursor)
     from app.repositories.journeys import create_journey_tables
     create_journey_tables(cursor)

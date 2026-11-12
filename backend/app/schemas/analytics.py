@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.schemas.common import ApiSchema
+from app.core.schemas import ApiSchema
 from app.schemas.employee import EmployeeResponse
 
 

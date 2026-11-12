@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from app.repositories.database import get_connection
-from app.repositories.schema import init_db
+from app.db.database import get_connection
+from app.db.schema import init_db
 
 TRAINER_ID = "demo-trainer"
 FIRST_NAMES = (

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 
 
 def save_document(trainer_id: str, file_name: str, file_path: str) -> dict:

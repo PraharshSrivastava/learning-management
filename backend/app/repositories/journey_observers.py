@@ -9,7 +9,7 @@ from uuid import uuid4
 from psycopg.types.json import Jsonb
 
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.repositories.lms_access import identity_key
 from app.repositories.observers import _employee
 

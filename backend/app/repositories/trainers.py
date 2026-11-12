@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.schemas.trainer import TrainerRecord
 
 

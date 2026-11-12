@@ -3,7 +3,7 @@
 import argparse
 import json
 
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.services.assignment_conflicts import EmployeeObserverConflict, validate_separation
 
 

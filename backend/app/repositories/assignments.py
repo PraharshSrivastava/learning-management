@@ -8,7 +8,7 @@ from datetime import datetime
 from psycopg.types.json import Jsonb
 
 from app.core.dates import parse_date_like
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.repositories.employees import list_employees
 from app.schemas.assignment import AssignmentRuleRecord
 

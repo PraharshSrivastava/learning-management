@@ -8,8 +8,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.settings import settings
-from app.repositories import database, schema
-from app.repositories.access_migrations import apply_access_migrations
+from app.db import database, schema
+from app.db.migrations.access import apply_access_migrations
 from app.services import email_notifications
 
 pytestmark = pytest.mark.skipif(

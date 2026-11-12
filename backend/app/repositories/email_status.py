@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from app.core.settings import settings
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.repositories.performance_reporting import _assignment_scope, _decorated_assignments
 from app.schemas.reporting_scope import TrainerReportScope
 

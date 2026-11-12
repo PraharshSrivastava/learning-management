@@ -13,11 +13,11 @@ import copy
 import json
 import logging
 import os
-from pathlib import Path
 import shutil
 import threading
 import time
 from contextlib import nullcontext
+from pathlib import Path
 
 
 def main():
@@ -63,10 +63,12 @@ def main():
     if ffmpeg.is_file():
         os.environ.setdefault("IMAGEIO_FFMPEG_EXE", str(ffmpeg))
 
-    from app.core.settings import settings
-    from app.core.logging import configure_logging
-    from app.repositories import courses, database, documents
     import requests
+
+    from app.core.logging import configure_logging
+    from app.core.settings import settings
+    from app.db import database
+    from app.repositories import courses, documents
 
     configure_logging("INFO")
     warnings = []
@@ -162,7 +164,10 @@ def main():
 
     def stub_speech(text):
         # Words at ~2.5/s; a quiet tone keeps duration/silence checks meaningful.
-        import io, math, struct, wave
+        import io
+        import math
+        import struct
+        import wave
         rate, seconds = 24000, max(1.0, len(text.split()) / 2.5)
         frames = b"".join(struct.pack("<h", int(3000 * math.sin(2 * math.pi * 220 * i / rate)))
                           for i in range(int(rate * seconds)))
@@ -206,8 +211,8 @@ def main():
             print(json.dumps({"provider_call": row}), flush=True)
 
     requests.post = observed_post
-    from app.generation.blueprint import generate_course_outline
     from app.generation import runtime, video
+    from app.generation.blueprint import generate_course_outline
     original_capture = video.capture_slide_frames
 
     def capture_and_keep(html_file, *, slide_count, output_dir):

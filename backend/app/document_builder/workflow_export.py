@@ -8,11 +8,11 @@ from xml.sax.saxutils import escape
 from app.core.exceptions import ConflictError
 from app.core.settings import settings
 from app.core.storage import public_asset_url
+from app.db.database import advisory_lock
 from app.document_builder.pdf_builder import REQUIRED_METADATA_FIELDS
 from app.generation.runtime import complete_generation, mark_stage, now_iso
 from app.generation.video_engine import apply_outline_recommendation
 from app.repositories.courses import CourseRepository
-from app.repositories.database import advisory_lock
 from app.schemas.document_workflow import (
     DraftContent,
     ImageBlock,

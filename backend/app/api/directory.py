@@ -6,9 +6,9 @@ from fastapi import APIRouter, Header
 from pydantic import Field
 
 from app.core.exceptions import AuthenticationError, DomainValidationError
+from app.core.schemas import ApiSchema
 from app.core.settings import settings
 from app.repositories.employees import list_sync_states
-from app.schemas.common import ApiSchema
 from app.services.directory_scheduler import next_directory_sync_run
 from app.services.directory_sync import bootstrap_full_directory, sync_directory_changes
 

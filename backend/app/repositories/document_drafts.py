@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.core.exceptions import ConflictError, NotFoundError
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 from app.schemas.document_workflow import DraftContent, DraftRecord, outline_fingerprint
 
 

@@ -9,7 +9,7 @@ from uuid import uuid4
 from psycopg.types.json import Jsonb
 
 from app.core.exceptions import DomainValidationError
-from app.repositories.database import advisory_xact_lock, get_connection
+from app.db.database import advisory_xact_lock, get_connection
 from app.repositories.lms_access import identity_key
 
 

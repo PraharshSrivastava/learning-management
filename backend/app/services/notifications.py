@@ -47,7 +47,7 @@ def set_active_websockets_for_tests(employee_id: str, sockets: list[WebSocket]) 
 
 
 def schedule_employee_broadcast(employee_id: str) -> None:
-    from app.repositories.database import defer_until_commit
+    from app.db.database import defer_until_commit
     if defer_until_commit(lambda: schedule_employee_broadcast(employee_id)):
         return
     try:

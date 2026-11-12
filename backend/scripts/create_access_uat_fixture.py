@@ -7,9 +7,9 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from psycopg.types.json import Jsonb
 
 from app.core.settings import settings
+from app.db import database, schema
+from app.db.migrations.access import apply_access_migrations
 from app.generation.thumbnails import course_thumbnail_signature
-from app.repositories import database, schema
-from app.repositories.access_migrations import apply_access_migrations
 from app.repositories.lms_access import identity_key
 
 

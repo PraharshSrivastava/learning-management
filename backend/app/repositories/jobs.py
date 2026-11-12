@@ -8,7 +8,7 @@ from datetime import datetime
 from psycopg import IntegrityError
 from psycopg.types.json import Jsonb
 
-from app.repositories.database import advisory_xact_lock, get_connection
+from app.db.database import advisory_xact_lock, get_connection
 from app.schemas.generation import GenerationJobResponse
 
 

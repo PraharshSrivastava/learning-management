@@ -10,7 +10,7 @@ from app.core.exceptions import (
     DomainValidationError,
     NotFoundError,
 )
-from app.repositories.database import atomic_course, get_connection
+from app.db.database import atomic_course, get_connection
 from app.repositories.lms_access import identity_key
 
 
