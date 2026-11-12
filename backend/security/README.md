@@ -4,14 +4,12 @@ Keep the source/version metadata truthful. The Dockerfile pins archive and patch
 
 ## Backlog patch sources
 
-- `alsa-ctlparse.patch`: upstream [commit f84cd4c](https://github.com/alsa-project/alsa-lib/commit/f84cd4ced7b36fddb8e4ee24404cf7c091d27020), CVE-2026-90781.
-- `alsa-sparse-bindings.patch`: narrow operator backport based on [ALSA PR527](https://github.com/alsa-project/alsa-lib/pull/527), CVE-2026-96675. Validate negative indices, slave bounds and channel bounds before allocating/indexing. Unrelated path-policy changes are excluded.
 - `cups-utf32.patch`: fixed-width type hunk from accepted upstream [commit 2b1dc17](https://github.com/OpenPrinting/cups/commit/2b1dc178a2d2325135b855142e384f4e8c42d8e4), CVE-2026-87875. CUPS 2.4.16 Ubuntu patches and GSSAPI exports are preserved. Changing UTF-32 element width is intentional; retained SONAME/exports alone do not prove caller compatibility.
 - `gnupg-cleartext.patch`: operator fail-closed guard for [CVE-2025-68972](https://security-tracker.debian.org/tracker/CVE-2025-68972), applied to both gpg and gpgv from matching Ubuntu source. Rejecting a truncated cleartext line prevents verification of lossy input. Legitimate cleartext lines reaching the existing parser limit are also rejected. This is not a claimed upstream release fix. Regression inputs follow the public [researcher demonstration](https://gpg.fail/formfeed), with ephemeral offline keys.
 - `gstreamer-rtsp.patch`: RTSP parser difference between pinned upstream 1.28.2 and fixed 1.28.7 archives; [upstream advisory](https://gstreamer.freedesktop.org/security/sa-2026-0082.html), CVE-2026-85150. Replace the length endpoint calculated before skipping whitespace with one calculated after it.
 - `poppler-bounds.patch`: adapted backports of accepted upstream commits `245d3c6823377755f2c1d5fdddd010279c6ed94d`, `5e49250f13b0390edeb3f90eb4c02c9941f97067`, `eb87cf711563894649bd0c365baa479401dc6d51`, and `ed2a5538cf0a8d3ff908191eda9b73f91a5f952a`. Addresses CVE-2026-102620/93312/93313/93314 on Ubuntu 26.01.0, preserving SONAME 156. The older JBIG2 function returns void, so overflow frees the table then returns without a value. Does not address CVE-2026-93311/93653.
 
-`package_backlog.py` checks CUPS/ALSA exports and SONAMEs; `package_backlog_extra.py` retains vendor-owned files, replacing only the reviewed gpg, gpgv, RTSP and Poppler binaries. Existing auxiliary libraries and tools retain their real vendor versions.
+`package_backlog.py` checks CUPS exports and SONAMEs; the ALSA maintenance build was removed with Chromium, its only user; `package_backlog_extra.py` retains vendor-owned files, replacing only the reviewed gpg, gpgv, RTSP and Poppler binaries. Existing auxiliary libraries and tools retain their real vendor versions.
 
 Use the regression tools under `scripts/security` and preserve their results alongside exact image IDs, source/patch hashes, build logs, scanner database metadata and unmodified raw reports. A patch file or successful compilation alone does not close a finding. A full checkout build and real Hub/course testing remain release gates.
 

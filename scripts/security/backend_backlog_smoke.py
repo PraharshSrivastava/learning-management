@@ -6,40 +6,7 @@ from pathlib import Path
 import subprocess
 import shutil
 
-alsa = C.CDLL('libasound.so.2')
 ptr = C.c_void_p
-alsa.snd_pcm_open.argtypes = [C.POINTER(ptr), C.c_char_p, C.c_int, C.c_int]
-alsa.snd_pcm_close.argtypes = [ptr]
-alsa.snd_pcm_multi_open.argtypes = [C.POINTER(ptr), C.c_char_p, C.c_uint, C.c_uint,
-    C.POINTER(ptr), C.POINTER(C.c_uint), C.c_uint, C.POINTER(C.c_int), C.POINTER(C.c_uint), C.c_int]
-cases = []
-for slave_index, channel_index, expected in [(0, 0, 0), (-1, 0, -22), (1, 0, -22), (0, 1, -22)]:
-    slave, result = ptr(), ptr()
-    assert alsa.snd_pcm_open(C.byref(slave), b'null', 0, 0) == 0
-    rc = alsa.snd_pcm_multi_open(C.byref(result), b'lms-regression', 1, 0,
-        (ptr * 1)(slave), (C.c_uint * 1)(1), 1,
-        (C.c_int * 1)(slave_index), (C.c_uint * 1)(channel_index), 0)
-    assert rc == expected, (slave_index, channel_index, rc)
-    if rc == 0:
-        assert alsa.snd_pcm_close(result) == 0
-    assert alsa.snd_pcm_close(slave) == 0
-    cases.append(dict(slave_index=slave_index, channel_index=channel_index, result=rc))
-# The sparse case has a gap at the first index and a valid binding at the second.
-slave, result = ptr(), ptr()
-assert alsa.snd_pcm_open(C.byref(slave), b'null', 0, 0) == 0
-assert alsa.snd_pcm_multi_open(C.byref(result), b'lms-sparse', 1, 0,
-    (ptr * 1)(slave), (C.c_uint * 1)(1), 2, (C.c_int * 2)(-1, 0), (C.c_uint * 2)(0, 0), 0) == -22
-assert alsa.snd_pcm_close(slave) == 0
-
-alsa.snd_ctl_elem_id_malloc.argtypes = [C.POINTER(ptr)]
-alsa.snd_ctl_ascii_elem_id_parse.argtypes = [ptr, C.c_char_p]
-alsa.snd_ctl_elem_id_free.argtypes = [ptr]
-identifier = ptr()
-assert alsa.snd_ctl_elem_id_malloc(C.byref(identifier)) == 0
-for name in [b'name=' + b'a' * 255, b"name='" + b'a' * 255 + b"'", b'name=' + b'a' * 4096]:
-    alsa.snd_ctl_ascii_elem_id_parse(identifier, name)
-alsa.snd_ctl_elem_id_free(identifier)
-
 cups = C.CDLL('libcups.so.2')
 cups.cupsUTF32ToUTF8.argtypes = [C.POINTER(C.c_ubyte), C.POINTER(C.c_uint32), C.c_int]
 # Place the 32-bit NUL at the end of a readable page; the next page is protected.
@@ -89,7 +56,6 @@ assert shutil.which('nscd') is None
 nscd_paths = [str(p) for root in ['/usr', '/opt', '/app', '/run', '/var/run']
               for p in Path(root).rglob('nscd')]
 assert not nscd_paths, nscd_paths
-print(json.dumps(dict(alsa_binding_cases=cases, sparse_binding='EINVAL',
-    cups_guard_page='PASS', cups_unicode='PASS', ctlparse_long_names='PASS',
+print(json.dumps(dict(cups_guard_page='PASS', cups_unicode='PASS',
     abi=proof, extra_provenance=extra, nscd_package_installed=False,
     nscd_executable=None, nscd_paths=nscd_paths, dependency_check='PASS'), indent=2))

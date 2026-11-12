@@ -1,4 +1,4 @@
-"""Package the narrow ALSA/CUPS maintenance builds with verified ELF ABI."""
+"""Package the narrow CUPS maintenance build with verified ELF ABI."""
 import hashlib
 import json
 from pathlib import Path
@@ -6,8 +6,6 @@ import shutil
 import subprocess
 
 specs = [
-    ('libasound2t64', 'alsa-lib', '1.2.15.3+lms1', 'libasound.so.2',
-     'libasound2-data (>= 1.2.15.3-1ubuntu1.1), libc6 (>= 2.43)', 'alsa-lib-1.2.15.3/COPYING'),
     ('libcups2t64', 'cups', '2.4.16+lms1', 'libcups.so.2',
      'libavahi-client3, libavahi-common3, libc6 (>= 2.38), libgnutls30t64, libgssapi-krb5-2, zlib1g', 'cups-2.4.16/LICENSE'),
 ]
