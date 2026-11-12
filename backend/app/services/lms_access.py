@@ -3,8 +3,8 @@
 from fastapi import Request
 
 from app.core.exceptions import AuthenticationError
+from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories import lms_access as grants
-from app.repositories.employees import EmployeeRepository
 from app.repositories.report_access import report_roles, report_scope_version
 from app.schemas.lms_access import LmsAccessResponse, LmsCapabilities
 from app.security.hub_launch import HubApp

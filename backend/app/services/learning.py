@@ -9,9 +9,9 @@ from fastapi import Request
 
 from app.core.exceptions import DomainValidationError, NotFoundError
 from app.db.database import course_transaction
+from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
-from app.repositories.employees import EmployeeRepository
 from app.repositories.progress import ProgressRepository
 from app.schemas.progress import (
     CourseStatusUpdateRequest,

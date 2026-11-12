@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from app.services import directory_scheduler
-from app.services.directory_sync import (
+from app.modules.directory import scheduler as directory_scheduler
+from app.modules.directory.sync import (
     _apply_employee,
     _employee_from_change,
     _normalize_employee,
@@ -209,7 +209,7 @@ class _FakeTrainers:
 
 
 def test_incremental_stale_event_is_skipped_without_upsert(monkeypatch):
-    from app.services import directory_sync
+    from app.modules.directory import sync as directory_sync
 
     fake_employees = _FakeEmployees(
         {
@@ -238,7 +238,7 @@ def test_incremental_stale_event_is_skipped_without_upsert(monkeypatch):
 
 
 def test_partial_change_preserves_groups_by_passing_none(monkeypatch):
-    from app.services import directory_sync
+    from app.modules.directory import sync as directory_sync
 
     fake_employees = _FakeEmployees(
         {

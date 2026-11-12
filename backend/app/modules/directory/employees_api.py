@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter, Header, Request
 
-from app.schemas.employee import EmployeeResponse
+from app.modules.directory.employee_schemas import EmployeeResponse
+from app.modules.directory.employees import list_employees
 from app.services.auth import current_employee_from_request
-from app.services.employees import list_employees
 
 router = APIRouter(prefix="/api", tags=["employees"])
 

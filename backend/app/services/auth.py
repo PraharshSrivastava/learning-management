@@ -8,10 +8,10 @@ from fastapi import Request
 
 from app.core.exceptions import AuthenticationError, NotFoundError
 from app.core.settings import settings
-from app.repositories.employees import EmployeeRepository
-from app.repositories.trainers import TrainerRepository
-from app.schemas.employee import LocalEmployeeLoginRequest
-from app.schemas.trainer import TrainerLocalLoginRequest
+from app.modules.directory.employee_schemas import LocalEmployeeLoginRequest
+from app.modules.directory.employees_repository import EmployeeRepository
+from app.modules.directory.trainer_schemas import TrainerLocalLoginRequest
+from app.modules.directory.trainers_repository import TrainerRepository
 from app.security.hub_launch import HubApp, hub_launch_verifier
 
 _employees = EmployeeRepository()

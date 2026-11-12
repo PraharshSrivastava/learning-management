@@ -1,9 +1,5 @@
 import pytest
 from pydantic import ValidationError
-
-from app.api import directory as directory_api
-from app.core.exceptions import AuthenticationError
-from app.core.settings import Settings
 from security_test_values import (
     TEST_DATABASE_URL,
     TEST_DIRECTORY_ADMIN_VALUE,
@@ -12,6 +8,10 @@ from security_test_values import (
     TEST_LLM_VALUE,
     TEST_TTS_URL,
 )
+
+from app.core.exceptions import AuthenticationError
+from app.core.settings import Settings
+from app.modules.directory import api as directory_api
 
 
 def _production_settings(**overrides):

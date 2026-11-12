@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from app.core.exceptions import AuthenticationError, NotFoundError
 from app.core.settings import settings
 from app.db.database import get_connection
-from app.repositories.employees import EmployeeRepository
+from app.modules.directory.employees_repository import EmployeeRepository
+from app.modules.directory.trainers_repository import get_trainer
 from app.repositories.lms_access import identity_key
-from app.repositories.trainers import get_trainer
 from app.services.auth import current_employee_from_request, current_trainer_from_request
 from app.services.course_authorization import is_admin_trainer
 from app.services.lms_access import _employee_for_trainer

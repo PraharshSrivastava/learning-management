@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.services.directory_sync import bootstrap_full_directory, sync_directory_changes
+from app.modules.directory.sync import bootstrap_full_directory, sync_directory_changes
 
 
 def main() -> None:

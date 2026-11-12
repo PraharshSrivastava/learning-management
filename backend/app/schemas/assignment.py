@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from app.core.schemas import ApiSchema, RequestSchema
-from app.schemas.employee import EmployeeResponse
+from app.modules.directory.employee_schemas import EmployeeResponse
 
 
 class AssignmentGroup(ApiSchema):

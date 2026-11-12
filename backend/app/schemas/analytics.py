@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from app.core.schemas import ApiSchema
-from app.schemas.employee import EmployeeResponse
+from app.modules.directory.employee_schemas import EmployeeResponse
 
 
 class PerformanceSummary(ApiSchema):

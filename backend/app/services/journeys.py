@@ -14,13 +14,13 @@ from datetime import datetime, timedelta
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.settings import settings
 from app.db.database import advisory_lock, get_connection
+from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories.assignments import (
     employee_matches_assignment_rule,
     get_assignment_rule,
     matching_employees_for_assignment_rule,
 )
 from app.repositories.courses import get_course, update_course_status
-from app.repositories.employees import EmployeeRepository
 from app.repositories.journeys import JourneyRepository, assignment_changed
 from app.repositories.progress import ProgressRepository
 from app.schemas.journey import (

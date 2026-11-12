@@ -15,14 +15,14 @@ from app.core.dates import normalize_date_like
 from app.core.exceptions import DomainValidationError, ProviderError
 from app.core.settings import settings
 from app.db.database import advisory_lock
-from app.repositories.employees import (
+from app.modules.directory.employees_repository import (
     EmployeeRepository,
     get_sync_state,
     mark_missing_hub_employees_inactive,
     resolve_employee_managers,
     update_sync_state,
 )
-from app.repositories.trainers import TrainerRepository
+from app.modules.directory.trainers_repository import TrainerRepository
 from app.services.assignments import reconcile_assignments_for_employee
 
 logger = logging.getLogger(__name__)

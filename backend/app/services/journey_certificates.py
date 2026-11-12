@@ -27,7 +27,7 @@ from reportlab.pdfgen import canvas
 
 from app.core.exceptions import NotFoundError
 from app.core.settings import settings
-from app.repositories.employees import EmployeeRepository
+from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories.journeys import JourneyRepository
 
 _journeys = JourneyRepository()

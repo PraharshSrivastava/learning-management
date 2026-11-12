@@ -1,6 +1,6 @@
 """Employee directory use cases."""
 
-from app.repositories.employees import EmployeeRepository
+from app.modules.directory.employees_repository import EmployeeRepository
 
 _employees = EmployeeRepository()
 

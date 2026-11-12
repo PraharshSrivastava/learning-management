@@ -12,6 +12,7 @@ from app.core.exceptions import ConflictError, DomainValidationError, NotFoundEr
 from app.core.settings import settings
 from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
+from app.modules.directory.employees_repository import list_employees
 from app.repositories import observers, performance_reporting
 from app.repositories.assignments import (
     employee_matches_assignment_rule,
@@ -20,7 +21,6 @@ from app.repositories.assignments import (
     save_assignment_rule,
 )
 from app.repositories.courses import delete_course_for_trainer
-from app.repositories.employees import list_employees
 from app.repositories.journeys import create_journey_tables
 from app.repositories.progress import ProgressRepository
 from app.repositories.report_access import report_roles
@@ -1027,7 +1027,7 @@ def test_a_learner_is_shown_completed_only_once_the_journey_was_completed(journe
 
 
 def test_learners_see_the_cover_image_of_every_course_in_their_journey(journey_db, monkeypatch):
-    from app.repositories.employees import EmployeeRepository
+    from app.modules.directory.employees_repository import EmployeeRepository
     from app.services.media_access import MediaPrincipal, journey_thumbnail_visible
 
     with database.get_connection() as db:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.db.database import get_connection
-from app.schemas.trainer import TrainerRecord
+from app.modules.directory.trainer_schemas import TrainerRecord
 
 
 def _row_to_trainer(row) -> dict:

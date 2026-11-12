@@ -21,11 +21,11 @@ from app.core.storage import ensure_storage_directories
 from app.db.database import close_pool
 from app.db.schema import init_db
 from app.generation.runtime import recover_interrupted_generations
-from app.security.hub_launch import HubLaunchMiddleware
-from app.services.directory_scheduler import (
+from app.modules.directory.scheduler import (
     start_directory_sync_scheduler,
     stop_directory_sync_scheduler,
 )
+from app.security.hub_launch import HubLaunchMiddleware
 from app.services.email_notifications import (
     start_email_notification_scheduler,
     stop_email_notification_scheduler,

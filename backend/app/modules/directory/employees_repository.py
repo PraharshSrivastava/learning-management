@@ -8,7 +8,7 @@ from datetime import datetime
 from psycopg.types.json import Jsonb
 
 from app.db.database import get_connection
-from app.schemas.employee import EmployeeResponse
+from app.modules.directory.employee_schemas import EmployeeResponse
 
 
 def _row_to_employee(row, groups: dict[str, dict] | None = None) -> dict:
