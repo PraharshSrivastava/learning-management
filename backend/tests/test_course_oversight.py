@@ -11,8 +11,8 @@ from app.core.exceptions import install_exception_handlers
 from app.modules.access import repository as grants
 from app.modules.access import service as lms_access
 from app.modules.access.course_authorization import READ_ONLY_MESSAGE
+from app.modules.auth import service as auth
 from app.repositories import courses as repository
-from app.services import auth
 
 
 @pytest.fixture

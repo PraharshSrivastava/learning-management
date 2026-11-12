@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from security_test_values import TEST_HUB_SIGNING_VALUE
 from test_hub_launch import _token, _verifier
 
-from app.api import hub
+from app.modules.auth import hub_api as hub
 from app.security.hub_launch import HubLaunchMiddleware
 
 

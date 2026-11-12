@@ -163,7 +163,7 @@ def test_persistent_grant_changes_capabilities_for_existing_trainer_session(acce
     from starlette.requests import Request
 
     from app.modules.access import service
-    from app.services import auth
+    from app.modules.auth import service as auth
 
     monkeypatch.setattr(auth.settings, "hub_launch_dev_mode", True)
     monkeypatch.setattr(auth, "_hub_session", lambda *_: None)

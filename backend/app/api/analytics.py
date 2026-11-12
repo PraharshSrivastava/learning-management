@@ -8,6 +8,7 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 
 from app.modules.access.report_access import current_report_scope
+from app.modules.auth.service import current_trainer_from_request
 from app.schemas.analytics import TrainerPerformanceResponse
 from app.schemas.performance_reporting import (
     AssignmentDetailReport,
@@ -24,7 +25,6 @@ from app.schemas.performance_reporting import (
 from app.services import journey_reporting as journey_reports
 from app.services import performance_reporting as reports
 from app.services.analytics import api_trainer_performance
-from app.services.auth import current_trainer_from_request
 
 router = APIRouter(prefix="/api", tags=["analytics"])
 

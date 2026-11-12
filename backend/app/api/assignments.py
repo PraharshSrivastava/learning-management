@@ -6,6 +6,7 @@ from fastapi import APIRouter, Header, Query, Request, Response
 
 from app.core.schemas import MessageResponse
 from app.modules.access.course_authorization import course_owner_for_read, require_course_creator
+from app.modules.auth.service import current_trainer_from_request
 from app.schemas.assignment import (
     AssignmentOptionsResponse,
     AssignmentPreviewRequest,
@@ -28,7 +29,6 @@ from app.services.assignments import (
     api_update_saved_assignment_group,
     assignment_employee_page,
 )
-from app.services.auth import current_trainer_from_request
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 

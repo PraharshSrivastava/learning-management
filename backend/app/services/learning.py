@@ -9,6 +9,7 @@ from fastapi import Request
 
 from app.core.exceptions import DomainValidationError, NotFoundError
 from app.db.database import course_transaction
+from app.modules.auth.service import current_employee_from_request
 from app.modules.directory.employees_repository import EmployeeRepository
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
@@ -22,7 +23,6 @@ from app.services.assignments import (
     ensure_assignments_for_employee,
     reconcile_assignments_for_employee,
 )
-from app.services.auth import current_employee_from_request
 from app.services.journeys import (
     journey_held_courses,
     journeys_enabled,

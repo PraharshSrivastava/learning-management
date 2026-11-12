@@ -8,9 +8,9 @@ from fastapi.responses import FileResponse
 
 from app.core.settings import settings
 from app.documents.conversion import DocumentConversionError, convert_office_to_pdf
+from app.modules.auth.service import current_trainer_from_request
 from app.repositories.documents import get_document_by_file_name
 from app.schemas.files import StoredFileResponse, UploadResponse
-from app.services.auth import current_trainer_from_request
 from app.services.media_access import authorize_document, media_principal
 from app.services.uploads import UploadService
 

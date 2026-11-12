@@ -2,13 +2,13 @@
 
 from fastapi import APIRouter
 
+from app.modules.auth.service import list_local_trainers, local_employee_login, local_trainer_login
 from app.modules.directory.employee_schemas import LocalEmployeeLoginRequest, LoginResponse
 from app.modules.directory.trainer_schemas import (
     TrainerLocalLoginRequest,
     TrainerLoginResponse,
     TrainerResponse,
 )
-from app.services.auth import list_local_trainers, local_employee_login, local_trainer_login
 
 router = APIRouter(prefix="/api", tags=["auth"])
 

@@ -8,7 +8,7 @@ from app.core.exceptions import install_exception_handlers
 from app.modules.access import repository as grants
 from app.modules.access import service as lms_access
 from app.modules.access.api import router
-from app.services import auth
+from app.modules.auth import service as auth
 
 
 @pytest.fixture

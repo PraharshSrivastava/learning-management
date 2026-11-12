@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 from app.api import analytics
 from app.core.exceptions import install_exception_handlers
 from app.modules.access.reporting_scope import TrainerPerformanceScope, owner_filter
+from app.modules.auth import service as auth
 from app.repositories import performance_reporting as repository
-from app.services import auth
 
 
 @pytest.fixture

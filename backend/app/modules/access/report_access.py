@@ -5,7 +5,7 @@ from app.modules.access.report_access_repository import report_roles
 from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
 from app.modules.access.repository import identity_key
 from app.modules.access.service import _employee_for_trainer
-from app.services.auth import current_employee_from_request, current_trainer_from_request
+from app.modules.auth.service import current_employee_from_request, current_trainer_from_request
 
 
 def current_report_scope(request, authorization, *, app):

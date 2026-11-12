@@ -8,7 +8,7 @@ from app.api import analytics
 from app.core.exceptions import install_exception_handlers
 from app.modules.access import report_access
 from app.modules.access.reporting_scope import EmployeePerformanceScope, TrainerPerformanceScope
-from app.services import auth
+from app.modules.auth import service as auth
 
 
 @pytest.fixture

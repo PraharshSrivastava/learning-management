@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Header, HTTPException, Request
 from fastapi.responses import Response
 
 from app.core.settings import settings
-from app.services.auth import current_trainer_from_request
+from app.modules.auth.service import current_trainer_from_request
 from app.services.document_builder import DocumentBuilderService
 from app.services.uploads import UploadService
 

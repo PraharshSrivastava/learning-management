@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Header, Request, Response
 
 from app.core.schemas import MessageResponse
+from app.modules.auth.service import current_employee_from_request, current_trainer_from_request
 from app.schemas.journey import (
     JourneyCreateRequest,
     JourneyDetailResponse,
@@ -14,7 +15,6 @@ from app.schemas.journey import (
     LearnerJourneyListResponse,
 )
 from app.services import journey_certificates, journeys
-from app.services.auth import current_employee_from_request, current_trainer_from_request
 
 router = APIRouter(prefix="/api", tags=["learning-journeys"])
 

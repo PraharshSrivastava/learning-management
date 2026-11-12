@@ -9,11 +9,11 @@ from starlette.responses import RedirectResponse
 
 from app.core.schemas import ApiSchema
 from app.core.settings import settings
+from app.modules.auth.service import current_employee_from_request, current_trainer_from_request
 from app.modules.directory.employee_schemas import EmployeeResponse
 from app.modules.directory.trainer_schemas import TrainerResponse
 from app.security.hub_launch import OPEN_THROUGH_HUB, HubApp, hub_launch_verifier
 from app.security.public_mount import lms_public_mount
-from app.services.auth import current_employee_from_request, current_trainer_from_request
 
 router = APIRouter(prefix="/api/hub", tags=["hub"])
 

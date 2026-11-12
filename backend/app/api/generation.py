@@ -6,9 +6,9 @@ from app.core.settings import settings
 from app.generation.runtime import PipelineStageError
 from app.generation.video_engine import toggle_enabled, video_engine_available
 from app.modules.access.course_authorization import course_owner_for_read, require_course_creator
+from app.modules.auth.service import current_trainer_from_request
 from app.schemas.course import CourseResponse
 from app.schemas.generation import GenerationConfigResponse, GenerationJobResponse
-from app.services.auth import current_trainer_from_request
 from app.services.generation import build_generation_service
 
 router = APIRouter(prefix="/api", tags=["generation"])

@@ -5,7 +5,8 @@ from starlette.requests import Request
 
 from app.api import analytics as analytics_api
 from app.core.exceptions import AuthenticationError
-from app.services import analytics, auth
+from app.modules.auth import service as auth
+from app.services import analytics
 
 
 class _Employees:

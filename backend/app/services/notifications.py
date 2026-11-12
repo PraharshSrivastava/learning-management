@@ -8,9 +8,9 @@ import logging
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.core.exceptions import AuthenticationError
+from app.modules.auth.service import employee_id_from_token
 from app.modules.directory.employees_repository import EmployeeRepository
 from app.security.hub_launch import hub_app_from_header, hub_launch_verifier
-from app.services.auth import employee_id_from_token
 
 logger = logging.getLogger(__name__)
 _employees = EmployeeRepository()

@@ -7,6 +7,7 @@ from app.core.settings import settings
 from app.document_builder.import_source import SourceImporter
 from app.document_builder.workflow_export import WorkflowExport, owned_path
 from app.document_builder.workflow_jobs import WorkflowJobs
+from app.modules.auth.service import current_trainer_from_request
 from app.repositories.document_drafts import DocumentDraftRepository
 from app.schemas.document_workflow import (
     AcceptProposal,
@@ -21,7 +22,6 @@ from app.schemas.document_workflow import (
     SaveDraft,
     SourceAcknowledgement,
 )
-from app.services.auth import current_trainer_from_request
 
 
 def _enabled():
