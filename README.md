@@ -1,668 +1,265 @@
-# Learning Management System
+<div align="center">
 
-An internal LMS for turning uploaded training PDFs into structured courses with
-trainer authoring tools, employee learning views, quizzes, generated slide decks,
-narration audio, and module videos.
+# 🎓 PhillipAcademy LMS
 
-## Project Structure
+**Turn training documents into video courses, assign them to the right people, and track who completed them.**
 
-```text
-backend/             FastAPI API, generation pipeline, PostgreSQL-backed storage
-apps/trainer/        React trainer/admin web app
-apps/employee/       React employee learning web app
-packages/shared/     Shared React code: API client, models, auth, UI, performance
-deploy/              Web Dockerfile used by both React apps
-```
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-The backend owns course generation and persistence. The trainer frontend uploads
-documents, manages courses, assigns training, and reviews performance. The
-employee frontend lets learners view assigned courses, watch module videos, and
-complete quiz/progress flows.
+[What it does](#-what-it-does) ·
+[How it works](#-how-it-works) ·
+[Project layout](#-project-layout) ·
+[Quick start](#-quick-start) ·
+[Operations](#-operations) ·
+[Recent changes](#-recent-changes)
 
-## Product Flow and Architecture
+</div>
 
-This system has two user-facing apps that share one backend:
+> Learners and trainers see the product as **PhillipAcademy**. Inside the code it is still called **LMS**.
+> New to the codebase? Read **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** first: it maps every feature to its files.
 
-```text
-Trainer app   Used by trainers/admins to create, review, generate, assign, and
-              monitor courses.
-Employee app  Used by employees to see their assigned learning, watch lessons,
-              complete quizzes, and track completion.
-Backend       Owns authentication, course generation, assignment rules,
-              employee directory sync, progress tracking, reporting, and files.
-```
+---
 
-At a high level, trainers turn source documents into published courses. Employees
-only see courses that have been fully generated, published, and assigned to them.
+## ✨ What it does
 
-```mermaid
-flowchart LR
-    Hub[Company Hub] --> TrainerApp[Trainer React App]
-    Hub --> EmployeeApp[Employee React App]
+| | Feature | In short |
+|---|---|---|
+| 📄 | **Documents** | Trainers upload PDF, PPTX or DOCX files, or draft a new document with the AI **Document Builder**. |
+| 🧭 | **Blueprint** | The backend turns a document into an editable course outline: modules, objectives, quiz counts. Numbered "Module" headings split the course exactly as written. |
+| 🎬 | **Course generation** | Thumbnail, notes, quizzes, slides, narration, captions and module videos, all checkpointed so a failed step can be continued. |
+| 🎛️ | **Video Engine toggle** | Per course, on the Blueprint tab. The LMS recommends the **external Video Generator** for text-only documents and the built-in engine (slides + TTS + FFmpeg) when the document has meaningful images. The trainer decides. |
+| 💬 | **Captions** | Every module video gets captions, timed from the measured narration. |
+| 🎯 | **Assign** | Include/exclude rules by employee, department, mailing list or saved group, with deadlines and searchable pickers. |
+| 🗺️ | **Learning Journeys** | Ordered paths of courses, each with its own observers, deadlines, emails and a **stamped PDF certificate** on completion. |
+| 👀 | **Observers** | Named people or departments who may follow a course's or a journey's results. |
+| 📊 | **Performance** | Overview, Courses, Employees, Journeys and **Email status** views, with CSV export, all scoped to what the viewer may see. |
+| ✉️ | **Emails** | Assignment, reminder, due-soon, overdue (capped, with a final escalation) and certificate emails, plus role-scoped digests for HODs and trainers. |
+| 🔐 | **Hub SSO** | Users open the apps from the company Hub. The employee directory syncs from Hub every day. |
 
-    TrainerApp --> API[FastAPI Backend]
-    EmployeeApp --> API
+---
 
-    API --> Services[Service Layer]
-    Services --> Repos[Repository Layer]
-    Repos --> Postgres[(PostgreSQL)]
-
-    Services --> Storage[(LMS Storage)]
-    Storage --> Assets[Public Assets: slides, videos, audio, images]
-    Assets --> TrainerApp
-    Assets --> EmployeeApp
-
-    Services --> LLM[LLM Provider]
-    Services --> TTS[TTS Provider]
-    Services --> FFmpeg[FFmpeg]
-    Services --> SlideRenderer[Slide renderer: headless Chromium]
-    Services --> Directory[Hub Directory Export API]
-```
-
-### Non-Technical System Summary
-
-The LMS is best understood as a shared course factory plus two different
-workspaces:
-
-1. A trainer uploads a PDF training document.
-2. The backend reads that PDF and creates an editable course blueprint.
-3. The trainer reviews the blueprint, adjusts modules/questions if needed, and
-   starts full course generation.
-4. The backend generates supporting learning material: thumbnail, notes, quiz
-   questions, slides, narration scripts, audio, and videos.
-5. When the generated course is complete, the trainer publishes assignment rules.
-6. The backend matches those rules against synced Hub employees and creates
-   employee course assignments.
-7. Employees open the employee app, see only courses assigned to them, watch
-   module videos, complete quizzes, and progress through the course.
-8. Trainers use the performance view to monitor who is pending, started,
-   completed, overdue, and how employees performed on quizzes.
-
-## Trainer App Flow
-
-The trainer app lives in `apps/trainer/`. It is a React web app that keeps
-server state in TanStack Query. Its main screen is a tabbed dashboard:
-
-```text
-Documents -> Blueprint -> Courses -> Assign -> Performance
-```
-
-Trainer access is checked first through Hub launch/session endpoints. In local
-development, the app can also show a trainer picker based on synced employees.
-
-```mermaid
-flowchart TD
-    A[Open Trainer App from Hub] --> B{Valid Hub session?}
-    B -- No --> C[Show Trainer Access Message]
-    B -- Yes --> D{Trainer authenticated?}
-    D -- No/local dev --> E[Select Local Trainer]
-    D -- Yes --> F[Trainer Dashboard]
-    E --> F
-
-    F --> G[Documents Tab]
-    G --> H[Upload PDF]
-    H --> I[Backend stores document]
-    I --> J[Create Course Blueprint]
-    J --> K[Blueprint Tab]
-
-    K --> L[Review Course Details]
-    L --> M[Edit title, objective, difficulty, audience, modules, question counts]
-    M --> N[Save Blueprint]
-    N --> O[Generate Full Course]
-
-    O --> P[Course Generation Pipeline]
-    P --> Q[Course becomes Ready]
-    Q --> R[Courses Tab]
-    R --> S[Preview modules, slides, quizzes, videos]
-
-    S --> T[Assign Tab]
-    T --> U[Build include/exclude rule]
-    U --> V[Preview matching employees]
-    V --> W[Publish and Assign]
-    W --> X[Course becomes Published]
-
-    X --> Y[Performance Tab]
-    Y --> Z[Track assigned, pending, started, completed, overdue, attempts, scores]
-```
-
-### Trainer Screens
-
-| Trainer area | Main purpose | Backend data used |
-| --- | --- | --- |
-| Hub gate | Confirms the trainer opened the app through Hub or local dev mode | `/api/hub/session/trainer`, `/api/auth/local/trainers`, `/api/auth/local/trainer-login` |
-| Documents | Upload PDFs and preview stored documents | `/api/upload`, `/api/files`, `/api/files/{file_name}/preview` |
-| Blueprint | Turn an uploaded document into an editable course outline | `/api/courses/generate`, `/api/courses`, `/api/courses/{course_id}` |
-| Courses | Review generated course details, modules, slides, quizzes, and videos | `/api/courses`, `/api/courses/{course_id}`, `/assets/...` |
-| Generation portals | Generate quizzes, slides, narration scripts, and videos manually or as a full job | `/api/courses/{course_id}/generate-*`, `/api/courses/{course_id}/generation-jobs` |
-| Assign | Define who should receive a course and publish assignment rules | `/api/assignment/options`, `/api/assignment/saved-groups`, `/api/courses/{course_id}/assignment`, `/api/courses/{course_id}/publish-assignment` |
-| Performance | Filter and inspect employee assignment status, module completion, quiz attempts, and scores | `/api/trainer/performance` |
-
-### Performance reporting
-
-The trainer Performance tab has Overview, Courses, and Employees views. New
-reporting endpoints under `/api/trainer/performance/` serve the overview,
-filter options, course summaries and detail, database-paginated assignments and detail,
-and CSV export. The older `/api/trainer/performance` response remains available
-for existing consumers, and `/api/employee/team-performance` remains scoped to
-an employee's direct reports.
-
-Within Employees, **Employee summary** aggregates all scoped employee-course
-assignments in PostgreSQL before filtering, sorting and employee pagination;
-only the requested employee page is returned to the API. Selecting an employee opens a course
-breakdown drawer; selecting a course opens the existing assignment detail.
-**Course assignments** preserves the assignment-level view and CSV export.
-Employee summary has its own **Export employees CSV** action, which uses the
-submitted employee search, attention filter, sort and current reporting scope.
-It exports all matching employees (not just the visible page), one row per
-employee, with their scoped course totals. Assignment-view search/status filters
-do not leak into that export. Both CSV exports stream database-paginated batches
-of at most 100 records and protect spreadsheet cells against formula injection.
-The new `/api/trainer/performance/employees` and `/employees/{employee_id}`
-endpoints enforce the same authenticated trainer/course scope as the other
-reports; they do not grant an HOD access to other trainers' courses. Summary
-completion is completed courses divided by assigned courses. In progress and
-not started partition incomplete courses, while overdue/due soon are separate
-deadline flags. Employee quiz averages are weighted by scored-module count,
-excluding unattempted modules. Search is submitted on Enter or Search.
-The employee CSV endpoint is `/api/trainer/performance/employees/export`.
-
-Optional PostgreSQL parity tests are read-only: run
-`tests/test_performance_reporting_postgres.py` against the isolated demo with
-`PERFORMANCE_READONLY_INTEGRATION=true` and
-`PERFORMANCE_TEST_TRAINER_ID=demo-trainer`. They are skipped in the normal unit
-suite and do not seed or modify the selected database.
-
-The reporting unit is an active employee-course assignment. Completion rate is
-completed assignments divided by active assignments. Due soon means an
-incomplete assignment due within `EMAIL_DUE_SOON_DAYS`; overdue means an
-incomplete assignment past its deadline. On-time compliance divides assignments
-completed by their deadline by assignments whose deadlines have passed.
-Average score uses the latest scored result for each attempted module and
-includes the scored-module count; reports display quiz scores as percentages.
-Mailing-list groups can overlap because an
-employee may belong to more than one list.
-
-`last_learner_activity_at` is updated by employee learning-progress requests, separately
-from administrative assignment changes. Quiz attempts and video-watched events
-are recorded in `learning_events` from the reporting upgrade onward. Earlier
-individual attempts cannot be reconstructed; the assignment detail labels this
-limit. The reporting API still returns a completion trend based on assignment
-completion dates, but the Overview UI does not display a timeline panel.
-
-#### Performance rollout on the coding VM
-
-Deploy the backend and trainer frontend from the **same commit** using the normal
-Compose workflow below, against the VM's existing `DATABASE_URL`. Do not run
-`scripts.seed_performance_demo` there: it is only for the isolated local demo
-database. Keep `HUB_LAUNCH_DEV_MODE=false` and use the normal Hub trainer
-session; no demo trainer identity or separate Performance database is needed.
-The backend startup creates the reporting event table and adds the learner-
-activity column/indexes if upgrading an existing PostgreSQL database. Take the
-normal database backup before updating the stack.
-
-Performance reads the VM's existing published courses, active published
-assignment rules, non-revoked employee-course assignments, employee directory
-records, and module progress. A course with no published assignment or no
-matching employees will not appear in the report. Existing completion and
-latest quiz scores are reported immediately; per-attempt quiz history starts
-when the new backend begins recording `learning_events` and cannot be recovered
-for past attempts.
-
-After deployment, open Performance from a real trainer account and check one
-assigned course in Courses, one employee in Employees, a module detail, and a
-small filtered CSV export. If the report is empty, first confirm that the
-course is published, its assignment rule is active and published, and its
-matching employees have non-revoked assignments. The local demo URL and
-synthetic counts are not expected on the VM.
-
-#### Local Performance demo
-
-Use a separate PostgreSQL database named `lms_performance_demo`; do not point
-the seed script at the normal `lms` database. Set `DATABASE_URL` to that demo
-database and `HUB_LAUNCH_DEV_MODE=true`, then run from `backend`:
-
-```powershell
-.\.venv\Scripts\python.exe -m scripts.seed_performance_demo
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 3061
-```
-
-The seed is synthetic and guarded to run only against the named demo database.
-It creates one local trainer identity, 100 employees, four courses, and 400
-assignments with varied completion, overdue, quiz, and activity states. It
-will not overwrite an existing demo. For the trainer frontend, start it with
-`LMS_DEV_BACKEND=http://127.0.0.1:3061 pnpm dev:trainer` and open the app as
-*Performance Demo Trainer*.
-
-### Trainer Architecture
+## 🧩 How it works
 
 ```mermaid
 flowchart LR
-    UI[Trainer React Screens] --> Providers[TanStack Query Hooks]
-    Providers --> Constants[Shared API Client]
-    Constants --> HTTP[HTTP Requests]
-    HTTP --> Routes[FastAPI Routes]
-
-    Routes --> CourseService[CourseService]
-    Routes --> GenerationService[GenerationService]
-    Routes --> AssignmentService[Assignment Services]
-    Routes --> AnalyticsService[Analytics Service]
-
-    CourseService --> CourseRepo[Course Repository]
-    GenerationService --> CourseRepo
-    GenerationService --> JobRepo[Generation Job Repository]
-    AssignmentService --> AssignmentRepo[Assignment Repository]
-    AssignmentService --> ProgressRepo[Progress Repository]
-    AnalyticsService --> ProgressRepo
-
-    CourseRepo --> DB[(PostgreSQL)]
-    AssignmentRepo --> DB
-    ProgressRepo --> DB
-    JobRepo --> DB
-
-    GenerationService --> GeneratedFiles[(Generated Files)]
-    GeneratedFiles --> Assets[/assets audio images slides videos/]
-    Assets --> UI
+    Hub[🏢 Company Hub<br/>SSO + directory] --> Trainer[🧑‍🏫 Trainer app<br/>apps/trainer]
+    Hub --> Employee[🧑‍💻 Employee app<br/>apps/employee]
+    Trainer -- /api --> API[⚙️ FastAPI backend<br/>backend/app]
+    Employee -- /api --> API
+    API --> DB[(🐘 PostgreSQL)]
+    API --> Storage[(📁 LMS storage<br/>uploads + media)]
+    API --> LLM[🤖 LLM gateway<br/>Qwen via LiteLLM]
+    API --> TTS[🔊 TTS]
+    API --> Renderer[🖼️ slide-renderer<br/>headless Chromium]
+    API --> VG[🎞️ External<br/>Video Generator]
+    Hub -. daily sync .-> API
 ```
 
-### Trainer Course Creation Pipeline
+### The course lifecycle in plain words
 
-```mermaid
-flowchart TD
-    A[Trainer uploads PDF] --> B[Document stored under LMS storage]
-    B --> C[Create blueprint from PDF]
-    C --> D[Trainer edits and saves blueprint]
-    D --> E[Start full course generation job]
-
-    E --> F[Wave 1 parallel work]
-    F --> F1[Thumbnail]
-    F --> F2[Quizzes]
-    F --> F3[Notes]
-    F --> F4[Slides]
-
-    F1 --> G[Compile slide HTML]
-    F2 --> G
-    F3 --> G
-    F4 --> G
-
-    G --> H[Generate narration scripts]
-    H --> I[Generate TTS audio]
-    I --> J[Render module videos with slide renderer screenshots and FFmpeg]
-    J --> K[Validate generated outputs]
-    K --> L[Mark course ready]
-    L --> M[Trainer publishes assignment]
-    M --> N[Course status becomes published]
-```
-
-Generation is checkpointed. If a stage fails, the backend records the failed
-checkpoint and the trainer can continue generation instead of starting the whole
-course from the beginning.
-
-## Employee App Flow
-
-The employee app lives in `apps/employee/`. It is a React web app focused
-on learning, not authoring. Employees see a dashboard, their course library,
-notifications, and the course playback workspace.
-
-Employee access also starts through Hub. In local development, the app can show
-an employee picker so the learning flow can be tested without Hub.
-
-```mermaid
-flowchart TD
-    A[Open Employee App from Hub] --> B{Valid Hub session?}
-    B -- No --> C[Show Employee Access Message]
-    B -- Yes --> D{Employee authenticated?}
-    D -- No/local dev --> E[Select Local Employee]
-    D -- Yes --> F[Employee Dashboard]
-    E --> F
-
-    F --> G[Fetch My Courses]
-    G --> H[Show assigned, pending, in progress, completed, overdue]
-    H --> I[Open Course]
-    I --> J[Course Playback]
-
-    J --> K[Watch Module Video]
-    K --> L[Backend marks video watched]
-    L --> M[Quiz unlocks]
-    M --> N[Employee submits quiz]
-    N --> O{Passed?}
-    O -- No --> P[Attempt recorded; retry allowed]
-    O -- Yes --> Q[Module marked complete]
-    Q --> R{More modules?}
-    R -- Yes --> S[Next module unlocks]
-    S --> K
-    R -- No --> T[Course marked completed]
-    T --> U[Trainer performance dashboard updates]
-```
-
-### Employee Screens
-
-| Employee area | Main purpose | Backend data used |
-| --- | --- | --- |
-| Hub gate | Confirms the employee opened the app through Hub or local dev mode | `/api/hub/session/employee`, `/api/auth/local/employee-login` |
-| Employee dashboard | Shows learning metrics, assigned work, due dates, and status filters | `/api/me/courses` |
-| My Courses | Lists all assigned/published courses for the current employee | `/api/me/courses` |
-| Notifications | Highlights newly assigned courses in the current session | `/api/me/courses`, `/api/me/courses/ws` |
-| Course playback | Plays module videos, shows notes, handles quiz answers, and locks/unlocks modules | `/api/me/courses/{course_id}/modules/{module_number}`, `/assets/videos/...` |
-| Progress sync | Updates watched videos, quiz scores, selected answers, attempts, and completion | `/api/me/courses/{course_id}/status`, `/api/me/courses/{course_id}/modules/{module_number}` |
-
-### Employee Architecture
-
-```mermaid
-flowchart LR
-    UI[Employee React Screens] --> Providers[TanStack Query Hooks]
-    Providers --> HTTP[HTTP + WebSocket]
-    HTTP --> LearningRoutes[FastAPI Learning Routes]
-
-    LearningRoutes --> Auth[Employee Auth]
-    LearningRoutes --> LearningService[Learning Service]
-    LearningService --> AssignmentService[Assignment Matching]
-    LearningService --> ProgressRepo[Progress Repository]
-    LearningService --> CourseRepo[Course Repository]
-    LearningService --> EmployeeRepo[Employee Repository]
-    LearningService --> Notifications[WebSocket Notifications]
-
-    AssignmentService --> Rules[(Assignment Rules)]
-    ProgressRepo --> DB[(PostgreSQL)]
-    CourseRepo --> DB
-    EmployeeRepo --> DB
-    Rules --> DB
-
-    CourseRepo --> Assets[/assets videos slides images audio/]
-    Assets --> UI
-    Notifications --> Providers
-```
-
-### Employee Learning Rules
-
-```text
-1. Employees only receive courses that are published and whose active assignment
-   rule matches their employee record.
-2. Assignment rules can include everyone or selected groups, then exclude
-   employees/groups/departments/mailing lists.
-3. The first module is available immediately.
-4. A module quiz unlocks only after the module video is watched.
-5. The next module unlocks after the previous module is complete.
-6. A module is complete when the video is watched and, if a quiz exists, the
-   quiz is passed.
-7. A course is complete when every published module is complete.
-8. Progress changes are written to PostgreSQL and broadcast back to the employee
-   app over WebSocket so the dashboard stays fresh.
-```
-
-## Shared Backend Data Model
-
-The backend stores structured data in PostgreSQL and generated files in LMS
-storage. The important tables are:
-
-| Table | What it represents |
-| --- | --- |
-| `trainers` | Trainer identities synced from Hub/local development |
-| `employees` | Employee identities, departments, job titles, Hub IDs, and status |
-| `employee_groups` | Mailing-list or AD group membership from Hub directory sync |
-| `directory_sync_state` | Cursor/status for full and incremental Hub directory sync |
-| `documents` | Uploaded PDFs owned by a trainer |
-| `courses` | Course-level metadata, lifecycle status, thumbnail, and trainer owner |
-| `course_modules` | Module text, notes, slide JSON, quiz JSON, generated video path |
-| `course_generation_status` | Checkpoints, stage status, failures, worker lock state |
-| `assignment_rules` | Include/exclude filters, deadlines, active/published flags |
-| `saved_assignment_groups` | Reusable include/exclude filter groups saved by trainers |
-| `course_assignments` | One assigned course per employee, with status and due date |
-| `module_progress` | Per-module watched/quiz state, attempts, scores, selected answers |
-
-```mermaid
-erDiagram
-    TRAINERS ||--o{ DOCUMENTS : uploads
-    TRAINERS ||--o{ COURSES : owns
-    DOCUMENTS ||--o{ COURSES : creates
-    COURSES ||--o{ COURSE_MODULES : contains
-    COURSES ||--|| COURSE_GENERATION_STATUS : tracks
-    COURSES ||--|| ASSIGNMENT_RULES : uses
-    TRAINERS ||--o{ SAVED_ASSIGNMENT_GROUPS : saves
-    EMPLOYEES ||--o{ EMPLOYEE_GROUPS : belongs_to
-    COURSES ||--o{ COURSE_ASSIGNMENTS : assigned_as
-    EMPLOYEES ||--o{ COURSE_ASSIGNMENTS : receives
-    COURSE_ASSIGNMENTS ||--o{ MODULE_PROGRESS : records
-    COURSE_MODULES ||--o{ MODULE_PROGRESS : measured_by
-```
-
-## End-to-End Lifecycle
+1. A **trainer** uploads a training document (or builds one in the Document Builder).
+2. The backend reads it and proposes a **blueprint**. The trainer reviews it, edits it if needed, and picks the Video Engine.
+3. **Generate** builds the course: thumbnail, notes, quizzes, slides, narration, captions and videos.
+4. The trainer **assigns** the course, or adds it to a **Learning Journey**, and publishes.
+5. The backend matches the rules against the synced Hub directory and creates assignments. Emails go out.
+6. **Employees** see only what was assigned to them. They watch each module, pass its quiz, and unlock the next one.
+7. Trainers, HODs and observers follow progress in **Performance**. Journey completers receive a certificate.
 
 ```mermaid
 sequenceDiagram
     participant T as Trainer
-    participant TA as Trainer App
-    participant API as FastAPI Backend
-    participant DB as PostgreSQL
-    participant Gen as Generation Providers
-    participant EA as Employee App
+    participant API as Backend
+    participant Gen as Generation
     participant E as Employee
-
-    T->>TA: Upload PDF
-    TA->>API: POST /api/upload
-    API->>DB: Save document metadata
-    T->>TA: Create course
-    TA->>API: POST /api/courses/generate
-    API->>Gen: Extract blueprint from PDF
-    API->>DB: Save draft course and modules
-    T->>TA: Review/edit blueprint
-    TA->>API: PUT /api/courses/{course_id}
-    API->>DB: Save draft updates
-    T->>TA: Generate full course
-    TA->>API: POST /api/courses/{course_id}/generation-jobs
-    API->>Gen: Generate thumbnail, quizzes, notes, slides, scripts, audio, video
-    API->>DB: Mark course ready
-    T->>TA: Publish assignment rule
-    TA->>API: POST /api/courses/{course_id}/publish-assignment
-    API->>DB: Match employees and create assignments
-    E->>EA: Open learning dashboard
-    EA->>API: GET /api/me/courses
-    API->>DB: Read assignments, courses, modules, progress
-    API-->>EA: Assigned learning list
-    E->>EA: Watch video and submit quiz
-    EA->>API: PUT /api/me/courses/{course_id}/modules/{module_number}
-    API->>DB: Save module progress and attempts
-    TA->>API: GET /api/trainer/performance
-    API->>DB: Aggregate learner progress
-    API-->>TA: Performance dashboard
+    T->>API: Upload document
+    API->>Gen: Extract blueprint
+    T->>API: Review blueprint, choose Video Engine
+    T->>API: Generate course
+    API->>Gen: Slides, narration, captions, videos
+    T->>API: Publish assignment / journey
+    API-->>E: Assignment email
+    E->>API: Watch module, submit quiz
+    API-->>T: Performance updates
 ```
 
-## Backend
+<details>
+<summary><b>🎬 Course generation pipeline (detail)</b></summary>
 
-Runtime entrypoint:
+Generation is checkpointed and resumable. If a stage fails, the trainer presses **Continue**, and the pipeline restarts from the failed checkpoint instead of from the beginning.
 
-```powershell
-cd backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```mermaid
+flowchart TD
+    A[Blueprint saved] --> W1{{Wave 1, in parallel}}
+    W1 --> T1[Thumbnail<br/>Qwen Image]
+    W1 --> T2[Quizzes]
+    W1 --> T3[Notes]
+    W1 --> T4[Slides]
+    T1 & T2 & T3 & T4 --> H[Compile slide HTML]
+    H --> S[Narration scripts]
+    S --> Q{Video Engine?}
+    Q -- On --> VG[External Video Generator<br/>submit → status → download]
+    Q -- Off --> TTS[TTS audio, up to 3 slides at a time]
+    TTS --> R[slide-renderer screenshots + FFmpeg]
+    VG --> C[Captions]
+    R --> C
+    C --> P[Validate outputs → course Ready]
 ```
 
-Install dependencies from a clean environment:
+The built-in engine captures each HTML slide as a PNG frame, combines it with its narration WAV, and joins the slide clips into one MP4 per module. Captions are timed from the measured narration when no caption aligner is installed.
+
+</details>
+
+<details>
+<summary><b>🧑‍🏫 Trainer app: tabs and endpoints</b></summary>
+
+Tabs: **Documents → Blueprint → Courses → Journeys → Assign → Performance**. The Journeys tab appears when the backend reports Learning Journeys as enabled.
+
+| Tab | Main purpose | Main endpoints |
+| --- | --- | --- |
+| Hub gate | Confirms the trainer opened the app through Hub (or local dev mode) | `/api/hub/session/trainer`, `/api/auth/local/trainer-login` |
+| Documents | Upload documents, preview them, and use the Document Builder | `/api/upload`, `/api/files`, `/api/document-builder/...` |
+| Blueprint | Turn a document into an editable outline and choose the Video Engine | `/api/courses/generate`, `/api/courses/{course_id}` |
+| Courses | Review modules, slides, quizzes and videos; enable, disable or delete | `/api/courses`, `/assets/...` |
+| Generation | Generate everything, or one stage or module at a time | `/api/courses/{course_id}/generation-jobs`, `.../generate-*` |
+| Journeys | Build ordered course paths, with observers, preview and publish | `/api/learning-journeys/...` |
+| Assign | Who receives a course, saved groups and Observers | `/api/assignment/options`, `/api/courses/{course_id}/publish-assignment`, `/api/courses/{course_id}/observers` |
+| Performance | Overview, Courses, Employees, Journeys, Email status, CSV export | `/api/trainer/performance/...` |
+
+```mermaid
+flowchart TD
+    A[Open from Hub] --> B{Valid session?}
+    B -- No --> C[Access message]
+    B -- Yes --> D[Trainer dashboard]
+    D --> E[Documents: upload]
+    E --> F[Blueprint: review + Video Engine]
+    F --> G[Generate course]
+    G --> H[Courses: preview]
+    H --> I[Assign or add to a Journey]
+    I --> J[Publish]
+    J --> K[Performance: track progress, emails, certificates]
+```
+
+</details>
+
+<details>
+<summary><b>🧑‍💻 Employee app: screens and learning rules</b></summary>
+
+| Screen | Main purpose | Main endpoints |
+| --- | --- | --- |
+| Hub gate | Confirms the employee opened the app through Hub (or local dev mode) | `/api/hub/session/employee` |
+| Dashboard / My Courses | Assigned work, due dates and status filters | `/api/me/courses` |
+| Notifications | Live updates when something new is assigned | `/api/me/courses/ws` |
+| Course playback | Module videos with captions, notes, quizzes, unlock rules | `/api/me/courses/{course_id}/modules/{module_number}` |
+| Learning Journeys | Journey progress and the downloadable certificate | `/api/me/learning-journeys`, `.../{journey_id}/certificate` |
+
+**Learning rules**
+
+1. Employees only receive published courses whose active rule matches them.
+2. The first module is open straight away. A module's quiz unlocks after its video is watched.
+3. A module is complete when its video is watched and its quiz (if any) is passed. Then the next module unlocks.
+4. A course is complete when every published module is complete.
+5. Journey steps open in order. Finishing every step issues the journey certificate.
+6. Progress is saved in PostgreSQL and pushed back over WebSocket, so the dashboard stays up to date.
+
+</details>
+
+<details>
+<summary><b>🐘 Data model (main tables)</b></summary>
+
+| Table | What it holds |
+| --- | --- |
+| `trainers`, `employees`, `employee_groups` | People and mailing-list membership from Hub |
+| `directory_sync_state` | Cursor and status of the Hub directory sync |
+| `documents` | Uploaded source documents |
+| `courses`, `course_modules` | Course metadata and per-module content (notes, slides, quiz, video) |
+| `course_generation_status` | Checkpoints, stage status, failures, worker lock |
+| `assignment_rules`, `saved_assignment_groups`, `course_assignments` | Who gets which course, and by when |
+| `module_progress`, `learning_events` | Watched/quiz state, attempts, scores, activity |
+| `learning_journeys`, `learning_journey_*` | Journeys, ordered steps, rules, per-employee state, certificates, observers |
+| `course_observer_*`, `lms_*` access tables | Observers, authoring roles, report access |
+| `email_notifications`, `email_*` | Email outbox, delivery attempts, skips, worker status |
+| `document_builder_*` | Document Builder drafts, revisions, operations |
+
+The schema is created and upgraded automatically at startup (`app/db/schema.py`). Every migration is additive and safe to run again.
+
+```mermaid
+erDiagram
+    TRAINERS ||--o{ COURSES : owns
+    DOCUMENTS ||--o{ COURSES : creates
+    COURSES ||--o{ COURSE_MODULES : contains
+    COURSES ||--|| ASSIGNMENT_RULES : uses
+    COURSES ||--o{ COURSE_ASSIGNMENTS : assigned_as
+    EMPLOYEES ||--o{ COURSE_ASSIGNMENTS : receives
+    COURSE_ASSIGNMENTS ||--o{ MODULE_PROGRESS : records
+    LEARNING_JOURNEYS ||--o{ LEARNING_JOURNEY_STEPS : orders
+    LEARNING_JOURNEY_STEPS }o--|| COURSES : uses
+```
+
+</details>
+
+---
+
+## 🗂️ Project layout
+
+```text
+backend/                     FastAPI API + generation pipeline (Python 3.12)
+  app/
+    main.py                  startup: middleware, routers, schedulers, DB init
+    api/router.py            mounts every module's router
+    core/                    settings, logging, errors, storage, provider clients, base schema
+    security/                Hub launch tokens, public-mount checks
+    db/                      connection pool, schema init, migrations/
+    modules/                 ⭐ one folder per feature
+      auth/  access/  directory/  courses/  uploads/  documents/
+      generation/  assignments/  observers/  journeys/  learning/
+      reporting/  emails/
+    prompts/  templates/  static/   LLM prompts, slide templates, brand assets
+  scripts/                   admin scripts + run_pipeline.py (generation worker)
+  slide_renderer/            separate service that screenshots slides
+  tests/                     pytest suite
+apps/
+  trainer/src/features/      documents, courses, training, journeys, assignments, performance
+  employee/src/features/     dashboard, learning, journeys
+packages/shared/             API client, models, auth, UI kit, video player, Performance screens
+deploy/                      web Dockerfile used by both React apps
+docs/                        architecture guide, operations notes, plans
+```
+
+Each backend module keeps the same kinds of files: `api.py` (routes), `service.py` (business rules), `repository.py` (SQL) and `schemas.py` (request/response models). There are a few extra files where a feature needs them. See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full map and the import rules.
+
+---
+
+## 🚀 Quick start
+
+<table>
+<tr><th>⚙️ Backend</th><th>🖥️ Frontends</th></tr>
+<tr valign="top"><td>
 
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+pip install -r requirements-dev.txt
+python -m uvicorn app.main:app --reload
 ```
 
-Standard video generation needs the slide renderer service
-(`backend/slide_renderer`). For local work, run it on port 8090 and set
-`SLIDE_RENDERER_URL=http://127.0.0.1:8090` in `backend/.env`:
+Video generation with the built-in engine needs the slide renderer:
 
 ```bash
 docker build -t lms-slide-renderer backend/slide_renderer
 docker run --rm -p 127.0.0.1:8090:8080 lms-slide-renderer
 ```
 
-Important backend paths:
+Then set `SLIDE_RENDERER_URL=http://127.0.0.1:8090` in `backend/.env`.
 
-```text
-backend/app/api/          HTTP routes
-backend/app/services/     business workflows
-backend/app/repositories/ PostgreSQL persistence layer
-backend/app/generation/   course generation stages
-backend/app/templates/    slide HTML/CSS templates
-backend/app/static/       public brand assets
-backend/scripts/          generation subprocess entrypoint
-backend/storage/          uploads and generated media
-```
+</td><td>
 
-The generation job manager currently launches one course pipeline through:
-
-```powershell
-.\.venv\Scripts\python.exe -m scripts.run_pipeline --course-id <course_id>
-```
-
-Do not remove `backend/scripts/run_pipeline.py` while the current job manager is
-still in use.
-
-## Docker Deployment
-
-The root Compose stack is the deployment shape for the current app:
-
-```text
-backend            FastAPI API and generation pipeline
-slide-renderer     headless Chromium that screenshots slides for module videos
-frontend           trainer/admin React web app (apps/trainer)
-employee_frontend  employee React web app (apps/employee)
-```
-
-PostgreSQL is controlled by the `COMPOSE_PROFILES` environment setting:
-
-```text
-COMPOSE_PROFILES=bundled-db   run the bundled Postgres container for VM/test
-COMPOSE_PROFILES=             do not run Postgres; use company DATABASE_URL
-```
-
-The command stays the same in both modes:
-
-```bash
-docker compose up -d --build
-```
-
-Create host persistence directories on the VM:
-
-```bash
-sudo mkdir -p /opt/lms/postgres /opt/lms/storage /opt/lms/backups
-```
-
-Create the deployment env file:
-
-```bash
-cp .env.example .env
-nano .env
-```
-
-Set real secrets and VM/domain origins in `.env`, especially:
-
-```text
-COMPOSE_PROFILES
-DATABASE_URL
-POSTGRES_PASSWORD
-CORS_ALLOWED_ORIGINS
-LLM_BASE_URL
-LLM_API_KEY
-TTS_ENDPOINT
-COURSE_THUMBNAIL_ENDPOINT
-HUB_LAUNCH_SECRET
-DIRECTORY_EXPORTS_API_KEY
-DIRECTORY_SYNC_ADMIN_KEY
-```
-
-For the current VM/test deployment with bundled Postgres:
-
-```env
-COMPOSE_PROFILES=bundled-db
-DATABASE_URL=postgresql://lms:<password>@postgres:5432/lms
-POSTGRES_DB=lms
-POSTGRES_USER=lms
-POSTGRES_PASSWORD=<password>
-```
-
-For on-prem/company Postgres:
-
-```env
-COMPOSE_PROFILES=
-DATABASE_URL=postgresql://lms_user:<password>@company-postgres-host:5432/lms_db
-```
-
-Start or update the deployment:
-
-```bash
-docker compose up -d --build
-```
-
-Default deployed ports match the existing VM branch:
-
-```text
-Backend health:   http://<vm-host>:3060/health
-Trainer app:      http://<vm-host>:6969
-Employee app:     http://<vm-host>:6970
-```
-
-Port map:
-
-```text
-3060 -> backend container port 8000
-6969 -> trainer frontend container port 8080
-6970 -> employee frontend container port 8080
-127.0.0.1:5432 -> bundled postgres container port 5432, only when COMPOSE_PROFILES=bundled-db
-```
-
-When bundled Postgres is enabled, it is bound to `127.0.0.1` on the VM host,
-not to the public network interface. This keeps the database reachable for
-host-local maintenance while preventing direct external access to the database
-port. Backend-to-database traffic inside Docker uses the private service name
-`postgres:5432`.
-
-When `COMPOSE_PROFILES` is empty for on-prem/company deployments, this Compose
-stack does not start PostgreSQL. Backend-to-database traffic uses the company
-database endpoint provided in `DATABASE_URL`.
-
-Compose persists data in explicit host folders:
-
-```text
-/opt/lms/postgres    bundled PostgreSQL rows, only when COMPOSE_PROFILES=bundled-db
-/opt/lms/storage     uploads and generated audio/images/slides/videos
-/opt/lms/backups     backup output location
-```
-
-Rebuilding containers does not erase those host folders. Do not delete them
-unless you intentionally want to reset production data.
-
-Check status and logs:
-
-```bash
-docker compose ps
-docker compose logs -f backend
-```
-
-Back up PostgreSQL and storage on the VM/test bundled deployment:
-
-```bash
-stamp=$(date +%Y%m%d_%H%M%S)
-docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "/opt/lms/backups/lms_${stamp}.sql"
-tar -czf "/opt/lms/backups/storage_${stamp}.tar.gz" -C /opt/lms storage
-```
-
-For on-prem/company PostgreSQL, use the company database backup process or run
-`pg_dump "$DATABASE_URL"` from an approved admin host.
-
-Stop services without deleting data:
-
-```bash
-docker compose stop
-```
-
-Do not remove `/opt/lms/storage` unless you intentionally want to erase
-uploaded/generated LMS files. For VM/test deployments using
-`COMPOSE_PROFILES=bundled-db`, also do not remove `/opt/lms/postgres` unless you
-intentionally want to erase the bundled test database.
-
-## Frontends
-
-The two React apps and the shared package form one pnpm workspace.
-Use Node 24 and pnpm 11 (`corepack enable`).
-The workspace refuses package versions younger than 14 days (`minimumReleaseAge`).
+Node 24 + pnpm 11 (`corepack enable`):
 
 ```bash
 pnpm install
@@ -670,81 +267,221 @@ pnpm dev:trainer    # http://localhost:5173
 pnpm dev:employee   # http://localhost:5174
 ```
 
-The Vite dev servers proxy `/api` and `/assets` to the backend at `http://127.0.0.1:3060`.
-They set the same `X-LMS-App` and `X-Forwarded-Prefix` headers as nginx.
-Set `LMS_DEV_BACKEND` to use another backend, for example `LMS_DEV_BACKEND=http://127.0.0.1:8000`.
+The dev servers proxy `/api` and `/assets` to `http://127.0.0.1:3060`. To use another backend, set `LMS_DEV_BACKEND`.
 
-Each app is served at the root and at its public mount: `/lms/trainer` for the trainer app and `/lms` for the employee app.
-The build uses relative asset paths, and nginx rewrites `<base href="/" />` to the mount.
-By default the apps call the API on the same origin and mount, so no backend URL is baked into the build.
-`VITE_API_BASE_URL` (Docker build arg `API_BASE_URL`) overrides this when the API is on another origin.
+The trainer app is served at `/lms/trainer` and the employee app at `/lms`. `VITE_API_BASE_URL` (Docker build arg `API_BASE_URL`) is needed only when the API is on another origin.
 
-Checks:
+</td></tr>
+</table>
+
+**🐳 Whole stack with Docker:** `cp .env.example .env`, fill in the secrets, then `docker compose up -d --build`. See [Docker deployment](#-operations) below.
+
+### ✅ Checks before you push
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm format:check
-pnpm build
+cd backend && python -m ruff check app scripts tests && python -m pytest
 ```
 
-## Environment
+```bash
+pnpm typecheck && pnpm lint && pnpm test && pnpm build
+```
 
-For Docker deployment, copy the root `.env.example` to `.env` and set real
-values. The root template is the only committed env template. Direct terminal
-runs may still use private local env files such as `backend/.env`.
+The PostgreSQL integration tests are opt-in. They need a throwaway database named `lms_performance_demo`, with `LMS_ACCESS_POSTGRES_TESTS=true`. The Document Builder suite needs a database named `document_builder_test`, with `DOCUMENT_BUILDER_PG_TEST=1`. Never point them at a real LMS database.
 
-Key settings:
+---
+
+## 🛠️ Operations
+
+<details>
+<summary><b>🐳 Docker deployment</b></summary>
+
+The root Compose stack runs:
 
 ```text
-APP_ENV
-LOG_LEVEL
-CORS_ALLOWED_ORIGINS
-DATABASE_URL
-LLM_BASE_URL
-LLM_API_KEY
-LLM_MODEL_NAME
-TTS_ENDPOINT
-TTS_VOICE
-COURSE_THUMBNAIL_ENDPOINT
-COURSE_THUMBNAIL_API_KEY
-GENERATION_MAX_CONCURRENCY
-LMS_STORAGE_DIR
-HUB_LAUNCH_SECRET
-HUB_TRAINER_APP_KEY
-HUB_EMPLOYEE_APP_KEY
-HUB_LAUNCH_DEV_MODE
-DIRECTORY_EXPORTS_BASE_URL
-DIRECTORY_EXPORTS_API_KEY
-DIRECTORY_SYNC_ADMIN_KEY
-DIRECTORY_SYNC_ENABLED
-DIRECTORY_SYNC_INTERVAL_HOURS
-DIRECTORY_SYNC_TIME
-DIRECTORY_SYNC_TIMEZONE
-LANGFUSE_ENABLED
-LANGFUSE_BASE_URL
-LANGFUSE_HOST
-LANGFUSE_PUBLIC_KEY
-LANGFUSE_SECRET_KEY
-LANGFUSE_ENVIRONMENT
-LANGFUSE_RELEASE
-LANGFUSE_CAPTURE_CONTENT
+backend            FastAPI API and generation pipeline
+slide-renderer     headless Chromium that screenshots slides for module videos
+frontend           trainer React app (apps/trainer)
+employee_frontend  employee React app (apps/employee)
+postgres           bundled PostgreSQL, only with COMPOSE_PROFILES=bundled-db
 ```
 
-Generated uploads, audio, images, slides, and videos live under `/app/storage`
-inside the backend container and `/opt/lms/storage` on the VM host. Structured
-application data lives in PostgreSQL. SQLite is no longer supported.
+```text
+COMPOSE_PROFILES=bundled-db   run the bundled Postgres container (VM/test)
+COMPOSE_PROFILES=             no Postgres container; use the company DATABASE_URL
+```
 
-## Langfuse LLM Observability
+Set up the host folders and env file once:
 
-The backend can send course-generation traces directly to an existing
-Langfuse server. Tracing is disabled by default and is fail-open: missing
-credentials, SDK initialization problems, or delivery failures never stop LMS
-course generation.
+```bash
+sudo mkdir -p /opt/lms/postgres /opt/lms/storage /opt/lms/backups
+cp .env.example .env
+```
 
-`LANGFUSE_BASE_URL` is the preferred Langfuse v4 setting. The older
-`LANGFUSE_HOST` name remains supported as a backward-compatible alias.
+The most important `.env` values are `COMPOSE_PROFILES`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `LLM_BASE_URL`, `LLM_API_KEY`, `TTS_ENDPOINT`, `COURSE_THUMBNAIL_ENDPOINT`, `HUB_LAUNCH_SECRET`, `DIRECTORY_EXPORTS_API_KEY` and `DIRECTORY_SYNC_ADMIN_KEY`.
+
+```env
+# bundled Postgres (VM/test)
+COMPOSE_PROFILES=bundled-db
+DATABASE_URL=postgresql://lms:<password>@postgres:5432/lms
+POSTGRES_DB=lms
+POSTGRES_USER=lms
+POSTGRES_PASSWORD=<password>
+
+# company Postgres (on-prem)
+COMPOSE_PROFILES=
+DATABASE_URL=postgresql://lms_user:<password>@company-postgres-host:5432/lms_db
+```
+
+Start or update the stack:
+
+```bash
+docker compose up -d --build
+```
+
+| Port | Goes to |
+| --- | --- |
+| `3060` | backend (container `8000`), health check at `/health` |
+| `6969` | trainer app (container `8080`) |
+| `6970` | employee app (container `8080`) |
+| `127.0.0.1:5432` | bundled Postgres, only with `bundled-db` |
+
+The bundled Postgres is bound to `127.0.0.1` only. Inside Docker, the backend reaches it as `postgres:5432`.
+
+Data lives in host folders that survive rebuilds: `/opt/lms/postgres` (bundled DB), `/opt/lms/storage` (uploads and generated media) and `/opt/lms/backups`. **Do not delete them** unless you mean to reset data.
+
+```bash
+docker compose ps
+docker compose logs -f backend
+docker compose stop          # stops without deleting data
+```
+
+Back up (bundled DB):
+
+```bash
+stamp=$(date +%Y%m%d_%H%M%S)
+docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "/opt/lms/backups/lms_${stamp}.sql"
+tar -czf "/opt/lms/backups/storage_${stamp}.tar.gz" -C /opt/lms storage
+```
+
+For company PostgreSQL, use the company backup process, or run `pg_dump "$DATABASE_URL"` from an approved admin host.
+
+**Deploying:** build images from a tested `main` commit, tag them `main-<sha>`, and deploy the backend and trainer images from the same commit. A backend restart interrupts any running course generation, so check that none is running first.
+
+</details>
+
+<details>
+<summary><b>🔧 Environment variables</b></summary>
+
+For Docker, copy the root `.env.example` to `.env`. It is the only committed env template. Direct terminal runs may use a private `backend/.env`.
+
+```text
+APP_ENV  LOG_LEVEL  CORS_ALLOWED_ORIGINS  DATABASE_URL
+LLM_BASE_URL  LLM_API_KEY  LLM_MODEL_NAME
+TTS_ENDPOINT  TTS_VOICE  COURSE_THUMBNAIL_ENDPOINT  COURSE_THUMBNAIL_API_KEY
+GENERATION_MAX_CONCURRENCY  LMS_STORAGE_DIR
+HUB_LAUNCH_SECRET  HUB_TRAINER_APP_KEY  HUB_EMPLOYEE_APP_KEY  HUB_LAUNCH_DEV_MODE
+DIRECTORY_EXPORTS_BASE_URL  DIRECTORY_EXPORTS_API_KEY  DIRECTORY_SYNC_ADMIN_KEY
+DIRECTORY_SYNC_ENABLED  DIRECTORY_SYNC_INTERVAL_HOURS  DIRECTORY_SYNC_TIME  DIRECTORY_SYNC_TIMEZONE
+LANGFUSE_ENABLED  LANGFUSE_BASE_URL  LANGFUSE_HOST  LANGFUSE_PUBLIC_KEY  LANGFUSE_SECRET_KEY
+LANGFUSE_ENVIRONMENT  LANGFUSE_RELEASE  LANGFUSE_CAPTURE_CONTENT
+```
+
+Generated uploads, audio, images, slides and videos live under `/app/storage` in the backend container, which is `/opt/lms/storage` on the VM. Structured data lives in PostgreSQL. SQLite is no longer supported.
+
+Only these media folders are served as static assets: `/assets/audio`, `/assets/brand`, `/assets/images`, `/assets/layouts`, `/assets/slides` and `/assets/videos`. Uploaded documents, prompts, templates and private storage are never exposed.
+
+More detail: [Qwen configuration](docs/qwen-lms-configuration.md) · [Video Generator operations](docs/video-generator-operations.md) · [Caption operations](docs/video-captions-operations.md) · [Shared path routing](docs/shared-path-routing.md)
+
+</details>
+
+<details>
+<summary><b>✉️ Course email notifications</b></summary>
+
+The backend generates and sends all course email. Employee messages are individual. HOD and trainer messages for due-soon, completed and overdue events are combined into authenticated, role-scoped digests. Assignment messages stay individual for the employee and the HOD. The five-day reminder goes to the employee only. Overdue emails stop after five, with a final escalation notice. Journeys send their own assigned and certificate emails.
+
+Set `LMS_EMPLOYEE_PUBLIC_URL` and `LMS_TRAINER_PUBLIC_URL` to the externally reachable URLs, so links open the right app. `LMS_PUBLIC_URL` remains as a fallback. Digest times follow `EMAIL_NOTIFICATION_TIMEZONE` and `EMAIL_DIGEST_SEND_TIME`.
+
+The outbox re-checks every assignment just before delivery. Items that are completed, revoked, unpublished or reassigned are dropped, and an empty digest is cancelled. The **Email status** tab in Performance shows what was sent, failed or skipped, and can resend failed items.
+
+**Safe rollout:** start with `EMAIL_DELIVERY_MODE=log`, check the outbox and the logs, and switch to `smtp` only after SMTP connectivity and recipient data are validated.
+
+SMTP uses verified STARTTLS or implicit TLS by default. An IT-approved plaintext relay on port 25 needs all of `SMTP_ALLOW_INSECURE_RELAY=true`, `SMTP_PORT=25`, `SMTP_USE_STARTTLS=false` and `SMTP_USE_SSL=false`, with an empty `SMTP_USERNAME`/`SMTP_PASSWORD`. A failed TLS handshake never falls back to plaintext.
+
+Accelerated UAT testing is guarded by `EMAIL_TEST_MODE`. Test mode refuses to start without both `EMAIL_RECIPIENT_ALLOWLIST` and `EMAIL_SUBJECT_PREFIX`:
+
+```env
+EMAIL_TEST_MODE=true
+EMAIL_TEST_ASSIGNMENT_REMINDER_MINUTES=5
+EMAIL_TEST_DUE_SOON_WINDOW_MINUTES=7
+EMAIL_TEST_OVERDUE_REPEAT_MINUTES=5
+EMAIL_TEST_DIGEST_DELAY_MINUTES=1
+EMAIL_SUBJECT_PREFIX=[LMS UAT TEST]
+EMAIL_RECIPIENT_ALLOWLIST=first.tester@example.com,second.tester@example.com
+```
+
+Leave `EMAIL_TEST_MODE=false` outside a controlled UAT exercise. See also [SMTP deployment notes](docs/smtp-email-drafts-deployment.md).
+
+</details>
+
+<details>
+<summary><b>🏢 Hub directory sync</b></summary>
+
+Employees come from the Hub directory export API. Department is stored on `employees.department`. Mailing-list filters use `employee_groups.group_cn`, and `group_dn` keeps the full AD distinguished name.
+
+First bootstrap, before users open the app:
+
+```bash
+docker compose exec backend python -m scripts.sync_directory full
+docker compose exec backend python -m scripts.sync_directory incremental --after-id 0
+```
+
+After that, keep `DIRECTORY_SYNC_ENABLED=true`. Incremental sync runs once a day at `DIRECTORY_SYNC_TIME` in `DIRECTORY_SYNC_TIMEZONE` (defaults `09:10`, `Asia/Kolkata`).
+
+Changes are merged by stable Hub identity (`hub_user_id`, `directory_uuid`), not by email. Partial events only update the fields they include. A disabled or missing employee is soft-disabled: courses, assignments, progress and files stay intact.
+
+Manual endpoints are protected by `X-Directory-Sync-Key`:
+
+```bash
+curl -sS -H "X-Directory-Sync-Key: $DIRECTORY_SYNC_ADMIN_KEY" http://127.0.0.1:3060/api/directory/sync/status
+curl -sS -X POST -H "X-Directory-Sync-Key: $DIRECTORY_SYNC_ADMIN_KEY" http://127.0.0.1:3060/api/directory/sync/incremental
+```
+
+Rotate the directory export API key before production if it has ever been shared outside secret storage.
+
+</details>
+
+<details>
+<summary><b>📈 Performance reporting: rules, rollout and local demo</b></summary>
+
+The reporting unit is an **active employee-course assignment**:
+
+- **Completion rate:** completed ÷ active assignments.
+- **Due soon:** incomplete, and due within `EMAIL_DUE_SOON_DAYS`.
+- **Overdue:** incomplete, and past its deadline.
+- **On-time compliance:** completed by the deadline ÷ assignments whose deadline has passed.
+- **Average score:** uses the latest scored result for each attempted module.
+
+The Employees view rolls up all scoped assignments in PostgreSQL before paging. Both CSV exports stream in batches of 100 and protect cells against formula injection. Every endpoint enforces the caller's trainer, HOD or observer scope.
+
+Quiz attempts and video events go into `learning_events` from the reporting upgrade onward. Earlier individual attempts can't be reconstructed.
+
+**On the VM:** deploy the backend and trainer app from the same commit. Never run `scripts.seed_performance_demo` there. Startup adds the reporting tables and columns. If the report is empty, check that the course is published, its rule is active, and its employees have non-revoked assignments.
+
+**Local demo:** use a separate database named `lms_performance_demo` with `HUB_LAUNCH_DEV_MODE=true`:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.seed_performance_demo
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 3061
+```
+
+Then run `LMS_DEV_BACKEND=http://127.0.0.1:3061 pnpm dev:trainer` and sign in as *Performance Demo Trainer*. The seed refuses to run against any other database.
+
+</details>
+
+<details>
+<summary><b>🔭 Langfuse LLM tracing</b></summary>
+
+Tracing is off by default and fails open: if Langfuse is missing or broken, course generation still runs. `LANGFUSE_BASE_URL` is the preferred setting, and `LANGFUSE_HOST` still works.
 
 ```env
 LANGFUSE_ENABLED=true
@@ -758,134 +495,16 @@ LANGFUSE_CAPTURE_MAX_CHARS=12000
 LANGFUSE_TIMEOUT_SECONDS=5
 ```
 
-Keep `LANGFUSE_CAPTURE_CONTENT=false` unless storage of LMS prompts and model
-outputs has been approved. With content capture disabled, traces still include
-course/job identifiers, stage and module metadata, model name, duration,
-finish reason, status, and token usage returned by the LLM gateway.
+Keep `LANGFUSE_CAPTURE_CONTENT=false` unless storing prompts and outputs has been approved. If the LiteLLM gateway already sends calls to Langfuse, don't enable app-side tracing as well, or every request will appear twice.
 
-Before enabling direct app-side tracing, confirm that the configured LiteLLM
-gateway does not already send the same calls to Langfuse. Otherwise each LLM
-request will appear twice. After deployment, generate one UAT course and verify
-that it produces one top-level LMS trace with nested stage spans and one
-generation for each real LLM HTTP attempt.
+</details>
 
-## Course Email Notifications
+<details>
+<summary><b>♻️ Clean production reset</b></summary>
 
-Course email is generated and delivered by the backend. Employee messages are
-individual. HOD and trainer messages for due-soon, completed, and overdue
-events are consolidated into authenticated, role-scoped digests. Assigned
-course messages remain individual for the employee and HOD; the five-day
-reminder is employee-only.
-
-Set `LMS_EMPLOYEE_PUBLIC_URL` and `LMS_TRAINER_PUBLIC_URL` to the externally
-reachable UAT URLs so course and report links open the correct application.
-`LMS_PUBLIC_URL` remains a fallback for older deployments. Digest times use
-`EMAIL_NOTIFICATION_TIMEZONE` and `EMAIL_DIGEST_SEND_TIME`. Due-soon and
-completion digests default to every 24 hours; overdue employee messages and
-HOD/trainer digests default to every 48 hours.
-
-The outbox revalidates every assignment immediately before delivery. Completed,
-revoked, unpublished, reassigned, or otherwise stale items are removed and an
-empty digest is cancelled. On first startup after this migration, unsent legacy
-HOD/trainer individual rows are converted to digest items; sent history is not
-modified.
-
-For safe UAT verification, begin with `EMAIL_DELIVERY_MODE=log`, inspect the
-outbox and backend logs, then switch to `smtp` only after SMTP connectivity and
-recipient data have been validated.
-
-SMTP uses verified STARTTLS or implicit TLS by default. An IT-approved internal
-relay that only supports plaintext port 25 can be enabled explicitly with
-`SMTP_ALLOW_INSECURE_RELAY=true`, `SMTP_PORT=25`, `SMTP_USE_STARTTLS=false`,
-and `SMTP_USE_SSL=false`. Both `SMTP_USERNAME` and `SMTP_PASSWORD` must be empty
-for plaintext delivery; authorization is handled by the relay (for example,
-an approved source IP). This exception exposes email contents on the connection
-to the relay and must be enabled only for the approved internal endpoint.
-Each plaintext send writes a warning to the backend log. A failed TLS handshake
-never falls back to plaintext, even when this setting is enabled.
-
-Accelerated SMTP verification is explicitly guarded by `EMAIL_TEST_MODE`.
-When enabled, assignment reminders, due-soon windows, overdue repeats, and
-digest delivery can be reduced to minutes. Test mode refuses to start unless
-both `EMAIL_RECIPIENT_ALLOWLIST` and `EMAIL_SUBJECT_PREFIX` are configured.
-The allowlist is enforced when notifications are queued and again immediately
-before SMTP delivery, so changing configuration cannot release an older queued
-message to an unintended recipient.
-
-```env
-EMAIL_TEST_MODE=true
-EMAIL_TEST_ASSIGNMENT_REMINDER_MINUTES=5
-EMAIL_TEST_DUE_SOON_WINDOW_MINUTES=7
-EMAIL_TEST_OVERDUE_REPEAT_MINUTES=5
-EMAIL_TEST_DIGEST_DELAY_MINUTES=1
-EMAIL_SUBJECT_PREFIX=[LMS UAT TEST]
-EMAIL_RECIPIENT_ALLOWLIST=first.tester@example.com,second.tester@example.com
-```
-
-Leave `EMAIL_TEST_MODE=false` outside a controlled UAT exercise. The existing
-day/hour settings remain authoritative whenever test mode is disabled.
-
-## Hub Directory Sync
-
-The app imports real employees from the Hub directory export API. Department is
-stored on `employees.department`. Mailing-list assignment filters use
-`employee_groups.group_cn`, parsed from each AD group in the employee's group
-list. `employee_groups.group_dn` keeps the full AD distinguished name for audit
-and future use.
-
-For the first clean production bootstrap, run a full employee import before
-opening the app to users:
+Normal startup only creates missing tables and never deletes rows. To wipe a VM/test deployment (`bundled-db`), **back up first**, then:
 
 ```bash
-docker compose exec backend python -m scripts.sync_directory full
-```
-
-Then drain employee change logs once from `after_id=0` so the incremental cursor
-starts from the current Hub state:
-
-```bash
-docker compose exec backend python -m scripts.sync_directory incremental --after-id 0
-```
-
-After bootstrap, keep `DIRECTORY_SYNC_ENABLED=true` for the backend container.
-The scheduler runs incremental change-log sync once per calendar day at
-`DIRECTORY_SYNC_TIME` in `DIRECTORY_SYNC_TIMEZONE`; production defaults are
-`09:10` and `Asia/Kolkata`. `DIRECTORY_SYNC_INTERVAL_HOURS` is still accepted
-for older env files, but daily scheduling is time-of-day based.
-
-Incremental changes are merged by stable Hub identity (`hub_user_id` and
-`directory_uuid`), not by email or username. Partial change-log events only
-update fields that are present, so omitted group lists do not erase existing
-assignment-group data. When a Hub employee is disabled or disappears from a full
-export, the LMS soft-disables the employee and any existing trainer projection;
-courses, assignment rules, assignment rows, progress, quiz scores, documents,
-and generated files remain intact.
-
-Manual sync endpoints are protected by `X-Directory-Sync-Key`:
-
-```bash
-curl -sS -H "X-Directory-Sync-Key: $DIRECTORY_SYNC_ADMIN_KEY" \
-  http://127.0.0.1:3060/api/directory/sync/status
-
-curl -sS -X POST -H "X-Directory-Sync-Key: $DIRECTORY_SYNC_ADMIN_KEY" \
-  http://127.0.0.1:3060/api/directory/sync/incremental
-```
-
-Rotate the Hub directory export API key before production if it has been shared
-outside secret storage.
-
-## Clean Production Reset
-
-The new schema is a clean PostgreSQL schema. Existing rows and generated files
-are not changed by normal startup, because startup only creates missing tables.
-For VM/test deployments using `COMPOSE_PROFILES=bundled-db`, take a backup and
-then run the reset script once:
-
-```bash
-stamp=$(date +%Y%m%d_%H%M%S)
-docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "/opt/lms/backups/lms_${stamp}.sql"
-tar -czf "/opt/lms/backups/storage_${stamp}.tar.gz" -C /opt/lms storage
-
 docker compose stop backend frontend employee_frontend
 docker compose run --rm backend python -m scripts.recreate_lms_database
 docker compose run --rm backend python -m scripts.sync_directory full
@@ -893,89 +512,48 @@ docker compose run --rm backend python -m scripts.sync_directory incremental --a
 docker compose up -d --build
 ```
 
-This deletes LMS table rows and clears uploaded/generated LMS files, then
-recreates employees from the Hub directory export. It preserves application
-templates and brand assets.
+This deletes LMS rows and uploaded/generated files, then reloads employees from Hub. Templates and brand assets are kept. For company PostgreSQL, coordinate the reset with database operations first.
 
-For on-prem/company PostgreSQL, coordinate database backup/restore or clean
-schema reset through the company database operations process before running the
-LMS reset script against `DATABASE_URL`.
+</details>
 
-## Generation Pipeline
+<details>
+<summary><b>🧱 Remaining production hardening</b></summary>
 
-Course generation is checkpointed and resumable. The main stages are:
+1. Versioned database migrations (today: additive startup migrations in `app/db/`).
+2. Run the API and the generation worker as separate services.
+3. A durable generation queue for multi-process deployments.
+4. Secrets in deployment secret management.
+5. HTTPS through a reverse proxy, and CORS locked to the real frontend URLs.
+6. API, database, provider and worker health checks.
+7. Upload size/type limits and API rate limits.
+8. Structured logs, alerts, backups and queue monitoring.
 
-1. Create course blueprint from the uploaded PDF.
-2. Generate thumbnail, notes, quizzes, and slides.
-3. Compile slide HTML.
-4. Generate narration scripts.
-5. Synthesize slide audio with TTS.
-6. Render module videos with slide renderer screenshots and FFmpeg.
-7. Publish/sync completed course state.
+</details>
 
-Within a course, several stages use controlled parallelism:
+---
 
-```text
-Wave 1: thumbnail, quiz, notes, and slide generation can run in parallel
-TTS: up to 3 slides at a time
-Video: capped module-level parallelism
-```
+## 🆕 Recent changes
 
-The video stage captures generated HTML slides as PNG frames, combines each frame
-with its narration WAV file, and concatenates slide clips into final MP4 module
-videos.
+| Area | What changed | PRs |
+| --- | --- | --- |
+| 🧱 Code structure | Backend grouped by feature under `app/modules/`, the employee app under `features/`, plus an import-rule check | this PR |
+| 🐳 Images | Chromium moved out of the backend image (4.2 GB → 1.6 GB); Hub can launch the apps from the frontend URL | #72, #73 |
+| 📊 Performance | **Email status** tab with resend; search in the observer, journey and picker lists; Outlook button fix | #67, #68, #71 |
+| 🗺️ Learning Journeys | Journeys with observers, step thumbnails, deadline changes, results in Performance, **stamped PDF certificate** and certificate emails | #39, #45, #51, #57–#59, #70 |
+| 🎛️ Video | **Video Engine toggle** per course; external Video Generator integration; Continue after an engine switch; empty slide plans retried | #41, #61–#63, #65 |
+| 💬 Captions & narration | Captions timed from narration; caption file permissions; volume kept across modules; AML/SEBI/FIU-IND pronunciation; narration of images from Word alt text | #42–#44, #66, #69 |
+| 🧭 Blueprint | Module split and titles taken from the document's own "Module" labels | #40, #64 |
+| 🤖 Models | Qwen used throughout, including Qwen Image thumbnails | #38, #54, #56 |
+| ✉️ Emails | Overdue emails capped at five, with a final escalation | #49 |
+| 🏷️ Branding | Product shown as **PhillipAcademy** | #60 |
+| 🧑‍💻 Learner UX | Video controls auto-hide; employee Performance page scrolls; delete with Enter | #47, #48, #52 |
+| ⚙️ Defaults | New Documents page and Learning Journeys on by default | #55 |
+| 🔒 Security | Pillow 13 and certifi upgrades in the backend image | #53 |
 
-## Static Assets
+---
 
-Only selected generated/public asset folders are mounted by the backend:
+<div align="center">
 
-```text
-/assets/audio
-/assets/brand
-/assets/images
-/assets/layouts
-/assets/slides
-/assets/videos
-```
+📚 **More docs:** [Architecture guide](docs/ARCHITECTURE.md) · [Video Generator](docs/video-generator-operations.md) · [Captions](docs/video-captions-operations.md) · [Admin trainer access](docs/admin-trainer-access-operations.md) · [Qwen setup](docs/qwen-lms-configuration.md)
 
-Uploaded PDFs, prompts, templates, private storage files, and non-mounted
-directories are not exposed as static assets.
-
-## Current Production Notes
-
-Remaining hardening items after the VM Docker rollout:
-
-1. Add versioned database migrations.
-2. Run API and generation worker as separate services.
-3. Make the global generation queue durable across multi-process deployments.
-4. Store secrets in deployment secret management.
-5. Serve HTTPS through a reverse proxy.
-6. Lock CORS to real frontend URLs.
-7. Add API, database, provider, and worker health checks.
-8. Add upload size/type limits and API rate limits.
-9. Add structured logs, alerts, backups, and queue/stage monitoring.
-
-## Branch Deployment Note
-
-As of the latest remote check, `origin/main` and `origin/feat/docker` point to
-the same commit. Finish and test changes on `main`, then fast-forward
-`feat/docker` to the exact tested commit for deployment. Do not merge a stale
-local `feat/docker` branch into this app.
-
-## Verification
-
-Basic backend checks:
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe -m scripts.run_pipeline --help
-.\.venv\Scripts\python.exe -m ruff check app scripts
-```
-
-Frontend checks:
-
-```bash
-pnpm typecheck
-pnpm lint
-pnpm test
-```
+</div>
