@@ -17,7 +17,7 @@ from app.modules.assignments.schemas import AssignmentRuleRequest, SavedAssignme
 from app.modules.courses.access import course_is_publishable
 from app.modules.courses.repository import CourseRepository, update_course_status
 from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.progress import ProgressRepository
+from app.modules.learning.progress_repository import ProgressRepository
 
 _assignments = AssignmentRepository()
 _courses = CourseRepository()
@@ -110,7 +110,7 @@ def reconcile_assignments_for_employee(employee_id: str, *, notify: bool = False
         journey_wanted_courses,
         journeys_enabled,
     )
-    from app.services.notifications import schedule_employee_broadcast
+    from app.modules.learning.notifications import schedule_employee_broadcast
 
     employee = _employees.get(employee_id)
     existing = _progress.get_for_employee(employee_id)
@@ -271,7 +271,7 @@ def ensure_assignments_for_employee(employee_id: str) -> bool:
 
 
 def assign_published_courses_to_employees(published_courses=None) -> None:
-    from app.services.notifications import schedule_employee_broadcast
+    from app.modules.learning.notifications import schedule_employee_broadcast
 
     for employee in _employees.list():
         if ensure_assignments_for_employee(employee["employee_id"]):
@@ -296,7 +296,7 @@ def assign_published_course_to_matching_employees(
     reset_assignment_dates: bool = False,
     deadline_changed: bool = False,
 ) -> dict[str, int]:
-    from app.services.notifications import schedule_employee_broadcast
+    from app.modules.learning.notifications import schedule_employee_broadcast
 
     now = datetime.now()
     rule = _assignments.get(course_id)
@@ -543,8 +543,8 @@ def api_disable_course_assignment(course_id: str, trainer_id: str):
         disable=True,
         disabled_by_trainer_id=trainer_id,
     )
+    from app.modules.learning.notifications import schedule_employee_broadcast
     from app.modules.observers.repository import suspend_course
-    from app.services.notifications import schedule_employee_broadcast
 
     suspend_course(course_id, trainer_id)
     from app.modules.courses.lifecycle import record_action

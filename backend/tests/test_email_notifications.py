@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from app.core.settings import Settings
-from app.repositories.progress import _notification_transition
+from app.modules.learning.progress_repository import _notification_transition
 from app.services import email_notifications
 from app.services.email_templates import (
     completion_timing,

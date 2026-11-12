@@ -14,9 +14,9 @@ from app.modules.assignments import service as assignments
 from app.modules.assignments.conflicts import EmployeeObserverConflict
 from app.modules.assignments.repository import get_assignment_rule, save_assignment_rule
 from app.modules.assignments.schemas import AssignmentRuleRequest
+from app.modules.learning.progress_repository import save_employee_course_progress
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
-from app.repositories.progress import save_employee_course_progress
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"
@@ -330,7 +330,7 @@ def test_completed_employee_access_is_removed_but_learning_is_preserved(workspac
         AssignmentRuleRequest(include_all=False, include_groups=[{"employee_ids": ["a", "b"]}]),
         "creator",
     )
-    from app.repositories.progress import get_employee_course_progress
+    from app.modules.learning.progress_repository import get_employee_course_progress
 
     progress = get_employee_course_progress("a", "course")
     progress["status"] = "completed"
@@ -364,7 +364,7 @@ def test_relative_deadline_draft_does_not_change_automatic_enrolment(workspace_d
     assert assignments.reconcile_assignments_for_employee("observer")["assigned"] == 1
     from datetime import datetime, timedelta
 
-    from app.repositories.progress import get_employee_course_progress
+    from app.modules.learning.progress_repository import get_employee_course_progress
 
     progress = get_employee_course_progress("observer", "course")
     assert datetime.fromisoformat(progress["deadline"]) - datetime.fromisoformat(

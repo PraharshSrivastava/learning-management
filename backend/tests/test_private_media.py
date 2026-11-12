@@ -7,9 +7,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.api import media
 from app.core.exceptions import AuthenticationError, NotFoundError, install_exception_handlers
-from app.services import media_access
+from app.modules.learning import media_access
+from app.modules.learning import media_api as media
 
 
 def request(ticket=None):

@@ -20,11 +20,14 @@ from app.modules.courses.repository import (
     get_course,
     list_course_summaries_for_trainer,
 )
+from app.modules.learning import service as learning
+from app.modules.learning.progress_repository import (
+    get_employee_course_progress,
+    save_employee_course_progress,
+)
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
 from app.repositories import performance_reporting
-from app.repositories.progress import get_employee_course_progress, save_employee_course_progress
-from app.services import learning
 from app.services import performance_reporting as reports
 
 pytestmark = pytest.mark.skipif(

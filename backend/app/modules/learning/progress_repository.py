@@ -9,7 +9,7 @@ from datetime import datetime
 from psycopg.types.json import Jsonb
 
 from app.db.database import get_connection
-from app.schemas.progress import EmployeeCourseProgressRecord
+from app.modules.learning.progress_schemas import EmployeeCourseProgressRecord
 
 
 def _loads(value: str | None, default):

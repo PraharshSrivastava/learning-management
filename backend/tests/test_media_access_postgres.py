@@ -8,9 +8,9 @@ from test_observer_reporting_postgres import report_db as report_db
 
 from app.core.exceptions import NotFoundError
 from app.modules.access import repository as lms_access
+from app.modules.learning import media_access
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
-from app.services import media_access
 
 pytestmark = pytest.mark.skipif(os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated demo opt-in")
 
@@ -52,7 +52,7 @@ def test_observer_report_grant_does_not_grant_playback_or_documents(report_db, m
     observers.apply_config("course-1", "t-1", 1)
     employee = dict(report_db.execute("SELECT * FROM employees WHERE employee_id='observer'").fetchone())
     principal = media_access.MediaPrincipal("employee", employee)
-    from app.services import learning
+    from app.modules.learning import service as learning
 
     def no_assignment(*args):
         raise NotFoundError("Course not assigned to employee")

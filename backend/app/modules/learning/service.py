@@ -22,15 +22,15 @@ from app.modules.journeys.service import (
     journeys_enabled,
     learner_course_journeys,
 )
-from app.repositories.progress import ProgressRepository
-from app.schemas.progress import (
+from app.modules.learning.notifications import (
+    broadcast_employee_courses,
+    websocket_endpoint,
+)
+from app.modules.learning.progress_repository import ProgressRepository
+from app.modules.learning.progress_schemas import (
     CourseStatusUpdateRequest,
     CourseStatusUpdateResponse,
     ModuleProgressUpdateRequest,
-)
-from app.services.notifications import (
-    broadcast_employee_courses,
-    websocket_endpoint,
 )
 
 _assignments = AssignmentRepository()

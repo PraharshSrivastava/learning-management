@@ -8,8 +8,9 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 from test_hub_launch import _verifier
 
+from app.modules.learning import notifications
+from app.modules.learning import service as learning
 from app.security.hub_launch import HubSession
-from app.services import learning, notifications
 
 
 @pytest.fixture

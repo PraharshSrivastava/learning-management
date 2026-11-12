@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.generation import generation_jobs
-from app.api.media import PrivateCourseStaticFiles
 from app.api.router import api_router
 from app.core.exceptions import install_exception_handlers
 from app.core.logging import configure_logging
@@ -25,6 +24,7 @@ from app.modules.directory.scheduler import (
     start_directory_sync_scheduler,
     stop_directory_sync_scheduler,
 )
+from app.modules.learning.media_api import PrivateCourseStaticFiles
 from app.security.hub_launch import HubLaunchMiddleware
 from app.services.email_notifications import (
     start_email_notification_scheduler,

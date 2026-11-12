@@ -11,7 +11,7 @@ from app.modules.assignments.repository import AssignmentRepository
 from app.modules.courses.access import course_title, parse_datetime
 from app.modules.courses.repository import CourseRepository
 from app.modules.directory.employees_repository import EmployeeRepository
-from app.repositories.progress import ProgressRepository
+from app.modules.learning.progress_repository import ProgressRepository
 
 _courses = CourseRepository()
 _employees = EmployeeRepository()

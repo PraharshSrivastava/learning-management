@@ -6,7 +6,7 @@ from pydantic import Field
 
 from app.core.schemas import ApiSchema, MessageResponse
 from app.modules.courses.schemas import ModuleResponse
-from app.schemas.progress import ModuleProgressRecord, QuizAttemptRecord
+from app.modules.learning.progress_schemas import ModuleProgressRecord, QuizAttemptRecord
 
 
 class LearnerCourseResponse(ApiSchema):

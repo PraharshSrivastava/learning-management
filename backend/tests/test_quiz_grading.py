@@ -7,9 +7,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.exceptions import DomainValidationError
-from app.schemas.progress import CourseStatusUpdateRequest, ModuleProgressUpdateRequest
-from app.services import learning
-from app.services.learning import QUIZ_PASS_MARK, _grade_quiz, _learner_modules
+from app.modules.learning import service as learning
+from app.modules.learning.progress_schemas import (
+    CourseStatusUpdateRequest,
+    ModuleProgressUpdateRequest,
+)
+from app.modules.learning.service import QUIZ_PASS_MARK, _grade_quiz, _learner_modules
 
 
 @pytest.fixture(autouse=True)

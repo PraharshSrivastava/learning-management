@@ -19,8 +19,8 @@ from app.modules.courses.artifacts import delete_course_artifacts
 from app.modules.courses.quiz_schemas import ManualQuizRequest
 from app.modules.courses.repository import CourseRepository
 from app.modules.courses.schemas import CourseUpdateRequest
+from app.modules.learning.notifications import schedule_employee_broadcast
 from app.services.generation_queue import generation_queue
-from app.services.notifications import schedule_employee_broadcast
 
 logger = logging.getLogger(__name__)
 

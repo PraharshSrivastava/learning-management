@@ -40,7 +40,7 @@ from app.modules.journeys.state import (
     journey_status,
     prerequisite_met,
 )
-from app.repositories.progress import ProgressRepository
+from app.modules.learning.progress_repository import ProgressRepository
 
 logger = logging.getLogger(__name__)
 _journeys = JourneyRepository()
@@ -710,7 +710,7 @@ def _apply_new_deadline(journey_id: str, rule: dict, now: datetime) -> None:
     new deadline when the journey opens. Each course the journey has opened follows, unless
     its deadline came from somewhere else (it no longer matches the old journey deadline).
     """
-    from app.services.notifications import schedule_employee_broadcast
+    from app.modules.learning.notifications import schedule_employee_broadcast
 
     deadline = resolve_deadline(rule, now)
     for assignment in _journeys.assignments_for_journey(journey_id):

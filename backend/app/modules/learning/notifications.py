@@ -18,7 +18,7 @@ _active_websockets: dict[str, list[WebSocket]] = {}
 
 
 async def broadcast_employee_courses(employee_id: str) -> None:
-    from app.services.learning import get_enriched_employee_courses
+    from app.modules.learning.service import get_enriched_employee_courses
 
     sockets = _active_websockets.get(employee_id, [])
     if not sockets:
@@ -60,7 +60,7 @@ def schedule_employee_broadcast(employee_id: str) -> None:
 
 async def websocket_endpoint(websocket: WebSocket, token: str = "") -> None:
     """Authenticate employee WebSockets with Hub cookies or explicit local dev sessions."""
-    from app.services.learning import get_enriched_employee_courses
+    from app.modules.learning.service import get_enriched_employee_courses
 
     if hub_launch_verifier.config.hub_launch_dev_mode:
         try:

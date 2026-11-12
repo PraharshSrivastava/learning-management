@@ -2,13 +2,13 @@
 
 from fastapi import APIRouter, Header, Request
 
-from app.schemas.learning import LearnerCourseResponse, ModuleProgressUpdateResponse
-from app.schemas.progress import (
+from app.modules.learning import service as learning
+from app.modules.learning.progress_schemas import (
     CourseStatusUpdateRequest,
     CourseStatusUpdateResponse,
     ModuleProgressUpdateRequest,
 )
-from app.services import learning
+from app.modules.learning.schemas import LearnerCourseResponse, ModuleProgressUpdateResponse
 
 router = APIRouter(prefix="/api", tags=["learning"])
 

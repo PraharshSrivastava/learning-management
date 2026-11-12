@@ -10,14 +10,14 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 
 from app.core.exceptions import NotFoundError
-from app.security.hub_launch import HubApp
-from app.services.media_access import (
+from app.modules.learning.media_access import (
     asset_courses,
     authorize_course_media,
     issue_media_ticket,
     journey_thumbnail_visible,
     media_principal,
 )
+from app.security.hub_launch import HubApp
 
 router = APIRouter(prefix="/api", tags=["media"])
 

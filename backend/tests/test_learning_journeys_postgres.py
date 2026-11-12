@@ -32,11 +32,12 @@ from app.modules.journeys.schemas import (
     JourneyObserversRequest,
     JourneySaveRequest,
 )
+from app.modules.learning import service as learning
+from app.modules.learning.progress_repository import ProgressRepository
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
 from app.repositories import performance_reporting
-from app.repositories.progress import ProgressRepository
-from app.services import email_notifications, learning
+from app.services import email_notifications
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"
@@ -1036,7 +1037,7 @@ def test_a_learner_is_shown_completed_only_once_the_journey_was_completed(journe
 
 def test_learners_see_the_cover_image_of_every_course_in_their_journey(journey_db, monkeypatch):
     from app.modules.directory.employees_repository import EmployeeRepository
-    from app.services.media_access import MediaPrincipal, journey_thumbnail_visible
+    from app.modules.learning.media_access import MediaPrincipal, journey_thumbnail_visible
 
     with database.get_connection() as db:
         for course_id in ("c1", "c2"):

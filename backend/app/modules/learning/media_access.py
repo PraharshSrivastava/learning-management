@@ -102,7 +102,7 @@ def authorize_course_media(principal, course_ids):
         # HOD/Observer scopes do not confer playback or source-file access.
         from datetime import datetime
 
-        from app.services.learning import _assigned_progress_for_employee
+        from app.modules.learning.service import _assigned_progress_for_employee
         for course_id in course_ids:
             try:
                 _assigned_progress_for_employee(principal.employee, course_id, datetime.now())
