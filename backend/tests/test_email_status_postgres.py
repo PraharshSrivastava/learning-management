@@ -16,10 +16,10 @@ from app.core.settings import settings
 from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
 from app.modules.access.reporting_scope import TrainerPerformanceScope
+from app.modules.emails import notifications as outbox
+from app.modules.emails import status as email_status
 from app.modules.learning.progress_repository import ProgressRepository
 from app.modules.reporting import repository as performance_reporting
-from app.services import email_notifications as outbox
-from app.services import email_status
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"

@@ -13,8 +13,8 @@ from fastapi.responses import Response
 from app.core.schemas import RequestSchema
 from app.modules.access.report_access import current_report_scope
 from app.modules.auth.service import current_trainer_from_request
-from app.schemas.email_status import EmailResendResult, EmailStatusReport
-from app.services import email_status as reports
+from app.modules.emails import status as reports
+from app.modules.emails.status_schemas import EmailResendResult, EmailStatusReport
 
 router = APIRouter(prefix="/api/trainer/performance/emails", tags=["email-status"])
 

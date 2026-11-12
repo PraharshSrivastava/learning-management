@@ -24,6 +24,7 @@ from app.modules.assignments.repository import (
 from app.modules.assignments.schemas import AssignmentRuleRequest
 from app.modules.courses.repository import delete_course_for_trainer
 from app.modules.directory.employees_repository import list_employees
+from app.modules.emails import notifications as email_notifications
 from app.modules.journeys import reporting as journey_reporting
 from app.modules.journeys import service as journeys
 from app.modules.journeys.repository import create_journey_tables
@@ -37,7 +38,6 @@ from app.modules.learning.progress_repository import ProgressRepository
 from app.modules.observers import repository as observers
 from app.modules.observers.schemas import ObserverSaveRequest
 from app.modules.reporting import repository as performance_reporting
-from app.services import email_notifications
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"
@@ -864,7 +864,7 @@ def test_a_long_course_list_moves_to_a_course_record_page():
 
 
 def test_course_emails_name_the_journey_and_step(journey_db):
-    from app.services.email_templates import render_individual
+    from app.modules.emails.templates import render_individual
 
     journey_id = make_journey("Markets Foundation", SEQUENCE)
     journeys.api_publish_journey(journey_id, "creator")

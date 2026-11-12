@@ -16,13 +16,13 @@ from zoneinfo import ZoneInfo
 
 from app.core.settings import is_single_mailbox, settings
 from app.db.database import advisory_lock, get_connection
-from app.modules.journeys.certificates import certificate_number, learner_certificate
-from app.services.email_templates import (
+from app.modules.emails.templates import (
     render_digest,
     render_individual,
     render_journey_assigned,
     render_journey_completed,
 )
+from app.modules.journeys.certificates import certificate_number, learner_certificate
 
 logger = logging.getLogger(__name__)
 _task: asyncio.Task | None = None

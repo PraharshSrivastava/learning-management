@@ -237,7 +237,7 @@ def _evaluate(
 
 def email_journeys_assigned(journey_assignment_ids: list[str]) -> None:
     """Queue the assigned email for journeys that just opened, once their courses exist."""
-    from app.services.email_notifications import enqueue_journey_assigned
+    from app.modules.emails.notifications import enqueue_journey_assigned
 
     for journey_assignment_id in journey_assignment_ids:
         try:
@@ -263,7 +263,7 @@ def _issue_certificate(assignment: dict, journey: dict) -> None:
 
 def _email_journey_completed(assignment: dict) -> None:
     """Queue the certificate email; a mail problem never undoes the learner's completion."""
-    from app.services.email_notifications import enqueue_journey_completed
+    from app.modules.emails.notifications import enqueue_journey_completed
 
     try:
         enqueue_journey_completed(assignment["journey_assignment_id"])

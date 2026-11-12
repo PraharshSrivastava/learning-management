@@ -8,8 +8,9 @@ import pytest
 
 from app.core.exceptions import AuthorizationError
 from app.modules.access.reporting_scope import EmployeePerformanceScope
-from app.services import email_notifications, email_status
-from app.services.email_status import LABELS, derive_email_state
+from app.modules.emails import notifications as email_notifications
+from app.modules.emails import status as email_status
+from app.modules.emails.status import LABELS, derive_email_state
 
 NOW = datetime(2026, 11, 11, 10, 42)
 

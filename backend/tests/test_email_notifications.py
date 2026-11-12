@@ -5,15 +5,15 @@ from datetime import datetime, timedelta
 import pytest
 
 from app.core.settings import Settings
-from app.modules.learning.progress_repository import _notification_transition
-from app.services import email_notifications
-from app.services.email_templates import (
+from app.modules.emails import notifications as email_notifications
+from app.modules.emails.templates import (
     completion_timing,
     render_digest,
     render_individual,
     render_journey_assigned,
     render_journey_completed,
 )
+from app.modules.learning.progress_repository import _notification_transition
 
 
 def _production_settings(**overrides):

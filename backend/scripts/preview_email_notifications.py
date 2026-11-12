@@ -19,7 +19,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.core.settings import settings  # noqa: E402
-from app.services.email_templates import render_digest, render_individual  # noqa: E402
+from app.modules.emails.templates import render_digest, render_individual  # noqa: E402
 
 
 def _iso(value: datetime) -> str:

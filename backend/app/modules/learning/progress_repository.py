@@ -307,7 +307,7 @@ def save_employee_course_progress(employee_id: str, course_id: str, data: dict) 
                     "INSERT INTO learning_events (event_id, assignment_id, module_id, event_type, occurred_at, score, passed) VALUES (?, ?, ?, 'quiz_attempt', ?, ?, ?)",
                     (str(uuid.uuid4()), assignment_id, module_id, attempt.get("last_attempt_at") or now, attempt.get("last_score"), attempt.get("last_passed")),
                 )
-        from app.services.email_notifications import (
+        from app.modules.emails.notifications import (
             cancel_assignment_notifications,
             enqueue_assignment_notifications,
         )

@@ -24,12 +24,12 @@ from app.modules.directory.scheduler import (
     start_directory_sync_scheduler,
     stop_directory_sync_scheduler,
 )
-from app.modules.learning.media_api import PrivateCourseStaticFiles
-from app.security.hub_launch import HubLaunchMiddleware
-from app.services.email_notifications import (
+from app.modules.emails.notifications import (
     start_email_notification_scheduler,
     stop_email_notification_scheduler,
 )
+from app.modules.learning.media_api import PrivateCourseStaticFiles
+from app.security.hub_launch import HubLaunchMiddleware
 from app.services.generation_queue import generation_queue
 
 # Slim images ship without /etc/mime.types, so Starlette would serve WebP

@@ -20,8 +20,8 @@ from app.db.database import get_connection
 from app.modules.access.course_authorization import is_admin_trainer
 from app.modules.access.reporting_scope import TrainerPerformanceScope
 from app.modules.courses import repository as courses
-from app.repositories import email_status as repository
-from app.services import email_notifications as outbox
+from app.modules.emails import notifications as outbox
+from app.modules.emails import status_repository as repository
 
 LABELS = {
     "accepted": "Sent to mail server",

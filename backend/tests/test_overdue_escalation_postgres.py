@@ -10,7 +10,7 @@ import pytest
 from app.core.settings import settings
 from app.db import database, schema
 from app.db.migrations.access import apply_access_migrations
-from app.services import email_notifications
+from app.modules.emails import notifications as email_notifications
 
 pytestmark = pytest.mark.skipif(
     os.getenv("LMS_ACCESS_POSTGRES_TESTS") != "true", reason="isolated PostgreSQL opt-in"

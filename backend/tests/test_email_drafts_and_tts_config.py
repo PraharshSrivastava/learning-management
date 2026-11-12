@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import pytest
 
 from app.core.settings import Settings
-from app.services import email_notifications as notifications
-from app.services.email_templates import render_digest, render_individual
+from app.modules.emails import notifications
+from app.modules.emails.templates import render_digest, render_individual
 
 
 @pytest.mark.parametrize("event", ["assigned", "due_soon", "completed", "overdue"])
