@@ -122,6 +122,7 @@ class GenerationService:
                 course_id,
                 backend_dir=self.config.backend_dir,
                 restart_from_blueprint=True,
+                trainer_id=trainer_id,
             )
         except ValueError as exc:
             raise ConflictError(str(exc)) from exc
@@ -139,6 +140,7 @@ class GenerationService:
                 backend_dir=self.config.backend_dir,
                 restart_from_blueprint=False,
                 module_video=module_number,
+                trainer_id=trainer_id,
             )
         except ValueError as exc:
             raise ConflictError(str(exc)) from exc
@@ -162,6 +164,7 @@ class GenerationService:
                 course_id,
                 backend_dir=self.config.backend_dir,
                 restart_from_blueprint=False,
+                trainer_id=trainer_id,
             )
         except ValueError as exc:
             raise ConflictError(str(exc)) from exc

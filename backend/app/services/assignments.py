@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from app.core.analytics import capture_event
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository, update_course_status
@@ -519,6 +520,16 @@ def api_publish_course_assignment(
     )
     changes = assign_published_course_to_matching_employees(
         course_id, deadline_changed=deadline_changed
+    )
+    capture_event(
+        trainer_id,
+        "course_assignments_published",
+        {
+            "course_id": course_id,
+            "assigned": changes["assigned"],
+            "removed": changes["removed"],
+            "reactivated": changes["reactivated"],
+        },
     )
     response = _assignment_response(rule)
     response.update(

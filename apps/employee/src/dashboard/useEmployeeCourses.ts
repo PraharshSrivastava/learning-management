@@ -1,3 +1,4 @@
+import { captureEvent } from '@lms/shared/analytics/posthog'
 import { apiGet, apiRequest, errorMessage, websocketUrl } from '@lms/shared/api/client'
 import { useSession } from '@lms/shared/auth/session'
 import {
@@ -125,6 +126,7 @@ export function useModuleProgress() {
           method: 'PUT',
           json: videoWatchedToJson(),
         })
+        captureEvent('module_video_watched', { course_id: courseId, module_number: moduleNumber })
       } catch (error) {
         // Callers only save an unwatched video, so the cache goes back to unwatched. The quiz
         // submit then sends the save again.

@@ -1,5 +1,6 @@
 // Trainer Journeys tab: build a Learning Journey from existing courses, choose who gets it,
 // publish it and follow progress. Laid out like the Assign desk and reusing its controls.
+import { captureEvent } from '@lms/shared/analytics/posthog'
 import { errorMessage } from '@lms/shared/api/client'
 import { matchesWords } from '@lms/shared/performance/format'
 import { useSession } from '@lms/shared/auth/session'
@@ -477,6 +478,7 @@ function JourneyEditor({
     run('publish', async () => {
       await persist()
       const { detail, newlyAssigned } = await publishJourney(journeyId)
+      captureEvent('journey_published', { journey_id: journeyId, newly_assigned: newlyAssigned })
       adopt(detail)
       reloadObservers()
       await refresh()

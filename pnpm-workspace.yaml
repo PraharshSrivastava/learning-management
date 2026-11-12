@@ -2,6 +2,10 @@ packages:
   - apps/*
   - packages/*
 
+# posthog-js pulls in core-js; its install script only prints a banner.
+allowBuilds:
+  core-js: false
+
 # Supply-chain hardening: refuse package versions published less than 14 days ago (minutes).
 # pnpm 11 reads this here; .npmrc keeps the same value for older pnpm versions.
 minimumReleaseAge: 20160

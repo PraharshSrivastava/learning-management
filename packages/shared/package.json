@@ -20,6 +20,7 @@
     "@tanstack/react-router": "^1.170.41",
     "clsx": "^2.1.1",
     "hls.js": "^1.7.3",
+    "posthog-js": "^1.441.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^4.6.5"

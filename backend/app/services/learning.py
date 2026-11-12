@@ -7,6 +7,7 @@ from datetime import datetime
 
 from fastapi import Request
 
+from app.core.analytics import capture_event
 from app.core.exceptions import DomainValidationError, NotFoundError
 from app.repositories.assignments import AssignmentRepository
 from app.repositories.courses import CourseRepository
@@ -295,6 +296,7 @@ async def update_course_status(
             course_progress["completed_at"] = now
         _progress.save(employee_id, course_id, course_progress)
     if payload.status == "completed" and not was_completed:
+        capture_event(employee_id, "course_completed", {"course_id": course_id})
         _unlock_next_journey_steps(employee_id)
     await broadcast_employee_courses(employee_id)
     return CourseStatusUpdateResponse(message="Status updated", status=payload.status)
@@ -408,7 +410,22 @@ async def update_module_progress(
                 course_progress["completed_at"] = now
 
         _progress.save(employee_id, course_id, course_progress)
+    if grading_result is not None:
+        capture_event(
+            employee_id,
+            "quiz_graded",
+            {
+                "course_id": course_id,
+                "module_number": module_number,
+                "passed": grading_result["quiz_passed"],
+                "score": grading_result["quiz_score"],
+                "correct_count": grading_result["correct_count"],
+                "total_questions": grading_result["total_questions"],
+                "attempt_count": course_progress["attempts"][module_number]["count"],
+            },
+        )
     if course_progress.get("status") == "completed" and not was_completed:
+        capture_event(employee_id, "course_completed", {"course_id": course_id})
         _unlock_next_journey_steps(employee_id)
     await broadcast_employee_courses(employee_id)
     response = {"message": "Module progress updated"}

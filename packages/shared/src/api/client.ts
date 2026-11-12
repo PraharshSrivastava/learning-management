@@ -1,3 +1,4 @@
+import { analyticsHeaders } from '../analytics/posthog'
 import { LmsRuntimeUrls } from './runtimeUrls'
 
 export type LmsApp = 'trainer' | 'employee'
@@ -87,6 +88,7 @@ export function authHeaders(): Record<string, string> {
   return {
     'X-LMS-App': config.app,
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    ...analyticsHeaders(),
   }
 }
 

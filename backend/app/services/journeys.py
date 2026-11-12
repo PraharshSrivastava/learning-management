@@ -11,6 +11,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from app.core.analytics import capture_event
 from app.core.exceptions import ConflictError, DomainValidationError, NotFoundError
 from app.core.settings import settings
 from app.repositories.assignments import (
@@ -220,6 +221,7 @@ def _evaluate(
             if assignment.get("completed_at") and not stored.get("completed_at"):
                 _issue_certificate(assignment, journey)
                 _email_journey_completed(assignment)
+                capture_event(employee_id, "journey_completed", {"journey_id": journey["journey_id"]})
             elif (
                 newly_available is not None
                 and assignment.get("available_at")

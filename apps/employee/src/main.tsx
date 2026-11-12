@@ -1,4 +1,5 @@
 import '@lms/shared/theme.css'
+import { startAnalytics } from '@lms/shared/analytics/posthog'
 import { configureApi, runtimeUrls } from '@lms/shared/api/client'
 import { createQueryClient } from '@lms/shared/api/queryClient'
 import { removeLegacyServiceWorker } from '@lms/shared/app/legacyServiceWorker'
@@ -58,4 +59,11 @@ if (!launching) {
       </QueryClientProvider>
     </StrictMode>,
   )
+  // Without a token at build time, the PostHog SDK is left out of the build.
+  if (import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN)
+    startAnalytics({
+      app: 'employee',
+      token: import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN,
+      host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+    })
 }

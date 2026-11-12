@@ -1,3 +1,4 @@
+import { captureEvent } from '@lms/shared/analytics/posthog'
 import { ApiError, apiRequest, errorDetail, errorMessage } from '@lms/shared/api/client'
 import { parseCourse } from '@lms/shared/models'
 import { useToast } from '@lms/shared/ui/Toast'
@@ -46,6 +47,7 @@ export function useGenerateCourse() {
         await queryClient.cancelQueries({ queryKey: trainerKeys.courses })
         await refreshCourses()
         storeCourse(course)
+        captureEvent('course_outline_created', { course_id: course.courseId })
         updateSearch({ course: course.courseId }, { replace: true })
       } catch (error) {
         // Flutter stored the error but never showed it. A toast tells the user why nothing opened.

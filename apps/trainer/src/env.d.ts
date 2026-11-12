@@ -5,4 +5,7 @@ declare const __LMS_PUBLIC_MOUNT__: string
 interface ImportMetaEnv {
   /** Optional API base. Relative values resolve inside the public mount. */
   readonly VITE_API_BASE_URL?: string
+  /** PostHog project token. Empty or unset: PostHog is not loaded. */
+  readonly VITE_PUBLIC_POSTHOG_TOKEN?: string
+  readonly VITE_PUBLIC_POSTHOG_HOST?: string
 }

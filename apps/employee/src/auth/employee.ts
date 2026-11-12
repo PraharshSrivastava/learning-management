@@ -1,3 +1,4 @@
+import type { AnalyticsPerson } from '@lms/shared/auth/session'
 import { z } from 'zod'
 
 const text = (fallback: string) =>
@@ -24,6 +25,16 @@ const employeeSchema = z
 export type Employee = z.output<typeof employeeSchema>
 
 export const parseEmployee = (json: unknown): Employee => employeeSchema.parse(json ?? {})
+
+export const employeeAnalytics = (employee: Employee): AnalyticsPerson => ({
+  id: employee.employeeId,
+  traits: {
+    role: 'employee',
+    department: employee.department,
+    job_title: employee.jobTitle,
+    status: employee.status,
+  },
+})
 
 export function initials(name: string): string {
   return name

@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import logging
 import time
+from contextvars import ContextVar
 from uuid import uuid4
 
 from fastapi import Request, Response
 
 logger = logging.getLogger("app.http")
 
+# PostHog session id the frontend sends, so server events join the browser session replay.
+posthog_session_id: ContextVar[str | None] = ContextVar("posthog_session_id", default=None)
+
 
 async def request_context_middleware(request: Request, call_next) -> Response:
     request_id = request.headers.get("X-Request-ID") or str(uuid4())
     request.state.request_id = request_id
+    posthog_session_id.set(request.headers.get("X-POSTHOG-SESSION-ID") or None)
     started = time.perf_counter()
     try:
         response = await call_next(request)
