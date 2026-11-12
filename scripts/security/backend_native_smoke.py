@@ -118,9 +118,9 @@ with tempfile.TemporaryDirectory(prefix='lms-sbom-smoke-') as temp:
     from docx import Document
     from pptx import Presentation
     from pptx.util import Inches
-    from app.documents.conversion import convert_office_to_pdf
-    from app.generation.video import generate_hls_playlist
-    from app.generation import tts
+    from app.modules.documents.extraction.conversion import convert_office_to_pdf
+    from app.modules.generation.pipeline.video import generate_hls_playlist
+    from app.modules.generation.pipeline import tts
     document = Document()
     document.add_paragraph('Synthetic LMS DOCX conversion')
     document.add_picture(str(screenshot), width=Inches(4))
@@ -159,7 +159,7 @@ for module in pathlib.Path('/usr/local/lib/python3.12/lib-dynload').glob('*.so')
     linked = subprocess.run(['ldd', str(module)], capture_output=True, text=True, check=False)
     assert 'not found' not in linked.stdout + linked.stderr, (str(module), linked.stdout)
 print('PASS: every CPython native extension has resolved runtime libraries')
-from app.generation.video import encode_slide_clip, concatenate_clips
+from app.modules.generation.pipeline.video import encode_slide_clip, concatenate_clips
 with tempfile.TemporaryDirectory(prefix='lms-real-media-') as tmp:
     root = pathlib.Path(tmp)
     frames = []

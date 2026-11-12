@@ -2,7 +2,7 @@ import { parseEmployeeCourse, type EmployeeCourse } from '@lms/shared/models'
 
 /**
  * A learner quiz question as the backend sends it. The correct answer and the explanation are
- * only sent after the employee passed the quiz (backend/app/services/learning.py).
+ * only sent after the employee passed the quiz (backend/app/modules/learning/service.py).
  */
 export const quizQuestion = (text: string, correct = 'A', revealed = false) => ({
   question_id: `${text}-id`,

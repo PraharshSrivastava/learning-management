@@ -84,7 +84,7 @@ PY
     # One synthetic identity in the pilot DB only; local login is loopback-only.
     pilot exec -T backend python - <<'PY'
 from app.core.settings import settings
-from app.repositories.database import get_connection
+from app.db.database import get_connection
 assert settings.database_url.endswith('/lms_document_pilot'), 'Refusing non-pilot database'
 with get_connection() as connection:
     connection.execute("""INSERT INTO employees

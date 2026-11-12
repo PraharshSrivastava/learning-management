@@ -1,4 +1,4 @@
-// Performance report models. Source: backend/app/schemas/performance_reporting.py.
+// Performance report models. Source: backend/app/modules/reporting/schemas.py.
 // The live Flutter report screens read raw maps with lenient helpers, so these schemas follow
 // the backend contract with the same fallbacks (_int, _number, num? checks).
 // The unused Dart Performance* classes in frontend models.dart are not ported.
@@ -414,7 +414,7 @@ export const formatScore = (value: unknown): string =>
 export const formatPercent = (value: unknown): string =>
   typeof value === 'number' ? `${value.toFixed(Number.isInteger(value) ? 0 : 1)}%` : '-'
 
-// Learning Journey results. Source: backend/app/services/journey_reporting.py.
+// Learning Journey results. Source: backend/app/modules/journeys/reporting.py.
 export const journeyReportSchema = z
   .object({
     journey_id: str(),
