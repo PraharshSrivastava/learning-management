@@ -65,8 +65,13 @@ def course_link(context: dict) -> str:
     return settings.lms_hub_login_url or "Open PhillipAcademy from the Hub dashboard"
 
 
+HOD_GUIDANCE = "Sign in to PhillipAcademy and open Performance, then My Department(s), to review your team's progress."
+
+
 def hod_report_link(event_type: str) -> str:
-    return ""
+    # Like the trainer link: deep links do not survive the Hub sign-in, so HODs land on
+    # the Hub and open Performance from the PhillipAcademy sidebar.
+    return settings.lms_hub_login_url or "Open PhillipAcademy from the Hub dashboard"
 
 
 def trainer_report_link(event_type: str, course_id: str | None = None) -> str:
@@ -219,7 +224,7 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
         paragraphs = [f"Dear {first_name(context.get('hod_name'), 'there')},", f"{course} has been assigned to {employee}, a member of your team.", "Please note the assignment details below."]
         details = [("Employee", employee), ("Course", course), ("Assigned on", assigned), ("Deadline", deadline), ("Trainer", trainer)]
         link = hod_report_link("assigned")
-        link_label = None
+        link_label = "Open PhillipAcademy"
     elif event_type == "assignment_reminder":
         subject = f"Reminder: Continue {course}"
         paragraphs = [f"Dear {employee_first},", f"This is a reminder that {course} is still pending.", "Please continue the course and complete it by the stated deadline."]
@@ -261,7 +266,7 @@ def render_individual(context: dict, event_type: str, role: str) -> tuple[str, s
 
     if role != "hod":
         link_label = "Open PhillipAcademy"
-    guidance = "Sign in to PhillipAcademy and open My Courses to access this course." if role != "hod" else ""
+    guidance = "Sign in to PhillipAcademy and open My Courses to access this course." if role != "hod" else HOD_GUIDANCE
     text_lines = []
     for paragraph in paragraphs:
         text_lines.extend([paragraph, ""])
@@ -400,12 +405,10 @@ def render_digest(event_type: str, role: str, rows: list[dict], summary: dict, r
         text_parts.extend([paragraph, ""])
     text_parts.extend(_details_text(details))
     text_parts.extend(["", table_text])
-    guidance = ""
-    if role != "hod":
-        guidance = "Sign in to PhillipAcademy and open Performance to review learner progress."
-        text_parts.extend(["", f"Open PhillipAcademy: {report_link}", "", guidance])
+    guidance = HOD_GUIDANCE if role == "hod" else "Sign in to PhillipAcademy and open Performance to review learner progress."
+    text_parts.extend(["", f"Open PhillipAcademy: {report_link}", "", guidance])
     text_parts.extend(["", FOOTER])
-    return subject, "\n".join(text_parts), _html_document(subject, paragraphs, details, "Open PhillipAcademy" if role != "hod" else None, report_link, table_html, guidance=guidance)
+    return subject, "\n".join(text_parts), _html_document(subject, paragraphs, details, "Open PhillipAcademy", report_link, table_html, guidance=guidance)
 
 
 __all__ = [

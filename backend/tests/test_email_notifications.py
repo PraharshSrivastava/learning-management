@@ -1098,6 +1098,33 @@ def test_overdue_digests_without_escalations_keep_their_wording():
     assert "marked Escalated" not in body_text
 
 
+@pytest.mark.parametrize("event_type", ["assigned", "due_soon", "completed", "overdue"])
+def test_hod_digest_points_to_my_departments_report(monkeypatch, event_type):
+    monkeypatch.setattr(
+        email_notifications.settings, "lms_hub_login_url", "https://hub.example.com/login"
+    )
+    rows = [_overdue_context(employee_id="e-1", overdue_notice=1, overdue_notice_max=5)]
+    summary = {"assigned_count": 1, "completed_count": 0, "completion_rate": 0, "overdue_rate": 100}
+
+    _, body_text, body_html = render_digest(event_type, "hod", rows, summary)
+
+    assert "Open PhillipAcademy: https://hub.example.com/login" in body_text
+    assert "open Performance, then My Department(s)" in body_text
+    assert "href='https://hub.example.com/login'" in body_html
+
+
+def test_hod_assignment_email_points_to_my_departments_report(monkeypatch):
+    monkeypatch.setattr(
+        email_notifications.settings, "lms_hub_login_url", "https://hub.example.com/login"
+    )
+
+    _, body_text, body_html = render_individual(_overdue_context(), "assigned", "hod")
+
+    assert "Open PhillipAcademy: https://hub.example.com/login" in body_text
+    assert "My Department(s)" in body_text
+    assert "href='https://hub.example.com/login'" in body_html
+
+
 def test_open_lms_button_is_outlook_safe(monkeypatch):
     monkeypatch.setattr(
         email_notifications.settings, "lms_hub_login_url", "https://hub.example.com/login"

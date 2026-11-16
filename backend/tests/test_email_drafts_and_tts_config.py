@@ -25,9 +25,10 @@ def test_hod_digests_are_self_contained_and_never_truncated(monkeypatch, event):
     for row in rows:
         assert row["employee_name"] in text
         assert row["employee_name"] in markup
-    assert "href=" not in markup
-    assert "https://" not in text
-    assert "Sign in" not in text
+    # HODs now have Performance → My Department(s), so the digest points them there.
+    assert "Open PhillipAcademy: https://hub.example.com/login" in text
+    assert "href='https://hub.example.com/login'" in markup
+    assert "open Performance, then My Department(s)" in text
     assert "report link" not in text
     assert "first 25" not in text
 

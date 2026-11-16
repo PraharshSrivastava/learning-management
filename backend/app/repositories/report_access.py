@@ -23,11 +23,16 @@ def department_options():
 
 
 def report_roles(employee):
+    # An HOD is either mapped by the verified directory adapter or is the directory
+    # manager of an active employee, i.e. the person who receives that employee's HOD
+    # digest emails (email_notifications joins e.manager_employee_id).
     with get_connection() as db:
         row = db.execute("""SELECT
-            EXISTS(SELECT 1 FROM hod_department_access h JOIN lms_departments d USING(department_id)
+            (EXISTS(SELECT 1 FROM hod_department_access h JOIN lms_departments d USING(department_id)
                 WHERE h.hod_employee_id = ? AND h.identity_key = ? AND h.active AND d.active
-                    AND d.source = 'directory') AS hod,
+                    AND d.source = 'directory')
+            OR EXISTS(SELECT 1 FROM employees r WHERE r.manager_employee_id = ?
+                AND r.status = 'active' AND r.directory_status = 'active')) AS hod,
             EXISTS(SELECT 1 FROM course_observer_grants g JOIN courses c USING(course_id)
                 JOIN assignment_rules ar USING(course_id)
                 WHERE g.observer_employee_id = ? AND g.identity_key = ? AND g.active
@@ -36,7 +41,8 @@ def report_roles(employee):
                     WHERE s.course_id = g.course_id AND s.observer_employee_id = g.observer_employee_id AND s.phase = 'active')
                 OR EXISTS(SELECT 1 FROM course_observer_departments s
                     WHERE s.course_id = g.course_id AND s.observer_employee_id = g.observer_employee_id AND s.phase = 'active'))) AS observer
-            """, (employee["employee_id"], identity_key(employee), employee["employee_id"], identity_key(employee))).fetchone()
+            """, (employee["employee_id"], identity_key(employee), employee["employee_id"],
+                  employee["employee_id"], identity_key(employee))).fetchone()
         roles = {key for key in ("hod", "observer") if row[key]}
         if "observer" not in roles and _journeys_enabled():
             # A journey Observer reports through the same Observed view as a course Observer.
@@ -67,7 +73,7 @@ def report_scope_version():
     # Changes clear report caches even when the viewer's grants are unchanged.
     with get_connection() as db:
         row = db.execute("""SELECT md5(
-            COALESCE((SELECT string_agg(employee_id || ':' || COALESCE(directory_uuid, '') || ':' || COALESCE(department, '') || ':' || status || ':' || directory_status, '|' ORDER BY employee_id) FROM employees), '')
+            COALESCE((SELECT string_agg(employee_id || ':' || COALESCE(directory_uuid, '') || ':' || COALESCE(department, '') || ':' || COALESCE(manager_employee_id, '') || ':' || status || ':' || directory_status, '|' ORDER BY employee_id) FROM employees), '')
             || COALESCE((SELECT string_agg(hod_employee_id || ':' || identity_key || ':' || department_id || ':' || active::text, '|' ORDER BY hod_employee_id, department_id) FROM hod_department_access), '')
             || COALESCE((SELECT string_agg(department_id || ':' || name || ':' || source || ':' || active::text, '|' ORDER BY department_id) FROM lms_departments), '')
         ) AS version""").fetchone()

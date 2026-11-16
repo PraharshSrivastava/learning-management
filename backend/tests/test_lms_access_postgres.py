@@ -29,7 +29,8 @@ def access_db(monkeypatch):
             raw.execute(f'CREATE SCHEMA "{schema}"')
             raw.execute(f'SET LOCAL search_path TO "{schema}"')
             raw.execute("""CREATE TABLE employees (employee_id TEXT PRIMARY KEY, directory_uuid TEXT,
-                hub_user_id INTEGER, name TEXT, email TEXT, status TEXT, directory_status TEXT, source TEXT)""")
+                hub_user_id INTEGER, name TEXT, email TEXT, status TEXT, directory_status TEXT, source TEXT,
+                manager_employee_id TEXT)""")
             raw.execute("""CREATE TABLE courses (course_id TEXT PRIMARY KEY, trainer_id TEXT,
                 course_name TEXT, course_description TEXT, status TEXT, created_at TEXT, updated_at TEXT)""")
             raw.execute("CREATE TABLE assignment_rules(course_id TEXT PRIMARY KEY, is_active BOOLEAN, published_at TEXT)")
