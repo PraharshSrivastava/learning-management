@@ -43,6 +43,7 @@ class CombinedScopeTests(unittest.TestCase):
                 ('viewer','one','a','directory:uuid-a','active'),
                 ('viewer','one','b','directory:uuid-b','active');
             INSERT INTO course_observer_departments VALUES ('viewer','one','finance','active');
+            ALTER TABLE employees ADD COLUMN manager_employee_id TEXT;
         """)
 
     def rows(self, view):
@@ -100,6 +101,19 @@ class CombinedScopeTests(unittest.TestCase):
     def test_recycled_subject_identity_is_not_visible_through_explicit_grant(self):
         self.db.execute("UPDATE employees SET directory_uuid='replacement' WHERE employee_id='b'")
         self.assertNotIn('one-b', self.ids('combined'))
+
+    def test_digest_manager_adds_direct_reports_only(self):
+        self.db.execute("UPDATE employees SET manager_employee_id='viewer' WHERE employee_id='b'")
+        self.assertEqual(self.ids('my_departments'), {'one-a', 'two-a', 'one-b', 'two-b', 'one-c', 'two-c'})
+        self.db.execute('UPDATE hod_department_access SET active=FALSE')
+        self.assertEqual(self.ids('my_departments'), {'one-b', 'two-b'})
+        self.assertEqual(self.ids('combined'), {'one-a', 'one-b', 'two-b', 'one-c'})
+
+    def test_inactive_digest_manager_sees_nothing(self):
+        self.db.execute("UPDATE employees SET manager_employee_id='viewer' WHERE employee_id='b'")
+        self.db.execute('UPDATE hod_department_access SET active=FALSE')
+        self.db.execute("UPDATE employees SET status='inactive' WHERE employee_id='viewer'")
+        self.assertEqual(self.ids('my_departments'), set())
 
 
 if __name__ == '__main__':

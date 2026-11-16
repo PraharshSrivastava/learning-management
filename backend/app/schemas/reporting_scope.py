@@ -62,6 +62,13 @@ def owner_filter(scope: TrainerReportScope) -> tuple[str, tuple[str, ...]]:
                 AND h.identity_key = CASE WHEN hp.directory_uuid IS NOT NULL THEN 'directory:' || hp.directory_uuid ELSE 'hub:' || hp.hub_user_id::text END
             WHERE h.hod_employee_id = ? AND h.identity_key = ? AND h.active AND d.active
                 AND d.source = 'directory' AND d.name = e.department)"""
+        # The HOD who receives an employee's digest emails is that employee's directory
+        # manager (email_notifications joins e.manager_employee_id), so the same manager
+        # sees exactly those employees under My Department(s).
+        manager = """(e.manager_employee_id = ? AND EXISTS(SELECT 1 FROM employees mp
+            WHERE mp.employee_id = e.manager_employee_id AND mp.status = 'active' AND mp.directory_status = 'active'
+                AND ? = CASE WHEN mp.directory_uuid IS NOT NULL THEN 'directory:' || mp.directory_uuid ELSE 'hub:' || mp.hub_user_id::text END))"""
+        hod = "(" + hod + " OR " + manager + ")"
         observer = """EXISTS(SELECT 1 FROM course_observer_grants og
             JOIN employees op ON op.employee_id = og.observer_employee_id AND op.status = 'active' AND op.directory_status = 'active'
                 AND og.identity_key = CASE WHEN op.directory_uuid IS NOT NULL THEN 'directory:' || op.directory_uuid ELSE 'hub:' || op.hub_user_id::text END
@@ -75,6 +82,7 @@ def owner_filter(scope: TrainerReportScope) -> tuple[str, tuple[str, ...]]:
                 WHERE os.course_id = og.course_id AND os.observer_employee_id = og.observer_employee_id
                 AND os.phase = 'active' AND d.active AND d.name = e.department)))"""
         key = (scope.employee_id, scope.identity_key)
+        hod_key = (*key, *key)
         observer_key: tuple[str, ...] = key
         if _journeys_enabled():
             # An applied journey Observer sees every course of the journey for the journey's
@@ -82,10 +90,10 @@ def owner_filter(scope: TrainerReportScope) -> tuple[str, tuple[str, ...]]:
             observer = "(" + observer + " OR " + _JOURNEY_OBSERVER + ")"
             observer_key = (*key, *key)
         if scope.view == "my_departments":
-            return hod + " AND ", key
+            return hod + " AND ", hod_key
         if scope.view == "observed":
             return observer + " AND ", observer_key
-        return "(" + hod + " OR " + observer + ") AND ", (*key, *observer_key)
+        return "(" + hod + " OR " + observer + ") AND ", (*hod_key, *observer_key)
     if isinstance(scope, TrainerPerformanceScope):
         if scope.all_courses:
             return "", ()

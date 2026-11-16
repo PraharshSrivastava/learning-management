@@ -161,12 +161,56 @@ def test_disable_suspends_and_republish_requires_explicit_owner_apply(report_db)
         observers.apply_config("course-1", "t-1", 4)
 
 
-def test_hod_cannot_be_inferred_from_own_department_or_manager(report_db):
+def test_hod_cannot_be_inferred_from_own_department(report_db):
     assert ids(scope("my_departments", "observer")) == set()
     report_db.execute("UPDATE employees SET department='Finance' WHERE employee_id='observer'")
     assert ids(scope("my_departments", "observer")) == set()
     report_db.execute("UPDATE lms_departments SET source='directory-label' WHERE department_id='finance'")
     assert ids(scope("my_departments", "hod")) == set()
+
+
+def _roles(employee_id):
+    return report_access.report_roles({"employee_id": employee_id, "directory_uuid": "uuid-" + employee_id})
+
+
+def test_digest_manager_sees_exactly_their_direct_reports(report_db):
+    # The HOD digest goes to e.manager_employee_id; that manager sees only those employees.
+    assert "hod" not in _roles("observer")
+    report_db.execute("UPDATE employees SET manager_employee_id='observer' WHERE employee_id='b'")
+    assert "hod" in _roles("observer")
+    assert ids(scope("my_departments", "observer")) == {"course-1b", "course-2b"}
+    # Same department as a direct report does not widen the scope.
+    report_db.execute("UPDATE employees SET department='Ops' WHERE employee_id='c'")
+    assert ids(scope("my_departments", "observer")) == {"course-1b", "course-2b"}
+    assert ids(scope("combined", "observer")) == {"course-1b", "course-2b"}
+    # A department HOD keeps their department and gains their own direct reports.
+    report_db.execute("UPDATE employees SET manager_employee_id='hod' WHERE employee_id='b'")
+    assert "hod" not in _roles("observer")
+    assert ids(scope("my_departments", "observer")) == set()
+    assert ids(scope("my_departments", "hod")) == {
+        "course-1a", "course-2a", "course-1b", "course-2b"}
+
+
+def test_digest_manager_access_ends_with_inactive_report_or_manager(report_db):
+    report_db.execute("UPDATE employees SET manager_employee_id='observer' WHERE employee_id='a'")
+    assert ids(scope("my_departments", "observer")) == {"course-1a", "course-2a"}
+    report_db.execute("UPDATE employees SET status='inactive' WHERE employee_id='a'")
+    assert "hod" not in _roles("observer")
+    report_db.execute("UPDATE employees SET status='active' WHERE employee_id='a'")
+    report_db.execute("UPDATE employees SET directory_status='inactive' WHERE employee_id='observer'")
+    assert ids(scope("my_departments", "observer")) == set()
+
+
+def test_digest_manager_scope_requires_the_managers_own_identity(report_db):
+    report_db.execute("UPDATE employees SET manager_employee_id='observer' WHERE employee_id='a'")
+    forged = EmployeePerformanceScope("observer", "directory:uuid-someone-else", "my_departments")
+    assert ids(forged) == set()
+
+
+def test_manager_change_alters_report_scope_version(report_db):
+    before = report_access.report_scope_version()
+    report_db.execute("UPDATE employees SET manager_employee_id='observer' WHERE employee_id='a'")
+    assert report_access.report_scope_version() != before
 
 
 def test_verified_directory_adapter_partial_revoke_rename_and_full_reconciliation(report_db, monkeypatch):
