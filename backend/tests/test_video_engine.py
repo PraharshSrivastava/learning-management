@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from io import BytesIO
 
-import fitz
 import pytest
 from docx import Document
 from docx.shared import Inches
+from pdf_helpers import PdfWriter
 from PIL import Image
 
 from app.core.exceptions import ConflictError, DomainValidationError
@@ -45,18 +45,17 @@ def image_dir(tmp_path, monkeypatch):
 
 def _pdf(path, pages: int, logo: bool, screenshot_on: set[int] = frozenset(), icon: bool = False):
     logo_png = png(120, 40, "red")
-    with fitz.open() as document:
+    with PdfWriter(path) as document:
         for number in range(1, pages + 1):
             page = document.new_page(width=595, height=842)
             page.insert_text((72, 120), f"Page {number} body text about the process.")
             if logo:
                 # Letterhead logo in the top band of every page.
-                page.insert_image(fitz.Rect(40, 15, 160, 55), stream=logo_png)
+                page.insert_image((40, 15, 160, 55), stream=logo_png)
             if icon:
-                page.insert_image(fitz.Rect(72, 300, 92, 320), stream=png(20, 20, "green"))
+                page.insert_image((72, 300, 92, 320), stream=png(20, 20, "green"))
             if number in screenshot_on:
-                page.insert_image(fitz.Rect(72, 200, 520, 520), stream=png(900, 640, "gray"))
-        document.save(path)
+                page.insert_image((72, 200, 520, 520), stream=png(900, 640, "gray"))
     return str(path)
 
 

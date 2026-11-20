@@ -582,4 +582,7 @@ RUN python /usr/share/lms-security/check_native_bundle_lock.py \
         --lock /usr/share/lms-security/native-bundle-lock.json \
         > /usr/share/lms-security/native-bundle-identity.json \
     || { cat /usr/share/lms-security/native-bundle-identity.json; exit 1; }
+# Third-party licence notices and supplier inventory, including the bundled browser build.
+COPY security/write_notices.py /usr/share/lms-security/write_notices.py
+RUN python /usr/share/lms-security/write_notices.py /usr/share/lms-security/notices
 USER 10001:10001

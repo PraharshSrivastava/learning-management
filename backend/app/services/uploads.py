@@ -14,6 +14,8 @@ from app.repositories.documents import save_document as save_document_record
 from app.schemas.files import StoredFileResponse, UploadResponse
 
 SUPPORTED_EXTENSIONS = {".pdf", ".pptx", ".docx"}
+# The first bytes every file of that type starts with. DOCX and PPTX are ZIP archives.
+_SIGNATURES = {".pdf": b"%PDF-", ".pptx": b"PK\x03\x04", ".docx": b"PK\x03\x04"}
 
 
 class UploadService:
@@ -39,6 +41,12 @@ class UploadService:
             raise ValueError("Only PDF, PPTX, and DOCX files are supported.")
         if not trainer_id:
             raise ValueError("A trainer is required to upload a document.")
+        # Refuse a file whose content does not match its extension before any parser sees it.
+        suffix = Path(original_name).suffix.lower()
+        head = source.read(len(_SIGNATURES[suffix]))
+        if head != _SIGNATURES[suffix]:
+            raise ValueError("The file content does not match its extension.")
+        source.seek(0)
 
         filename = self._trainer_filename(
             trainer_id,

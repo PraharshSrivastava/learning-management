@@ -8,7 +8,7 @@ import tempfile
 import threading
 import wave
 
-import fitz
+from reportlab.pdfgen.canvas import Canvas
 import imageio_ffmpeg
 import pdfplumber
 import requests
@@ -84,10 +84,9 @@ with tempfile.TemporaryDirectory(prefix='lms-sbom-smoke-') as temp:
         tls_server.shutdown()
         tls_server.server_close()
     pdf = root / 'test.pdf'
-    with fitz.open() as document:
-        page = document.new_page()
-        page.insert_text((72, 72), 'LMS dependency smoke test')
-        document.save(pdf)
+    document = Canvas(str(pdf))
+    document.drawString(72, 770, 'LMS dependency smoke test')
+    document.save()
     with pdfplumber.open(pdf) as document:
         assert 'LMS dependency smoke test' in document.pages[0].extract_text()
     print('PASS: PDF generation and text extraction')
@@ -125,6 +124,7 @@ with tempfile.TemporaryDirectory(prefix='lms-sbom-smoke-') as temp:
     from pptx import Presentation
     from pptx.util import Inches
     from app.documents.conversion import convert_office_to_pdf
+    from app.documents.pdf_reader import PdfDocument
     from app.generation.video import generate_hls_playlist
     from app.generation import tts
     document = Document()
@@ -140,9 +140,10 @@ with tempfile.TemporaryDirectory(prefix='lms-sbom-smoke-') as temp:
     presentation.save(pptx_path)
     for office_path in (docx_path, pptx_path):
         pdf_path = convert_office_to_pdf(office_path, office_path.with_suffix('.pdf'))
-        with fitz.open(pdf_path) as converted:
-            assert 'Synthetic LMS' in ''.join(page.get_text() for page in converted)
-            assert any(page.get_images() for page in converted), 'Embedded image lost during conversion'
+        with PdfDocument(pdf_path) as converted:
+            pages = list(converted)
+            assert 'Synthetic LMS' in ''.join(page.text() for page in pages)
+            assert any(page.images() for page in pages), 'Embedded image lost during conversion'
         print('PASS: actual LMS Office-to-PDF conversion:', office_path.suffix)
     playlist = generate_hls_playlist(video)
     assert '#EXTM3U' in playlist.read_text()

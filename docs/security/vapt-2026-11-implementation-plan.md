@@ -104,7 +104,7 @@ Used in two files only: `document_builder/import_source.py` and `generation/blue
 2. **Replace** with `pypdfium2` (BSD/Apache) for rendering and image extraction plus the already-installed `pdfplumber` for text. **Limit: one working session.** Compare output on the existing course PDFs.
 3. **If the replacement loses image/text quality:** stop, keep PyMuPDF, and raise a licence purchase request. No second attempt.
 
-**Track B done when:** every F-/N- row and all 34 CVE rows have an outcome from Rule 1, and the evidence package is assembled.
+**Track B status:** implemented on `fix/vapt-vendor-2026-11`; outcomes per finding are in `vapt-2026-11-vendor-response.md`. PyMuPDF was replaced on the first attempt. The backend image CVE rows (util-linux, coreutils, Go) and the backend evidence package wait for the image build on big-coding.
 
 ---
 

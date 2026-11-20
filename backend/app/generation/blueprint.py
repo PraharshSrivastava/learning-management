@@ -7,7 +7,6 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Set
 
-import fitz
 import pdfplumber
 
 from app.core.logging import generation_logger
@@ -16,6 +15,7 @@ from app.core.settings import settings
 from app.core.storage import public_asset_url
 from app.documents.conversion import convert_office_to_pdf
 from app.documents.docx import extract_docx_blueprint_source
+from app.documents.pdf_reader import PdfDocument, pdf_has_images
 from app.documents.pptx import extract_pptx_metadata_with_llm, extract_text_from_pptx
 from app.generation.prompts import MODULE_EXTRACTION_PROMPT
 from app.generation.runtime import complete_generation, log_event, mark_stage, now_iso, retry
@@ -681,11 +681,15 @@ def slice_modules_by_line(original_lines: list, modules: List[dict]) -> List[dic
 
 def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any]]:
     """
-    Opens the PDF with PyMuPDF, extracts embedded images and their captions (the text block
+    Opens the PDF, extracts embedded images and their captions (the text block
     immediately below the image), saves the image files to assets, and returns the metadata.
     """
     logger.info("pdf_image_extraction_started path=%s", pdf_path)
-    doc = fitz.open(pdf_path)
+    with PdfDocument(pdf_path) as doc:
+        return _extract_images(doc, course_id)
+
+
+def _extract_images(doc: PdfDocument, course_id: str) -> List[Dict[str, Any]]:
     extracted = []
 
     # Create directory for course images
@@ -696,25 +700,20 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
     page_sizes: dict[int, tuple[float, float]] = {}
 
     for page_num in range(total_pages):
-        page = doc[page_num]
-        page_sizes[page_num + 1] = (float(page.rect.width), float(page.rect.height))
+        page = doc.page(page_num + 1)
+        page_sizes[page_num + 1] = (page.width, page.height)
 
-        # Get image positions in visible reading order. PyMuPDF's internal
-        # image order can differ from the way images appear on the page, which
-        # later makes image-only slides and narration feel mismatched.
-        images_info = sorted(
-            page.get_image_info(xrefs=True),
-            key=lambda item: (
-                round(float(item.get("bbox", (0, 0, 0, 0))[1]), 1),
-                round(float(item.get("bbox", (0, 0, 0, 0))[0]), 1),
-            ),
-        )
+        # Images come back in visible reading order. The order stored in the file
+        # can differ from the way images appear on the page, which later makes
+        # image-only slides and narration feel mismatched.
+        images_info = page.images()
         # Get text blocks sorted by coordinate order
-        blocks = page.get_text("blocks")
+        blocks = page.text_blocks()
 
         for img_idx, img in enumerate(images_info):
-            xref = img["xref"]
-            bbox = img["bbox"]  # (x0, y0, x1, y1)
+            # Images without an object number (inline images) get a per-document id.
+            xref = img.xref if img.xref is not None else f"inline{len(extracted) + 1}"
+            bbox = img.bbox  # (x0, y0, x1, y1)
             iy1 = bbox[3]  # bottom of image
 
             # Find candidate captions (the closest text block below the image)
@@ -760,11 +759,11 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
             # Fallback: search top of next page if image is near bottom of the page
             if (
                 not best_caption_raw
-                and (page.rect.height - iy1 < 150)
+                and (page.height - iy1 < 150)
                 and (page_num + 1 < total_pages)
             ):
-                next_page = doc[page_num + 1]
-                next_blocks = next_page.get_text("blocks")
+                next_page = doc.page(page_num + 2)
+                next_blocks = next_page.text_blocks()
                 min_next_page_ty0 = float("inf")
 
                 for b in next_blocks:
@@ -808,9 +807,7 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
 
             # Extract and save the image
             try:
-                base_image = doc.extract_image(xref)
-                image_bytes = base_image["image"]
-                image_ext = base_image["ext"]
+                image_bytes, image_ext = page.image_bytes(img)
 
                 img_filename = f"page_{page_num + 1}_img_{img_idx + 1}_{xref}.{image_ext}"
                 img_filepath = os.path.join(course_image_dir, img_filename)
@@ -835,8 +832,8 @@ def extract_images_from_pdf(pdf_path: str, course_id: str) -> List[Dict[str, Any
                         # Keep the source dimensions so the slide renderer can
                         # choose an appropriate composition instead of treating
                         # every image as a portrait card.
-                        "width": int(img.get("width") or base_image.get("width") or 0),
-                        "height": int(img.get("height") or base_image.get("height") or 0),
+                        "width": img.width,
+                        "height": img.height,
                     }
                 )
                 extracted[-1]["aspect_ratio"] = (
@@ -1099,18 +1096,11 @@ def run_blueprint_extraction(pdf_path: str, course_id: str = "temp_course") -> d
         logger.info("module_text_slicing_completed matched=%s total=%s", good, len(modules))
 
         # Extract and assign images to modules
-        import fitz
+        with PdfDocument(pdf_path) as doc:
+            total_pages = len(doc)
 
-        doc = fitz.open(pdf_path)
-        total_pages = len(doc)
-
-        # Count images in PDF first to see if it is a non-image PDF
-        has_images = False
-        for page in doc:
-            if len(page.get_image_info(xrefs=True)) > 0:
-                has_images = True
-                break
-        doc.close()
+        # Check for images first to see if it is a non-image PDF
+        has_images = pdf_has_images(pdf_path)
 
         if has_images:
             logger.info("PDF contains images. Proceeding with image extraction.")

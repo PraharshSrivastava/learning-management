@@ -42,9 +42,9 @@ def test_upload_service_accepts_pdf_pptx_and_docx(tmp_path, monkeypatch) -> None
     monkeypatch.setattr("app.services.uploads.list_document_records", lambda trainer_id=None: saved)
 
     service = UploadService(tmp_path)
-    service.save_document("guide.pdf", io.BytesIO(b"pdf"), "trainer_1")
-    service.save_document("slides.pptx", io.BytesIO(b"pptx"), "trainer_1")
-    service.save_document("handbook.docx", io.BytesIO(b"docx"), "trainer_1")
+    service.save_document("guide.pdf", io.BytesIO(b"%PDF-1.7 pdf"), "trainer_1")
+    service.save_document("slides.pptx", io.BytesIO(b"PK\x03\x04 pptx"), "trainer_1")
+    service.save_document("handbook.docx", io.BytesIO(b"PK\x03\x04 docx"), "trainer_1")
 
     files = service.list_documents("trainer_1")
     assert {item.file_type for item in files} == {"pdf", "pptx", "docx"}
@@ -558,3 +558,11 @@ def test_pptx_text_extraction_reads_text_frames_and_tables(tmp_path) -> None:
     assert "Wear protective equipment." in lines
     assert "Follow instructions." in lines
     assert "Audience | Operators" in lines
+
+
+def test_upload_service_rejects_content_that_does_not_match_the_extension(tmp_path) -> None:
+    service = UploadService(tmp_path)
+
+    with pytest.raises(ValueError, match="does not match its extension"):
+        service.save_document("guide.pdf", io.BytesIO(b"<html>not a pdf</html>"), "trainer_1")
+    assert not list(tmp_path.iterdir())
