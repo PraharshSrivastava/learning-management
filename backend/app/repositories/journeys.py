@@ -314,7 +314,7 @@ def list_journeys(trainer_id: str | None = None, status: str | None = None) -> l
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     with get_connection() as connection:
         rows = connection.execute(
-            f"SELECT * FROM learning_journeys {where} ORDER BY lower(title), journey_id",
+            f"SELECT * FROM learning_journeys {where} ORDER BY lower(title), journey_id",  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             tuple(params),
         ).fetchall()
         return _journeys_with_parts(connection, rows)

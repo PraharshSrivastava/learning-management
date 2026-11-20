@@ -874,7 +874,7 @@ def course_library_page(
             SELECT (SELECT COUNT(*) FROM filtered) AS total,
                    COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY p.created_at DESC, p.course_id DESC)
                              FROM page p), '[]'::jsonb) AS items
-            """, (*params, limit, offset),
+            """, (*params, limit, offset),  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
         ).fetchone()
     return {"total": int(row["total"]), "items": row["items"], "limit": limit, "offset": offset}
 

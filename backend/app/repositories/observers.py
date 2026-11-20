@@ -89,13 +89,13 @@ def save_config(course_id, trainer_id, payload):
             old = db.execute("SELECT identity_key FROM course_observer_grants WHERE course_id = ? AND observer_employee_id = ?", (course_id, employee_id)).fetchone()
             if old and old["identity_key"] != key:
                 for table in ("course_observer_employees", "course_observer_departments"):
-                    db.execute(f"DELETE FROM {table} WHERE course_id = ? AND observer_employee_id = ?", (course_id, employee_id))
+                    db.execute(f"DELETE FROM {table} WHERE course_id = ? AND observer_employee_id = ?", (course_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             db.execute("""INSERT INTO course_observer_grants(course_id, observer_employee_id, identity_key, granted_by_trainer_id)
                 VALUES (?, ?, ?, ?) ON CONFLICT(course_id, observer_employee_id) DO UPDATE SET
                 identity_key = excluded.identity_key, granted_by_trainer_id = excluded.granted_by_trainer_id, updated_at = CURRENT_TIMESTAMP""",
                 (course_id, employee_id, key, trainer_id))
             for table in ("course_observer_employees", "course_observer_departments"):
-                db.execute(f"DELETE FROM {table} WHERE course_id = ? AND observer_employee_id = ? AND phase = 'pending'", (course_id, employee_id))
+                db.execute(f"DELETE FROM {table} WHERE course_id = ? AND observer_employee_id = ? AND phase = 'pending'", (course_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             for target_id in set(selection.employee_ids):
                 target = _employee(db, target_id)
                 db.execute("INSERT INTO course_observer_employees VALUES (?, ?, 'pending', ?, ?)", (course_id, employee_id, target_id, identity_key(target)))
@@ -107,7 +107,7 @@ def save_config(course_id, trainer_id, payload):
             for table, column in (("course_observer_employees", "employee_id"), ("course_observer_departments", "department_id")):
                 db.execute(f"""DELETE FROM {table} a WHERE a.course_id = ? AND a.observer_employee_id = ? AND a.phase = 'active'
                     AND NOT EXISTS(SELECT 1 FROM {table} p WHERE p.course_id = a.course_id AND p.observer_employee_id = a.observer_employee_id
-                        AND p.phase = 'pending' AND p.{column} = a.{column})""", (course_id, employee_id))
+                        AND p.phase = 'pending' AND p.{column} = a.{column})""", (course_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
         return _finish(db, course_id, trainer_id, before, affected, "save")
 
 
@@ -136,8 +136,8 @@ def apply_config(course_id, trainer_id, revision):
                 WHERE s.course_id = ? AND s.observer_employee_id = ? AND s.phase = 'pending' AND NOT d.active""", (course_id, employee_id)).fetchone():
                 raise DomainValidationError("An observed department is no longer active")
             for table, columns in (("course_observer_employees", "employee_id, identity_key"), ("course_observer_departments", "department_id")):
-                db.execute(f"DELETE FROM {table} WHERE course_id = ? AND observer_employee_id = ? AND phase = 'active'", (course_id, employee_id))
-                db.execute(f"INSERT INTO {table} SELECT course_id, observer_employee_id, 'active', {columns} FROM {table} WHERE course_id = ? AND observer_employee_id = ? AND phase = 'pending'", (course_id, employee_id))
+                db.execute(f"DELETE FROM {table} WHERE course_id = ? AND observer_employee_id = ? AND phase = 'active'", (course_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
+                db.execute(f"INSERT INTO {table} SELECT course_id, observer_employee_id, 'active', {columns} FROM {table} WHERE course_id = ? AND observer_employee_id = ? AND phase = 'pending'", (course_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             db.execute("UPDATE course_observer_grants SET active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE course_id = ? AND observer_employee_id = ?", (course_id, employee_id))
         return _finish(db, course_id, trainer_id, before, affected, "apply")
 

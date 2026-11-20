@@ -53,7 +53,7 @@ def _employee_group_summary(connection, employee_ids: list[str] | None = None) -
         FROM employee_groups
         {where}
         ORDER BY employee_id, group_cn, group_dn
-        """,
+        """,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
         params,
     ).fetchall()
     summary: dict[str, dict] = {}
@@ -234,7 +234,7 @@ def mark_missing_hub_employees_inactive(active_employee_ids: set[str]) -> list[s
             WHERE source = 'hub'
               AND status = 'active'
               AND employee_id NOT IN ({placeholders})
-            """,
+            """,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             list(active_employee_ids),
         ).fetchall()
         missing_ids = [row["employee_id"] for row in rows]
@@ -249,7 +249,7 @@ def mark_missing_hub_employees_inactive(active_employee_ids: set[str]) -> list[s
                     synced_at = ?,
                     updated_at = ?
                 WHERE employee_id IN ({missing_placeholders})
-                """,
+                """,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 [now, now, *missing_ids],
             )
         connection.commit()

@@ -1,0 +1,12 @@
+# Reviewed for the November 2026 internal VAPT. Review again by 2027-02-20.
+ignored:
+  # Source builds of patched native libraries run "cd <src> && ./configure && make"
+  # inside one RUN; splitting them into WORKDIR steps adds layers and no safety.
+  - DL3003
+  # apt versions are fixed by the digest-pinned base image plus a recorded
+  # package inventory (backend/security/native-bundle-lock.json), not per-package pins.
+  - DL3008
+  # Raised on an intermediate build stage; the final stage ends with USER 10001:10001.
+  - DL3002
+  # "mount"/"su" appear only in the util-linux build-and-test stage, never at runtime.
+  - DL3001

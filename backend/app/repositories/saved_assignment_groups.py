@@ -58,7 +58,7 @@ class SavedAssignmentGroupRepository:
                 FROM saved_assignment_groups
                 {where}
                 ORDER BY lower(name), updated_at DESC
-                """,
+                """,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 params,
             ).fetchall()
         return [_row_to_saved_group(row) for row in rows]

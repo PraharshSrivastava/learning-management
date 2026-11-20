@@ -554,7 +554,7 @@ def _journey_email_context(
         JOIN learning_journeys j ON j.journey_id = ja.journey_id
         JOIN employees e ON e.employee_id = ja.employee_id
         WHERE ja.journey_assignment_id = ?
-        """,
+        """,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
         (journey_assignment_id,),
     ).fetchone()
     if not row or not row["anchor_assignment_id"]:

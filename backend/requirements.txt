@@ -16,6 +16,8 @@ requests==2.34.2
 # Security pin for requests' HTTP transport dependency.
 urllib3==2.8.0
 langfuse==4.15.4
+# Transitive via langfuse; pinned for CVE-2026-114603 and CVE-2026-126360.
+opentelemetry-api==1.45.2
 
 # Video & Image Generation (Playwright requires: playwright install chromium)
 playwright==1.63.0

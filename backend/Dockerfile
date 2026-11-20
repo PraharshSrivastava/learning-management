@@ -1,5 +1,6 @@
-FROM python:3.12.14-slim-trixie@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 AS python-runtime
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS ffmpeg-build
+FROM python:3.12.14-slim-trixie@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f AS python-runtime
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS ffmpeg-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gcc g++ make pkg-config nasm xz-utils libx264-dev zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -29,7 +30,8 @@ RUN curl --fail --location --retry 2 -o ffmpeg.tar.xz https://ffmpeg.org/release
     && cp config.h config_components.h ffbuild/config.mak /opt/ffmpeg/share/ \
     && /opt/ffmpeg/bin/ffmpeg -version \
     && /opt/ffmpeg/bin/ffprobe -version
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS xml-build
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS xml-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gcc make pkg-config xz-utils zlib1g-dev libxml2-16 \
     && rm -rf /var/lib/apt/lists/*
@@ -56,6 +58,7 @@ RUN curl --fail --location --retry 2 -o libxml2.tar.xz https://download.gnome.or
     && ./xmllint --version \
     && cp config.log /out/config.log
 FROM xml-build AS lxml-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libxslt1-dev libssl3t64 libffi8 libexpat1 libbz2-1.0 liblzma5 zlib1g ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -70,7 +73,8 @@ COPY security/record_source_wheel.py /src/
 RUN python /src/record_source_wheel.py --source-lock /src/requirements-lxml-source.lock --wheels /out/wheels --output /out/lxml-source-build.json \
         --config-tool xml2-config --config-tool xslt-config
 
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS app-runtime
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS app-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -103,7 +107,7 @@ RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --requir
 COPY requirements.txt requirements.lock ./
 RUN python -m pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --require-hashes -r requirements.lock \
     && (cd /tmp/lxml-wheels && sha256sum -c SHA256SUMS) \
-    && python -m pip install --no-index --no-deps --force-reinstall /tmp/lxml-wheels/lxml-*.whl \
+    && python -m pip install --no-cache-dir --no-index --no-deps --force-reinstall /tmp/lxml-wheels/lxml-*.whl \
     && rm -rf /tmp/lxml-wheels \
     && python -m playwright install --with-deps chromium
 
@@ -133,11 +137,12 @@ USER 10001:10001
 
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS pcre-build
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS pcre-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gcc libc6-dev make pkg-config libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -164,7 +169,8 @@ RUN curl --fail --location --retry 2 -o pcre2.tar.gz https://github.com/PCRE2Pro
     && test ! -s /out/missing-symbols.txt \
     && dpkg-deb --build --root-owner-group /package /out/libpcre2-8-0_10.49+lms1_amd64.deb
 
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS png-build
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS png-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gcc libc6-dev make zlib1g-dev libpng16-16t64 \
     && rm -rf /var/lib/apt/lists/*
@@ -192,6 +198,7 @@ RUN cd libpng-1.6.59 \
     && dpkg-deb --build --root-owner-group /package /out/libpng16-16t64_1.6.59+lms1_amd64.deb
 
 FROM app-runtime AS final-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=pcre-build /out/libpcre2-8-0_10.49+lms1_amd64.deb /tmp/libpcre2.deb
 COPY --from=png-build /out/libpng16-16t64_1.6.59+lms1_amd64.deb /tmp/libpng.deb
@@ -209,7 +216,8 @@ USER 10001:10001
 
 # Only the affected utility components are replaced; other Ubuntu util-linux
 # programs retain their original ownership and versions in the SBOM.
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS util-linux-build
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS util-linux-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gcc libc6-dev make pkg-config xz-utils python3 \
         libselinux1-dev libmount-dev libblkid-dev uuid-dev \
@@ -234,6 +242,7 @@ COPY security/package_util_linux.py /src/package_util_linux.py
 RUN python3 /src/package_util_linux.py
 
 FROM final-runtime AS security-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=util-linux-build /out/*.deb /tmp/util-linux-security/
 RUN apt-get install -y --no-install-recommends /tmp/util-linux-security/*.deb \
@@ -246,7 +255,8 @@ USER 10001:10001
 
 # Parser and X client maintenance: one shared TIFF/Expat implementation for the
 # OS and Python callers. Upstream X patches are pinned separately from releases.
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS native-parsers-build
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS native-parsers-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gcc g++ libc6-dev make pkg-config xz-utils bzip2 patch python3 autoconf automake libtool gettext \
         libexpat1-dev libtiff-dev libacl1-dev libattr1-dev libjpeg-dev liblzma-dev libzstd-dev libwebp-dev libjbig-dev libdeflate-dev \
@@ -295,12 +305,15 @@ COPY security/package_native_parsers.py /src/
 RUN python3 /src/package_native_parsers.py
 
 FROM native-parsers-build AS python-parsers-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libssl3t64 libffi8 libbz2-1.0 libsqlite3-0 libfreetype-dev liblcms2-dev libopenjp2-7-dev \
         libraqm-dev libharfbuzz-dev libfribidi-dev libavif-dev tk-dev \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=python-runtime /usr/local/ /usr/local/
 COPY --from=native-parsers-build /native-install/usr/ /usr/
+# The compiler flags must split into separate words.
+# hadolint ignore=SC2046
 RUN ldconfig \
     && curl --fail --location --retry 2 -o Python.tar.xz https://www.python.org/ftp/python/3.12.14/Python-3.12.14.tar.xz \
     && echo '5c8462af5790baf43a321a1559dbe0db06d1be4300fb85fb53c40060668e548a  Python.tar.xz' | sha256sum -c - \
@@ -316,6 +329,7 @@ COPY security/record_source_wheel.py /src/
 RUN python /src/record_source_wheel.py --source-lock /src/requirements-pillow-source.lock --wheels /out/wheels --output /out/pillow-source-build.json
 
 FROM security-runtime AS maintained-parsers-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=native-parsers-build /out/*.deb /tmp/native-security/
 COPY --from=native-parsers-build /out/abi-check.json /usr/share/lms-security/native-abi-check.json
@@ -328,7 +342,7 @@ RUN apt-get update \
     && ldconfig \
     && python -m ensurepip \
     && (cd /tmp/pillow-wheels && sha256sum -c SHA256SUMS) \
-    && python -m pip install --no-index --no-deps --force-reinstall /tmp/pillow-wheels/pillow-*.whl \
+    && python -m pip install --no-cache-dir --no-index --no-deps --force-reinstall /tmp/pillow-wheels/pillow-*.whl \
     && python -m pip check \
     && python -m pip uninstall --yes pip setuptools \
     && rm -rf /tmp/native-security /tmp/pillow-wheels /var/lib/apt/lists/* \
@@ -338,6 +352,7 @@ USER 10001:10001
 
 # Batch the X client bounds checks without rebuilding unrelated parser sources.
 FROM native-parsers-build AS xclient-medium-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY security/libx11-medium.patch security/libxi-medium.patch /src/
 RUN echo 'ef883cca3954c6f9e9ed5d8b5c4d9526c9b7e808037445f2b68b0df1bcbcf0b9  /src/libx11-medium.patch' | sha256sum -c - \
     && echo '19730c2e78fe5edf782d2b01b08bfe54b5e70f2cfa7f0472c8f0e4ecc368e610  /src/libxi-medium.patch' | sha256sum -c - \
@@ -354,6 +369,7 @@ COPY security/package_xclients.py /src/
 RUN python3 /src/package_xclients.py
 
 FROM maintained-parsers-runtime AS medium-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=xclient-medium-build /medium-out/*.deb /tmp/xclient-security/
 COPY --from=xclient-medium-build /medium-out/abi-check.json /usr/share/lms-security/xclient-abi-check.json
@@ -368,6 +384,7 @@ USER 10001:10001
 # Preserve shared Expat/Python linkage; backport the upstream release-build
 # overflow check together with its SIZE_MAX allocation regression test.
 FROM native-parsers-build AS expat-medium-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY security/expat-medium.patch /src/
 RUN echo 'b6684c44b8222c43166b58c14b6a439be87ab77c05cfc6eb35330ad03a697f30  /src/expat-medium.patch' | sha256sum -c - \
     && cd /src/expat-2.8.5 && patch --fuzz=0 -p1 < /src/expat-medium.patch \
@@ -376,6 +393,7 @@ COPY security/package_xclients.py /src/
 RUN LMS_NATIVE_BATCH=expat python3 /src/package_xclients.py
 
 FROM medium-runtime AS medium-parsers-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=expat-medium-build /medium-out/libexpat1.deb /tmp/expat-security.deb
 COPY --from=expat-medium-build /medium-out/abi-check.json /usr/share/lms-security/expat-medium-abi-check.json
@@ -384,6 +402,7 @@ RUN dpkg -i /tmp/expat-security.deb && ldconfig && apt-get check \
     && python -c "import pyexpat; assert pyexpat.EXPAT_VERSION == 'expat_2.8.5'"
 USER 10001:10001
 FROM native-parsers-build AS p11-medium-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends libffi-dev libtasn1-6-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN curl --fail --location --retry 2 -o /src/p11-kit.tar.xz https://deb.debian.org/debian/pool/main/p/p11-kit/p11-kit_0.26.5.orig.tar.xz \
@@ -395,6 +414,7 @@ COPY security/package_xclients.py /src/
 RUN LMS_NATIVE_BATCH=p11-kit python3 /src/package_xclients.py
 
 FROM medium-parsers-runtime AS medium-trust-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=p11-medium-build /medium-out/libp11-kit0.deb /tmp/p11-security.deb
 COPY --from=p11-medium-build /medium-out/abi-check.json /usr/share/lms-security/p11-medium-abi-check.json
@@ -404,6 +424,7 @@ USER 10001:10001
 # Match Ubuntu's PKCS#11 paths as well as its shared-library ABI. Reconfigure
 # the cached source and rebuild the object containing these compiled defaults.
 FROM p11-medium-build AS p11-config-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN cd /src/p11-kit-0.26.5 \
     && ./configure --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib/x86_64-linux-gnu --disable-static --disable-doc --without-systemd \
         --with-system-config=/etc/pkcs11 --with-module-config=/usr/share/p11-kit/modules --with-module-path=/usr/lib/x86_64-linux-gnu/pkcs11 \
@@ -413,6 +434,7 @@ RUN cd /src/p11-kit-0.26.5 \
     && LMS_NATIVE_BATCH=p11-kit python3 /src/package_xclients.py
 
 FROM medium-trust-runtime AS maintained-medium-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=p11-config-build /medium-out/libp11-kit0.deb /tmp/p11-security.deb
 RUN dpkg -i /tmp/p11-security.deb && ldconfig && apt-get check \
@@ -420,7 +442,8 @@ RUN dpkg -i /tmp/p11-security.deb && ldconfig && apt-get check \
     && python -c "from pathlib import Path; b=Path('/usr/lib/x86_64-linux-gnu/libp11-kit.so.0').read_bytes(); assert b'/usr/etc/pkcs11' not in b; assert b'/etc/pkcs11' in b and b'/usr/share/p11-kit/modules' in b"
 USER 10001:10001
 # Retain document/audio interfaces while fixing native parsing at source.
-FROM ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 AS backlog-native-build
+FROM ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db AS backlog-native-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3 curl ca-certificates patch pkg-config bzip2 autoconf automake libtool quilt libasound2t64 libcups2t64 \
@@ -455,6 +478,7 @@ COPY security/package_backlog.py /src/
 RUN python3 /src/package_backlog.py
 
 FROM maintained-medium-runtime AS maintained-backlog-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=backlog-native-build /backlog-out/*.deb /tmp/backlog-security/
 COPY --from=backlog-native-build /backlog-out/abi-check.json /usr/share/lms-security/backlog-abi-check.json
@@ -463,6 +487,7 @@ RUN dpkg -i /tmp/backlog-security/*.deb && ldconfig && apt-get check \
 USER 10001:10001
 
 FROM backlog-native-build AS backlog-extra-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gettext autopoint texinfo unicode-data libgcrypt20-dev libgpg-error-dev libassuan-dev libksba-dev libnpth0-dev libreadline-dev libsqlite3-dev \
     gpg meson ninja-build libglib2.0-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-0 \
@@ -491,6 +516,8 @@ RUN curl --fail --location --retry 2 -o gstreamer-old.tar.xz https://gstreamer.f
     && ninja -C build -j2 gst-libs/gst/rtsp/libgstrtsp-1.0.so.0.2802.0
 RUN apt-get update && apt-get install -y --no-install-recommends gpgv && rm -rf /var/lib/apt/lists/*
 COPY security/rtsp_regression.c security/package_backlog_extra.py /src/
+# The compiler flags must split into separate words.
+# hadolint ignore=SC2046
 RUN gcc -O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3 /src/rtsp_regression.c \
     -I/src/gst-plugins-base-1.28.2/gst-libs -I/src/gst-plugins-base-1.28.2/build/gst-libs \
     $(pkg-config --cflags --libs gstreamer-1.0) -L/src/gst-plugins-base-1.28.2/build/gst-libs/gst/rtsp -lgstrtsp-1.0 \
@@ -499,6 +526,7 @@ RUN gcc -O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3 /src/rtsp_regression.c 
 RUN python3 /src/package_backlog_extra.py && cp /src/rtsp-regression /extra-out/
 
 FROM maintained-backlog-runtime AS maintained-extra-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=backlog-extra-build /extra-out/*.deb /tmp/backlog-extra/
 COPY --from=backlog-extra-build /extra-out/provenance.json /usr/share/lms-security/backlog-extra-provenance.json
@@ -508,6 +536,7 @@ USER 10001:10001
 
 # Backport to SONAME 156 rather than mixing a newer Poppler ABI with LibreOffice.
 FROM backlog-native-build AS backlog-poppler-build
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake ninja-build libpoppler156 libfontconfig1-dev libfreetype-dev libcairo2-dev libjpeg-dev \
     libopenjp2-7-dev liblcms2-dev libpng-dev libtiff-dev libnss3-dev libcurl4-openssl-dev \
@@ -539,6 +568,7 @@ COPY security/package_backlog_extra.py /src/
 RUN LMS_EXTRA_BATCH=poppler python3 /src/package_backlog_extra.py
 
 FROM maintained-extra-runtime AS maintained-priority-runtime
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
 COPY --from=backlog-poppler-build /extra-out/libpoppler156.deb /tmp/poppler-security.deb
 COPY --from=backlog-poppler-build /extra-out/provenance.json /usr/share/lms-security/poppler-maintenance.json

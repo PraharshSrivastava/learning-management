@@ -18,7 +18,8 @@ from pathlib import Path
 
 def request(url):
     req = urllib.request.Request(url, headers={"User-Agent": "LMS-SBOM-review/1"})
-    with urllib.request.urlopen(req, timeout=15) as response:
+    # Callers pass only the two hard-coded https://*.github*.com URLs below.
+    with urllib.request.urlopen(req, timeout=15) as response:  # nosec B310  # nosemgrep: dynamic-urllib-use-detected
         return response.read()
 
 

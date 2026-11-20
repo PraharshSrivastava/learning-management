@@ -1,3 +1,7 @@
 [bandit]
 exclude_dirs = backend/tests,tmp
-skips = B101,B105,B107
+# B101/B105/B107: asserts and placeholder names in non-secret defaults.
+# B404/B603/B607: ffmpeg, LibreOffice, gpg and build tools are started with
+# argument lists (never a shell string) and resolved from the image PATH.
+# Reviewed for the November 2026 internal VAPT; review again by 2027-02-20.
+skips = B101,B105,B107,B404,B603,B607

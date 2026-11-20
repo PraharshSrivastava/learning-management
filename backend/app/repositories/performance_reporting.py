@@ -476,7 +476,7 @@ def get_assignment_detail(trainer_id: TrainerReportScope, assignment_id: str) ->
             JOIN employees e ON e.employee_id = ca.employee_id
             JOIN assignment_rules ar ON ar.course_id = ca.course_id
             WHERE ca.assignment_id = ? AND {owner_sql}{availability}
-            """,
+            """,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             (assignment_id, *owner_params),
         ).fetchone()
         if not row:

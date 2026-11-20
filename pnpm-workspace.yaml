@@ -6,3 +6,16 @@ packages:
 # pnpm 11 reads this here; .npmrc keeps the same value for older pnpm versions.
 minimumReleaseAge: 20160
 
+
+# Refuse a dependency whose publisher trust level went down between versions.
+trustPolicy: no-downgrade
+# semver 6.3.1 is a 2023 legacy-line release published before provenance existed;
+# newer 7.x releases carry provenance, which reads as a downgrade.
+trustPolicyExclude:
+  - semver@6.3.1
+# Transitive dependencies must come from the registry, not git or tarball URLs.
+blockExoticSubdeps: true
+
+overrides:
+  # CVE-2026-116582, CVE-2026-116583
+  seroval: ^1.6.11

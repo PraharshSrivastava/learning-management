@@ -100,7 +100,7 @@ def save_config(journey_id, trainer_id, payload, check_separation):
         check_separation(incoming)
         for employee_id in affected - incoming:
             for table in ("learning_journey_observer_employees", "learning_journey_observer_departments"):
-                db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ?", (journey_id, employee_id))
+                db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ?", (journey_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             db.execute("""UPDATE learning_journey_observers SET active = FALSE, updated_at = now()::text
                 WHERE journey_id = ? AND observer_employee_id = ?""", (journey_id, employee_id))
         for selection in payload.observers:
@@ -114,14 +114,14 @@ def save_config(journey_id, trainer_id, payload, check_separation):
             ).fetchone()
             if old and old["identity_key"] != key:
                 for table in ("learning_journey_observer_employees", "learning_journey_observer_departments"):
-                    db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ?", (journey_id, employee_id))
+                    db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ?", (journey_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             db.execute("""INSERT INTO learning_journey_observers(journey_id, observer_employee_id, identity_key, granted_by_trainer_id)
                 VALUES (?, ?, ?, ?) ON CONFLICT(journey_id, observer_employee_id) DO UPDATE SET
                 identity_key = excluded.identity_key, granted_by_trainer_id = excluded.granted_by_trainer_id,
                 updated_at = now()::text""",
                 (journey_id, employee_id, key, trainer_id))
             for table in ("learning_journey_observer_employees", "learning_journey_observer_departments"):
-                db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ? AND phase = 'pending'",
+                db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ? AND phase = 'pending'",  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                     (journey_id, employee_id))
             for target_id in set(selection.employee_ids):
                 target = _employee(db, target_id)
@@ -140,7 +140,7 @@ def save_config(journey_id, trainer_id, payload, check_separation):
                 db.execute(f"""DELETE FROM {table} a WHERE a.journey_id = ? AND a.observer_employee_id = ? AND a.phase = 'active'
                     AND NOT EXISTS(SELECT 1 FROM {table} p WHERE p.journey_id = a.journey_id
                         AND p.observer_employee_id = a.observer_employee_id
-                        AND p.phase = 'pending' AND p.{column} = a.{column})""", (journey_id, employee_id))
+                        AND p.phase = 'pending' AND p.{column} = a.{column})""", (journey_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
         return _finish(db, journey_id, trainer_id, before, affected, "save")
 
 
@@ -172,11 +172,11 @@ def apply_config(journey_id, trainer_id, revision, check_separation):
                 raise DomainValidationError("An observed department is no longer active")
             for table, columns in (("learning_journey_observer_employees", "employee_id, identity_key"),
                                    ("learning_journey_observer_departments", "department_id")):
-                db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ? AND phase = 'active'",
+                db.execute(f"DELETE FROM {table} WHERE journey_id = ? AND observer_employee_id = ? AND phase = 'active'",  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                     (journey_id, employee_id))
                 db.execute(f"""INSERT INTO {table}(journey_id, observer_employee_id, phase, {columns})
                     SELECT journey_id, observer_employee_id, 'active', {columns} FROM {table}
-                    WHERE journey_id = ? AND observer_employee_id = ? AND phase = 'pending'""", (journey_id, employee_id))
+                    WHERE journey_id = ? AND observer_employee_id = ? AND phase = 'pending'""", (journey_id, employee_id))  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
             db.execute("""UPDATE learning_journey_observers SET active = TRUE, updated_at = now()::text
                 WHERE journey_id = ? AND observer_employee_id = ?""", (journey_id, employee_id))
         return _finish(db, journey_id, trainer_id, before, affected, "apply")

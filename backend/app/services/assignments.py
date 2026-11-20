@@ -588,7 +588,7 @@ _ASSIGNED_WHERE = "ca.course_id = ? AND ca.status <> 'revoked' AND ca.revoked_at
 def assignment_total(course_id):
     with get_connection() as db:
         return db.execute(
-            f"SELECT COUNT(*) AS n FROM course_assignments ca WHERE {_ASSIGNED_WHERE}", (course_id,)
+            f"SELECT COUNT(*) AS n FROM course_assignments ca WHERE {_ASSIGNED_WHERE}", (course_id,)  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
         ).fetchone()["n"]
 
 
@@ -610,11 +610,11 @@ def assignment_employee_page(course_id, payload, view="matching", search="", pag
             )
             params = (course_id, term, term, term)
             total = db.execute(
-                f"SELECT COUNT(*) AS n FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where}",
+                f"SELECT COUNT(*) AS n FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where}",  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 params,
             ).fetchone()["n"]
             rows = db.execute(
-                f"SELECT e.employee_id, e.name, e.department, e.job_title, e.status FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where} ORDER BY lower(e.name), e.employee_id LIMIT ? OFFSET ?",
+                f"SELECT e.employee_id, e.name, e.department, e.job_title, e.status FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where} ORDER BY lower(e.name), e.employee_id LIMIT ? OFFSET ?",  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 (*params, page_size, (page - 1) * page_size),
             ).fetchall()
         else:
@@ -642,7 +642,7 @@ def assignment_employee_page(course_id, payload, view="matching", search="", pag
         assigned_ids = {
             r["employee_id"]
             for r in db.execute(
-                "SELECT employee_id FROM course_assignments ca WHERE " + _ASSIGNED_WHERE,
+                "SELECT employee_id FROM course_assignments ca WHERE " + _ASSIGNED_WHERE,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 (course_id,),
             ).fetchall()
         }
