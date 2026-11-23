@@ -14,7 +14,7 @@ Every finding has one outcome: **Fixed**, **Already fixed**, **False positive**,
 | Bandit | 156 | HIGH 1 fixed; MEDIUM 29 reviewed (0 real); LOW 126 covered by `.bandit` with reasons |
 | pip-audit | 45 | 43 already fixed (stale venv); `opentelemetry-api` fixed |
 | Trivy fs | 2 | Fixed (`seroval`) |
-| Trivy image | 897 | Base-image scan. Front ends fixed (0 findings on the built images). Backend digests bumped; built-image scan pending. Postgres (543) → out of scope |
+| Trivy image | 897 | Base-image scan. Built images rescanned on big-coding on 23 Nov 2026 (with the vendor branch on top): backend 0 Critical, 0 High, no finding with a published fix; front ends 0 findings. Postgres (543) → out of scope |
 | Trivy config / hadolint | 24 / 75 | hadolint now reports 0 on both Dockerfiles: 31 fixed, 4 rules accepted in `.hadolint.yaml` with reasons |
 | gitleaks | 0 | Clean |
 | Secret patterns / sensitive files | 14 / 2 | False positive |
@@ -72,7 +72,7 @@ Every finding has one outcome: **Fixed**, **Already fixed**, **False positive**,
 
 | Item | State |
 |---|---|
-| Backend image: full build and Trivy scan of the built image | Not completed locally. The build passed steps 1–97 of 218 with the new digests and pipefail (ffmpeg, libxml2, PCRE2, libpng, util-linux stages), then stopped on a network error fetching the Python source; a resume failed on a WSL memory error before starting. To be built and scanned on big-coding. |
+| Backend image: full build and Trivy scan of the built image | **Done** on big-coding, 23 Nov 2026, as part of the vendor branch (`0e350a8`), which contains every change in this branch. Build passed; release gate passed. See `vapt-2026-11-vendor-response.md`. |
 | Trivy config DS-0013 (`RUN cd`, 24) | Same pattern as hadolint DL3003, accepted with the reason in `.hadolint.yaml`. |
 | Semgrep re-run | Not run: the tool could not be downloaded in WSL (two attempts). The `nosemgrep` annotations are untested until the big-coding rescan. |
 
