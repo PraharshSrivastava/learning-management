@@ -52,3 +52,4 @@ The first rebuild on big-coding showed nine Medium findings that the October wor
 | `release-evidence.sh` on all three images | Gate PASS: backend 0 Critical, 0 High; front ends 0 findings |
 | PDF reader inside the backend image, no network | Text, layout blocks and image extraction work |
 | PyMuPDF in the backend image | Not present |
+| Backend rebuilt after the Poppler, GStreamer and pebble fix (`29a561c`) | Gate PASS: 0 Critical, 0 High, 79 Medium, 17 Low, none with a published fix. Poppler 26.01.0-2ubuntu0.3 and gst-plugins-base 1.28.2-1ubuntu0.3 installed; pebble absent; RTSP regression 6 of 6 passed; LibreOffice conversion and PDF reader work |
