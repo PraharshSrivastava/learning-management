@@ -490,11 +490,10 @@ FROM backlog-native-build AS backlog-extra-build
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gettext autopoint texinfo unicode-data libgcrypt20-dev libgpg-error-dev libassuan-dev libksba-dev libnpth0-dev libreadline-dev libsqlite3-dev \
-    gpg meson ninja-build libglib2.0-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-0 \
+    gpg meson ninja-build libglib2.0-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     && rm -rf /var/lib/apt/lists/*
-COPY security/gnupg-cleartext.patch security/gstreamer-rtsp.patch /src/
-RUN echo '88af0682a98daa78f0407710af149e0283c1b54f98c71b7dbd6329be3f31d64a  gnupg-cleartext.patch' | sha256sum -c - \
-    && echo 'f9e46d40ac3aef03d553c57147f3963c902d6d4e968d313d061ecef4dad26d8f  gstreamer-rtsp.patch' | sha256sum -c -
+COPY security/gnupg-cleartext.patch /src/
+RUN echo '88af0682a98daa78f0407710af149e0283c1b54f98c71b7dbd6329be3f31d64a  gnupg-cleartext.patch' | sha256sum -c -
 RUN curl --fail --location --retry 2 -o gnupg.tar.bz2 https://gnupg.org/ftp/gcrypt/gnupg/gnupg-2.4.8.tar.bz2 \
     && echo 'b58c80d79b04d3243ff49c1c3fc6b5f83138eb3784689563bcdd060595318616  gnupg.tar.bz2' | sha256sum -c - \
     && curl --fail --location --retry 2 -o gnupg-debian.tar.xz https://archive.ubuntu.com/ubuntu/pool/main/g/gnupg2/gnupg2_2.4.8-4ubuntu3.1.debian.tar.xz \
@@ -507,22 +506,16 @@ RUN curl --fail --location --retry 2 -o gnupg.tar.bz2 https://gnupg.org/ftp/gcry
         CFLAGS='-O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3' LDFLAGS='-Wl,-z,relro,-z,now'
 RUN make -j2 -C /src/gnupg-2.4.8/common && make -j2 -C /src/gnupg-2.4.8/regexp \
     && make -j2 -C /src/gnupg-2.4.8/kbx && make -j2 -C /src/gnupg-2.4.8/g10 gpg gpgv
-RUN curl --fail --location --retry 2 -o gstreamer-old.tar.xz https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.28.2.tar.xz \
-    && echo '4db76b3619280037a4047de7d9dbb38613a4272dcc40efb333257124635a888d  gstreamer-old.tar.xz' | sha256sum -c - \
-    && tar -xf gstreamer-old.tar.xz && cd gst-plugins-base-1.28.2 \
-    && patch --fuzz=0 -p1 < /src/gstreamer-rtsp.patch \
-    && meson setup build --prefix=/usr --libdir=lib/x86_64-linux-gnu --buildtype=release \
-        -Dauto_features=disabled -Dtests=disabled -Dexamples=disabled -Ddoc=disabled \
-    && ninja -C build -j2 gst-libs/gst/rtsp/libgstrtsp-1.0.so.0.2802.0
 RUN apt-get update && apt-get install -y --no-install-recommends gpgv && rm -rf /var/lib/apt/lists/*
 COPY security/rtsp_regression.c security/package_backlog_extra.py /src/
+# Ubuntu 1.28.2-1ubuntu0.3 and later carry the RTSP fix (CVE-2026-85150) that this image
+# used to backport. The regression cases now run against Ubuntu's own library.
 # The compiler flags must split into separate words.
 # hadolint ignore=SC2046
 RUN gcc -O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3 /src/rtsp_regression.c \
-    -I/src/gst-plugins-base-1.28.2/gst-libs -I/src/gst-plugins-base-1.28.2/build/gst-libs \
-    $(pkg-config --cflags --libs gstreamer-1.0) -L/src/gst-plugins-base-1.28.2/build/gst-libs/gst/rtsp -lgstrtsp-1.0 \
+    $(pkg-config --cflags --libs gstreamer-1.0 gstreamer-rtsp-1.0) \
     -Wl,-z,relro,-z,now -o /src/rtsp-regression \
-    && LD_LIBRARY_PATH=/src/gst-plugins-base-1.28.2/build/gst-libs/gst/rtsp /src/rtsp-regression
+    && /src/rtsp-regression
 RUN python3 /src/package_backlog_extra.py && cp /src/rtsp-regression /extra-out/
 
 FROM maintained-backlog-runtime AS maintained-extra-runtime
@@ -534,46 +527,17 @@ RUN dpkg -i /tmp/backlog-extra/*.deb && ldconfig && apt-get check \
     && test -z "$(dpkg --audit)" && rm -rf /tmp/backlog-extra
 USER 10001:10001
 
-# Backport to SONAME 156 rather than mixing a newer Poppler ABI with LibreOffice.
-FROM backlog-native-build AS backlog-poppler-build
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    cmake ninja-build libpoppler156 libfontconfig1-dev libfreetype-dev libcairo2-dev libjpeg-dev \
-    libopenjp2-7-dev liblcms2-dev libpng-dev libtiff-dev libnss3-dev libcurl4-openssl-dev \
-    libboost-dev libgpgme-dev libgpgmepp-dev \
-    && rm -rf /var/lib/apt/lists/*
-COPY security/poppler-bounds.patch /src/
-RUN echo '2a9396c466741958b159bb608b53f1d7983397f522b3b2abfcfe94b10ae5fb43  poppler-bounds.patch' | sha256sum -c - \
-    && curl --fail --location --retry 2 -o poppler.tar.xz https://archive.ubuntu.com/ubuntu/pool/main/p/poppler/poppler_26.01.0.orig.tar.xz \
-    && echo '1cb944a4b88847f5fb6551683bc799db59f04990f5d8be07aba2acbf38601089  poppler.tar.xz' | sha256sum -c - \
-    && curl --fail --location --retry 2 -o poppler-debian.tar.xz https://snapshot.ubuntu.com/ubuntu/20261008T000000Z/pool/main/p/poppler/poppler_26.01.0-2ubuntu0.1.debian.tar.xz \
-    && echo 'e2452b927bd68bcb3e17a7d487580005800536af5c144f25f294de76882df19f  poppler-debian.tar.xz' | sha256sum -c - \
-    && tar -xf poppler.tar.xz && cd poppler-26.01.0 \
-    && tar -xf /src/poppler-debian.tar.xz && QUILT_PATCHES=debian/patches quilt push -a \
-    && patch --fuzz=0 -p1 < /src/poppler-bounds.patch \
-    && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/usr -DENABLE_GLIB=OFF -DENABLE_QT5=OFF -DENABLE_QT6=OFF -DENABLE_CPP=OFF \
-        -DENABLE_UNSTABLE_API_ABI_HEADERS=ON -DENABLE_CMS=lcms2 -DENABLE_LIBOPENJPEG=openjpeg2 \
-        -DBUILD_GTK_TESTS=OFF -DBUILD_QT5_TESTS=OFF -DBUILD_QT6_TESTS=OFF -DBUILD_CPP_TESTS=OFF -DBUILD_MANUAL_TESTS=OFF \
-        -DCMAKE_C_FLAGS_RELEASE='-O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3' \
-        -DCMAKE_CXX_FLAGS_RELEASE='-O2 -fstack-protector-strong -D_FORTIFY_SOURCE=3' \
-        -DCMAKE_SHARED_LINKER_FLAGS='-Wl,-z,relro,-z,now' \
-    && cmake --build build --target poppler -j2
-COPY security/poppler_abi_anchors.cc /src/
-RUN echo '8c10b90468f35a4ff73728b692841d6e9cfdb65692b40fc1514d424eafeda0ab  /src/poppler_abi_anchors.cc' | sha256sum -c - \
-    && cd /src/poppler-26.01.0 \
-    && printf '\ntarget_sources(poppler PRIVATE /src/poppler_abi_anchors.cc)\n' >> CMakeLists.txt \
-    && cmake -S . -B build && cmake --build build --target poppler -j2
-COPY security/package_backlog_extra.py /src/
-RUN LMS_EXTRA_BATCH=poppler python3 /src/package_backlog_extra.py
-
 FROM maintained-extra-runtime AS maintained-priority-runtime
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER 0:0
-COPY --from=backlog-poppler-build /extra-out/libpoppler156.deb /tmp/poppler-security.deb
-COPY --from=backlog-poppler-build /extra-out/provenance.json /usr/share/lms-security/poppler-maintenance.json
-RUN dpkg -i /tmp/poppler-security.deb && ldconfig && apt-get check \
-    && test -z "$(dpkg --audit)" && rm /tmp/poppler-security.deb
+# Ubuntu now ships the Poppler and GStreamer fixes this image used to rebuild by hand.
+# Fail the build if an older package was installed.
+# pebble (Canonical's service manager) ships in the Ubuntu base image, is owned by no
+# package and is not used by the LMS; it carried the only Go standard library in the image.
+RUN dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpoppler156)" ge 26.01.0-2ubuntu0.3 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libgstreamer-plugins-base1.0-0)" ge 1.28.2-1ubuntu0.3 \
+    && ! dpkg-query -W -f='${Version}' libpoppler156 libgstreamer-plugins-base1.0-0 | grep -q lms \
+    && rm -f /usr/bin/pebble
 COPY --from=lxml-build /out/lxml-source-build.json /usr/share/lms-security/lxml-source-build.json
 COPY --from=python-parsers-build /out/pillow-source-build.json /usr/share/lms-security/pillow-source-build.json
 COPY security/check_native_bundle_lock.py security/native-bundle-lock.json /usr/share/lms-security/

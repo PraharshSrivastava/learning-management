@@ -7,6 +7,7 @@ packages put them; the notice file says where.
 
 Usage: write_notices.py OUTPUT_DIR
 """
+import email.header
 import importlib.metadata
 import json
 import pathlib
@@ -26,12 +27,21 @@ def python_packages():
             licence = ', '.join(names) or 'See package metadata'
         supplier = (meta.get('Author') or meta.get('Maintainer') or meta.get('Author-email')
                     or meta.get('Maintainer-email') or '')
+        supplier = _decoded(supplier)
         texts = sorted(str(path) for path in dist.files or []
                        if path.name.upper().startswith(('LICENSE', 'LICENCE', 'COPYING', 'NOTICE')))
         rows.append({'name': meta['Name'], 'version': dist.version, 'licence': licence.strip(),
                      'supplier': supplier.strip(), 'licence_files': texts,
                      'location': str(dist.locate_file(''))})
     return sorted(rows, key=lambda row: row['name'].lower())
+
+
+def _decoded(value):
+    """Package metadata may encode non-ASCII names as =?utf-8?q?...?=; return plain text."""
+    try:
+        return str(email.header.make_header(email.header.decode_header(value)))
+    except (ValueError, LookupError):
+        return value
 
 
 def os_packages():

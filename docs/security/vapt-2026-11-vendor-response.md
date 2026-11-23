@@ -17,7 +17,7 @@ Status words: **Fixed** (changed in this branch), **Already fixed** (resolved on
 | F-05 | Medium | Image tags float | **Already fixed** | Every `FROM` in `backend/Dockerfile` and `deploy/web.Dockerfile`, and the `postgres` image in `docker-compose.yml`, is pinned by digest. The evidence script copies these three files into the package. |
 | F-07 | Medium | Scanner suppressions filter published output | **Evidence** | Trivy runs with no ignore file, so the published vulnerability report is unfiltered. The only scanner settings in the repository are `.bandit` and `.hadolint.yaml`; each entry carries its reason and a review date of 20 February 2027, and both files are copied into the evidence package. |
 | F-08 | Medium | Untrusted documents parsed in the backend | **Fixed** / **Evidence** | Controls are described in [document-parsing-controls.md](document-parsing-controls.md). Added in this branch: an upload is refused when its first bytes do not match its extension. XML is parsed only inside python-docx and python-pptx, both with entity resolution off. One gap is recorded there: no memory or CPU cap on the backend container. |
-| F-10 | Medium | Headless browser unrecorded | **Fixed** | The image build now records the Chromium build Playwright installed (`/usr/share/lms-security/notices/third-party-inventory.json`), and the evidence script adds it to the SBOM as a component. The browser is installed at image build (`playwright install chromium`) and is never downloaded at run time. It is started with Playwright's default settings, under which Chromium's own sandbox is off; isolation comes from the container (non-root user, all capabilities dropped, `no-new-privileges`). It opens only local slide files that the LMS itself generated and never navigates to a remote address. |
+| F-10 | Medium | Headless browser unrecorded | **Fixed** | The image build now records the Chromium build Playwright installed (`/usr/share/lms-security/notices/third-party-inventory.json`), and the evidence script adds it to the SBOM as a component. On the built image: Chromium 153.0.8010.12, Playwright build 1243. The browser is installed at image build (`playwright install chromium`) and is never downloaded at run time. It is started with Playwright's default settings, under which Chromium's own sandbox is off; isolation comes from the container (non-root user, all capabilities dropped, `no-new-privileges`). It opens only local slide files that the LMS itself generated and never navigates to a remote address. |
 | F-11 | Medium | LGPL components without notices | **Fixed** | The backend image now contains `/usr/share/lms-security/notices/THIRD-PARTY-NOTICES.txt`, generated at build: every Python package and OS package with its licence, supplier and the path of its licence text. Each front-end image contains `/usr/share/licenses/lms/third-party-licenses.json` for the bundled JavaScript packages. |
 | F-12 | Medium | Fonts fetched at run time | **Already fixed** | `google_fonts` left with Flutter. The React apps load fonts bundled in the build (`packages/shared/src/fonts`). |
 | F-14 | Low | Licence metadata incomplete | **Evidence** | The remaining gaps named in the report are Go modules in other applications' images. For LMS, the notice inventory above records a licence for every Python package. |
@@ -31,19 +31,15 @@ Status words: **Fixed** (changed in this branch), **Already fixed** (resolved on
 |---|---|---:|---|---|
 | Both front ends | libx11 1.8.13-r0 | 8 | **Fixed** | Rebuilt images carry 1.8.14-r0. |
 | Both front ends | libxpm 3.5.19-r0 | 2 | **Fixed** | Rebuilt images carry 3.5.20-r0. Trivy reports 0 vulnerabilities on both images. |
-| Backend | util-linux 2.41.3 (4 High) | 4 | **Already fixed**, **Pending build** to confirm | The four advisories are in `mount`, `nsenter` and libmount. Those are not the Ubuntu builds: the image replaces `mount`, `umount`, `nsenter`, libmount, libblkid and libuuid with util-linux 2.42.4 built from the kernel.org source (packages `lms-*`, version `2.42.4+lms1`). The Ubuntu `util-linux` package remains for unrelated tools, and scanners match on its version. |
-| Backend | coreutils | 3 | **Pending build** | Base digest refreshed; the build already runs `apt-get upgrade`. To confirm on the rebuilt image. |
+| Backend | util-linux 2.41.3 (4 High) | 4 | **1 fixed, 3 accepted** | Rescanned on big-coding (23 November 2026). CVE-2026-78409 no longer appears. CVE-2026-76642, CVE-2026-78408 and CVE-2026-78410 remain, now rated Medium by Ubuntu, with no fixed version published. They are reported both for Ubuntu's `util-linux` 2.41.3 and for the image's own util-linux 2.42.4 build (packages `lms-*`), so the replacement does not clear them. The affected code paths (`mount` helpers, `nsenter --join-cgroup`, bind mounts) need privileges the container does not have: it runs as a non-root user with all capabilities dropped and `no-new-privileges`. |
+| Backend | coreutils | 3 | **Fixed** | The rebuilt image carries `gnu-coreutils` 9.7-3ubuntu2.1, the fixed version; the scan reports no coreutils findings. |
 | Backend | dash | 2 | **Accepted** | No fixed version is published. |
 | Backend | tar | 2 | **Accepted** | No fixed version is published. |
-| Backend | Go stdlib 1.26.7 | 13 | **Pending build** | The Go binary has to be identified on a built image (one Trivy query). If it is not needed at run time it will be removed; otherwise it is recorded as accepted until its owner ships a rebuild. |
+| Backend | Go stdlib 1.26.7 | 13 | **Fixed** | The only Go binary in the image was `/usr/bin/pebble`, Canonical's service manager, which ships in the Ubuntu base image, belongs to no package and is not used by the LMS. It is now deleted in the build. On the first rebuild it carried Go 1.27.3 with one Medium finding; the 13 rows of 1.26.7 were already gone. |
 
-## Not done locally
+## Found on the rescan and fixed
 
-The backend image could not be built on the development laptop, so three things wait for the build on the release server:
-
-1. Confirming the backend image builds with this branch (PyMuPDF removal, notice step, pipefail, new digests).
-2. The backend rows marked **Pending build** above.
-3. The backend half of the evidence package (SBOM, scan, notices, browser record).
+The first rebuild on big-coding showed nine Medium findings that the October work had introduced: the image replaced one library each in Poppler and GStreamer with its own patched build, and those builds were labelled older than Ubuntu's later security updates (poppler 26.01.0-2ubuntu0.2 and 0.3, gst-plugins-base1.0 1.28.2-1ubuntu0.2 and 0.3). Both of the image's patches were checked and are already included in Ubuntu's current patch series, so the custom builds were removed and Ubuntu's packages are used. A build step now fails if an older or custom version of either package is installed.
 
 ## Checks run
 
@@ -52,4 +48,7 @@ The backend image could not be built on the development laptop, so three things 
 | Backend test suite | Pass |
 | PDF comparison, old against new reader, 4 real PDFs | 45 of 45 images identical; all extracted files open |
 | Front-end images build, `nginx -t`, hadolint | Pass, 0 lint findings |
-| `release-evidence.sh` on both front-end images | Gate PASS |
+| Backend, trainer and employee images built on big-coding (23 November 2026) | Pass; backend 29 minutes |
+| `release-evidence.sh` on all three images | Gate PASS: backend 0 Critical, 0 High; front ends 0 findings |
+| PDF reader inside the backend image, no network | Text, layout blocks and image extraction work |
+| PyMuPDF in the backend image | Not present |

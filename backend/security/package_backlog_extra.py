@@ -1,7 +1,10 @@
-"""Retain vendor package files; replace only the reviewed GPG/RTSP binaries."""
+"""Retain vendor package files; replace only the reviewed gpg and gpgv binaries.
+
+The RTSP and Poppler replacements were dropped in November 2026: Ubuntu now ships
+the same fixes (gst-plugins-base1.0 1.28.2-1ubuntu0.3, poppler 26.01.0-2ubuntu0.3).
+"""
 import hashlib
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,13 +15,7 @@ proof = []
 specs = [
     ('gpg', 'gnupg2', '2.4.8-4ubuntu3.1+lms1', '/usr/bin/gpg', '/src/gnupg-2.4.8/g10/gpg'),
     ('gpgv', 'gnupg2', '2.4.8-4ubuntu3.1+lms1', '/usr/bin/gpgv', '/src/gnupg-2.4.8/g10/gpgv'),
-    ('libgstreamer-plugins-base1.0-0', 'gst-plugins-base1.0', '1.28.2-1ubuntu0.1+lms1',
-     '/usr/lib/x86_64-linux-gnu/libgstrtsp-1.0.so.0.2802.0',
-     '/src/gst-plugins-base-1.28.2/build/gst-libs/gst/rtsp/libgstrtsp-1.0.so.0.2802.0'),
 ]
-if os.environ.get('LMS_EXTRA_BATCH') == 'poppler':
-    specs = [('libpoppler156', 'poppler', '26.01.0-2ubuntu0.1+lms1',
-        '/usr/lib/x86_64-linux-gnu/libpoppler.so.156.0.0', '/src/poppler-26.01.0/build/libpoppler.so.156.0.0')]
 for name, source, version, target, replacement in specs:
     root = Path('/extra-packages') / name
     root.mkdir(parents=True)
@@ -42,7 +39,6 @@ for name, source, version, target, replacement in specs:
                 ['nm', '-D', '--defined-only', str(path)], text=True).splitlines() if line.strip()}
         missing = sorted(exports(old) - exports(new))
         assert missing == [], missing
-        assert ('[libpoppler.so.156]' if name == 'libpoppler156' else '[libgstrtsp-1.0.so.0]') in dynamic
     shutil.copy2(new, root / target.lstrip('/'))
     control = root / 'DEBIAN'
     control.mkdir()
