@@ -62,8 +62,10 @@ if __name__ == '__main__':
     result = record(args.source_lock, args.wheels)
     # Preserve build-environment evidence; dependency versions are not exemptions.
     result['compiler'] = subprocess.check_output(['gcc', '--version'], text=True).splitlines()[0]
+    # Build-time only: --config-tool values are fixed in backend/Dockerfile, and an argument
+    # list is used (no shell).
     for tool in args.config_tool:
-        result[tool.replace('-', '_') + '_version'] = subprocess.check_output([tool, '--version'], text=True).strip()
+        result[tool.replace('-', '_') + '_version'] = subprocess.check_output([tool, '--version'], text=True).strip()  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-tainted-env-args.dangerous-subprocess-use-tainted-env-args
     result['build_packages'] = subprocess.check_output(
         ['dpkg-query', '-W', '-f=${Package}=${Version}\n'], text=True).splitlines()
     args.output.write_text(json.dumps(result, indent=2) + '\n')

@@ -187,7 +187,8 @@ class LLMClient:
                     if match
                     else 512
                 )
-                logger.warning(
+                # Logs a course id, a stage name and a token count; no credential.
+                logger.warning(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
                     "llm_context_retry course_id=%s stage=%s reduced_output_tokens=%s",
                     course_id,
                     stage,

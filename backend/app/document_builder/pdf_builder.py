@@ -5,6 +5,8 @@ from __future__ import annotations
 import base64
 import binascii
 from io import BytesIO
+# escape() only escapes text; no XML is parsed here.
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 from xml.sax.saxutils import escape
 
 

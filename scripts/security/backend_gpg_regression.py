@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--parent', action='store_true')
 args = parser.parse_args()
 with tempfile.TemporaryDirectory(prefix='lms-gpg-regression-') as directory:
-    os.chmod(directory, 0o700)
+    os.chmod(directory, 0o700)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions -- owner-only, as GnuPG requires
     env = {**os.environ, 'GNUPGHOME': directory}
     def run(options, data=None):
         return subprocess.run(['gpg', '--batch', '--pinentry-mode', 'loopback', '--passphrase', '',
