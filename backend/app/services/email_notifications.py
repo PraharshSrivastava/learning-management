@@ -522,6 +522,7 @@ def _journey_email_context(
         if event_type == "journey_completed"
         else "s.position ASC"
     )
+    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
     row = connection.execute(
         f"""
         SELECT
@@ -914,6 +915,7 @@ def cancel_assignment_notifications(
     now = _now().isoformat()
     connection_context = nullcontext(connection) if connection is not None else get_connection()
     with connection_context as active_connection:
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         row = active_connection.execute(
             f"""
             UPDATE email_notifications
@@ -1485,6 +1487,7 @@ def _digest_summary(connection, notification: dict) -> dict[str, int]:
         if notification.get("recipient_role") == "trainer"
         else "COUNT(*) FILTER (WHERE ca.status = 'overdue' OR (ca.status IN ('pending', 'started') AND ca.deadline < ?))"
     )
+    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
     row = connection.execute(
         f"""
         SELECT

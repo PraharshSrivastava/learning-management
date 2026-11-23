@@ -46,7 +46,7 @@ def _employee_group_summary(connection, employee_ids: list[str] | None = None) -
         placeholders = ", ".join("?" for _ in employee_ids)
         where = f"WHERE employee_id IN ({placeholders})"  # nosec B608
         params = employee_ids
-    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
     rows = connection.execute(
         f"""
         SELECT employee_id, group_cn, group_dn
@@ -226,7 +226,7 @@ def mark_missing_hub_employees_inactive(active_employee_ids: set[str]) -> list[s
     now = datetime.now().isoformat()
     placeholders = ", ".join("?" for _ in active_employee_ids)  # nosec B608
     with get_connection() as connection:
-        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         rows = connection.execute(
             f"""
             SELECT employee_id
@@ -240,7 +240,7 @@ def mark_missing_hub_employees_inactive(active_employee_ids: set[str]) -> list[s
         missing_ids = [row["employee_id"] for row in rows]
         if missing_ids:
             missing_placeholders = ", ".join("?" for _ in missing_ids)  # nosec B608
-            # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+            # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
             connection.execute(
                 f"""
                 UPDATE employees

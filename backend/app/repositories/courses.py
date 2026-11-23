@@ -529,7 +529,7 @@ def patch_generated_course_fields(
             course_updates.append("updated_at = ?")
             params.append(now)
             params.append(course_id)
-            # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+            # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
             connection.execute(
                 f"UPDATE courses SET {', '.join(course_updates)} WHERE course_id = ?",  # nosec B608
                 params,
@@ -596,7 +596,7 @@ def patch_generated_course_fields(
                     module_updates.append("updated_at = ?")
                     module_params.append(now)
                     module_params.append(row["module_id"])
-                    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query
+                    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
                     connection.execute(
                         f"UPDATE course_modules SET {', '.join(module_updates)} WHERE module_id = ?",  # nosec B608
                         module_params,
@@ -857,6 +857,7 @@ def course_library_page(
         params.append(search)
     where = " AND ".join(predicates) or "TRUE"
     with get_connection() as connection:
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         row = connection.execute(
             f"""
             WITH filtered AS (

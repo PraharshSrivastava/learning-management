@@ -80,6 +80,7 @@ def course_snapshot(
     ]
     with get_connection() as connection:
         connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         rows = [dict(row) for row in connection.execute(query, params).fetchall()]
         course = connection.execute(
             "SELECT course_name, trainer_id FROM courses WHERE course_id = ?", (course_id,)
@@ -94,6 +95,7 @@ def course_snapshot(
 
 def lock_notification_facts(connection, notification_id: str) -> dict | None:
     """Lock one assignment email and read what is recorded about it, for a resend."""
+    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
     row = connection.execute(
         f"""
         SELECT n.notification_id, n.assignment_id, n.event_type, n.recipient_role,
