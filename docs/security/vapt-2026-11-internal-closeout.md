@@ -10,7 +10,7 @@ Every finding has one outcome: **Fixed**, **Already fixed**, **False positive**,
 
 | Scanner | Reported | Outcome |
 |---|---:|---|
-| Semgrep | 37 | 11 fixed, 4 mitigated and annotated, 12 accepted by design, 1 already fixed, 9 false positive |
+| Semgrep | 37 | 11 fixed, 4 mitigated and annotated, 12 accepted by design, 1 already fixed, 9 false positive. Re-run on big-coding, 23 Nov 2026 (Semgrep 1.168.0, same 13 rules plus p/default): 0 of the 37 remain |
 | Bandit | 156 | HIGH 1 fixed; MEDIUM 29 reviewed (0 real); LOW 126 covered by `.bandit` with reasons |
 | pip-audit | 45 | 43 already fixed (stale venv); `opentelemetry-api` fixed |
 | Trivy fs | 2 | Fixed (`seroval`) |
@@ -74,7 +74,7 @@ Every finding has one outcome: **Fixed**, **Already fixed**, **False positive**,
 |---|---|
 | Backend image: full build and Trivy scan of the built image | **Done** on big-coding, 23 Nov 2026, as part of the vendor branch (`0e350a8`), which contains every change in this branch. Build passed; release gate passed. See `vapt-2026-11-vendor-response.md`. |
 | Trivy config DS-0013 (`RUN cd`, 24) | Same pattern as hadolint DL3003, accepted with the reason in `.hadolint.yaml`. |
-| Semgrep re-run | Not run: the tool could not be downloaded in WSL (two attempts). The `nosemgrep` annotations are untested until the big-coding rescan. |
+| Semgrep re-run | **Done** on big-coding, 23 Nov 2026, Semgrep 1.168.0 with the 13 original rules and the `p/default` ruleset. First run: 8 of 37 left (npm had no `min-release-age` of its own; 7 reviewed false positives were not yet marked in the code). Both fixed in `d8a918b`; second run: 0 of the original 37. The default ruleset also reports 51 lines that build SQL as strings (44 `sqlalchemy-execute-raw-query`, 7 `formatted-sql-query`), which the 17 Nov scan did not include; 23 of them are the sites reviewed above, the rest are not yet reviewed. |
 
 ## Out of scope
 
