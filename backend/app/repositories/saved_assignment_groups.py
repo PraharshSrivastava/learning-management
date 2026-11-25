@@ -52,13 +52,14 @@ class SavedAssignmentGroupRepository:
             where += " AND group_type = ?"
             params.append(group_type)
         with get_connection() as connection:
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
             rows = connection.execute(
                 f"""
                 SELECT *
                 FROM saved_assignment_groups
                 {where}
                 ORDER BY lower(name), updated_at DESC
-                """,
+                """,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 params,
             ).fetchall()
         return [_row_to_saved_group(row) for row in rows]

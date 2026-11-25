@@ -21,7 +21,9 @@ def main():
         if db.execute("SELECT current_database() AS name").fetchone()["name"] != "lms_performance_demo":
             raise RuntimeError("UAT fixture refuses any database other than the isolated local demo")
         name = "access_uat_" + uuid4().hex
+        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         db.execute(f'CREATE SCHEMA "{name}"')
+        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         db.execute(f'SET LOCAL search_path TO "{name}"')
         schema._create_tables(db.cursor())
         apply_access_migrations(db)

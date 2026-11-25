@@ -753,7 +753,7 @@ def test_completion_certificate_pdf_and_verification(journey_db):
 
 
 def test_certificate_is_stored_at_completion_and_never_changes(journey_db):
-    import fitz
+    from pdf_helpers import pdf_pages
 
     from app.services import journey_certificates
 
@@ -777,7 +777,7 @@ def test_certificate_is_stored_at_completion_and_never_changes(journey_db):
         db.commit()
 
     _filename, pdf = journey_certificates.learner_certificate("old", journey_id)
-    text = fitz.open(stream=pdf, filetype="pdf")[0].get_text()
+    text = pdf_pages(pdf)[0]
     assert "Markets Foundation" in text and "2027" not in text and "Renamed" not in text
     checked = journey_certificates.verify_certificate(number)
     assert (checked["journey_title"], checked["learner_name"]) == ("Markets Foundation", "old")
@@ -802,7 +802,7 @@ def test_a_completion_from_before_stored_certificates_is_issued_on_first_check(j
 
 
 def test_certificate_text_names_the_issuing_team_without_a_signatory():
-    import fitz
+    from pdf_helpers import pdf_pages
 
     from app.services import journey_certificates
 
@@ -813,9 +813,9 @@ def test_certificate_text_names_the_issuing_team_without_a_signatory():
         completed_at="2026-10-20T10:00:00",
         number="PCIL-LJ-AAAA-BBBB-CCCC",
     )
-    document = fitz.open(stream=pdf, filetype="pdf")
-    assert document.page_count == 1
-    text = document[0].get_text()
+    document = pdf_pages(pdf)
+    assert len(document) == 1
+    text = document[0]
     for expected in (
         "Asha Verma",
         "New Joiner Induction",
@@ -833,7 +833,7 @@ def test_certificate_text_names_the_issuing_team_without_a_signatory():
 
 
 def test_a_long_course_list_moves_to_a_course_record_page():
-    import fitz
+    from pdf_helpers import pdf_pages
 
     from app.services import journey_certificates
 
@@ -845,10 +845,10 @@ def test_a_long_course_list_moves_to_a_course_record_page():
         completed_at="2026-10-20T10:00:00",
         number="PCIL-LJ-AAAA-BBBB-CCCC",
     )
-    document = fitz.open(stream=pdf, filetype="pdf")
-    assert document.page_count == 2
-    assert "40 courses · full list on page 2" in document[0].get_text()
-    record = document[1].get_text()
+    document = pdf_pages(pdf)
+    assert len(document) == 2
+    assert "40 courses · full list on page 2" in document[0]
+    record = document[1]
     assert "C O U R S E   R E C O R D" in record and "40 courses completed" in record
     assert "number 1\n" in record and "number 40\n" in record, record
 

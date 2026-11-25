@@ -1,8 +1,8 @@
 from io import BytesIO
 
-import fitz
 import pytest
 from docx import Document
+from pdf_helpers import PdfWriter
 from PIL import Image
 from pptx import Presentation
 from pptx.util import Inches
@@ -67,11 +67,10 @@ def test_docx_preserves_module_order_table_and_owned_image(repo, tmp_path, monke
 
 def test_pdf_needs_no_lms_metadata_table_and_reports_unreadable_pages(repo, tmp_path, monkeypatch):
     def build(path):
-        with fitz.open() as document:
+        with PdfWriter(path) as document:
             page = document.new_page()
             page.insert_text((50, 50), "Module 1: Customer needs\nListen first.")
             document.new_page()
-            document.save(path)
 
     draft = source(repo, tmp_path, monkeypatch, ".pdf", build)
     assert draft.content.modules[0].title == "Customer needs"
@@ -111,9 +110,8 @@ def test_reference_attachment_does_not_replace_existing_document(repo, tmp_path,
 
 def test_image_only_pdf_is_rejected_without_silent_empty_success(repo, tmp_path, monkeypatch):
     def build(path):
-        with fitz.open() as document:
-            document.new_page().insert_image(fitz.Rect(10, 10, 100, 100), stream=png())
-            document.save(path)
+        with PdfWriter(path) as document:
+            document.new_page().insert_image((10, 10, 100, 100), stream=png())
 
     with pytest.raises(ValueError, match="No readable text"):
         source(repo, tmp_path, monkeypatch, ".pdf", build)

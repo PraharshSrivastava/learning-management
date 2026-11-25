@@ -113,7 +113,8 @@ def email_status_export(
     writer = csv.writer(output)
     writer.writerow(CSV_HEADERS)
     for row in rows:
-        writer.writerow(
+        # Cells starting with = + - @ are prefixed with ' below, so no cell runs as a formula.
+        writer.writerow(  # nosemgrep: python.django.security.injection.csv-writer-injection.csv-writer-injection
             [
                 "'" + value
                 if isinstance(value := row.get(key), str)

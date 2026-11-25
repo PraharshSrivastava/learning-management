@@ -587,8 +587,9 @@ _ASSIGNED_WHERE = "ca.course_id = ? AND ca.status <> 'revoked' AND ca.revoked_at
 
 def assignment_total(course_id):
     with get_connection() as db:
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         return db.execute(
-            f"SELECT COUNT(*) AS n FROM course_assignments ca WHERE {_ASSIGNED_WHERE}", (course_id,)
+            f"SELECT COUNT(*) AS n FROM course_assignments ca WHERE {_ASSIGNED_WHERE}", (course_id,)  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
         ).fetchone()["n"]
 
 
@@ -609,12 +610,14 @@ def assignment_employee_page(course_id, payload, view="matching", search="", pag
                 + " AND (e.name ILIKE ? OR e.department ILIKE ? OR e.employee_id ILIKE ?)"
             )
             params = (course_id, term, term, term)
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
             total = db.execute(
-                f"SELECT COUNT(*) AS n FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where}",
+                f"SELECT COUNT(*) AS n FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where}",  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 params,
             ).fetchone()["n"]
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
             rows = db.execute(
-                f"SELECT e.employee_id, e.name, e.department, e.job_title, e.status FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where} ORDER BY lower(e.name), e.employee_id LIMIT ? OFFSET ?",
+                f"SELECT e.employee_id, e.name, e.department, e.job_title, e.status FROM course_assignments ca JOIN employees e USING(employee_id) WHERE {where} ORDER BY lower(e.name), e.employee_id LIMIT ? OFFSET ?",  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 (*params, page_size, (page - 1) * page_size),
             ).fetchall()
         else:
@@ -641,8 +644,9 @@ def assignment_employee_page(course_id, payload, view="matching", search="", pag
     with get_connection() as db:
         assigned_ids = {
             r["employee_id"]
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
             for r in db.execute(
-                "SELECT employee_id FROM course_assignments ca WHERE " + _ASSIGNED_WHERE,
+                "SELECT employee_id FROM course_assignments ca WHERE " + _ASSIGNED_WHERE,  # nosec B608 - fixed SQL fragments only; every value is a bound parameter
                 (course_id,),
             ).fetchall()
         }

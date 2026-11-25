@@ -118,21 +118,27 @@ class SourceImporter:
             for number, paragraph in enumerate(re.split(r"\n\s*\n", request.text), 1):
                 text(paragraph, f"Pasted paragraph {number}")
         elif suffix == ".pdf":
-            import fitz
+            from app.documents.pdf_reader import PdfDocument
 
-            with fitz.open(snapshot) as pdf:
-                for number, page in enumerate(pdf, 1):
-                    if not page.get_text().strip():
+            with PdfDocument(snapshot) as pdf:
+                for page in pdf:
+                    number = page.number
+                    if not page.text().strip():
                         issues.append(f"Page {number} has no readable text; OCR is not available")
-                    for block in page.get_text("dict")["blocks"]:
-                        if block["type"] == 0:
-                            value = "\n".join(
-                                "".join(span["text"] for span in line["spans"])
-                                for line in block["lines"]
-                            )
+                    # Text and images interleaved from the top of the page down.
+                    items = [(block[1], block[0], block[4], None) for block in page.text_blocks()]
+                    items += [(item.bbox[1], item.bbox[0], None, item) for item in page.images()]
+                    for _, _, value, picture in sorted(items, key=lambda item: item[:2]):
+                        if picture is None:
                             text(value, f"Page {number}")
-                        elif block["type"] == 1:
-                            image(block["image"], f"Image on page {number}")
+                            continue
+                        try:
+                            image(page.image_bytes(picture)[0], f"Image on page {number}")
+                        except (OSError, ValueError, RuntimeError):
+                            issues.append(
+                                f"Unsupported image at Image on page {number}; "
+                                "review the original source"
+                            )
             issues.append(
                 "PDF layout and tables are converted to reading-order blocks; review against the original"
             )

@@ -28,6 +28,8 @@ export function Icon({ name, size = 24, color, className, style, label }: IconPr
       aria-label={label}
       aria-hidden={label ? undefined : true}
       focusable="false"
+      // body is SVG markup from the icon set bundled with the app, never user input.
+      // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       dangerouslySetInnerHTML={{ __html: body }}
     />
   )

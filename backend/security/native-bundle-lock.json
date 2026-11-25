@@ -265,36 +265,6 @@
         "python:websockets==17.1"
       ]
     },
-    "/usr/local/lib/python3.12/site-packages/pymupdf/_mupdf.so": {
-      "sha256": "ef32a5fda57e0c930d4a721e405871cdb79ca92fab17d28ef59d8adf5eea9b52",
-      "owners": [
-        "python:pymupdf==1.28.0"
-      ]
-    },
-    "/usr/local/lib/python3.12/site-packages/pymupdf/_extra.so": {
-      "sha256": "20096470e2903c1ed199eb5fc097cdcbac19c5dd97e442d788f8edbec227d4c0",
-      "owners": [
-        "python:pymupdf==1.28.0"
-      ]
-    },
-    "/usr/local/lib/python3.12/site-packages/pymupdf/libmupdfcpp.so.29.0": {
-      "sha256": "2acbe7f8d3eab68a733758199f97d922fc52ba15e0d125c9c70249a5431aa858",
-      "owners": [
-        "python:pymupdf==1.28.0"
-      ]
-    },
-    "/usr/local/lib/python3.12/site-packages/pymupdf/libmupdf.so.29.0": {
-      "sha256": "3887cc07dc04387836255133929df8f9592ec48a41c2eb0e3912cbc03b78bd48",
-      "owners": [
-        "python:pymupdf==1.28.0"
-      ]
-    },
-    "/usr/local/lib/python3.12/site-packages/pymupdf/mupdf-devel/lib/libmupdf-threads.a": {
-      "sha256": "4610d9cc2ff676bd8e5b164a4d7ad86005c1f2fbca746acab35a5cf37bad57a8",
-      "owners": [
-        "python:pymupdf==1.28.0"
-      ]
-    },
     "/usr/local/lib/python3.12/site-packages/pydantic_core/_pydantic_core.cpython-312-x86_64-linux-gnu.so": {
       "sha256": "7b3b21e8e6fc722fa6913a893d1f82968542135b0119f83c7cede35fc71c4a2f",
       "owners": [

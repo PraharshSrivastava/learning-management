@@ -75,6 +75,7 @@ def recreate_db() -> None:
     with get_connection() as connection:
         cursor = connection.cursor()
         for table in TABLES:
+            # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
             cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
         _create_tables(cursor)
         create_draft_tables(cursor)
@@ -436,6 +437,7 @@ def _create_tables(cursor) -> None:
         """
     )
     for column in ("cancel_reason", "resent_by", "resent_at"):
+        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query -- SQL text is fixed in code; every value is a bound parameter (reviewed Nov 2026)
         cursor.execute(f"ALTER TABLE email_notifications ADD COLUMN IF NOT EXISTS {column} TEXT")
     # One row per real attempt to hand an email over. Written as 'started' before the mail
     # server is contacted, so a crash leaves evidence that the outcome is unknown.

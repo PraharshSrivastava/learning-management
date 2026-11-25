@@ -7,7 +7,7 @@ import pathlib
 import subprocess
 import tempfile
 import pyexpat
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # nosec B405  # nosemgrep: use-defused-xml -- parses only the fixed byte strings below, to regression-test the patched Expat
 from PIL import Image, features, _imaging
 
 assert pyexpat.EXPAT_VERSION == 'expat_2.8.5', pyexpat.EXPAT_VERSION
@@ -25,7 +25,7 @@ assert not list(pathlib.Path(_imaging.__file__).parent.parent.glob('pillow.libs/
 # The high-surrogate sequence must be rejected by direct Expat and ElementTree,
 # which uses pyexpat's capsule. A normal supplementary character remains valid.
 invalid = b'\xff\xfe' + '<root>'.encode('utf-16le') + b'\x00\xd8A\x00' + '</root>'.encode('utf-16le')
-for parse in (lambda b: pyexpat.ParserCreate().Parse(b, True), ET.fromstring):
+for parse in (lambda b: pyexpat.ParserCreate().Parse(b, True), ET.fromstring):  # nosec B314
     try:
         parse(invalid)
     except (pyexpat.ExpatError, ET.ParseError):
@@ -34,7 +34,7 @@ for parse in (lambda b: pyexpat.ParserCreate().Parse(b, True), ET.fromstring):
         raise AssertionError('Malformed UTF-16 surrogate accepted')
 valid = '<root>\U0001f642</root>'.encode('utf-16')
 pyexpat.ParserCreate().Parse(valid, True)
-assert ET.fromstring(valid).text == '\U0001f642'
+assert ET.fromstring(valid).text == '\U0001f642'  # nosec B314
 
 codec_results = {}
 image = Image.new('RGB', (48, 32), (120, 80, 160))

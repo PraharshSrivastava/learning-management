@@ -98,7 +98,7 @@ def inventory():
                             if key in wheel_hashes:
                                 proof['record_hash_match'] = base64.urlsafe_b64encode(bytes.fromhex(sha)).decode().rstrip('=') == wheel_hashes[key]
                             if key in md5:
-                                proof['dpkg_md5_match'] = hashlib.md5(data).hexdigest() == md5[key]
+                                proof['dpkg_md5_match'] = hashlib.md5(data, usedforsecurity=False).hexdigest() == md5[key]
                             files.append(proof)
                             for family, tokens in TOKENS.items():
                                 hits = [token.decode() for token in tokens if data.find(token) >= 0]
